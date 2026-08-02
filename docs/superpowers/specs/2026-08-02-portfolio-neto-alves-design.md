@@ -20,12 +20,20 @@ O terceiro leitor é um requisito de primeira classe, não um extra — ver §7.
 
 ## 2. Posicionamento
 
-**Arquiteto de sistemas com especialidade em IA aplicada.** Híbrido, mas com hierarquia clara: a espinha é a capacidade de projetar e entregar sistemas de produção completos; a IA aplicada é a especialidade que diferencia, não o guarda-chuva.
+**Arquiteto de sistemas que vem da infraestrutura.** Dez anos configurando redes, switches e servidores, e depois construindo em cima deles os sistemas que rodam ali. A IA aplicada é a especialidade mais recente, não o guarda-chuva.
+
+A hierarquia da narrativa, nesta ordem:
+
+1. **Profundidade vertical incomum** — vai da camada física ao LLM. Configura o switch, sobe o servidor, escreve a aplicação, publica com blue-green e depois opera. Quase todo desenvolvedor não encosta na rede; quase todo profissional de rede não entrega SaaS. Fazer os dois é o diferencial central e deve ser a primeira coisa que o visitante entende.
+2. **Volume comprovado** — 265 mil linhas em 9 sistemas, 5 em produção, com números auditáveis.
+3. **IA aplicada com rigor** — LLM em produção com guardrails, custo medido e compliance, não demonstração de brinquedo.
 
 Título no hero (proposto, sujeito a ajuste do dono):
 
 > **Arquiteto de sistemas**
-> IA aplicada em produção
+> Da camada 2 ao LLM — 10+ anos entre a rede e o código
+
+A linha "da camada 2 ao LLM" é literal e verificável: camada 2 são os switches Cisco/Mikrotik/Furukawa; LLM são os sete motores de IA do Saturno Labs. Ela funciona como filtro — quem entende o que significa é exatamente o público que se deve querer atrair.
 
 O texto deve fugir de dois clichês: "apaixonado por tecnologia" e "transformo café em código". O tom é o de alguém que já operou o que construiu — sóbrio, específico, com números.
 
@@ -86,10 +94,12 @@ Grid técnico de 1px em `--faint` com opacidade muito baixa, e uma camada de ru�
 
 | Número | Valor | Composição |
 |---|---|---|
+| Anos em infraestrutura | **10+** | redes, switches, servidores, DNS, deploy |
 | Linhas de código | **250.000+** | soma medida, ver §4.2 |
-| Commits | **1.675** | soma dos repositórios com git local |
 | Sistemas | **9** | projetos de software distintos |
 | Em produção | **5** | com evidência de deploy no repositório |
+
+Os anos vêm primeiro por decisão de narrativa: experiência precede volume, e é o número que sustenta a linha "da camada 2 ao LLM" do §2. **1.675 commits** desce para a telemetria secundária — é um número mais fraco que os quatro acima e disputava espaço com eles.
 
 ### 4.2 Composição auditável
 
@@ -112,6 +122,7 @@ O headline usa **250.000+** e não 265.562: arredondar para baixo é mais defens
 
 Telemetria secundária, para os cards e case studies:
 
+- **1.675** commits nos repositórios com git local
 - **214** tabelas de banco modeladas (60 + 56 + 40 + 27 + 23 + 8)
 - **459** endpoints HTTP (240 + 219, nos dois sistemas com contagem verificada)
 - **130** migrations SQL versionadas (57 + 73)
@@ -220,11 +231,21 @@ Texto de posicionamento + **formação**, em três blocos com rótulos distintos
 
 A separação dos rótulos é obrigatória: os CS50 aparecem como **certificações**, jamais sob o rótulo de graduação.
 
-Cada bloco ancora uma parte do posicionamento, e o texto do "Sobre" deve costurar os três em vez de listá-los como enfeite:
+Além da formação, o "Sobre" abre com o bloco de **experiência**, que é o ativo mais forte e o que sustenta o §2:
 
-- **Telecomunicações** explica a fluência em infraestrutura — VPS, Nginx, deploy blue-green com rollback, DNS, monitoramento por heartbeat, integração de mensageria. É a origem incomum que dá credibilidade a um dev que opera o que constrói.
+> **10+ anos em infraestrutura e redes**
+> Configuração e operação de redes, switches e servidores — **Cisco**, **MikroTik**, **Furukawa**.
+> VPS, DNS, Nginx, Docker, deploy blue-green com rollback, integração de mensageria.
+
+Esse bloco não é decoração de currículo: ele é o que dá credibilidade a tudo que vem depois. Um dev que afirma "deploy blue-green" no case study do OSCapstack é uma coisa; um profissional com dez anos de rede afirmando o mesmo é outra.
+
+Cada bloco de formação ancora uma parte do posicionamento, e o texto deve costurá-los em vez de listá-los como enfeite:
+
+- **Telecomunicações** é a origem da carreira de infraestrutura — a base formal por trás dos dez anos de rede.
 - **Análise de Dados** ancora o rigor quantitativo — os KPIs que preferem dizer "não sei" a dizer errado, cobertura de bateria, piso de confiança, medição de falso-positivo do juiz de compliance.
 - **CS50 (CS + IA + negócios + direito)** explica a atuação em produtos regulados: crédito imobiliário, LGPD, compliance publicitário.
+
+A costura narrativa da seção, em uma frase: **a mesma pessoa que configurou o switch depois escreveu o sistema que roda nele, e hoje mede quanto ele custa em token de IA.**
 
 ### 6.5 Sistemas
 
@@ -240,9 +261,18 @@ Três cards grandes, cada um com badge de status, telemetria própria e link par
 
 Não é nuvem de ícones. Grade por camada, com nível declarado honestamente em três graus: **domínio** (usado em produção, sei depurar), **produção** (já entreguei com), **contato** (usei, não reivindico profundidade).
 
-Camadas: Linguagens · Backend · Dados · Infra & Deploy · IA aplicada · Front-end.
+Camadas, **nesta ordem** — redes primeiro, porque é a ordem do §2 e a que ninguém mais tem:
 
-Só entra tecnologia comprovada em código nos repositórios auditados. Nada aspiracional.
+| Camada | Conteúdo |
+|---|---|
+| **Redes & Infraestrutura** | Cisco · MikroTik · Furukawa · switching · VPS · DNS · Nginx · Docker · deploy blue-green · PM2 · heartbeat/uptime |
+| **Backend** | TypeScript · Node · Fastify · NestJS · Next.js · Astro |
+| **Dados** | PostgreSQL · pgvector · Supabase/RLS · Drizzle · Prisma · Redis · SQL puro |
+| **IA aplicada** | Anthropic · OpenAI · Google · Groq · Vercel AI SDK · embeddings/RAG · tool-calling · guardrails |
+| **Front-end** | React · Vite · Tailwind · PWA · three.js |
+| **Qualidade & Entrega** | Vitest · Playwright · pgTAP · GitHub Actions · Turborepo · pnpm |
+
+**Regra de proveniência:** só entra tecnologia comprovada em código nos repositórios auditados ou em experiência profissional declarada. Nada aspiracional. As três marcas de rede (Cisco, MikroTik, Furukawa) vêm da experiência do §6.4, não de repositório — e a seção deve deixar essa distinção visível em vez de escondê-la.
 
 ### 6.7 Terminal
 
