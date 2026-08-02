@@ -9,6 +9,7 @@ describe('Metric', () => {
         value="250.000+"
         label="linhas de código"
         provenance="Soma de 9 repositórios, excluindo dependências. Medido em 2026-08-02."
+        locale="pt"
       />,
     )
     expect(screen.getByText(/Medido em 2026-08-02/)).toBeInTheDocument()

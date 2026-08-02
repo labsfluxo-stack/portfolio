@@ -135,7 +135,7 @@ export const en: Dictionary = {
   },
   systems: {
     label: 'Systems',
-    statusLabels: { ok: 'Operational', warn: 'Proprietary', off: 'Archived' },
+    statusLabels: { production: 'Operational', proprietary: 'Proprietary' },
     readCase: 'Read case study',
     proprietaryNote: 'Proprietary code — no public repository.',
     caseLabels: {

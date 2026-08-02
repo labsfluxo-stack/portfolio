@@ -26,14 +26,23 @@ describe('Counter', () => {
 
   it('com reduced-motion, mostra o valor final imediatamente', () => {
     setReducedMotion(true)
-    render(<Counter to={1675} />)
+    render(<Counter to={1675} locale="pt" />)
     expect(screen.getByText('1.675')).toBeInTheDocument()
   })
 
   it('formata em pt-BR e aplica o sufixo', () => {
     setReducedMotion(true)
-    render(<Counter to={250000} suffix="+" />)
+    render(<Counter to={250000} locale="pt" suffix="+" />)
     expect(screen.getByText('250.000+')).toBeInTheDocument()
+  })
+
+  it('formata pelo locale ativo, não sempre em pt-BR', () => {
+    setReducedMotion(true)
+    const { rerender } = render(<Counter to={250000} locale="en" />)
+    expect(screen.getByText('250,000')).toBeInTheDocument()
+
+    rerender(<Counter to={250000} locale="pt" />)
+    expect(screen.getByText('250.000')).toBeInTheDocument()
   })
 
   it('anima até o valor final ao entrar em viewport', () => {
@@ -44,7 +53,7 @@ describe('Counter', () => {
       return frames.length
     })
 
-    render(<Counter to={100} durationMs={1000} />)
+    render(<Counter to={100} locale="pt" durationMs={1000} />)
     act(() => triggerIntersection(true))
 
     // Um instante muito além da duração força t = 1, ou seja, o valor final.
@@ -59,7 +68,7 @@ describe('Counter', () => {
       .spyOn(window, 'cancelAnimationFrame')
       .mockImplementation(() => undefined)
 
-    const { unmount } = render(<Counter to={100} />)
+    const { unmount } = render(<Counter to={100} locale="pt" />)
     act(() => triggerIntersection(true))
     unmount()
 

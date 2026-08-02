@@ -76,7 +76,12 @@ export type Dictionary = {
   }
   systems: {
     label: string
-    statusLabels: Record<'ok' | 'warn' | 'off', string>
+    /**
+     * Dois eixos independentes de badge por sistema (ver `System.production` e
+     * `System.proprietary` em `content/systems.ts`): um sistema pode exibir
+     * os dois badges, um só, ou nenhum. Não é um enum de status único.
+     */
+    statusLabels: Record<'production' | 'proprietary', string>
     readCase: string
     proprietaryNote: string
     detail: Record<SystemSlug, CaseStudy>

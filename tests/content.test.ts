@@ -59,4 +59,35 @@ describe('dicionários', () => {
       expect(Object.keys(dict.systems.detail).sort()).toEqual([...SYSTEM_SLUGS].sort())
     }
   })
+
+  it('números canônicos aparecem com o separador certo em cada idioma', () => {
+    const CANONICOS = [
+      { pt: '10+', en: '10+' },
+      { pt: '250.000+', en: '250,000+' },
+      { pt: '265.562', en: '265,562' },
+      { pt: '1.675', en: '1,675' },
+      { pt: '214', en: '214' },
+      { pt: '459', en: '459' },
+      { pt: '130', en: '130' },
+      { pt: '1.270', en: '1,270' },
+      { pt: '2026-08-02', en: '2026-08-02' },
+    ] as const
+
+    const textoPt = leaves(pt).map(([, v]) => String(v)).join(' ')
+    const textoEn = leaves(en).map(([, v]) => String(v)).join(' ')
+
+    for (const { pt: valorPt, en: valorEn } of CANONICOS) {
+      expect(textoPt, `"${valorPt}" ausente do dicionário PT`).toContain(valorPt)
+      expect(textoEn, `"${valorEn}" ausente do dicionário EN`).toContain(valorEn)
+    }
+
+    // O bug de verdade: a forma PT (separador de milhar com ponto) vazando
+    // para o dicionário EN, ou a forma EN (com vírgula) vazando para o PT.
+    for (const formaPt of ['250.000+', '265.562', '1.675', '1.270']) {
+      expect(textoEn, `forma PT "${formaPt}" vazou para o dicionário EN`).not.toContain(formaPt)
+    }
+    for (const formaEn of ['250,000+', '265,562', '1,675', '1,270']) {
+      expect(textoPt, `forma EN "${formaEn}" vazou para o dicionário PT`).not.toContain(formaEn)
+    }
+  })
 })

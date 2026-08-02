@@ -1,15 +1,17 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { usePrefersReducedMotion } from '@/lib/motion'
-
-const fmt = new Intl.NumberFormat('pt-BR')
+import { formatNumber } from '@/lib/format'
+import type { Locale } from '@/content/types'
 
 export function Counter({
   to,
+  locale,
   suffix = '',
   durationMs = 1200,
 }: {
   to: number
+  locale: Locale
   suffix?: string
   durationMs?: number
 }) {
@@ -55,7 +57,7 @@ export function Counter({
 
   return (
     <span ref={ref}>
-      {fmt.format(value)}
+      {formatNumber(value, locale)}
       {suffix}
     </span>
   )
