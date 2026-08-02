@@ -204,8 +204,11 @@ Os 4 contadores do §4.1 animando de 0 ao valor na entrada em viewport, com tool
 
 **Espaço da foto reservado e demarcado**: moldura no lugar certo, com proporção e tratamento já definidos (retrato 4:5, `object-cover`, borda de 1px em `--border`, dessaturação leve revertida no hover). Enquanto não há foto, mostra um placeholder explícito. Substituir é trocar um arquivo em `public/` — nenhuma mudança de layout.
 
-Texto de posicionamento + **formação**, em dois blocos com rótulos distintos:
+Texto de posicionamento + **formação**, em três blocos com rótulos distintos e não intercambiáveis:
 
+> **Técnico**
+> Telecomunicações
+>
 > **Graduação**
 > Análise de Dados — Estácio
 >
@@ -215,7 +218,13 @@ Texto de posicionamento + **formação**, em dois blocos com rótulos distintos:
 > CS50B — Computer Science for Business Professionals
 > CS50L — CS50 for Lawyers
 
-A separação dos rótulos é obrigatória: os CS50 aparecem como **certificações**, jamais sob o rótulo de graduação. A combinação (CS + IA + negócios + direito) é apresentada como o que explica a atuação em produtos regulados — crédito imobiliário, LGPD, compliance publicitário. A graduação em Análise de Dados ancora o lado quantitativo dos KPIs e da telemetria dos sistemas.
+A separação dos rótulos é obrigatória: os CS50 aparecem como **certificações**, jamais sob o rótulo de graduação.
+
+Cada bloco ancora uma parte do posicionamento, e o texto do "Sobre" deve costurar os três em vez de listá-los como enfeite:
+
+- **Telecomunicações** explica a fluência em infraestrutura — VPS, Nginx, deploy blue-green com rollback, DNS, monitoramento por heartbeat, integração de mensageria. É a origem incomum que dá credibilidade a um dev que opera o que constrói.
+- **Análise de Dados** ancora o rigor quantitativo — os KPIs que preferem dizer "não sei" a dizer errado, cobertura de bateria, piso de confiança, medição de falso-positivo do juiz de compliance.
+- **CS50 (CS + IA + negócios + direito)** explica a atuação em produtos regulados: crédito imobiliário, LGPD, compliance publicitário.
 
 ### 6.5 Sistemas
 
@@ -321,10 +330,9 @@ Nenhuma bloqueia a implementação. Cada uma tem comportamento definido enquanto
 | **Foto** | placeholder demarcado na moldura final (§6.4) |
 | **LinkedIn** | link omitido do rodapé e do CV; sem espaço vazio |
 | **Chave Web3Forms** | formulário substituído por WhatsApp + e-mail (§5.4) |
-| **Status e período da graduação** | exibida sem status: `Análise de Dados — Estácio`. Nenhuma afirmação de conclusão é feita sem confirmação do dono |
 | **Título do hero** | usa o proposto no §2 |
 
-Resolvidos: **DDD 83** (Paraíba) → `wa.me/5583986226441`; **graduação** → Análise de Dados, Estácio.
+Resolvidos: **DDD 83** (Paraíba) → `wa.me/5583986226441`; **graduação** → `Análise de Dados — Estácio`, exibida **sem rótulo de status** por decisão do dono (curso pausado). Nenhuma afirmação de conclusão ou de andamento é feita em nenhuma superfície — site, CV ou JSON-LD.
 
 ## 12. Riscos assumidos
 
