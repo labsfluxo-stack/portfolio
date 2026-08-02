@@ -204,15 +204,18 @@ Os 4 contadores do §4.1 animando de 0 ao valor na entrada em viewport, com tool
 
 **Espaço da foto reservado e demarcado**: moldura no lugar certo, com proporção e tratamento já definidos (retrato 4:5, `object-cover`, borda de 1px em `--border`, dessaturação leve revertida no hover). Enquanto não há foto, mostra um placeholder explícito. Substituir é trocar um arquivo em `public/` — nenhuma mudança de layout.
 
-Texto de posicionamento + **formação**:
+Texto de posicionamento + **formação**, em dois blocos com rótulos distintos:
 
-> **HarvardX · Harvard University**
+> **Graduação**
+> Análise de Dados — Estácio
+>
+> **Certificações · HarvardX, Harvard University**
 > CS50x — Introduction to Computer Science
 > CS50 AI — Introduction to Artificial Intelligence with Python
 > CS50B — Computer Science for Business Professionals
 > CS50L — CS50 for Lawyers
 
-Rotulado como **certificações**, jamais como graduação. A combinação (CS + IA + negócios + direito) é apresentada como o que explica a atuação em produtos regulados — crédito imobiliário, LGPD, compliance publicitário.
+A separação dos rótulos é obrigatória: os CS50 aparecem como **certificações**, jamais sob o rótulo de graduação. A combinação (CS + IA + negócios + direito) é apresentada como o que explica a atuação em produtos regulados — crédito imobiliário, LGPD, compliance publicitário. A graduação em Análise de Dados ancora o lado quantitativo dos KPIs e da telemetria dos sistemas.
 
 ### 6.5 Sistemas
 
@@ -317,10 +320,11 @@ Nenhuma bloqueia a implementação. Cada uma tem comportamento definido enquanto
 |---|---|
 | **Foto** | placeholder demarcado na moldura final (§6.4) |
 | **LinkedIn** | link omitido do rodapé e do CV; sem espaço vazio |
-| **DDD do WhatsApp** | `90` não é DDD válido no Brasil. O botão fica **desabilitado** com aviso no build até correção — melhor que um link quebrado em produção |
 | **Chave Web3Forms** | formulário substituído por WhatsApp + e-mail (§5.4) |
-| **Graduação além dos CS50** | seção lista só as certificações HarvardX |
+| **Status e período da graduação** | exibida sem status: `Análise de Dados — Estácio`. Nenhuma afirmação de conclusão é feita sem confirmação do dono |
 | **Título do hero** | usa o proposto no §2 |
+
+Resolvidos: **DDD 83** (Paraíba) → `wa.me/5583986226441`; **graduação** → Análise de Dados, Estácio.
 
 ## 12. Riscos assumidos
 
