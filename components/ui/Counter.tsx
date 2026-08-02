@@ -25,6 +25,9 @@ export function Counter({
     const el = ref.current
     if (!el) return
 
+    // O tick reatribui a cada quadro; o cleanup cancela sempre o mais recente.
+    let frame = 0
+
     const io = new IntersectionObserver(
       ([entry]) => {
         if (!entry?.isIntersecting) return
@@ -34,14 +37,20 @@ export function Counter({
           const t = Math.min(1, (now - start) / durationMs)
           // easeOutCubic — desacelera no fim, que é onde o olho pousa
           setValue(Math.round(to * (1 - Math.pow(1 - t, 3))))
-          if (t < 1) requestAnimationFrame(tick)
+          if (t < 1) frame = requestAnimationFrame(tick)
         }
-        requestAnimationFrame(tick)
+        frame = requestAnimationFrame(tick)
       },
       { threshold: 0.4 },
     )
     io.observe(el)
-    return () => io.disconnect()
+    return () => {
+      io.disconnect()
+      // Sem cancelar, o laço sobrevive ao unmount por até durationMs, e uma
+      // troca de `to` deixa o tick antigo correndo em paralelo com o novo —
+      // dois laços disputando o mesmo setValue.
+      if (frame) cancelAnimationFrame(frame)
+    }
   }, [to, durationMs, reduced])
 
   return (
