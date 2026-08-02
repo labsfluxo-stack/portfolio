@@ -23,7 +23,9 @@ Estas regras valem para **todas** as tarefas. Os requisitos de cada tarefa inclu
 - `motion@12.43.0` — import é `motion/react`, não `framer-motion`.
 - `three@0.185.1` · `@react-three/fiber@9.7.0` · `@react-three/drei@10.7.7` · `@types/three@0.185.3`
 - `vitest@4.1.10` · `@vitejs/plugin-react@6.0.5` · `@testing-library/react@16.3.2` · `jsdom@30.0.1` · `vite-tsconfig-paths`
-- `@playwright/test@1.62.1` · `eslint@10.8.0` · `eslint-plugin-jsx-a11y@6.10.2` · `geist@1.7.2`
+- `@playwright/test@1.62.1` · `eslint@9.39.5` · `typescript-eslint@8.65.0` · `eslint-plugin-jsx-a11y@6.10.2` · `geist@1.7.2`
+
+**ESLint fica no 9, não no 10** (corrigido durante a Task 1, após bloqueio verificado). O `eslint-plugin-jsx-a11y@6.10.2` — a última versão publicada — declara peer `eslint: ^3 … ^9` e não resolve contra o `eslint@10.8.0`. Como acessibilidade é restrição global deste projeto, largar o linter de a11y para perseguir um major seria trocar uma garantia real por um número de versão. O `eslint@9.39.5` satisfaz tanto o `typescript-eslint@8.65.0` quanto o `jsx-a11y`, e o flat config que o plano usa é idêntico nas duas versões. **Proibido contornar com `--force` ou `--legacy-peer-deps`.**
 
 **Plataforma:** Windows 11, PowerShell. Comandos do plano estão em forma POSIX (Bash tool) — funcionam no Git Bash. Node ≥ 20.
 
