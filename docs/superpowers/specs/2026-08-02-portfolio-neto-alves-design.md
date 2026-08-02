@@ -156,11 +156,14 @@ Isso não é escrúpulo decorativo: é o diferencial. Qualquer portfólio afirma
 /[locale]                      home (âncoras: #sobre #sistemas #stack #terminal #contato)
 /[locale]/sistemas/[slug]      case study
 /[locale]/cv                   fonte do PDF (§9) — não indexada
+/[locale]/og/[slug]            fonte da imagem OG (§7.2) — não indexada
 ```
 
-`locale ∈ { pt, en }`, `slug ∈ { oscapstack, saturno-labs, moveis-pro }` → **8 páginas públicas** (2 homes + 6 case studies) mais **2 rotas de impressão** (`/pt/cv`, `/en/cv`).
+`locale ∈ { pt, en }`, `slug ∈ { oscapstack, saturno-labs, moveis-pro }` → **8 páginas públicas** (2 homes + 6 case studies), mais **2 rotas de impressão** (`/pt/cv`, `/en/cv`) e **8 rotas de imagem** (`/[locale]/og/{home,oscapstack,saturno-labs,moveis-pro}`).
 
-As rotas `/cv` existem só como alvo do gerador de PDF: ficam fora do `sitemap.xml`, levam `<meta name="robots" content="noindex">` e não recebem link de navegação. Quando o spec fala em "8 rotas", são as públicas.
+As rotas `/cv` e `/og` são **artefato de build, não conteúdo**: existem apenas como alvo do Playwright, que gera o PDF a partir das primeiras e as imagens Open Graph de 1200×630 a partir das segundas. Ambas ficam fora do `sitemap.xml`, levam `<meta name="robots" content="noindex">` e não recebem link de navegação. Quando o spec fala em "8 rotas", são as públicas.
+
+Gerar a imagem OG por screenshot da rota real — em vez de compor a imagem em `satori` ou `@vercel/og` — evita uma dependência nova e garante que o card use as fontes e o CSS de verdade do site, em vez de uma reimplementação que sai de sincronia na primeira mudança de paleta.
 
 `/` faz redirect para `/pt` por `<meta http-equiv="refresh">` na `app/page.tsx` exportada (não há servidor para 302). `generateStaticParams` cobre todas as combinações.
 
