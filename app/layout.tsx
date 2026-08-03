@@ -1,11 +1,8 @@
 import './globals.css'
-import { GeistSans } from 'geist/font/sans'
-import { GeistMono } from 'geist/font/mono'
 
+// O <html> e o <body> vivem em app/[locale]/layout.tsx, porque o atributo
+// lang precisa variar por idioma. Este layout existe só porque o Next
+// exige um root layout.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="pt-BR" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body>{children}</body>
-    </html>
-  )
+  return children
 }
