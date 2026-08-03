@@ -7,11 +7,13 @@ import { extname, join, normalize, sep } from 'node:path'
 // confiável o `basePath` do GitHub Pages: o rewrite de `serve.json`
 // (`/portfolio/:path*` -> `/:path*`) usa path-to-regexp por baixo e não
 // interpreta o modificador `*` de forma previsível, servindo sempre a
-// mesma rota errada independente do caminho pedido. Este servidor faz a
-// única coisa que precisa fazer: aceitar o caminho com ou sem o prefixo do
-// basePath e servir o arquivo de `out/` correspondente — reproduzindo
-// localmente o que o GitHub Pages faz de verdade (a URL pública inclui
-// `/portfolio`, mas o artefato publicado não tem essa pasta).
+// mesma rota errada independente do caminho pedido. Este servidor resolve
+// só isso — aceitar o caminho com ou sem o prefixo do basePath — e nada
+// além disso: uma rota sem a barra final (o que `trailingSlash: true`
+// existe para nunca acontecer) devolve 404, do mesmo jeito que o GitHub
+// Pages devolveria, em vez de cair de volta para `index.html`. Um servidor
+// mais tolerante que o Pages real esconderia um link quebrado atrás de um
+// E2E verde.
 const ROOT = join(process.cwd(), 'out')
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '/portfolio'
 const PORT = Number(process.env.PORT ?? 4173)
@@ -59,17 +61,19 @@ const server = createServer(async (req, res) => {
     return
   }
 
-  const attempts = requestPath.endsWith('/')
-    ? [join(candidate, 'index.html')]
-    : [candidate, join(candidate, 'index.html'), `${candidate}.html`]
+  // Só a barra final vira índice de diretório — igual ao GitHub Pages, que
+  // não corrige uma rota sem a barra que `trailingSlash: true` deveria ter
+  // garantido. Um caminho sem barra é tratado só como arquivo exato: sem
+  // fallback para `index.html`, sem fallback para `.html`. Servir mais do
+  // que isso esconderia, atrás de um E2E verde, um link publicado sem a
+  // barra final.
+  const attempt = requestPath.endsWith('/') ? join(candidate, 'index.html') : candidate
 
-  for (const attempt of attempts) {
-    const data = await readIfExists(attempt)
-    if (data) {
-      res.writeHead(200, { 'Content-Type': MIME[extname(attempt)] ?? 'application/octet-stream' })
-      res.end(data)
-      return
-    }
+  const data = await readIfExists(attempt)
+  if (data) {
+    res.writeHead(200, { 'Content-Type': MIME[extname(attempt)] ?? 'application/octet-stream' })
+    res.end(data)
+    return
   }
 
   const notFound = await readIfExists(join(ROOT, '404.html'))
