@@ -13,7 +13,14 @@ export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
   const { hero } = dict
 
   return (
-    <section id="hero" aria-labelledby="hero-heading" className="relative overflow-hidden">
+    <section
+      id="hero"
+      aria-labelledby="hero-heading"
+      // Mesmo tratamento de Section.tsx (scroll-mt-24): o Hero não usa o
+      // primitivo, mas fica sob o mesmo <header> sticky e precisa da mesma
+      // margem de rolagem para qualquer link de âncora que aponte para cá.
+      className="relative scroll-mt-24 overflow-hidden"
+    >
       <div data-constellation-slot aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10" />
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-24 sm:py-32">
         <StatusBadge status="ok" label={hero.availability} />

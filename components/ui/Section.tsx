@@ -10,7 +10,16 @@ export function Section({
   children: React.ReactNode
 }) {
   return (
-    <section id={id} aria-labelledby={`${id}-title`} className="border-t border-border py-24">
+    <section
+      id={id}
+      aria-labelledby={`${id}-title`}
+      // `scroll-mt-24` (6rem = 96px) evita que o <header> sticky (~63.5px)
+      // cubra o título da seção depois do salto de âncora do navegador — sem
+      // isso, `scroll-margin-top: 0` deixa o topo da seção exatamente atrás
+      // da barra fixa, e o visitante aterrissa no que parece o meio do
+      // conteúdo. Medido com tests/e2e/anchor-nav.spec.ts.
+      className="scroll-mt-24 border-t border-border py-24"
+    >
       <div className="mx-auto w-full max-w-6xl px-6">
         <h2
           id={`${id}-title`}
