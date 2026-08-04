@@ -27,7 +27,7 @@ export function PhotoFrame({
           className="h-full w-full object-cover grayscale-[35%] transition-[filter] duration-500 hover:grayscale-0"
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center p-6 text-center font-mono text-[11px] uppercase tracking-[0.2em] text-faint">
+        <div className="flex h-full w-full items-center justify-center p-6 text-center font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
           {pendingLabel}
         </div>
       )}

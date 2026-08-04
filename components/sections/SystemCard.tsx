@@ -85,7 +85,11 @@ export function SystemCard({
             {systems.viewRepo}
           </a>
         ) : system.proprietary ? (
-          <p className="font-mono text-[11px] text-faint">{systems.proprietaryNote}</p>
+          // Um degrau menor que `viewRepo` (10px vs 11px) em vez de uma cor mais
+          // fraca: os dois nunca aparecem juntos (são alternativas no mesmo
+          // slot), mas a nota é só um aviso inerte, não um link, e o tamanho
+          // menor já sinaliza isso sem recorrer a `text-faint` (reprova AA).
+          <p className="font-mono text-[10px] text-muted">{systems.proprietaryNote}</p>
         ) : null}
       </div>
     </article>

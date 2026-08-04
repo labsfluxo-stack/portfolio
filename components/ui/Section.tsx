@@ -16,7 +16,7 @@ export function Section({
           id={`${id}-title`}
           className="mb-12 font-mono text-[11px] uppercase tracking-[0.2em] text-muted"
         >
-          {index ? <span className="text-faint">{index} </span> : null}
+          {index ? <span className="text-muted">{index} </span> : null}
           {label}
         </h2>
         {children}

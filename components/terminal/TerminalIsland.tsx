@@ -74,7 +74,7 @@ export function TerminalIsland({
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
-          className="min-w-0 flex-1 bg-transparent text-text caret-text outline-none placeholder:text-faint"
+          className="min-w-0 flex-1 bg-transparent text-text caret-text outline-none placeholder:text-muted"
         />
         {focused ? null : (
           <span aria-hidden="true" className="terminal-cursor inline-block h-4 w-2 shrink-0 bg-text" />

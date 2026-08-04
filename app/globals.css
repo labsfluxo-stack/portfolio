@@ -26,6 +26,16 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* `--color-faint` é para linhas, nunca para palavras. Contra `--color-surface`
+   dá ≈2.29:1 e contra `--color-bg` ≈2.45:1 — os dois abaixo do mínimo AA de
+   4.5:1 para texto normal (medido com a fórmula de luminância relativa do
+   WCAG 2). Não existe um terceiro nível de texto por cor neste fundo: todo
+   valor que passa em 4.5:1 fica visualmente idêntico a `--color-muted`
+   (≈5.5–5.9:1, já testado nos dois fundos). A hierarquia abaixo de `muted`
+   vem de tamanho, peso e espaçamento — nunca de uma cor nova. Único uso
+   legítimo de `--color-faint`: decoração sem texto (grid técnico, bordas,
+   divisórias). */
+
 /* Grid técnico — puramente decorativo, sempre aria-hidden no markup */
 .grid-tecnico {
   background-image:

@@ -35,7 +35,9 @@ export function Telemetry({ dict, locale }: { dict: Dictionary; locale: Locale }
             <div key={item.key}>
               <dt className="font-mono text-[11px] uppercase tracking-widest text-muted">{item.label}</dt>
               <dd className="mt-2 font-sans text-2xl font-bold tabular-nums text-text">{item.value}</dd>
-              <p className="mt-2 font-mono text-[10px] leading-relaxed text-faint">{item.provenance}</p>
+              {/* 10px, um degrau abaixo do rótulo de 11px — a mesma disciplina
+               * de tamanho de Metric.tsx, não de cor (ver app/globals.css). */}
+              <p className="mt-2 font-mono text-[10px] leading-relaxed text-muted">{item.provenance}</p>
             </div>
           ))}
         </dl>

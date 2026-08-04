@@ -27,7 +27,7 @@ export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
           <p className="font-mono text-sm uppercase tracking-[0.2em] text-muted sm:text-base">{hero.role}</p>
         </div>
         <p className="max-w-2xl text-lg leading-relaxed text-muted sm:text-xl">{hero.tagline}</p>
-        <p aria-hidden="true" className="mt-16 font-mono text-[11px] uppercase tracking-[0.2em] text-faint">
+        <p aria-hidden="true" className="mt-16 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
           {hero.scrollHint}
         </p>
       </div>

@@ -50,7 +50,7 @@ export function About({ dict }: { dict: Dictionary; locale: Locale }) {
             </h3>
             <div className="mt-4 grid gap-6 sm:grid-cols-3">
               <div>
-                <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted">
                   {about.education.technical.label}
                 </p>
                 <ul className="mt-2 flex flex-col gap-1 text-sm text-muted">
@@ -60,7 +60,7 @@ export function About({ dict }: { dict: Dictionary; locale: Locale }) {
                 </ul>
               </div>
               <div>
-                <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted">
                   {about.education.degree.label}
                 </p>
                 <ul className="mt-2 flex flex-col gap-1 text-sm text-muted">
@@ -70,9 +70,9 @@ export function About({ dict }: { dict: Dictionary; locale: Locale }) {
                 </ul>
               </div>
               <div>
-                <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted">
                   {about.education.certifications.label}
-                  <span className="text-faint"> · {about.education.certifications.institution}</span>
+                  <span className="text-muted"> · {about.education.certifications.institution}</span>
                 </p>
                 <ul className="mt-2 flex flex-col gap-1 text-sm text-muted">
                   {about.education.certifications.items.map((item) => (

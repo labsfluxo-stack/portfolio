@@ -3,13 +3,18 @@ import { Section } from '@/components/ui/Section'
 
 const LEVEL_ORDER = ['dominio', 'producao', 'contato'] as const
 
-/** Emphasis is carried by weight and ink, never by hue — the palette stays
- * monochrome on purpose, and the level label itself is already visible
- * text, so color would only repeat information that is already declared. */
+/** Emphasis é carregada por peso, tamanho e tinta — nunca por matiz nova. A
+ * paleta é monocromática de propósito, e `--color-faint` reprova AA para
+ * texto (ver app/globals.css): "contato" e "produção" dividem `text-muted`
+ * porque não existe um terceiro tom legível abaixo dele neste fundo. O
+ * terceiro degrau da hierarquia vem de `text-xs`+`font-normal` em vez de
+ * `text-sm`+`font-medium` — dois eixos tipográficos, não cor. `item` carrega
+ * o próprio tamanho (nunca um `text-sm` compartilhado no call site), senão
+ * as duas classes de tamanho colidem sem vencedor previsível. */
 const LEVEL_STYLE: Record<(typeof LEVEL_ORDER)[number], { label: string; item: string }> = {
-  dominio: { label: 'text-text', item: 'font-semibold text-text' },
-  producao: { label: 'text-muted', item: 'font-medium text-muted' },
-  contato: { label: 'text-faint', item: 'font-normal text-faint' },
+  dominio: { label: 'text-text', item: 'text-sm font-semibold text-text' },
+  producao: { label: 'text-muted', item: 'text-sm font-medium text-muted' },
+  contato: { label: 'text-muted', item: 'text-xs font-normal text-muted' },
 }
 
 function LayerCard({ layer, dict }: { layer: StackLayer; dict: Dictionary }) {
@@ -18,7 +23,8 @@ function LayerCard({ layer, dict }: { layer: StackLayer; dict: Dictionary }) {
   return (
     <div className="border border-border bg-surface p-6">
       <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted">{layer.label}</h3>
-      <p className="mt-2 font-mono text-[10px] leading-relaxed text-faint">{stack.sourceNote[layer.source]}</p>
+      {/* 10px, um degrau abaixo do título da camada (11px) — não cor. */}
+      <p className="mt-2 font-mono text-[10px] leading-relaxed text-muted">{stack.sourceNote[layer.source]}</p>
 
       <div className="mt-5 flex flex-col gap-4">
         {LEVEL_ORDER.map((level) => {
@@ -35,7 +41,7 @@ function LayerCard({ layer, dict }: { layer: StackLayer; dict: Dictionary }) {
                 {items.map((item) => (
                   <li
                     key={item.name}
-                    className={`border border-border px-2 py-1 text-sm ${style.item}`}
+                    className={`border border-border px-2 py-1 ${style.item}`}
                   >
                     {item.name}
                   </li>
