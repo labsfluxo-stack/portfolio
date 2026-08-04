@@ -56,6 +56,20 @@ describe('Counter', () => {
     expect(screen.getByText('250.000')).toBeInTheDocument()
   })
 
+  it('regressão: sem disparar interseção nenhuma, o valor nunca regride para 0', () => {
+    // Nenhum `triggerIntersection` é chamado aqui -- é exatamente o estado
+    // de um card que nunca entra em viewport: ferramenta de screenshot de
+    // preview de link, snapshot headless que não rola a página, auditoria
+    // de acessibilidade. Uma correção anterior zerava o valor
+    // incondicionalmente no efeito de mount, antes do IntersectionObserver
+    // reportar qualquer coisa -- o número certo piscava para 0 e, para
+    // quem nunca rola até o elemento, ficava em 0 para sempre no DOM vivo.
+    setReducedMotion(false)
+    render(<Counter to={1675} locale="pt" />)
+    expect(screen.getByText('1.675')).toBeInTheDocument()
+    expect(screen.queryByText('0')).not.toBeInTheDocument()
+  })
+
   it('anima até o valor final ao entrar em viewport', () => {
     setReducedMotion(false)
     const frames: FrameRequestCallback[] = []

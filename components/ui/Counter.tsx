@@ -38,10 +38,6 @@ export function Counter({
     const el = ref.current
     if (!el) return
 
-    // A animação é o enfeite: zera aqui, não no estado inicial, e só quando
-    // este efeito realmente vai rodar a contagem no cliente.
-    setValue(0)
-
     // O tick reatribui a cada quadro; o cleanup cancela sempre o mais recente.
     let frame = 0
 
@@ -49,6 +45,17 @@ export function Counter({
       ([entry]) => {
         if (!entry?.isIntersecting) return
         io.disconnect()
+        // A animação é o enfeite: zera aqui dentro, só quando a interseção
+        // de fato dispara — nunca incondicionalmente no mount. Zerar no
+        // mount fazia o valor certo (o `to` inicial, seguro para SSR)
+        // piscar para 0 e subir de novo assim que o efeito rodava, e um
+        // card que nunca entra em viewport (ferramenta de screenshot,
+        // snapshot headless sem rolar, auditoria de acessibilidade) ficava
+        // em 0 permanentemente no DOM vivo — o mesmo defeito que esta
+        // classe de correção existe para matar, só que para outro
+        // consumidor. Os crawlers sem JavaScript nunca viam isso, porque
+        // eles leem o HTML antes de qualquer efeito rodar.
+        setValue(0)
         const start = performance.now()
         const tick = (now: number) => {
           const t = Math.min(1, (now - start) / durationMs)
