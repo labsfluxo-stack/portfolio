@@ -11,7 +11,7 @@ export function Footer({ dict }: { locale: Locale; dict: Dictionary }) {
         <p>{dict.footer.rights}</p>
         <p>{dict.footer.builtWith}</p>
         <a
-          href={dict.contact.github}
+          href={dict.footer.sourceCodeUrl}
           target="_blank"
           rel="noreferrer"
           className="underline decoration-border underline-offset-4 hover:text-text"

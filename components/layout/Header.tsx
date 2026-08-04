@@ -21,7 +21,10 @@ export function Header({ locale, dict }: { locale: Locale; dict: Dictionary }) {
         <Link href={`/${locale}`} className="font-mono text-sm uppercase tracking-widest text-text">
           {dict.hero.name}
         </Link>
-        <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[11px] uppercase tracking-widest text-muted">
+        <nav
+          aria-label={dict.a11y.mainNav}
+          className="flex flex-wrap items-center gap-x-6 gap-y-2 font-mono text-[11px] uppercase tracking-widest text-muted"
+        >
           {links.map((link) => (
             <a key={link.href} href={link.href} className="hover:text-text">
               {link.label}

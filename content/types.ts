@@ -45,7 +45,7 @@ export type CaseStudy = {
 export type Dictionary = {
   meta: { title: string; description: string; ogAlt: string }
   nav: { about: string; systems: string; stack: string; terminal: string; contact: string; cv: string }
-  a11y: { skipToContent: string; localeSwitch: string; openMenu: string }
+  a11y: { skipToContent: string; localeSwitch: string; openMenu: string; mainNav: string }
   boot: { lines: string[] }
   hero: {
     name: string
@@ -136,5 +136,5 @@ export type Dictionary = {
     // como string vazia, o teste de paridade recusa valor vazio.
     cvDownload: string
   }
-  footer: { rights: string; builtWith: string; sourceCode: string }
+  footer: { rights: string; builtWith: string; sourceCode: string; sourceCodeUrl: string }
 }

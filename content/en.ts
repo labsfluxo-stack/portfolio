@@ -12,6 +12,7 @@ export const en: Dictionary = {
     skipToContent: 'Skip to content',
     localeSwitch: 'Switch language',
     openMenu: 'Open menu',
+    mainNav: 'Main navigation',
   },
   boot: {
     lines: [
@@ -396,5 +397,6 @@ export const en: Dictionary = {
     rights: '© 2026 Neto Alves. All rights reserved.',
     builtWith: 'Built with Next.js, Tailwind CSS and Motion.',
     sourceCode: 'View source on GitHub',
+    sourceCodeUrl: 'https://github.com/labsfluxo-stack/portfolio',
   },
 }
