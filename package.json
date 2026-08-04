@@ -9,10 +9,12 @@
   "scripts": {
     "test": "vitest run",
     "dev": "next dev",
-    "build": "next build && node --experimental-strip-types scripts/write-root-redirect.mts",
+    "build": "next build && node --experimental-strip-types scripts/write-root-redirect.mts && node --experimental-strip-types scripts/generate-seo-files.mts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:html": "vitest run --config vitest.html.config.ts",
+    "generate:og": "node --experimental-strip-types scripts/generate-og.mts"
   },
   "keywords": [],
   "author": "",

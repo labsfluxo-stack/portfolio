@@ -30,6 +30,7 @@ jobs:
         env:
           NEXT_PUBLIC_BASE_PATH: /portfolio
           NEXT_PUBLIC_WEB3FORMS_KEY: ${{ secrets.WEB3FORMS_KEY }}
+      - run: npm run test:html
       - run: touch out/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

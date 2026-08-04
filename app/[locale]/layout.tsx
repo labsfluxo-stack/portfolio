@@ -1,9 +1,9 @@
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
+import type { Metadata } from 'next'
 import { getDictionary, locales, type Locale } from '@/content'
-import { Header } from '@/components/layout/Header'
-import { Footer } from '@/components/layout/Footer'
-import { SkipLink } from '@/components/layout/SkipLink'
+import { buildMetadata, HREFLANG } from '@/lib/seo'
+import { personJsonLd } from '@/lib/jsonld'
 
 export const dynamicParams = false
 
@@ -11,7 +11,26 @@ export function generateStaticParams() {
   return locales.map((locale) => ({ locale }))
 }
 
-const HTML_LANG: Record<Locale, string> = { pt: 'pt-BR', en: 'en' }
+// Metadata da home (Task 14, spec §7): as rotas `og/[slug]` e `cv`, que
+// também vivem sob este layout, exportam a sua própria `generateMetadata`
+// (sempre `noindex`) e sobrescrevem isto por inteiro — Next não faz merge
+// profundo de `openGraph`/`alternates` entre segmentos, então herdar este
+// default nunca vaza um card indexável para uma rota que não deveria ter.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  const dict = getDictionary(locale)
+  return buildMetadata(locale, {
+    title: dict.meta.title,
+    description: dict.meta.description,
+    path: '',
+    ogImage: `/og/${locale}-home.png`,
+    imageAlt: dict.meta.ogAlt,
+  })
+}
 
 export default async function LocaleLayout({
   children,
@@ -22,14 +41,19 @@ export default async function LocaleLayout({
 }) {
   const { locale } = await params
   const dict = getDictionary(locale)
+  const jsonLd = personJsonLd(locale, dict)
 
   return (
-    <html lang={HTML_LANG[locale]} className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang={HREFLANG[locale]} className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body className="min-h-dvh">
-        <SkipLink label={dict.a11y.skipToContent} />
-        <Header locale={locale} dict={dict} />
-        <main id="conteudo">{children}</main>
-        <Footer locale={locale} dict={dict} />
+        {/* Identidade do dono do site (schema.org Person), presente em toda
+         * rota sob este layout — inclusive `og/*` e `cv`, o que é inofensivo
+         * porque as duas são `noindex`. Ver lib/jsonld.ts. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        {children}
       </body>
     </html>
   )
