@@ -31,6 +31,20 @@ export const COMMAND_NAMES = [
 const STACK_FLAG = '--stack'
 
 /**
+ * "<nome do sistema> — <stack completa>" — o único lugar que decide esse
+ * formato. Reaproveitada por `runProjects` (abaixo, para o resultado
+ * filtrado de `--stack <tecnologia>`) e pela `<dl>` estática de
+ * `components/sections/Terminal.tsx`, que precisa do texto de TODOS os
+ * sistemas, sem filtro nenhum: sem isso, a relação sistema→tecnologia só
+ * existiria no HTML se o visitante digitasse o comando no terminal — e
+ * crawlers de IA não executam JavaScript. Duas cópias deste template
+ * divergiriam cedo ou tarde; só existe uma.
+ */
+export function formatSystemStack(system: System): string {
+  return `${system.name} — ${system.stack.join(', ')}`
+}
+
+/**
  * `projects` sem `--stack` devolve a resposta fixa do dicionário (a mesma
  * que a `<dl>` estática mostra). Com `--stack <tecnologia>`, filtra
  * `ctx.systems` (content/systems.ts, dado neutro de idioma) por uma
@@ -48,7 +62,7 @@ function runProjects(args: string[], ctx: TerminalContext): string[] {
   const needle = tech.toLowerCase()
   const matches = ctx.systems
     .filter((system) => system.stack.some((item) => item.toLowerCase().includes(needle)))
-    .map((system) => `${system.name} — ${system.stack.join(', ')}`)
+    .map(formatSystemStack)
 
   return matches.length > 0 ? matches : [ctx.dict.terminal.noMatch]
 }

@@ -3,7 +3,7 @@ import dynamic from 'next/dynamic'
 import type { Dictionary, Locale } from '@/content/types'
 import { systems } from '@/content/systems'
 import { Section } from '@/components/ui/Section'
-import { COMMAND_NAMES } from '@/components/terminal/commands'
+import { COMMAND_NAMES, formatSystemStack } from '@/components/terminal/commands'
 
 // `ssr: false` só é permitido a partir de um Client Component (App Router) —
 // por isso este arquivo carrega `'use client'`. Isso não tira a `<dl>`
@@ -45,7 +45,20 @@ export function Terminal({ dict, locale }: { dict: Dictionary; locale: Locale })
           <div key={command}>
             <dt className="font-mono text-[11px] uppercase tracking-widest text-text">{command}</dt>
             <dd className="mt-1 font-mono text-[12px] leading-relaxed text-muted">
-              {(terminal.responses[command] ?? []).join(' ')}
+              <p>{(terminal.responses[command] ?? []).join(' ')}</p>
+              {/* `projects --stack <tecnologia>` só existe quando o visitante
+               * digita o comando — sem isto, a relação sistema→tecnologia
+               * (a pergunta exata que um recrutador faz a uma IA) não
+               * existiria em HTML nenhum. Mesmo texto que `runProjects`
+               * devolveria sem filtro, via `formatSystemStack` — a única
+               * fonte de verdade desse formato (components/terminal/commands.ts). */}
+              {command === 'projects' ? (
+                <ul className="mt-2 flex flex-col gap-1">
+                  {systems.map((system) => (
+                    <li key={system.slug}>{formatSystemStack(system)}</li>
+                  ))}
+                </ul>
+              ) : null}
             </dd>
           </div>
         ))}

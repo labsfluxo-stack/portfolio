@@ -295,4 +295,27 @@ describe('Terminal (seção)', () => {
     const terms = Array.from(dl?.querySelectorAll('dt') ?? []).map((dt) => dt.textContent)
     expect(terms).not.toContain('clear')
   })
+
+  // A revisão da Task 10 encontrou o buraco: `projects --stack <tecnologia>`
+  // só existe em HTML se o visitante digitar o comando no terminal — um
+  // crawler que não executa JS nunca vê qual sistema usa qual tecnologia,
+  // que é exatamente o que um recrutador pergunta a uma IA. Trava que cada
+  // sistema e ao menos uma tecnologia distintiva dele aparecem na <dl>
+  // estática, sem precisar de nenhuma interação.
+  it('a <dl> lista a stack completa de cada sistema sob "projects", sem precisar digitar o comando', () => {
+    const { container } = render(<Terminal dict={pt} locale="pt" />)
+    const dl = container.querySelector('dl') as HTMLElement
+    const text = dl.textContent ?? ''
+
+    const distinctiveTech: Record<string, string> = {
+      'Saturno Labs': 'pgvector',
+      'OSCapstack CRM': 'Supabase',
+      'Moveis.pro': 'Prisma',
+    }
+
+    for (const [name, tech] of Object.entries(distinctiveTech)) {
+      expect(text).toContain(name)
+      expect(text).toContain(tech)
+    }
+  })
 })
