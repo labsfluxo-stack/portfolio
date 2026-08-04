@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Counter } from '@/components/ui/Counter'
 import {
@@ -22,6 +23,16 @@ describe('Counter', () => {
     // Os espiões de requestAnimationFrame vazariam para os testes seguintes.
     vi.restoreAllMocks()
     resetIntersectionObservers()
+  })
+
+  it('regressão: o HTML estático (sem JS) carrega o valor final, nunca 0', () => {
+    // renderToStaticMarkup nunca roda efeitos — é exatamente o que o Next
+    // produz no build estático, o HTML que GPTBot/ClaudeBot/PerplexityBot
+    // realmente leem. Se isto voltar a depender de `reduced` no estado
+    // inicial, este teste falha antes de chegar a qualquer navegador.
+    const html = renderToStaticMarkup(<Counter to={250000} locale="pt" suffix="+" />)
+    expect(html).toContain('250.000+')
+    expect(html).not.toContain('>0<')
   })
 
   it('com reduced-motion, mostra o valor final imediatamente', () => {

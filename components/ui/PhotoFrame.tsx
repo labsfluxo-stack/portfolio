@@ -2,7 +2,10 @@
  * Moldura do retrato: 4:5, `object-cover`, borda de 1px em `--color-border`.
  * Sem `src`, mostra um placeholder explícito (não um retângulo vazio
  * anônimo). Quando `public/foto/neto.jpg` existir, trocar é só passar
- * `src` — nenhuma mudança de layout.
+ * `src="/foto/neto.jpg"` — nenhuma mudança de layout, e nenhuma preocupação
+ * com o basePath do GitHub Pages: o componente já prefixa sozinho, com o
+ * mesmo `NEXT_PUBLIC_BASE_PATH` (default `/portfolio`) que `next.config.ts`
+ * e os scripts de build usam.
  */
 export function PhotoFrame({
   alt,
@@ -13,11 +16,13 @@ export function PhotoFrame({
   pendingLabel: string
   src?: string
 }) {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '/portfolio'
+
   return (
     <div className="aspect-[4/5] w-full max-w-xs border border-border bg-surface">
       {src ? (
         <img
-          src={src}
+          src={`${basePath}${src}`}
           alt={alt}
           className="h-full w-full object-cover grayscale-[35%] transition-[filter] duration-500 hover:grayscale-0"
         />

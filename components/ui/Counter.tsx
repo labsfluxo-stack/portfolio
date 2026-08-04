@@ -16,16 +16,31 @@ export function Counter({
   durationMs?: number
 }) {
   const reduced = usePrefersReducedMotion()
-  const [value, setValue] = useState(reduced ? to : 0)
+  // O estado de repouso é o valor final, não 0. No servidor não existe
+  // `matchMedia` (usePrefersReducedMotion() sempre devolve `false` lá), então
+  // se o valor inicial dependesse de `reduced` o HTML estático sempre
+  // serializaria 0 — exatamente o número que os crawlers de IA (que não
+  // executam JS) acabariam lendo. A contagem de 0 até `to` é decoração que só
+  // o efeito abaixo acrescenta, e só quando de fato vai rodar no cliente.
+  const [value, setValue] = useState(to)
   const ref = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
     if (reduced) {
+      // `reduced` chega atrasado — usePrefersReducedMotion() sempre reporta
+      // `false` no primeiro render deste componente, corrigindo só depois
+      // via efeito próprio. Por isso esta correção é incondicional a cada
+      // execução (nunca um `return` mudo): desfaz um zeramento que a
+      // passagem anterior, com o valor ainda desatualizado, possa ter feito.
       setValue(to)
       return
     }
     const el = ref.current
     if (!el) return
+
+    // A animação é o enfeite: zera aqui, não no estado inicial, e só quando
+    // este efeito realmente vai rodar a contagem no cliente.
+    setValue(0)
 
     // O tick reatribui a cada quadro; o cleanup cancela sempre o mais recente.
     let frame = 0
