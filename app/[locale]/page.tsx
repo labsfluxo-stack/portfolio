@@ -5,6 +5,7 @@ import { Telemetry } from '@/components/sections/Telemetry'
 import { About } from '@/components/sections/About'
 import { Systems } from '@/components/sections/Systems'
 import { Stack } from '@/components/sections/Stack'
+import { Terminal } from '@/components/sections/Terminal'
 
 export default async function HomePage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params
@@ -17,6 +18,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
       <About dict={dict} locale={locale} />
       <Systems dict={dict} locale={locale} />
       <Stack dict={dict} locale={locale} />
+      <Terminal dict={dict} locale={locale} />
     </>
   )
 }
