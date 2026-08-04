@@ -24,7 +24,6 @@ export function SystemCard({
   locale: Locale
 }) {
   const { systems } = dict
-  const repoLabel = system.repoUrl?.replace(/^https?:\/\//, '')
 
   return (
     <article className="flex flex-col gap-6 border border-border bg-surface p-6 transition-colors duration-300 hover:border-faint hover:bg-surface-2">
@@ -40,15 +39,28 @@ export function SystemCard({
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-4 border-t border-border pt-5 sm:grid-cols-4">
+      {/* Duas colunas fixas em qualquer largura, não quatro: com três cards
+       * lado a lado no desktop, uma célula de métrica raramente tem mais de
+       * ~150px de largura, e um número de 6 dígitos com separador de milhar
+       * (78.900) mais o rótulo "RLS POLICIES" não cabem em quatro colunas
+       * dessa largura sem transbordar por cima do vizinho (`min-width: auto`
+       * é o padrão em item de grid — por isso `min-w-0` aqui). `gap-x-6` é
+       * deliberadamente maior que o `gap` padrão para garantir separação
+       * visível mesmo com o maior número da seção. `min-h-8` no rótulo
+       * reserva a altura de duas linhas sempre, então um rótulo de duas
+       * palavras que quebra (como "RLS policies") nunca empurra só aquele
+       * valor para baixo e desalinha a grade. */}
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-5">
         {system.metrics.map((metric) => (
-          <div key={metric.key}>
-            <dt className="font-mono text-[10px] uppercase tracking-widest text-muted">
+          <div key={metric.key} className="min-w-0">
+            <dt className="min-h-8 font-mono text-[10px] uppercase leading-4 tracking-widest text-muted">
               {systems.metricLabels[metric.key]}
             </dt>
             {/* `metric.value` é número de propósito — nunca `String(metric.value)`
-             * aqui, ou o separador de milhar sai errado em `en`. */}
-            <dd className="mt-1 font-sans text-2xl font-bold tabular-nums text-text">
+             * aqui, ou o separador de milhar sai errado em `en`. Tamanho
+             * menor que o dos números da Telemetria de propósito: aqui o
+             * protagonista é o nome do sistema, não o número. */}
+            <dd className="mt-1 font-sans text-lg font-bold tabular-nums text-text">
               <Counter to={metric.value} locale={locale} />
             </dd>
           </div>
@@ -70,7 +82,7 @@ export function SystemCard({
             rel="noreferrer"
             className="font-mono text-[11px] text-muted hover:text-text"
           >
-            {repoLabel}
+            {systems.viewRepo}
           </a>
         ) : system.proprietary ? (
           <p className="font-mono text-[11px] text-faint">{systems.proprietaryNote}</p>

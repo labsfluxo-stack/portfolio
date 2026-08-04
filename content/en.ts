@@ -139,6 +139,7 @@ export const en: Dictionary = {
     statusLabels: { production: 'Operational', proprietary: 'Proprietary' },
     readCase: 'Read case study',
     proprietaryNote: 'Proprietary code — no public repository.',
+    viewRepo: 'View repository',
     metricLabels: {
       lines: 'lines',
       tables: 'tables',

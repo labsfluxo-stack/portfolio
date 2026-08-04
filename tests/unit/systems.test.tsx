@@ -70,9 +70,11 @@ describe('Systems', () => {
     }
 
     // Moveis.pro não é proprietário e tem repoUrl: mostra o link, não a nota.
+    // O texto do link é o rótulo do dicionário, nunca a URL crua (ruído
+    // visual e péssimo para leitor de tela).
     const moveisPro = cardFor('Moveis.pro')
     expect(moveisPro.queryByText(pt.systems.proprietaryNote)).not.toBeInTheDocument()
-    const repoLink = moveisPro.getByText('github.com/netoguild-rgb/Moveis.pro')
+    const repoLink = moveisPro.getByText(pt.systems.viewRepo)
     expect(repoLink.closest('a')).toHaveAttribute('href', 'https://github.com/netoguild-rgb/Moveis.pro')
   })
 

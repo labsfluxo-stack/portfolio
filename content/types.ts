@@ -84,6 +84,10 @@ export type Dictionary = {
     statusLabels: Record<'production' | 'proprietary', string>
     readCase: string
     proprietaryNote: string
+    /** Rótulo do link de repositório (quando `System.repoUrl` existe) — nunca
+     * a URL crua como texto de link, que é ruído visual e péssimo para
+     * leitor de tela. */
+    viewRepo: string
     /** Rótulo traduzido por chave de `System.metrics[].key` (content/systems.ts).
      * Termos que já são jargão em inglês no mercado (endpoints, packages,
      * models, commits, RLS policies) ficam iguais nos dois idiomas de
