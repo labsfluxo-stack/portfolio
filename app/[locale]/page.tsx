@@ -1,6 +1,7 @@
 import { getDictionary, type Locale } from '@/content'
 import { Boot } from '@/components/sections/Boot'
 import { Hero } from '@/components/sections/Hero'
+import { Telemetry } from '@/components/sections/Telemetry'
 
 export default async function HomePage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params
@@ -9,6 +10,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
     <>
       <Boot dict={dict} locale={locale} />
       <Hero dict={dict} locale={locale} />
+      <Telemetry dict={dict} locale={locale} />
     </>
   )
 }
