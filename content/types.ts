@@ -84,6 +84,11 @@ export type Dictionary = {
     statusLabels: Record<'production' | 'proprietary', string>
     readCase: string
     proprietaryNote: string
+    /** Rótulo traduzido por chave de `System.metrics[].key` (content/systems.ts).
+     * Termos que já são jargão em inglês no mercado (endpoints, packages,
+     * models, commits, RLS policies) ficam iguais nos dois idiomas de
+     * propósito — traduzir soaria pior para o leitor técnico desta seção. */
+    metricLabels: Record<string, string>
     detail: Record<SystemSlug, CaseStudy>
     caseLabels: {
       problem: string

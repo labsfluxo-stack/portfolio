@@ -139,6 +139,17 @@ export const pt: Dictionary = {
     statusLabels: { production: 'Operacional', proprietary: 'Proprietário' },
     readCase: 'Ver case study',
     proprietaryNote: 'Código proprietário — sem repositório público.',
+    metricLabels: {
+      lines: 'linhas',
+      tables: 'tabelas',
+      policies: 'RLS policies',
+      endpoints: 'endpoints',
+      packages: 'packages',
+      tests: 'testes',
+      models: 'models',
+      commits: 'commits',
+      apps: 'aplicações',
+    },
     caseLabels: {
       problem: 'Problema',
       architecture: 'Arquitetura',
