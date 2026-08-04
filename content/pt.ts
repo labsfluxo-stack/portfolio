@@ -353,6 +353,7 @@ export const pt: Dictionary = {
     ],
     hint: 'Digite "help" para ver os comandos disponíveis.',
     unknown: 'Comando não reconhecido: {command}. Digite "help" para ver os comandos disponíveis.',
+    noMatch: 'Nenhum sistema usa essa tecnologia. Tente: stack',
     ariaLabel: 'Terminal interativo',
     ariaOutput: 'Saída do terminal',
     responses: {
@@ -377,6 +378,7 @@ export const pt: Dictionary = {
       contact: ['E-mail: netoguild@gmail.com', 'WhatsApp e GitHub na seção Contato.'],
       cv: ['Currículo em PDF disponível para download na seção Contato.'],
       lang: ['Uso: lang pt | lang en'],
+      langSwitching: ['Trocando para {lang}...'],
       theme: ['Só existe o escuro. A sala de controle não opera com as luzes acesas.'],
       sudo: ['Permissão negada: você já tem acesso a tudo que este terminal expõe.'],
       matrix: ['Só rede, servidor e código. Sem colher, sem Matrix.'],

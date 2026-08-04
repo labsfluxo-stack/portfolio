@@ -1,6 +1,13 @@
 'use client'
-import { useCallback, useRef, useState, type KeyboardEvent } from 'react'
-import { runCommand, COMMAND_NAMES, type TerminalContext } from './commands'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { runCommand, COMMAND_NAMES, parseLangTarget, type TerminalContext } from './commands'
+
+/** Tempo entre a mensagem "Trocando para..." aparecer no log e a navegação
+ * de fato acontecer — sem isso, a troca de rota (que troca todo o dicionário
+ * e remonta a seção) apaga a mensagem antes de qualquer visitante conseguir
+ * lê-la. */
+const LANG_SWITCH_DELAY_MS = 350
 
 export type TerminalLine = {
   id: string
@@ -41,6 +48,18 @@ export function useTerminal(ctx: TerminalContext) {
   const historyRef = useRef<string[]>([])
   const [historyIndex, setHistoryIndex] = useState<number | null>(null)
 
+  const router = useRouter()
+  const pathname = usePathname()
+  const switchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Nunca navega depois que o componente some, e nunca deixa dois "lang"
+  // digitados em sequência disputarem qual navegação vence.
+  useEffect(() => {
+    return () => {
+      if (switchTimeoutRef.current) clearTimeout(switchTimeoutRef.current)
+    }
+  }, [])
+
   const submit = useCallback(() => {
     const trimmed = value.trim()
     // Entrada vazia ou só espaços não produz saída nem entra no histórico —
@@ -66,7 +85,22 @@ export function useTerminal(ctx: TerminalContext) {
       ...result.map((text) => ({ id: nextId(), kind: 'response' as const, text })),
     ])
     setValue('')
-  }, [value, ctx])
+
+    // `runCommand` fica pura de propósito (sem router, sem DOM) — a
+    // navegação de verdade de `lang <pt|en>` mora só aqui. Mesma lógica de
+    // troca de prefixo que `LocaleSwitch.tsx` usa para o link do cabeçalho.
+    const target = parseLangTarget(trimmed)
+    if (target && target !== ctx.locale) {
+      if (switchTimeoutRef.current) clearTimeout(switchTimeoutRef.current)
+      const nextPath = (pathname ?? `/${ctx.locale}`).replace(
+        new RegExp(`^/${ctx.locale}`),
+        `/${target}`,
+      )
+      switchTimeoutRef.current = setTimeout(() => {
+        router.push(nextPath)
+      }, LANG_SWITCH_DELAY_MS)
+    }
+  }, [value, ctx, pathname, router])
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {

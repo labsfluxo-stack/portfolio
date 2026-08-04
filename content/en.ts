@@ -353,6 +353,7 @@ export const en: Dictionary = {
     ],
     hint: 'Type "help" to see the available commands.',
     unknown: 'Unknown command: {command}. Type "help" to see the available commands.',
+    noMatch: 'No system uses that technology. Try: stack',
     ariaLabel: 'Interactive terminal',
     ariaOutput: 'Terminal output',
     responses: {
@@ -377,6 +378,7 @@ export const en: Dictionary = {
       contact: ['Email: netoguild@gmail.com', 'WhatsApp and GitHub in the Contact section.'],
       cv: ['PDF resume available for download in the Contact section.'],
       lang: ['Usage: lang pt | lang en'],
+      langSwitching: ['Switching to {lang}...'],
       theme: ['Only dark exists. The control room does not operate with the lights on.'],
       sudo: ["Permission denied: you already have access to everything this terminal exposes."],
       matrix: ['Just network, server and code. No spoon, no Matrix.'],

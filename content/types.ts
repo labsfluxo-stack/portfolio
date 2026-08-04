@@ -118,8 +118,14 @@ export type Dictionary = {
     hint: string
     /** Contém o placeholder literal `{command}`, substituído pelo comando digitado. */
     unknown: string
+    /** `projects --stack <tecnologia>` sem nenhum sistema correspondente. Nunca
+     * silêncio — é o mesmo princípio de `unknown`, para um caso diferente. */
+    noMatch: string
     ariaLabel: string
     ariaOutput: string
+    /** `responses.langSwitching` contém o placeholder literal `{lang}`,
+     * substituído pelo código do idioma de destino (`pt`/`en`) — impresso
+     * antes de `lang <pt|en>` navegar de verdade. */
     responses: Record<string, string[]>
   }
   contact: {
