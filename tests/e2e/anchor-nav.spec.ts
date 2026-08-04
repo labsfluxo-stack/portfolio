@@ -10,6 +10,7 @@ const LINKS = [
   { label: 'Sistemas', id: 'sistemas' },
   { label: 'Stack', id: 'stack' },
   { label: 'Terminal', id: 'terminal' },
+  { label: 'Contato', id: 'contato' },
 ]
 
 test('cada link do menu rola a secao para abaixo da barra fixa, nunca para debaixo dela', async ({ page }) => {
