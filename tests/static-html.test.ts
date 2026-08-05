@@ -94,9 +94,17 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
       expect(clean).toContain(escapeHtmlText(d.hero.tagline))
     })
 
-    it(`/${locale} traz os 4 números canônicos de telemetria com o separador certo`, () => {
+    it(`/${locale} traz os 4 números canônicos de telemetria com o separador certo (não sobrevive só pela redundância do terminal)`, () => {
       const clean = semScripts(html(locale))
       for (const metric of d.telemetry.metrics) {
+        // O valor sozinho ('10+', '9', '5'...) também aparece dentro da <dl>
+        // de redundância do Terminal (a resposta "stats" restata os mesmos
+        // números) e '9'/'5' são dígitos soltos que casam dezenas de vezes
+        // no resto da página — nenhum dos dois provaria que <Telemetry>
+        // renderizou. A procedência (`metric.provenance`) é uma frase longa
+        // exclusiva de Metric.tsx: só sobrevive se a seção de verdade
+        // renderizou.
+        expect(clean, `procedência da métrica "${metric.key}" ausente`).toContain(escapeHtmlText(metric.provenance))
         expect(clean, `métrica "${metric.key}" (${metric.value}) ausente`).toContain(escapeHtmlText(metric.value))
       }
     })
@@ -116,11 +124,37 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
       expect(clean).toContain('CS50x')
     })
 
-    it(`/${locale} traz os três nomes de sistema`, () => {
+    it(`/${locale} traz os três nomes de sistema com link pro case study (não sobrevive só pela redundância do terminal)`, () => {
       const clean = semScripts(html(locale))
       for (const slug of SYSTEM_SLUGS) {
+        // O nome sozinho também aparece na resposta "projects" do Terminal
+        // ("3 sistemas em destaque: OSCapstack CRM, Saturno Labs,
+        // Moveis.pro.") — apagar a seção <Systems> inteira não faria esta
+        // asserção falhar. O `href` de "Ver case study" só existe em
+        // SystemCard.tsx.
         expect(clean, `sistema "${slug}" ausente`).toContain(escapeHtmlText(d.systems.detail[slug].name))
+        expect(clean, `link do case study de "${slug}" ausente`).toContain(`sistemas/${slug}/`)
       }
+    })
+
+    it(`/${locale} traz as camadas do stack com todas as tecnologias declaradas`, () => {
+      const clean = semScripts(html(locale))
+      for (const layer of d.stack.layers) {
+        expect(clean, `camada "${layer.label}" ausente`).toContain(escapeHtmlText(layer.label))
+        for (const item of layer.items) {
+          expect(clean, `tecnologia "${item.name}" (camada "${layer.label}") ausente`).toContain(
+            escapeHtmlText(item.name),
+          )
+        }
+      }
+    })
+
+    it(`/${locale} traz os três canais de contato e o link do PDF do currículo`, () => {
+      const clean = semScripts(html(locale))
+      expect(clean, 'link do WhatsApp ausente').toContain(d.contact.whatsapp)
+      expect(clean, 'link de e-mail (mailto:) ausente').toContain(`mailto:${d.contact.email}`)
+      expect(clean, 'link do GitHub ausente').toContain(d.contact.github)
+      expect(clean, `link do PDF do currículo (${locale}) ausente`).toContain(`cv/neto-alves-${locale}.pdf`)
     })
 
     it(`/${locale} traz todos os comandos do terminal com a resposta completa (a <dl> de redundância)`, () => {
@@ -225,6 +259,20 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
     for (const locale of locales) {
       expect(html(`${locale}/cv`)).toMatch(/name="robots"[^>]*noindex/)
     }
+  })
+
+  it('out/index.html (redirect da raiz) existe e aponta para /pt/', () => {
+    // scripts/write-root-redirect.mts roda depois do `next build` e escreve
+    // este arquivo à mão — sem asserção nenhuma aqui, um erro silencioso
+    // nesse script (ou o arquivo nunca sendo gerado) deixa o portão verde
+    // enquanto a URL que as pessoas colam (a raiz do site publicado) 404a.
+    const file = join(OUT, 'index.html')
+    expect(existsSync(file), 'out/index.html não existe — scripts/write-root-redirect.mts falhou em silêncio').toBe(
+      true,
+    )
+    const raw = readFileSync(file, 'utf8')
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '/portfolio'
+    expect(raw, `out/index.html não contém "${basePath}/pt/"`).toContain(`${basePath}/pt/`)
   })
 
   it('sitemap.xml, robots.txt e llms.txt existem em out/', () => {
