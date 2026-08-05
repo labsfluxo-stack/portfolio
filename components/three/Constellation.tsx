@@ -3,14 +3,19 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Line } from '@react-three/drei'
 import type { Group } from 'three'
-import type { System } from '@/content/systems'
+import type { ConstellationSystem } from './constellation-data'
 import { useConstellationData, type ConstellationGraph } from './useConstellationData'
 
-const LAYOUT_RADIUS = 2.4
-const MIN_NODE_RADIUS = 0.16
-const MAX_NODE_RADIUS = 0.5
+// Raio do layout e dos nós calibrados para nove sistemas, não três. Com os
+// valores da primeira versão (2.4 / 0.16 / 0.5), nove nós transbordavam o
+// enquadramento e se sobrepunham; a cena lia como manchas, não como grafo.
+const LAYOUT_RADIUS = 1.9
+const MIN_NODE_RADIUS = 0.05
+const MAX_NODE_RADIUS = 0.17
 const MIN_LINE_WIDTH = 0.6
 const MAX_LINE_WIDTH = 2.2
+const MIN_NODE_OPACITY = 0.35
+const MAX_NODE_OPACITY = 1
 const ROTATION_SPEED = 0.05
 // Quão rápido a órbita segue o mouse -- baixo de propósito, "parallax
 // suave" pede um lerp lento, não a câmera grudando no ponteiro.
@@ -73,7 +78,15 @@ function Graph({ graph, colors }: { graph: ConstellationGraph; colors: ThemeColo
       {graph.nodes.map((node) => (
         <mesh key={node.slug} position={toVector3(node.position)}>
           <sphereGeometry args={[MIN_NODE_RADIUS + node.size * (MAX_NODE_RADIUS - MIN_NODE_RADIUS), 24, 24]} />
-          <meshBasicMaterial color={colors.text} />
+          {/* Opacidade por profundidade: o nó ao fundo (z = -1) fica bem mais
+              apagado que o da frente (z = 1). É o que dá leitura de espaço
+              tridimensional sem bloom, sem luz e sem cor nova — a esfera
+              chapada da primeira versão lia como um disco branco recortado. */}
+          <meshBasicMaterial
+            color={colors.text}
+            transparent
+            opacity={MIN_NODE_OPACITY + ((node.position.z + 1) / 2) * (MAX_NODE_OPACITY - MIN_NODE_OPACITY)}
+          />
         </mesh>
       ))}
     </group>
@@ -93,7 +106,7 @@ function Graph({ graph, colors }: { graph: ConstellationGraph; colors: ThemeColo
  * sai da viewport, para não gastar GPU enquanto o visitante lê o resto da
  * página.
  */
-export function Constellation({ systems }: { systems: readonly System[] }) {
+export function Constellation({ systems }: { systems: readonly ConstellationSystem[] }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [inView, setInView] = useState(true)
   const graph = useConstellationData(systems)

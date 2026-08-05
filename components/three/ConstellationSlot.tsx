@@ -1,7 +1,7 @@
 'use client'
 import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
-import type { System } from '@/content/systems'
+import type { ConstellationSystem } from './constellation-data'
 import { ConstellationFallback } from './ConstellationFallback'
 
 const MIN_WIDTH_QUERY = '(min-width: 768px)'
@@ -43,7 +43,7 @@ export function hasWebGL(): boolean {
  * `prefers-reduced-motion` desligado, e largura >= 768px. Falhando
  * qualquer uma, o fallback permanece -- "sem exceção", como pede o brief.
  */
-export function ConstellationSlot({ systems }: { systems: readonly System[] }) {
+export function ConstellationSlot({ systems }: { systems: readonly ConstellationSystem[] }) {
   const [showScene, setShowScene] = useState(false)
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { System } from '@/content/systems'
+import type { ConstellationSystem } from './constellation-data'
 
 /**
  * Um sistema, virado nó de grafo. `size` é 0..1, normalizado a partir da
@@ -39,9 +39,25 @@ export type ConstellationGraph = {
   edges: ConstellationEdge[]
 }
 
-function linesOf(system: System): number {
-  return system.metrics.find((metric) => metric.key === 'lines')?.value ?? 0
-}
+/**
+ * Ângulo áureo. Distribuir os nós por múltiplos dele (esfera de Fibonacci)
+ * dá um espalhamento que parece orgânico e nunca repete padrão, ao contrário
+ * do círculo de ângulos iguais que a primeira versão usava — com nove nós,
+ * aquilo lia como mostrador de relógio.
+ */
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
+
+/**
+ * Quantas tecnologias dois sistemas precisam ter em comum para virarem
+ * aresta.
+ *
+ * Com o limiar em 1, o grafo ficava quase completo e a cena virava uma teia
+ * ilegível — porque **todos** os nove sistemas usam TypeScript. Uma aresta
+ * que liga tudo a tudo não carrega informação nenhuma. Exigindo duas
+ * tecnologias em comum, a aresta volta a significar "estes dois sistemas
+ * são de fato parentes", que é o que ela existe para dizer.
+ */
+const MIN_SHARED_FOR_EDGE = 2
 
 /**
  * Função pura — sem hooks, sem DOM — para que `ConstellationFallback`
@@ -49,21 +65,40 @@ function linesOf(system: System): number {
  * componente React. `useConstellationData` abaixo é só a casca que memoiza
  * para o consumidor dentro da árvore React (a cena WebGL).
  */
-export function buildConstellationGraph(systems: readonly System[]): ConstellationGraph {
+export function buildConstellationGraph(
+  systems: readonly ConstellationSystem[],
+): ConstellationGraph {
   if (systems.length === 0) return { nodes: [], edges: [] }
 
-  const linesValues = systems.map(linesOf)
-  const minLines = Math.min(...linesValues)
-  const maxLines = Math.max(...linesValues)
-  const spread = maxLines - minLines
+  // Escala logarítmica, não linear. Os sistemas vão de 620 a 78.900 linhas —
+  // uma razão de 127×. Em escala linear o menor vira um ponto invisível e o
+  // maior domina a cena inteira; o log comprime a diferença sem apagá-la,
+  // que é o que faz os nove nós coexistirem legíveis.
+  const logOf = (system: ConstellationSystem) => Math.log10(Math.max(1, system.lines))
+  const logs = systems.map(logOf)
+  const minLog = Math.min(...logs)
+  const maxLog = Math.max(...logs)
+  const spread = maxLog - minLog
+
+  const total = systems.length
 
   const nodes: ConstellationNode[] = systems.map((system, index) => {
-    const normalized = spread === 0 ? 1 : (linesOf(system) - minLines) / spread
-    const angle = (index / systems.length) * Math.PI * 2
+    const normalized = spread === 0 ? 1 : (logOf(system) - minLog) / spread
+
+    // Esfera de Fibonacci: y desce linearmente de 1 a -1 e o ângulo avança
+    // pelo ângulo áureo, o que espalha os pontos sem aglomerar nos polos.
+    const y = total === 1 ? 0 : 1 - (index / (total - 1)) * 2
+    const ringRadius = Math.sqrt(Math.max(0, 1 - y * y))
+    const theta = GOLDEN_ANGLE * index
+
     return {
       slug: system.slug,
       size: normalized,
-      position: { x: Math.cos(angle), y: Math.sin(angle), z: 0 },
+      position: {
+        x: Math.cos(theta) * ringRadius,
+        y,
+        z: Math.sin(theta) * ringRadius,
+      },
     }
   })
 
@@ -74,7 +109,7 @@ export function buildConstellationGraph(systems: readonly System[]): Constellati
       const b = systems[j]
       if (!a || !b) continue
       const sharedStack = a.stack.filter((tech) => b.stack.includes(tech))
-      if (sharedStack.length > 0) {
+      if (sharedStack.length >= MIN_SHARED_FOR_EDGE) {
         rawEdges.push({ source: a.slug, target: b.slug, sharedStack })
       }
     }
@@ -89,6 +124,8 @@ export function buildConstellationGraph(systems: readonly System[]): Constellati
   return { nodes, edges }
 }
 
-export function useConstellationData(systems: readonly System[]): ConstellationGraph {
+export function useConstellationData(
+  systems: readonly ConstellationSystem[],
+): ConstellationGraph {
   return useMemo(() => buildConstellationGraph(systems), [systems])
 }

@@ -1,6 +1,6 @@
 import type { Dictionary, Locale } from '@/content/types'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { systems } from '@/content/systems'
+import { constellationSystems } from '@/components/three/constellation-data'
 import { ConstellationSlot } from '@/components/three/ConstellationSlot'
 
 /**
@@ -26,8 +26,17 @@ export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
       // margem de rolagem para qualquer link de âncora que aponte para cá.
       className="relative scroll-mt-24 overflow-hidden"
     >
-      <div data-constellation-slot aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-        <ConstellationSlot systems={systems} />
+      {/* Confinada à metade direita a partir de `md`. Ocupando a largura
+          inteira, um nó cruzava o badge de disponibilidade e uma aresta
+          cortava o bloco do nome — lia como acidente, não como composição.
+          Abaixo de `md` a cena vira o fallback SVG e fica bem apagada, para
+          não competir com o texto na largura onde não há espaço para os dois. */}
+      <div
+        data-constellation-slot
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 right-0 -z-10 w-full opacity-40 md:left-1/2 md:w-1/2 md:opacity-100"
+      >
+        <ConstellationSlot systems={constellationSystems} />
       </div>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-24 sm:py-32">
         <StatusBadge status="ok" label={hero.availability} />

@@ -1,13 +1,16 @@
-import type { System } from '@/content/systems'
+import type { ConstellationSystem } from './constellation-data'
 import { buildConstellationGraph } from './useConstellationData'
 
 const VIEW_SIZE = 200
 const CENTER = VIEW_SIZE / 2
-const LAYOUT_RADIUS = 76
-const MIN_NODE_RADIUS = 8
-const MAX_NODE_RADIUS = 28
+// Mesma calibragem da cena WebGL: nove nós, não três. Ver Constellation.tsx.
+const LAYOUT_RADIUS = 66
+const MIN_NODE_RADIUS = 3
+const MAX_NODE_RADIUS = 11
 const MIN_STROKE_WIDTH = 1
 const MAX_STROKE_WIDTH = 4
+const MIN_NODE_OPACITY = 0.35
+const MAX_NODE_OPACITY = 1
 
 /**
  * O mesmo grafo da cena WebGL (`Constellation.tsx`), desenhado como SVG
@@ -22,7 +25,7 @@ const MAX_STROKE_WIDTH = 4
  * compartilhada) já existe em texto real nas seções de Telemetria e
  * Sistemas. Um leitor de tela não perde nada ao pular isto.
  */
-export function ConstellationFallback({ systems }: { systems: readonly System[] }) {
+export function ConstellationFallback({ systems }: { systems: readonly ConstellationSystem[] }) {
   const { nodes, edges } = buildConstellationGraph(systems)
 
   const point = (position: { x: number; y: number }) => ({
@@ -61,6 +64,10 @@ export function ConstellationFallback({ systems }: { systems: readonly System[] 
             cy={y}
             r={MIN_NODE_RADIUS + node.size * (MAX_NODE_RADIUS - MIN_NODE_RADIUS)}
             className="fill-text"
+            // Mesma leitura de profundidade da cena WebGL: o eixo z do grafo
+            // vira opacidade, para que o SVG estático e a cena animada
+            // representem o mesmo espaço em vez de dois desenhos diferentes.
+            fillOpacity={MIN_NODE_OPACITY + ((node.position.z + 1) / 2) * (MAX_NODE_OPACITY - MIN_NODE_OPACITY)}
           />
         )
       })}
