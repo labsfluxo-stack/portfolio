@@ -1,13 +1,18 @@
 import type { Dictionary, Locale } from '@/content/types'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { systems } from '@/content/systems'
+import { ConstellationSlot } from '@/components/three/ConstellationSlot'
 
 /**
  * O <h1> da página — único, per contrato do spec (§5.2). O `page.tsx`
  * anterior tinha um <h1> provisório; este componente o substitui.
  *
- * `data-constellation-slot` é o contêiner vazio que a Task 13 preenche com
- * a cena WebGL (ou o fallback SVG). Por ora fica sem conteúdo, atrás do
- * texto e sem capturar clique.
+ * `data-constellation-slot` é o contêiner atrás do texto, sem capturar
+ * clique (`pointer-events-none`), que a Task 13 preenche com o grafo dos
+ * sistemas do dono: a cena WebGL quando o navegador aguenta, ou o mesmo
+ * grafo em SVG estático quando não (`ConstellationSlot` decide). O `<h1>` e
+ * o resto do texto continuam vivendo em HTML puro, sem depender da cena
+ * para nada -- ela é decoração, `aria-hidden` de ponta a ponta.
  */
 export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
   const { hero } = dict
@@ -21,7 +26,9 @@ export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
       // margem de rolagem para qualquer link de âncora que aponte para cá.
       className="relative scroll-mt-24 overflow-hidden"
     >
-      <div data-constellation-slot aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10" />
+      <div data-constellation-slot aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+        <ConstellationSlot systems={systems} />
+      </div>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-24 sm:py-32">
         <StatusBadge status="ok" label={hero.availability} />
         <div className="flex flex-col gap-4">

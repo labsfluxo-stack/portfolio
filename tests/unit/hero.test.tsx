@@ -18,11 +18,16 @@ describe('Hero', () => {
     expect(hint).toHaveAttribute('aria-hidden', 'true')
   })
 
-  it('expõe exatamente um h1 e reserva o slot da constelação', () => {
+  it('expõe exatamente um h1 e preenche o slot da constelação com o fallback decorativo', () => {
     const { container } = render(<Hero dict={pt} locale="pt" />)
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
     const slot = container.querySelector('[data-constellation-slot]')
     expect(slot).toBeInTheDocument()
-    expect(slot).toBeEmptyDOMElement()
+    expect(slot).toHaveAttribute('aria-hidden', 'true')
+    // jsdom não implementa WebGL, então o estado de repouso -- o mesmo que
+    // um crawler sem JavaScript vê -- é sempre o fallback SVG estático,
+    // nunca o <canvas> da cena three.js.
+    expect(slot?.querySelector('svg')).toBeInTheDocument()
+    expect(slot?.querySelector('canvas')).not.toBeInTheDocument()
   })
 })
