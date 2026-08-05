@@ -1,5 +1,6 @@
 import type { Dictionary, Locale } from '@/content/types'
 import { Section } from '@/components/ui/Section'
+import { Reveal } from '@/components/ui/Reveal'
 import { ContactForm } from './ContactForm'
 
 const LINK_STYLE = 'text-text underline decoration-border underline-offset-4 hover:decoration-text'
@@ -32,49 +33,55 @@ export function Contact({ dict, locale }: { dict: Dictionary; locale: Locale }) 
 
   return (
     <Section id="contato" label={contact.label} index="06">
-      <p className="max-w-2xl text-muted">{contact.lead}</p>
+      <Reveal>
+        <p className="max-w-2xl text-muted">{contact.lead}</p>
+      </Reveal>
 
       <div className="mt-10 grid gap-12 lg:grid-cols-2">
-        <div>
-          {accessKey ? (
-            <ContactForm dict={dict} web3formsKey={accessKey} />
-          ) : (
-            <p className="max-w-md text-sm text-muted">{contact.disabledNote}</p>
-          )}
-        </div>
+        <Reveal delayMs={100}>
+          <div>
+            {accessKey ? (
+              <ContactForm dict={dict} web3formsKey={accessKey} />
+            ) : (
+              <p className="max-w-md text-sm text-muted">{contact.disabledNote}</p>
+            )}
+          </div>
+        </Reveal>
 
-        <ul className="flex flex-col gap-5 font-mono text-sm">
-          <li>
-            {/* "WhatsApp" é um nome de marca, grafado de forma idêntica nos
-             * dois idiomas em todo o resto do dicionário (contact.lead,
-             * contact.form.error, contact.disabledNote) — não existe uma
-             * chave dedicada para um rótulo curto de link, e inventar uma só
-             * para isto violaria a regra de não inventar texto de interface.
-             * Tratado aqui como identificador de marca, não como cópia de
-             * UI a localizar. */}
-            <a href={whatsappHref} target="_blank" rel="noreferrer" className={LINK_STYLE}>
-              WhatsApp
-            </a>
-          </li>
-          <li>
-            <a href={emailHref} className={LINK_STYLE}>
-              {contact.email}
-            </a>
-          </li>
-          <li>
-            <a href={contact.github} target="_blank" rel="noreferrer" className={LINK_STYLE}>
-              {githubHandle}
-            </a>
-          </li>
-          <li className="pt-2">
-            <a
-              href={cvHref}
-              className="inline-block border border-border px-4 py-2 uppercase tracking-widest text-text hover:bg-surface"
-            >
-              {contact.cvDownload}
-            </a>
-          </li>
-        </ul>
+        <Reveal delayMs={200}>
+          <ul className="flex flex-col gap-5 font-mono text-sm">
+            <li>
+              {/* "WhatsApp" é um nome de marca, grafado de forma idêntica nos
+               * dois idiomas em todo o resto do dicionário (contact.lead,
+               * contact.form.error, contact.disabledNote) — não existe uma
+               * chave dedicada para um rótulo curto de link, e inventar uma só
+               * para isto violaria a regra de não inventar texto de interface.
+               * Tratado aqui como identificador de marca, não como cópia de
+               * UI a localizar. */}
+              <a href={whatsappHref} target="_blank" rel="noreferrer" className={LINK_STYLE}>
+                WhatsApp
+              </a>
+            </li>
+            <li>
+              <a href={emailHref} className={LINK_STYLE}>
+                {contact.email}
+              </a>
+            </li>
+            <li>
+              <a href={contact.github} target="_blank" rel="noreferrer" className={LINK_STYLE}>
+                {githubHandle}
+              </a>
+            </li>
+            <li className="pt-2">
+              <a
+                href={cvHref}
+                className="inline-block border border-border px-4 py-2 uppercase tracking-widest text-text hover:bg-surface"
+              >
+                {contact.cvDownload}
+              </a>
+            </li>
+          </ul>
+        </Reveal>
       </div>
     </Section>
   )

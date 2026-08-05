@@ -1,5 +1,6 @@
 import type { Dictionary, Locale, StackLayer } from '@/content/types'
 import { Section } from '@/components/ui/Section'
+import { Reveal } from '@/components/ui/Reveal'
 
 const LEVEL_ORDER = ['dominio', 'producao', 'contato'] as const
 
@@ -67,10 +68,18 @@ export function Stack({ dict }: { dict: Dictionary; locale: Locale }) {
 
   return (
     <Section id="stack" label={stack.label} index="04">
-      <p className="max-w-2xl text-muted">{stack.lead}</p>
+      <Reveal>
+        <p className="max-w-2xl text-muted">{stack.lead}</p>
+      </Reveal>
       <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {stack.layers.map((layer) => (
-          <LayerCard key={layer.label} layer={layer} dict={dict} />
+        {stack.layers.map((layer, i) => (
+          // `className="grid"` repassa a largura e a altura esticadas pela
+          // grade para o card da camada (ver comentário em
+          // components/ui/Reveal.tsx) — sem isso as camadas perdem a altura
+          // uniforme na fileira.
+          <Reveal key={layer.label} delayMs={100 + i * 80} className="grid">
+            <LayerCard layer={layer} dict={dict} />
+          </Reveal>
         ))}
       </div>
     </Section>
