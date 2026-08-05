@@ -166,7 +166,7 @@ export const en: Dictionary = {
         problem:
           "A real-estate credit operation needs a commercial system a brokerage can run on its own: customer records, lead distribution across consultants, proposal tracking, and a WhatsApp channel that cannot go down without anyone noticing. The product had to work as the operation's own operating system, not a spreadsheet with a coat of paint.",
         architecture:
-          'TypeScript monorepo with Fastify 5 on the API and Supabase/PostgreSQL as the database. Three isolated frontends: an admin panel in React, an external consultant panel (restricted access, scoped to their own data), and an Astro landing page for lead capture. 78,900 lines of code, 73 migrations, 56 tables, 219 endpoints and 42 screens, built in 444 commits over 26 days. In production at os.capstack.capital.',
+          'TypeScript monorepo with Fastify 5 on the API and Supabase/PostgreSQL as the database. Three isolated frontends: an admin panel in React, an external consultant panel (restricted access, scoped to their own data), and an Astro landing page for lead capture. 78,900 lines of code, 73 migrations, 56 tables with 146 RLS policies, 219 endpoints and 42 screens, built in 444 commits over 26 days. In production at os.capstack.capital.',
         decisions: [
           {
             title: '146 RLS policies across 56 tables',

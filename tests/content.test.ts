@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { pt } from '@/content/pt'
 import { en } from '@/content/en'
 import { systems, SYSTEM_SLUGS } from '@/content/systems'
+import { locales } from '@/content/types'
+import { formatNumber } from '@/lib/format'
 
 function flatten(obj: unknown, prefix = ''): string[] {
   if (obj === null || typeof obj !== 'object') return [prefix]
@@ -88,6 +90,47 @@ describe('dicionários', () => {
     }
     for (const formaEn of ['250,000+', '265,562', '1,675', '1,270']) {
       expect(textoPt, `forma EN "${formaEn}" vazou para o dicionário PT`).not.toContain(formaEn)
+    }
+  })
+
+  // O teste acima só prova que cada número canônico aparece EM ALGUM LUGAR
+  // do dicionário — a própria `terminal.responses.stats` já satisfaz isso
+  // sozinha, então nada aqui acusava se ela divergisse de
+  // `telemetry.metrics`/`telemetry.secondary`. Trocar um valor de um lado e
+  // deixar o outro parado ficava verde: a página mostraria dois totais
+  // diferentes a uma tela de distância sem o build reclamar. Este teste
+  // fecha essa classe de bug: toda restatação em prosa precisa citar os
+  // mesmos números que a fonte de verdade estruturada.
+  it('a resposta "stats" do terminal cita todos os números canônicos da telemetria', () => {
+    for (const dict of [pt, en]) {
+      const statsText = (dict.terminal.responses.stats ?? []).join(' ')
+      for (const metric of dict.telemetry.metrics) {
+        expect(statsText, `métrica "${metric.key}" (${metric.value}) ausente de terminal.responses.stats`).toContain(
+          metric.value,
+        )
+      }
+      for (const metric of dict.telemetry.secondary) {
+        expect(
+          statsText,
+          `métrica secundária "${metric.key}" (${metric.value}) ausente de terminal.responses.stats`,
+        ).toContain(metric.value)
+      }
+    }
+  })
+
+  it('a arquitetura de cada case study cita os números de content/systems.ts', () => {
+    for (const locale of locales) {
+      const dict = locale === 'pt' ? pt : en
+      for (const system of systems) {
+        const architecture = dict.systems.detail[system.slug].architecture
+        for (const metric of system.metrics) {
+          const formatted = formatNumber(metric.value, locale)
+          expect(
+            architecture,
+            `"systems.detail.${system.slug}.architecture" (${locale}) não cita a métrica "${metric.key}" (${formatted})`,
+          ).toContain(formatted)
+        }
+      }
     }
   })
 })

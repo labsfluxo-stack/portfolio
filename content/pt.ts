@@ -166,7 +166,7 @@ export const pt: Dictionary = {
         problem:
           'Uma operação de crédito imobiliário precisa de um sistema comercial que uma corretora consiga operar sozinha: cadastro de clientes, distribuição de leads entre consultores, acompanhamento de propostas e um canal de WhatsApp que não pode cair sem ninguém perceber. O produto tinha que rodar como sistema operacional da operação, não como planilha com verniz.',
         architecture:
-          'Monorepo TypeScript com Fastify 5 na API e Supabase/PostgreSQL como banco. Três frontends isolados: painel administrativo em React, painel do consultor externo (acesso restrito, dados só do que é dele) e uma landing em Astro para captação. 78.900 linhas de código, 73 migrations, 56 tabelas, 219 endpoints e 42 telas, construídos em 444 commits ao longo de 26 dias. Em produção em os.capstack.capital.',
+          'Monorepo TypeScript com Fastify 5 na API e Supabase/PostgreSQL como banco. Três frontends isolados: painel administrativo em React, painel do consultor externo (acesso restrito, dados só do que é dele) e uma landing em Astro para captação. 78.900 linhas de código, 73 migrations, 56 tabelas com 146 RLS policies, 219 endpoints e 42 telas, construídos em 444 commits ao longo de 26 dias. Em produção em os.capstack.capital.',
         decisions: [
           {
             title: '146 RLS policies em 56 tabelas',
