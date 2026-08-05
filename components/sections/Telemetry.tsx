@@ -34,10 +34,18 @@ export function Telemetry({ dict, locale }: { dict: Dictionary; locale: Locale }
           {telemetry.secondary.map((item) => (
             <div key={item.key}>
               <dt className="font-mono text-[11px] uppercase tracking-widest text-muted">{item.label}</dt>
-              <dd className="mt-2 font-sans text-2xl font-bold tabular-nums text-text">{item.value}</dd>
-              {/* 10px, um degrau abaixo do rótulo de 11px — a mesma disciplina
+              {/* A procedência vive DENTRO do <dd>, não como <p> irmão: um
+               * <div> filho de <dl> só pode conter <dt> e <dd>, e o <p> solto
+               * tornava a lista de definição inválida (Lighthouse a11y). Ela
+               * também é, semanticamente, parte da descrição do número.
+               * 10px, um degrau abaixo do rótulo de 11px — a mesma disciplina
                * de tamanho de Metric.tsx, não de cor (ver app/globals.css). */}
-              <p className="mt-2 font-mono text-[10px] leading-relaxed text-muted">{item.provenance}</p>
+              <dd className="mt-2 font-sans text-2xl font-bold tabular-nums text-text">
+                {item.value}
+                <span className="mt-2 block font-mono text-[10px] font-normal leading-relaxed text-muted">
+                  {item.provenance}
+                </span>
+              </dd>
             </div>
           ))}
         </dl>

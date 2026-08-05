@@ -31,7 +31,7 @@ export function Header({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-bg">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-        <Link href={`/${locale}`} className="font-mono text-sm uppercase tracking-widest text-text">
+        <Link prefetch={false} href={`/${locale}`} className="font-mono text-sm uppercase tracking-widest text-text">
           {dict.hero.name}
         </Link>
         <nav
@@ -46,7 +46,7 @@ export function Header({ locale, dict }: { locale: Locale; dict: Dictionary }) {
         </nav>
         <div className="flex items-center gap-4">
           <LocaleSwitch locale={locale} pathname={pathname} label={dict.a11y.localeSwitch} />
-          <Link
+          <Link prefetch={false}
             href={`/${locale}/cv`}
             className="border border-border px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-text hover:bg-surface"
           >

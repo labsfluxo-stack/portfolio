@@ -34,7 +34,7 @@ export function CaseStudy({
     <article>
       <header>
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-24 sm:py-32">
-          <Link
+          <Link prefetch={false}
             href={`/${locale}`}
             className="self-start font-mono text-[11px] uppercase tracking-widest text-muted underline decoration-border underline-offset-4 hover:text-text hover:decoration-text"
           >

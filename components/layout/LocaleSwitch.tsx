@@ -20,7 +20,7 @@ export function LocaleSwitch({
             {l.toUpperCase()}
           </span>
         ) : (
-          <Link key={l} href={href} className="px-2 py-1 text-muted hover:text-text">
+          <Link prefetch={false} key={l} href={href} className="px-2 py-1 text-muted hover:text-text">
             {l.toUpperCase()}
           </Link>
         )

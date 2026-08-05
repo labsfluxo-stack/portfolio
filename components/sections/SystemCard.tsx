@@ -68,7 +68,7 @@ export function SystemCard({
       </dl>
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5">
-        <Link
+        <Link prefetch={false}
           href={`/${locale}/sistemas/${system.slug}`}
           className="font-mono text-[11px] uppercase tracking-widest text-text underline decoration-border underline-offset-4 hover:decoration-text"
         >
