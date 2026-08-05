@@ -150,12 +150,28 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
       const person = JSON.parse(scriptMatch?.[1] ?? '{}') as {
         '@type': string
         knowsAbout: string[]
-        alumniOf: { name: string }[]
+        alumniOf?: unknown
+        hasCredential: { name: string; recognizedBy?: { name: string } }[]
       }
 
       expect(person['@type']).toBe('Person')
       expect(person.knowsAbout).toContain('Cisco')
-      expect(person.alumniOf.some((org) => org.name.includes('HarvardX'))).toBe(true)
+      expect(person.hasCredential.some((c) => c.recognizedBy?.name.includes('HarvardX'))).toBe(true)
+      expect(person.hasCredential.some((c) => c.name.includes('CS50x'))).toBe(true)
+
+      // `alumniOf` é o "é ex-aluno de" do schema.org — uma afirmação de
+      // conclusão que a graduação pausada da Estácio nunca pode carregar em
+      // superfície nenhuma, JSON-LD incluído (ver lib/jsonld.ts, A044). O
+      // campo não deve existir nem apontar pra ela por nenhum outro caminho
+      // — nunca reintroduzir `alumniOf` com a instituição da graduação
+      // dentro dele.
+      expect(
+        person.alumniOf,
+        'alumniOf não deveria existir: nenhuma instituição aqui tem status de conclusão verificado',
+      ).toBeUndefined()
+      const degreeInstitution = d.about.education.degree.items[0]?.split('—').at(-1)?.trim() ?? ''
+      expect(degreeInstitution.length, 'about.education.degree.items[0] sem instituição extraível').toBeGreaterThan(0)
+      expect(JSON.stringify(person)).not.toContain(degreeInstitution)
 
       // Nenhuma afirmação de status do curso da Estácio (pausado) dentro do
       // próprio JSON-LD — escopado só a este objeto, nunca à página inteira:
