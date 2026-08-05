@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test:html": "vitest run --config vitest.html.config.ts",
-    "generate:og": "node --experimental-strip-types scripts/generate-og.mts"
+    "generate:og": "node --experimental-strip-types scripts/generate-og.mts",
+    "generate:cv": "node --experimental-strip-types scripts/generate-cv-pdf.mts"
   },
   "keywords": [],
   "author": "",
