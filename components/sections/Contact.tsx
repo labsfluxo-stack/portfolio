@@ -75,6 +75,7 @@ export function Contact({ dict, locale }: { dict: Dictionary; locale: Locale }) 
             <li className="pt-2">
               <a
                 href={cvHref}
+                download
                 className="inline-block border border-border px-4 py-2 uppercase tracking-widest text-text hover:bg-surface"
               >
                 {contact.cvDownload}

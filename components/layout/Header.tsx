@@ -46,12 +46,18 @@ export function Header({ locale, dict }: { locale: Locale; dict: Dictionary }) {
         </nav>
         <div className="flex items-center gap-4">
           <LocaleSwitch locale={locale} pathname={pathname} label={dict.a11y.localeSwitch} />
-          <Link prefetch={false}
-            href={`/${locale}/cv`}
+          {/* Nunca `/${locale}/cv` (spec §5.2): essa rota é artefato de build
+           * — vive fora do route group `(site)`, sem Header/Footer/seletor de
+           * idioma nem link de volta — e não recebe link de navegação. O
+           * download vai direto no PDF, a mesma expressão que
+           * components/sections/Contact.tsx já usa para o mesmo link. */}
+          <a
+            href={`${basePath}/cv/neto-alves-${locale}.pdf`}
+            download
             className="border border-border px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-text hover:bg-surface"
           >
             {dict.nav.cv}
-          </Link>
+          </a>
         </div>
       </div>
     </header>
