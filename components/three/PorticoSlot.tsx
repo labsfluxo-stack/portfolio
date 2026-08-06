@@ -2,6 +2,7 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
 import { PorticoFallback } from './PorticoFallback'
+import type { StackItem } from '@/content/types'
 
 const MIN_WIDTH_QUERY = '(min-width: 768px)'
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
@@ -42,7 +43,7 @@ export function hasWebGL(): boolean {
  * `prefers-reduced-motion` desligado, e largura >= 768px. Falhando
  * qualquer uma, o fallback permanece -- "sem exceção", como pede o brief.
  */
-export function PorticoSlot({ labels }: { labels: readonly string[] }) {
+export function PorticoSlot({ labels, cargo }: { labels: readonly string[]; cargo: readonly StackItem[] }) {
   const [showScene, setShowScene] = useState(false)
 
   useEffect(() => {
@@ -64,7 +65,7 @@ export function PorticoSlot({ labels }: { labels: readonly string[] }) {
 
   return (
     <div className="h-full w-full">
-      {showScene ? <Portico labels={labels} /> : <PorticoFallback labels={labels} />}
+      {showScene ? <Portico labels={labels} cargo={cargo} /> : <PorticoFallback labels={labels} />}
     </div>
   )
 }

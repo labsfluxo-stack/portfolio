@@ -26,15 +26,21 @@ import {
   plateGeometry,
   spreaderGeometry,
   trolleyGeometry,
+  yardPlateGeometry,
 } from './portico-geometry'
 import {
+  cargoAtlas,
+  cargoAtlasShader,
   corrugationNormalMap,
   floorTextures,
   plateTexture,
   resolveMonoFamily,
   stencilTexture,
+  type CargoAtlas,
   type RedrawableTexture,
 } from './portico-textures'
+import { YARD_FOOTPRINTS, YARD_SLOTS, yardCargo, yardShade } from './portico-yard'
+import type { StackItem } from '@/content/types'
 
 /**
  * Um pórtico de pátio empilhando as camadas do sistema.
@@ -54,6 +60,12 @@ import {
  * 2. **Nenhum pós-processamento.** Sem bloom, sem grão, sem aberração
  *    cromática. Empilhar efeito é justamente o que envelhece uma cena; o
  *    ganho aqui vem de luz, material e movimento.
+ *
+ * E um princípio governa tudo que foi acrescentado depois: **o significado
+ * fica na frente, a escala vem de trás**. A fileira das seis camadas
+ * rotuladas é o que precisa ser lido e não muda; as baias de fundo
+ * (`portico-yard.ts`) entram atrás do corredor, recuando na névoa, para dar
+ * porte de terminal em operação sem disputar a leitura.
  *
  * Tudo é `aria-hidden`: é decoração. A informação que ela ilustra vive em
  * texto de verdade na seção Stack.
@@ -105,6 +117,20 @@ const VIEW = {
 /** Caixa envolvente da máquina inteira, do truque das pernas ao topo da casa de máquinas. */
 const BOUNDS = { x: 9.9, top: 19.8, z: 4.9 } as const
 
+/**
+ * A névoa, medida A PARTIR DA CÂMERA — nunca em coordenada de mundo.
+ *
+ * A distância da câmera é resolvida pelo formato do contêiner na página, então
+ * um alcance fixo em metros deixaria o recuo diferente em 1440 e em 1024: numa
+ * largura o fundo sumiria, na outra chegaria na frente. Amarrado à distância,
+ * a profundidade lê igual em qualquer viewport.
+ *
+ * `start` é a folga depois do alvo: o ponto mais fundo da máquina fica ~2,5 m
+ * atrás dele, então a fileira operacional inteira sai da névoa intocada. O que
+ * a névoa pega é o que está atrás do corredor.
+ */
+const FOG = { start: 3.4, span: 38 } as const
+
 const CORNERS: [number, number, number][] = [-1, 1].flatMap((sx) =>
   [0, 1].flatMap((sy) =>
     [-1, 1].map((sz): [number, number, number] => [sx * BOUNDS.x, sy * BOUNDS.top, sz * BOUNDS.z]),
@@ -125,6 +151,7 @@ const CORNERS: [number, number, number][] = [-1, 1].flatMap((sx) =>
  */
 function Framing() {
   const camera = useThree((state) => state.camera)
+  const scene = useThree((state) => state.scene)
   const width = useThree((state) => state.size.width)
   const height = useThree((state) => state.size.height)
 
@@ -160,7 +187,12 @@ function Framing() {
     camera.position.copy(dir).multiplyScalar(distance).add(target)
     camera.lookAt(target)
     camera.updateProjectionMatrix()
-  }, [camera, width, height])
+
+    if (scene.fog instanceof THREE.Fog) {
+      scene.fog.near = distance + FOG.start
+      scene.fog.far = distance + FOG.start + FOG.span
+    }
+  }, [camera, scene, width, height])
 
   return null
 }
@@ -168,6 +200,15 @@ function Framing() {
 // ── Recursos ──────────────────────────────────────────────────────────────
 
 type LayerAssets = { label: string; materials: THREE.Material[]; stencil: RedrawableTexture }
+
+/** As baias de fundo: uma geometria, um material, N transformações. */
+type YardAssets = {
+  plate: THREE.BufferGeometry
+  skin: THREE.MeshStandardMaterial
+  steel: THREE.MeshStandardMaterial
+  atlas: CargoAtlas
+  count: number
+}
 
 type Assets = {
   plate: THREE.BufferGeometry
@@ -183,10 +224,17 @@ type Assets = {
   floor: THREE.MeshStandardMaterial
   floorSide: number
   layers: LayerAssets[]
+  yard: YardAssets
   dispose: () => void
 }
 
-function buildAssets(labels: readonly string[], palette: Palette, family: string, anisotropy: number): Assets {
+function buildAssets(
+  labels: readonly string[],
+  cargo: readonly StackItem[],
+  palette: Palette,
+  family: string,
+  anisotropy: number,
+): Assets {
   const disposables: { dispose: () => void }[] = []
   const keep = <T extends { dispose: () => void }>(item: T): T => {
     disposables.push(item)
@@ -240,12 +288,46 @@ function buildAssets(labels: readonly string[], palette: Palette, family: string
     layers.push({ label, materials: [end, end, roof, underside, side, side], stencil })
   }
 
-  const yard = floorTextures(palette.bg, palette.border, [
+  const floor = floorTextures(palette.bg, palette.border, [
     { x: BAY.source, length: CONTAINER.length, width: CONTAINER.width },
     { x: BAY.target, length: CONTAINER.length, width: CONTAINER.width },
+    ...YARD_FOOTPRINTS.map((spot) => ({ ...spot, length: CONTAINER.length, width: CONTAINER.width })),
   ])
-  keep(yard.map)
-  keep(yard.alpha)
+  keep(floor.map)
+  keep(floor.alpha)
+
+  // ── baias de fundo ──────────────────────────────────────────────────────
+  //
+  // Um contêiner por tecnologia, com o ícone da marca quando ele existe e o
+  // nome em estêncil quando não. As dezoito chapas moram num atlas só, e cada
+  // instância recebe o deslocamento da sua célula: o pátio inteiro sai em
+  // duas chamadas de desenho.
+  const marks = yardCargo(cargo)
+  // Tinta rebaixada: é `--color-text`, o mesmo token dos estênceis da frente,
+  // num valor mais baixo. A névoa sozinha não bastava — ela empurra a chapa
+  // para o fundo mas a marcação continuava tão branca quanto os rótulos que
+  // precisam ser lidos, e o fundo roubava a frente.
+  const atlas = cargoAtlas(marks, (i) => shade(palette.surface2, yardShade(i)), shade(palette.text, 0.26), family)
+  tune(atlas.texture)
+  atlas.texture.channel = 1
+
+  const yardPlate = keep(yardPlateGeometry())
+  yardPlate.setAttribute('aCargo', new THREE.InstancedBufferAttribute(atlas.offsets, 2))
+
+  // Padrão, não físico: sem clearcoat e com pouco reflexo de ambiente. O
+  // brilho especular é o que puxa o olho, e o fundo existe para NÃO puxar —
+  // é o mesmo recuo da névoa, feito pelo material.
+  const yardSkin = keep(
+    new THREE.MeshStandardMaterial({
+      map: atlas.texture,
+      normalMap: sideNormal,
+      normalScale,
+      metalness: 0.16,
+      roughness: 0.74,
+      envMapIntensity: 1.7,
+    }),
+  )
+  cargoAtlasShader(yardSkin, atlas.scale)
 
   return {
     plate: keep(plateGeometry()),
@@ -291,8 +373,8 @@ function buildAssets(labels: readonly string[], palette: Palette, family: string
     lamp: keep(new THREE.MeshStandardMaterial({ color: palette.data, emissive: palette.data, roughness: 0.35 })),
     floor: keep(
       new THREE.MeshStandardMaterial({
-        map: yard.map,
-        alphaMap: yard.alpha,
+        map: floor.map,
+        alphaMap: floor.alpha,
         transparent: true,
         depthWrite: false,
         roughness: 0.62,
@@ -304,8 +386,24 @@ function buildAssets(labels: readonly string[], palette: Palette, family: string
         envMapIntensity: 3.2,
       }),
     ),
-    floorSide: yard.half * 2,
+    floorSide: floor.half * 2,
     layers,
+    yard: {
+      plate: yardPlate,
+      skin: yardSkin,
+      // Aço mais fosco e mais escuro que o da máquina, pela mesma razão da
+      // chapa: um perfil que brilha lá atrás vira ruído na frente.
+      steel: keep(
+        new THREE.MeshStandardMaterial({
+          color: shade(palette.muted, 0.5),
+          metalness: 0.7,
+          roughness: 0.55,
+          envMapIntensity: 2.2,
+        }),
+      ),
+      atlas,
+      count: marks.length,
+    },
     dispose: () => {
       for (const item of disposables) item.dispose()
     },
@@ -318,13 +416,13 @@ const UP = new THREE.Vector3(0, 1, 0)
 /** Onde a lâmpada de estado mora, na testeira da casa de máquinas do carro. */
 const LAMP_AT: [number, number, number] = [0, RIG.trolleyY + 0.7, 1.68]
 
-function Yard({ labels }: { labels: readonly string[] }) {
+function Yard({ labels, cargo }: { labels: readonly string[]; cargo: readonly StackItem[] }) {
   const gl = useThree((state) => state.gl)
   const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl])
   const palette = useMemo(readPalette, [])
   const assets = useMemo(
-    () => buildAssets(labels, palette, resolveMonoFamily(), anisotropy),
-    [labels, palette, anisotropy],
+    () => buildAssets(labels, cargo, palette, resolveMonoFamily(), anisotropy),
+    [labels, cargo, palette, anisotropy],
   )
   useEffect(() => assets.dispose, [assets])
 
@@ -334,10 +432,30 @@ function Yard({ labels }: { labels: readonly string[] }) {
   useEffect(() => {
     let alive = true
     void document.fonts.ready.then(() => {
-      if (alive) for (const layer of assets.layers) layer.stencil.redraw()
+      if (!alive) return
+      for (const layer of assets.layers) layer.stencil.redraw()
+      assets.yard.atlas.redraw()
     })
     return () => {
       alive = false
+    }
+  }, [assets])
+
+  // As baias de fundo não se mexem: a matriz de cada instância é escrita uma
+  // vez e nunca mais tocada. É o que separa "pátio" de "animação de pátio".
+  const yardPlateRef = useRef<THREE.InstancedMesh>(null)
+  const yardFrameRef = useRef<THREE.InstancedMesh>(null)
+  useLayoutEffect(() => {
+    const at = new THREE.Matrix4()
+    for (let i = 0; i < assets.yard.count; i++) {
+      const slot = YARD_SLOTS[i]
+      if (!slot) continue
+      at.makeTranslation(slot.x, slot.y, slot.z)
+      yardPlateRef.current?.setMatrixAt(i, at)
+      yardFrameRef.current?.setMatrixAt(i, at)
+    }
+    for (const node of [yardPlateRef.current, yardFrameRef.current]) {
+      if (node) node.instanceMatrix.needsUpdate = true
     }
   }, [assets])
 
@@ -420,6 +538,16 @@ function Yard({ labels }: { labels: readonly string[] }) {
       <Framing />
 
       {/*
+        A névoa. É ela que faz o pátio recuar: as baias de trás perdem
+        contraste com a distância, como perderiam num terminal de verdade, em
+        vez de serem apagadas com opacidade — que é o truque que denuncia
+        "camada de fundo" em vez de profundidade. A cor é `--color-bg`, a
+        mesma do fundo da página, então o que recua não desbota: dissolve.
+        `Framing` reescreve o alcance conforme a distância real da câmera.
+      */}
+      <fog attach="fog" args={[palette.bg, 50, 84]} />
+
+      {/*
         O estúdio. Planos emissivos capturados num cube map: chave larga e
         quente em cima, recorte estreito e forte na direita (é ele que desenha
         a aresta do aço), preenchimento frio e amplo na esquerda, e um retorno
@@ -478,6 +606,27 @@ function Yard({ labels }: { labels: readonly string[] }) {
         color={palette.bg}
       />
 
+      {/*
+        As baias de fundo. Duas malhas instanciadas — chapa e perfil — dão
+        conta de dezoito contêineres: mesma geometria, muda a transformação e
+        a célula do atlas. Uma malha por contêiner seriam trinta e seis
+        chamadas de desenho para uma coisa que não se mexe.
+
+        Não projetam nem recebem sombra de propósito: estão fora do tronco de
+        sombra da direcional, e o mapa de sombra é orçamento — vale gastá-lo
+        inteiro na fileira que precisa ser lida.
+      */}
+      <instancedMesh
+        ref={yardPlateRef}
+        args={[assets.yard.plate, assets.yard.skin, assets.yard.count]}
+        frustumCulled={false}
+      />
+      <instancedMesh
+        ref={yardFrameRef}
+        args={[assets.frame, assets.yard.steel, assets.yard.count]}
+        frustumCulled={false}
+      />
+
       <mesh castShadow receiveShadow geometry={assets.gantry} material={assets.steel} />
 
       <group ref={trolleyRef}>
@@ -524,7 +673,7 @@ function Yard({ labels }: { labels: readonly string[] }) {
  * o hero entra e sai da viewport: nada de queimar GPU e bateria animando um
  * pórtico que já rolou para fora da tela.
  */
-export function Portico({ labels }: { labels: readonly string[] }) {
+export function Portico({ labels, cargo }: { labels: readonly string[]; cargo: readonly StackItem[] }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [inView, setInView] = useState(true)
 
@@ -555,7 +704,7 @@ export function Portico({ labels }: { labels: readonly string[] }) {
         }}
         camera={{ fov: VIEW.fov, near: 6, far: 140, position: [16, 15, 40] }}
       >
-        <Yard labels={labels} />
+        <Yard labels={labels} cargo={cargo} />
       </Canvas>
     </div>
   )

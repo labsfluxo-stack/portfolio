@@ -130,6 +130,44 @@ export type RedrawableTexture = { texture: THREE.CanvasTexture; redraw: () => vo
 const LABEL_WIDTH = 1024
 const LABEL_HEIGHT = 440
 
+type Rect = { x: number; y: number; width: number; height: number }
+/** Tamanho máximo do caractere por número de linhas do estêncil. */
+type Sizing = { single: number; double: number; min: number }
+
+/**
+ * Estampa as linhas centradas no retângulo, encolhendo o corpo até caberem.
+ *
+ * O tamanho máximo é parâmetro em vez de fração da altura porque a chapa da
+ * camada e a chapa de carga têm proporções diferentes, e derivar um do outro
+ * mudaria a fileira da frente — que está aprovada e não se mexe.
+ */
+function drawStencil(
+  ctx: CanvasRenderingContext2D,
+  lines: string[],
+  box: Rect,
+  ink: string,
+  family: string,
+  sizing: Sizing,
+): void {
+  const budget = box.width * 0.82
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0.07em'
+
+  let size = lines.length > 1 ? sizing.double : sizing.single
+  const fits = (candidate: number): boolean => {
+    ctx.font = `600 ${candidate}px ${family}`
+    return lines.every((line) => ctx.measureText(line).width <= budget)
+  }
+  while (size > sizing.min && !fits(size)) size -= 2
+  ctx.font = `600 ${size}px ${family}`
+
+  const leading = size * 1.16
+  const top = box.y + box.height / 2 - ((lines.length - 1) * leading) / 2
+  ctx.fillStyle = ink
+  lines.forEach((line, i) => ctx.fillText(line, box.x + box.width / 2, top + i * leading))
+}
+
 /**
  * Chapa lateral com o rótulo da camada estampado, do jeito que se marca carga.
  *
@@ -139,30 +177,13 @@ const LABEL_HEIGHT = 440
  */
 export function stencilTexture(lines: string[], plate: string, ink: string, family: string): RedrawableTexture {
   const ctx = surface(LABEL_WIDTH, LABEL_HEIGHT)
+  const box: Rect = { x: 0, y: 0, width: LABEL_WIDTH, height: LABEL_HEIGHT }
 
   const draw = (): void => {
     ctx.clearRect(0, 0, LABEL_WIDTH, LABEL_HEIGHT)
     ctx.fillStyle = plate
     ctx.fillRect(0, 0, LABEL_WIDTH, LABEL_HEIGHT)
-
-    const budget = LABEL_WIDTH * 0.82
-    const maxSize = lines.length > 1 ? 118 : 152
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    if ('letterSpacing' in ctx) ctx.letterSpacing = '0.07em'
-
-    let size = maxSize
-    const fits = (candidate: number): boolean => {
-      ctx.font = `600 ${candidate}px ${family}`
-      return lines.every((line) => ctx.measureText(line).width <= budget)
-    }
-    while (size > 24 && !fits(size)) size -= 2
-    ctx.font = `600 ${size}px ${family}`
-
-    const leading = size * 1.16
-    const top = LABEL_HEIGHT / 2 - ((lines.length - 1) * leading) / 2
-    ctx.fillStyle = ink
-    lines.forEach((line, i) => ctx.fillText(line, LABEL_WIDTH / 2, top + i * leading))
+    drawStencil(ctx, lines, box, ink, family, { single: 152, double: 118, min: 24 })
   }
 
   draw()
@@ -175,6 +196,129 @@ export function stencilTexture(lines: string[], plate: string, ink: string, fami
       texture.needsUpdate = true
     },
   }
+}
+
+// ── Atlas de carga ────────────────────────────────────────────────────────
+
+/**
+ * As chapas de carga das baias de fundo, TODAS num canvas só.
+ *
+ * Elas existem para serem instanciadas: dezoito contêineres que compartilham
+ * geometria e material e diferem só em transformação e marcação. Um material
+ * carrega uma textura, então a marcação de cada um vira uma CÉLULA de um
+ * atlas, e cada instância recebe o deslocamento da sua célula por atributo
+ * (`aCargo`, ver `cargoAtlasShader`). É o que mantém o pátio inteiro em duas
+ * chamadas de desenho em vez de trinta e seis.
+ */
+
+/** Proporção da célula ≈ a da face longa da chapa (5,90 × 2,43 m). */
+const CARGO_CELL = { width: 512, height: 212 } as const
+const CARGO_COLS = 3
+/**
+ * Recuo do retângulo amostrado dentro da célula. Sem ele, o filtro trilinear
+ * puxa o vizinho no mip mais grosseiro e a marcação de um contêiner vaza para
+ * o outro.
+ */
+const CARGO_INSET = 0.015
+
+/**
+ * Onde as faces SEM marcação (testeiras, teto e fundo) amostram a célula.
+ *
+ * Um ponto só, dentro da margem que o desenho nunca invade: a face inteira
+ * sai na cor da chapa, sem esticar o ícone do vizinho por cima dela. Ver
+ * `yardPlateGeometry`.
+ */
+export const CARGO_FLAT_UV: readonly [number, number] = [0.04, 0.1]
+
+/** O que vai estampado: o ícone da marca, ou o nome em estêncil quando ela não existe. */
+export type CargoMark = { kind: 'icon'; path: string } | { kind: 'text'; lines: string[] }
+
+export type CargoAtlas = RedrawableTexture & {
+  /** Deslocamento da célula de cada instância, pronto para virar atributo. */
+  offsets: Float32Array
+  /** Tamanho da célula em UV, o mesmo para todas. */
+  scale: THREE.Vector2
+}
+
+export function cargoAtlas(
+  marks: readonly CargoMark[],
+  plateOf: (index: number) => string,
+  ink: string,
+  family: string,
+): CargoAtlas {
+  const cols = CARGO_COLS
+  const rows = Math.max(1, Math.ceil(marks.length / cols))
+  const ctx = surface(cols * CARGO_CELL.width, rows * CARGO_CELL.height)
+
+  const draw = (): void => {
+    marks.forEach((mark, i) => {
+      const box: Rect = {
+        x: (i % cols) * CARGO_CELL.width,
+        y: Math.floor(i / cols) * CARGO_CELL.height,
+        width: CARGO_CELL.width,
+        height: CARGO_CELL.height,
+      }
+      ctx.fillStyle = plateOf(i)
+      ctx.fillRect(box.x, box.y, box.width, box.height)
+      if (mark.kind === 'text') {
+        drawStencil(ctx, mark.lines, box, ink, family, { single: 96, double: 62, min: 18 })
+        return
+      }
+      // O `path` do simple-icons é desenhado numa caixa 24×24 — a mesma do
+      // viewBox — então basta escalar. Uma marca de carga é grande: 58% da
+      // altura da chapa, que é a proporção de um logotipo pintado em
+      // contêiner de verdade.
+      const size = box.height * 0.58
+      ctx.save()
+      ctx.fillStyle = ink
+      ctx.translate(box.x + (box.width - size) / 2, box.y + (box.height - size) / 2)
+      ctx.scale(size / 24, size / 24)
+      ctx.fill(new Path2D(mark.path))
+      ctx.restore()
+    })
+  }
+
+  draw()
+  const texture = new THREE.CanvasTexture(ctx.canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+
+  const offsets = new Float32Array(marks.length * 2)
+  for (let i = 0; i < marks.length; i++) {
+    // O eixo V da textura cresce ao contrário do eixo Y do canvas.
+    const bottom = rows - 1 - Math.floor(i / cols)
+    offsets[i * 2] = ((i % cols) + CARGO_INSET) / cols
+    offsets[i * 2 + 1] = (bottom + CARGO_INSET) / rows
+  }
+
+  return {
+    texture,
+    offsets,
+    scale: new THREE.Vector2((1 - 2 * CARGO_INSET) / cols, (1 - 2 * CARGO_INSET) / rows),
+    redraw: () => {
+      draw()
+      texture.needsUpdate = true
+    },
+  }
+}
+
+/**
+ * Liga o atlas ao material: cada instância passa a amostrar a sua célula.
+ *
+ * A alternativa seria um material por contêiner, que é justamente o que a
+ * instanciação existe para evitar. Só o UV do `map` é deslocado — o do normal
+ * map continua 0..1 por face, então a corrugação segue repetindo na chapa
+ * como nos contêineres da frente.
+ */
+export function cargoAtlasShader(material: THREE.Material, scale: THREE.Vector2): void {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uCargoScale = { value: scale }
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec2 aCargo;\nuniform vec2 uCargoScale;')
+      .replace('#include <uv_vertex>', '#include <uv_vertex>\n\tvMapUv = vMapUv * uCargoScale + aCargo;')
+  }
+  // Sem isto o three reaproveita o programa de outro material com as mesmas
+  // opções e a cena inteira sai amostrando a mesma célula.
+  material.customProgramCacheKey = () => 'portico-cargo-atlas'
 }
 
 /** Chapa sem marcação — testeiras, teto e fundo. */
@@ -197,7 +341,11 @@ export function plateTexture(plate: string): THREE.CanvasTexture {
  * página"; dissolvido, o chão existe só onde é preciso — embaixo da máquina,
  * onde a sombra de contato precisa de superfície para pousar.
  */
-export function floorTextures(ground: string, paint: string, bays: { x: number; length: number; width: number }[]): {
+export function floorTextures(
+  ground: string,
+  paint: string,
+  bays: { x: number; z?: number; length: number; width: number }[],
+): {
   map: THREE.CanvasTexture
   alpha: THREE.CanvasTexture
   /** Metade da aresta do plano de chão, em unidades de cena. */
@@ -221,8 +369,9 @@ export function floorTextures(ground: string, paint: string, bays: { x: number; 
   for (const bay of bays) {
     const w = toPx(bay.length + 1.1)
     const h = toPx(bay.width + 1.1)
-    // O eixo Z da cena cresce na direção contrária ao eixo Y da textura.
-    color.strokeRect(size / 2 + toPx(bay.x) - w / 2, size / 2 - h / 2, w, h)
+    // O plano do chão é girado −90° em X, então o topo do canvas cai no Z mais
+    // negativo da cena: canvas e cena crescem no mesmo sentido nos dois eixos.
+    color.strokeRect(size / 2 + toPx(bay.x) - w / 2, size / 2 + toPx(bay.z ?? 0) - h / 2, w, h)
   }
   color.globalAlpha = 1
 

@@ -25,11 +25,13 @@ export type MetricValue = {
   suffix?: string
 }
 
+export type StackItem = { name: string; level: 'dominio' | 'producao' | 'contato' }
+
 export type StackLayer = {
   label: string
   /** `repo` = comprovado em código auditado. `experience` = experiência profissional declarada. */
   source: 'repo' | 'experience'
-  items: { name: string; level: 'dominio' | 'producao' | 'contato' }[]
+  items: StackItem[]
 }
 
 export type CaseStudy = {

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { CONTAINER } from './portico-model'
+import { CARGO_FLAT_UV } from './portico-textures'
 
 /**
  * A carpintaria da cena: as peças do contêiner e do pórtico, fundidas em
@@ -59,6 +60,38 @@ const merge = (parts: THREE.BufferGeometry[]): THREE.BufferGeometry => {
  * testeira da porta, testeira cega, teto, fundo e as duas laterais.
  */
 export const plateGeometry = (): THREE.BoxGeometry => new THREE.BoxGeometry(L - 2 * INSET, H - 2 * INSET, W - 2 * INSET)
+
+/**
+ * A mesma chapa, preparada para ser instanciada nas baias de fundo.
+ *
+ * Duas diferenças, as duas exigidas pela instanciação — que exige material
+ * ÚNICO, e portanto textura única:
+ *
+ * 1. Sem grupos. As seis faces passam a compartilhar um material só.
+ * 2. Um segundo canal de UV (`uv1`). O canal 0 continua 0..1 por face e é o
+ *    que a corrugação usa, então a chapa de fundo ondula igual à da frente.
+ *    O canal 1 é o da marcação de carga: as duas faces longas recebem a
+ *    célula inteira do atlas, e as outras quatro colapsam num ponto da margem
+ *    — do contrário o ícone sairia esticado na testeira e no teto.
+ *
+ * Ordem dos vértices de `BoxGeometry`: +X, −X, +Y, −Y, +Z, −Z, quatro por
+ * face. As faces longas são as duas últimas.
+ */
+export function yardPlateGeometry(): THREE.BoxGeometry {
+  const geometry = new THREE.BoxGeometry(L - 2 * INSET, H - 2 * INSET, W - 2 * INSET)
+  geometry.clearGroups()
+
+  const uv = geometry.getAttribute('uv')
+  const cargo = new Float32Array(uv.count * 2)
+  const LONG_FACES_START = 16
+  for (let i = 0; i < uv.count; i++) {
+    const long = i >= LONG_FACES_START
+    cargo[i * 2] = long ? uv.getX(i) : CARGO_FLAT_UV[0]
+    cargo[i * 2 + 1] = long ? uv.getY(i) : CARGO_FLAT_UV[1]
+  }
+  geometry.setAttribute('uv1', new THREE.BufferAttribute(cargo, 2))
+  return geometry
+}
 
 /** Moldura, longarinas, barras da porta — tudo em aço aparente. */
 export function containerFrameGeometry(): THREE.BufferGeometry {
