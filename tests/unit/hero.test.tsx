@@ -18,10 +18,10 @@ describe('Hero', () => {
     expect(hint).toHaveAttribute('aria-hidden', 'true')
   })
 
-  it('expõe exatamente um h1 e preenche o slot da constelação com o fallback decorativo', () => {
+  it('expõe exatamente um h1 e preenche o slot do pórtico com o fallback decorativo', () => {
     const { container } = render(<Hero dict={pt} locale="pt" />)
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
-    const slot = container.querySelector('[data-constellation-slot]')
+    const slot = container.querySelector('[data-portico-slot]')
     expect(slot).toBeInTheDocument()
     expect(slot).toHaveAttribute('aria-hidden', 'true')
     // jsdom não implementa WebGL, então o estado de repouso -- o mesmo que
@@ -29,5 +29,14 @@ describe('Hero', () => {
     // nunca o <canvas> da cena three.js.
     expect(slot?.querySelector('svg')).toBeInTheDocument()
     expect(slot?.querySelector('canvas')).not.toBeInTheDocument()
+  })
+
+  it('os rótulos dos contêineres vêm do dicionário da seção Stack, não de string no código', () => {
+    const { container } = render(<Hero dict={pt} locale="pt" />)
+    const slot = container.querySelector('[data-portico-slot]')
+    const stencils = [...(slot?.querySelectorAll('text') ?? [])].map((node) => node.textContent)
+    for (const layer of pt.stack.layers) {
+      expect(stencils, `camada "${layer.label}" ausente na cena`).toContain(layer.label.toUpperCase())
+    }
   })
 })

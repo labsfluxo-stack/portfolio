@@ -1,18 +1,17 @@
 'use client'
 import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
-import type { ConstellationSystem } from './constellation-data'
-import { ConstellationFallback } from './ConstellationFallback'
+import { PorticoFallback } from './PorticoFallback'
 
 const MIN_WIDTH_QUERY = '(min-width: 768px)'
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 
 // `ssr: false` só é permitido a partir de um Client Component -- por isso
 // este arquivo carrega `'use client'` (mesmo padrão de
-// components/sections/Terminal.tsx). O chunk de `Constellation.tsx`, e com
-// ele todo o three.js/@react-three, nunca entra no HTML inicial: só é
-// buscado se o efeito abaixo decidir mostrar a cena.
-const Constellation = dynamic(() => import('./Constellation').then((mod) => mod.Constellation), { ssr: false })
+// components/sections/Terminal.tsx). O chunk de `Portico.tsx`, e com ele todo
+// o three.js/@react-three, nunca entra no HTML inicial: só é buscado se o
+// efeito abaixo decidir mostrar a cena.
+const Portico = dynamic(() => import('./Portico').then((mod) => mod.Portico), { ssr: false })
 
 /** Não confiar em user-agent: a única forma correta de saber se WebGL
  * funciona é pedir o contexto e ver o que volta. */
@@ -26,8 +25,8 @@ export function hasWebGL(): boolean {
 }
 
 /**
- * Decide entre a cena WebGL (`Constellation.tsx`) e o fallback SVG estático
- * (`ConstellationFallback.tsx`) -- nunca os dois ao mesmo tempo.
+ * Decide entre a cena WebGL (`Portico.tsx`) e a elevação técnica em SVG
+ * (`PorticoFallback.tsx`) -- nunca as duas ao mesmo tempo.
  *
  * O estado de repouso, antes de qualquer efeito rodar, é sempre o fallback.
  * Isso não é só cautela: é o que faz o HTML estático (o que
@@ -43,7 +42,7 @@ export function hasWebGL(): boolean {
  * `prefers-reduced-motion` desligado, e largura >= 768px. Falhando
  * qualquer uma, o fallback permanece -- "sem exceção", como pede o brief.
  */
-export function ConstellationSlot({ systems }: { systems: readonly ConstellationSystem[] }) {
+export function PorticoSlot({ labels }: { labels: readonly string[] }) {
   const [showScene, setShowScene] = useState(false)
 
   useEffect(() => {
@@ -63,5 +62,9 @@ export function ConstellationSlot({ systems }: { systems: readonly Constellation
     }
   }, [])
 
-  return <div className="h-full w-full">{showScene ? <Constellation systems={systems} /> : <ConstellationFallback systems={systems} />}</div>
+  return (
+    <div className="h-full w-full">
+      {showScene ? <Portico labels={labels} /> : <PorticoFallback labels={labels} />}
+    </div>
+  )
 }
