@@ -229,6 +229,7 @@ type Assets = {
   trolley: THREE.BufferGeometry
   spreader: THREE.BufferGeometry
   cable: THREE.BufferGeometry
+  rope: THREE.MeshPhysicalMaterial
   skin: THREE.MeshPhysicalMaterial
   steel: THREE.MeshPhysicalMaterial
   casting: THREE.MeshPhysicalMaterial
@@ -386,7 +387,21 @@ function buildAssets(
     bridge: keep(bridgeGeometry(rig)),
     trolley: keep(trolleyGeometry(rig)),
     spreader: keep(spreaderGeometry()),
-    cable: keep(new THREE.CylinderGeometry(0.05, 0.05, 1, 6)),
+    // 9 cm, não 5. A 5 cm o cabo não fecha um pixel nesta distância de câmera,
+    // e o spreader passava a ler como peça solta flutuando — foi exatamente o
+    // que o dono reportou, duas vezes. O cabo é o que prende a garra à máquina:
+    // se ele some, a física da cena some junto.
+    cable: keep(new THREE.CylinderGeometry(0.09, 0.09, 1, 8)),
+    // Cabo de aço trançado, não chapa pintada: reflete muito mais e quase não
+    // tem cor própria. Clarear aqui não é licença de paleta, é o material.
+    rope: keep(
+      new THREE.MeshPhysicalMaterial({
+        color: palette.muted,
+        metalness: 1,
+        roughness: 0.28,
+        envMapIntensity: 5.4,
+      }),
+    ),
     skin,
     // Aço aparente: metalness alto e rugosidade baixa. Num metal a COR BASE é
     // a própria refletância, e é por isso que a primeira versão usava
@@ -841,6 +856,16 @@ function Yard({ layers }: { layers: readonly StackLayer[] }) {
         <pointLight ref={lampRef} position={lampAt} color={palette.data} distance={6} decay={2} />
       </group>
 
+      {/* Material próprio, mais claro que a estrutura, e não o `steel`.
+       *
+       * Existe por causa de um defeito que o dono viu e reportou duas vezes: o
+       * spreader parecia uma peça solta flutuando junto com a máquina. A peça
+       * estava certa — quem sumia era o CABO. A 5 cm de raio em aço escuro
+       * sobre fundo escuro, o cabo não alcança um pixel nesta distância de
+       * câmera, e sem ele a garra perde o que a prende.
+       *
+       * Cabo de aço reflete muito mais que chapa pintada, então clarear não é
+       * licença: é o que ele faz na vida real. */}
       {REEVING.map((cable, i) => (
         <mesh
           key={`${cable.top[0]}:${cable.top[1]}`}
@@ -848,7 +873,7 @@ function Yard({ layers }: { layers: readonly StackLayer[] }) {
             cableRefs.current[i] = node
           }}
           geometry={assets.cable}
-          material={assets.steel}
+          material={assets.rope}
         />
       ))}
 
