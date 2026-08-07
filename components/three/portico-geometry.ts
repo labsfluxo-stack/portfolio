@@ -43,6 +43,22 @@ const rod = (radius: number, height: number, x: number, y: number, z: number): T
 const rodX = (radius: number, length: number, x: number, y: number, z: number): THREE.BufferGeometry =>
   new THREE.CylinderGeometry(radius, radius, length, 10).rotateZ(Math.PI / 2).translate(x, y, z)
 
+/** Anel da gaiola de uma escada de acesso — arco aberto para o lado da subida. */
+const hoop = (radius: number, x: number, y: number, z: number): THREE.BufferGeometry =>
+  new THREE.TorusGeometry(radius, 0.035, 5, 12, Math.PI * 1.35)
+    .rotateY(Math.PI / 2)
+    .rotateZ(-Math.PI * 0.17)
+    .translate(x, y, z)
+
+/** Barra inclinada no plano ZY — o consolo que segura o passadiço na alma da viga. */
+function braceZY(thickness: number, from: THREE.Vector3, to: THREE.Vector3): THREE.BufferGeometry {
+  const span = from.distanceTo(to)
+  const geometry = new THREE.BoxGeometry(thickness, span, thickness)
+  geometry.rotateX(Math.atan2(to.z - from.z, to.y - from.y))
+  geometry.translate((from.x + to.x) / 2, (from.y + to.y) / 2, (from.z + to.z) / 2)
+  return geometry
+}
+
 /** Barra inclinada no plano XY (contraventamento da viga). */
 function braceXY(thickness: number, from: THREE.Vector3, to: THREE.Vector3): THREE.BufferGeometry {
   const span = from.distanceTo(to)
@@ -235,35 +251,144 @@ export function runwayGeometry(rig: Rig): THREE.BufferGeometry {
       // olhos de quem vê. Cortado no topo, o mesmo desenho vira suspensão.
       parts.push(box(0.26, RAIL_HANGER, 0.26, sx * railX, railY + RAIL_HANGER / 2 - 0.2, z))
       parts.push(box(0.22, 0.22, 2.6, sx * railX, railY + 0.9, z))
+      // Chapa de reforço e rebites na junta do tirante com a travessa. É o
+      // detalhe que diz "isto foi soldado por alguém", e ele só existe onde
+      // uma junta existe de verdade — reforço espalhado a esmo vira textura.
+      parts.push(box(0.62, 0.62, 0.06, sx * (railX + 0.16), railY + 0.9, z))
+      for (const dy of [-0.2, 0.2]) {
+        for (const dz of [-0.2, 0.2]) parts.push(rodX(0.035, 0.09, sx * (railX + 0.22), railY + 0.9 + dy, z + dz))
+      }
     }
+  }
+
+  // A escada de acesso, num tirante só e numa extremidade só.
+  //
+  // Numa instalação suspensa não existe coluna descendo até o chão, então o
+  // acesso ao trilho vem de cima — pela mesma estrutura que segura o tirante.
+  // Ela sobe e sai do quadro junto com ele: dentro do enquadramento aparece o
+  // arranque, com gaiola, que é o que dá escala humana ao alto da cena.
+  const ladderZ = runway.near - 9
+  const ladderX = railX + 0.62
+  parts.push(box(0.07, RAIL_HANGER * 0.6, 0.07, ladderX, railY + RAIL_HANGER * 0.3, ladderZ - 0.24))
+  parts.push(box(0.07, RAIL_HANGER * 0.6, 0.07, ladderX, railY + RAIL_HANGER * 0.3, ladderZ + 0.24))
+  for (let y = railY + 0.35; y < railY + RAIL_HANGER * 0.6; y += 0.32) {
+    parts.push(box(0.05, 0.05, 0.5, ladderX, y, ladderZ))
+  }
+  for (let y = railY + 0.9; y < railY + RAIL_HANGER * 0.6; y += 1.3) {
+    parts.push(hoop(0.42, ladderX + 0.2, y, ladderZ))
+  }
+  for (const dz of [-0.36, 0, 0.36]) {
+    parts.push(box(0.05, RAIL_HANGER * 0.55, 0.05, ladderX + 0.58, railY + RAIL_HANGER * 0.3, ladderZ + dz))
   }
 
   return merge(parts)
 }
 
 /**
- * A ponte: duas vigas atravessando em X e os carros de translação nas pontas.
- * Corre sobre os trilhos em Z; o Y já vem embutido.
+ * A passarela da ponte, em números — a mesma geometria é usada pela estrutura
+ * (guarda-corpo, longarinas) e pelo piso de grade, que tem material próprio.
+ */
+export const WALKWAY = {
+  /** Afastamento do eixo do passadiço em relação à viga. */
+  offset: 0.78,
+  width: 0.84,
+  /** Altura do piso abaixo do eixo da viga. */
+  drop: 0.45,
+  /** Guarda-corpo: rodapé, travessa e corrimão. */
+  toe: 0.17,
+  mid: 0.53,
+  top: 1.06,
+} as const
+
+/**
+ * O piso de grade da passarela, num plano por lado.
+ *
+ * Separado da estrutura porque tem MATERIAL próprio: grade não é chapa. A
+ * trama quebra o especular em duas direções e deixa passar luz pelos vãos, e
+ * é isso que faz uma passarela industrial parecer passarela — chapa lisa
+ * devolve o brilho numa faixa contínua e lê como fita adesiva atravessando o
+ * quadro.
+ *
+ * Plano, e não caixa: a caixa cobraria seis faces com o mesmo UV, e a trama
+ * sairia esticada na espessura. A borda aparente é feita pelas cantoneiras do
+ * perímetro, que são estrutura e vão em aço.
+ */
+export function gratingGeometry(rig: Rig): THREE.BufferGeometry {
+  const { railX, girderY, girderZ } = rig
+  const span = railX * 2
+  const parts: THREE.BufferGeometry[] = []
+  for (const sz of [-1, 1]) {
+    const deck = new THREE.PlaneGeometry(span, WALKWAY.width)
+    deck.rotateX(-Math.PI / 2)
+    deck.translate(0, girderY - WALKWAY.drop + 0.045, sz * (girderZ + WALKWAY.offset))
+    parts.push(deck)
+  }
+  return merge(parts)
+}
+
+/**
+ * A ponte: duas vigas atravessando em X, o passadiço por fora e os carros de
+ * translação nas pontas. Corre sobre os trilhos em Z; o Y já vem embutido.
+ *
+ * O passadiço é o único lugar da máquina onde caberia gente, e é por isso que
+ * ele carrega o vocabulário todo: piso de grade, rodapé, travessa e corrimão
+ * na altura certa, montante a cada dois metros, cantoneira de borda, e
+ * consolo preso à alma da viga a cada quatro. Sem isso a viga é uma barra
+ * chapada atravessando o alto do quadro — o elemento mais largo da cena e o
+ * único sem estrutura.
  */
 export function bridgeGeometry(rig: Rig): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = []
   const { railX, railY, girderY, girderZ } = rig
   const span = railX * 2
+  const deckY = girderY - WALKWAY.drop
 
   for (const sz of [-1, 1]) {
     // viga caixão e o trilho do carro por cima dela
     parts.push(box(span, 1.05, 0.72, 0, girderY, sz * girderZ))
     parts.push(box(span, 0.16, 0.3, 0, girderY + 0.61, sz * girderZ))
-    // passadiço e guarda-corpo por fora da viga: sem isto a viga é uma barra
-    // chapada atravessando o alto do quadro — o elemento mais largo da cena e
-    // o único sem estrutura. Um corrimão diz "gente sobe aqui".
-    const walk = sz * (girderZ + 0.66)
-    parts.push(box(span, 0.08, 0.6, 0, girderY - 0.45, walk))
-    for (const height of [0.6, 1]) {
-      parts.push(box(span, 0.07, 0.07, 0, girderY - 0.45 + height, walk + sz * 0.27))
+
+    const walk = sz * (girderZ + WALKWAY.offset)
+    const outer = walk + sz * (WALKWAY.width / 2)
+    const inner = walk - sz * (WALKWAY.width / 2)
+    // cantoneiras de borda: é nelas que a grade se apoia, e é a linha delas
+    // que dá espessura ao piso visto de cima
+    parts.push(box(span, 0.09, 0.07, 0, deckY, outer))
+    parts.push(box(span, 0.09, 0.07, 0, deckY, inner))
+    // rodapé: chapa em pé na borda de fora, para nada cair de quinze metros
+    parts.push(box(span, WALKWAY.toe, 0.04, 0, deckY + WALKWAY.toe / 2, outer + sz * 0.03))
+    // travessa e corrimão
+    for (const height of [WALKWAY.mid, WALKWAY.top]) {
+      parts.push(box(span, 0.06, 0.06, 0, deckY + height, outer + sz * 0.02))
     }
-    for (let i = 0; i <= 14; i++) {
-      parts.push(box(0.07, 1.04, 0.07, -span / 2 + (span * i) / 14, girderY + 0.09, walk + sz * 0.27))
+
+    const posts = Math.max(6, Math.round(span / 1.95))
+    for (let i = 0; i <= posts; i++) {
+      const x = -span / 2 + (span * i) / posts
+      // montante do guarda-corpo
+      parts.push(box(0.06, WALKWAY.top, 0.06, x, deckY + WALKWAY.top / 2, outer + sz * 0.02))
+      // consolo sob o piso, preso à alma da viga — um a cada dois montantes
+      if (i % 2 === 0) {
+        parts.push(box(0.05, 0.06, WALKWAY.width + 0.2, x, deckY - 0.05, walk))
+        parts.push(
+          braceZY(
+            0.05,
+            new THREE.Vector3(x, deckY - 0.1, outer - sz * 0.08),
+            new THREE.Vector3(x, girderY - 0.05, sz * (girderZ + 0.3)),
+          ),
+        )
+      }
+    }
+
+    // emenda de fábrica: chapa de reforço com fileira de rebites, onde dois
+    // trechos de viga se encontram. Três por viga, que é o que um vão de 25 m
+    // pede — e não uma fileira contínua, que viraria textura.
+    for (const k of [-0.5, 0, 0.5]) {
+      const x = k * span * 0.62
+      parts.push(box(0.34, 1.16, 0.78, x, girderY, sz * girderZ))
+      for (const dy of [-0.36, 0, 0.36]) {
+        for (const dz of [-0.24, 0.24]) parts.push(box(0.4, 0.07, 0.07, x, girderY + dy, sz * girderZ + dz))
+      }
     }
   }
 
@@ -279,7 +404,8 @@ export function bridgeGeometry(rig: Rig): THREE.BufferGeometry {
     for (const sz of [-1, 1]) {
       parts.push(rod(0.42, 0.34, sx * railX, railY - 0.62, sz * (girderZ + 0.5)))
     }
-    // cartela entre o carro de translação e a viga
+    // cartela entre o carro de translação e a viga, e a chapa de reforço com
+    // rebites na junta — a mais carregada da máquina inteira
     parts.push(
       braceXY(
         0.3,
@@ -287,6 +413,14 @@ export function bridgeGeometry(rig: Rig): THREE.BufferGeometry {
         new THREE.Vector3(sx * (railX - 2.6), girderY + 0.4, 0),
       ),
     )
+    for (const sz of [-1, 1]) {
+      parts.push(box(1.1, 1.3, 0.06, sx * (railX - 0.9), girderY, sz * (girderZ + 0.4)))
+      for (const dx of [-0.36, 0.36]) {
+        for (const dy of [-0.42, 0, 0.42]) {
+          parts.push(box(0.09, 0.09, 0.12, sx * (railX - 0.9) + dx, girderY + dy, sz * (girderZ + 0.44)))
+        }
+      }
+    }
   }
 
   return merge(parts)

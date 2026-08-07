@@ -1,9 +1,9 @@
 import { CONTAINER } from './portico-model'
-import { buildArchitecture } from './portico-architecture'
-import type { StackLayer } from '@/content/types'
+import { buildAssembly } from './portico-architecture'
+import { type SceneSystem, sceneRotation } from './portico-systems'
 
 /**
- * A mesma arquitetura da cena WebGL, desenhada como elevação técnica.
+ * A mesma montagem da cena WebGL, desenhada como elevação técnica.
  *
  * Sem `'use client'`, sem `useState`, sem efeito: renderiza no servidor
  * porque é exatamente o que precisa chegar pronto no HTML. Quem não executa
@@ -11,13 +11,17 @@ import type { StackLayer } from '@/content/types'
  * de 768px (ver `PorticoSlot`) nunca depende de script nenhum para ver isto.
  *
  * É um desenho de engenharia de propósito, não uma versão pobre da cena:
- * mesma máquina, outro dialeto. A largura de cada patamar e as cotas saem da
- * MESMA função que a cena 3D usa (`buildArchitecture`), então o desenho não
- * pode divergir do objeto animado sem alguém mexer nos dois — se o dicionário
- * mudar, os dois mudam juntos.
+ * mesma máquina, outro dialeto. A disposição, as larguras e as cotas saem da
+ * MESMA função que a cena 3D usa (`buildAssembly`), então o desenho não pode
+ * divergir do objeto animado sem alguém mexer nos dois — se a stack de um
+ * sistema mudar em `content/systems.ts`, os dois mudam juntos.
+ *
+ * Desenha o PRIMEIRO sistema da rotação, que é o de stack mais longa: é o que
+ * mostra mais camadas num quadro só. A cena mostra os sete, um por vez; o
+ * desenho estático mostra um, porque desenho estático não tem tempo.
  *
  * Puramente decorativo — `aria-hidden` no próprio `<svg>` — porque o que ele
- * representa já existe em texto de verdade na seção Stack.
+ * representa já existe em texto de verdade nas seções Sistemas e Stack.
  */
 
 /** Unidades de desenho por metro. */
@@ -26,20 +30,44 @@ const VIEW_W = 300
 const VIEW_H = 230
 /** Linha do terreno. */
 const GROUND = 196
-/** Eixo vertical da pirâmide. */
-const AXIS = 88
+/** Eixo vertical da montagem. */
+const AXIS = 120
 
 const BOX_H = CONTAINER.height * SCALE
+const BOX_W = CONTAINER.length * SCALE
 
 /** Milímetros — a unidade padrão de uma planta, por isso sem sufixo. */
 const mm = (metres: number): string => String(Math.round(metres * 1000))
 
-export function PorticoFallback({ layers }: { layers: readonly StackLayer[] }) {
-  const { tiers, width, height } = buildArchitecture(layers)
-  const half = (width * SCALE) / 2
-  const top = GROUND - tiers.length * BOX_H
-  const leaderX = AXIS + half + 12
-  const labelX = leaderX + 6
+export function PorticoFallback({ systems }: { systems: readonly SceneSystem[] }) {
+  const rotation = sceneRotation(systems)
+  const first = rotation[0]
+  const build = first ? buildAssembly(first) : null
+
+  // A elevação mostra a FILEIRA DA FRENTE de cada nível — é o que a câmera da
+  // cena vê, e é o que casa cada caixa desenhada com uma tecnologia. Nomear a
+  // caixa é o que separa "elevação do sistema" de "retângulos empilhados".
+  const courses = (build?.levels ?? []).map((level, index) => {
+    const inLevel = (build?.slots ?? [])
+      .map((slot, i) => ({ slot, name: build?.cargo[i]?.name ?? '' }))
+      .filter(({ slot }) => Math.abs(slot.y - level.y) < 1e-9)
+    // Sem semente no máximo: um nível inteiro em z negativo com um zero na
+    // conta devolveria `0`, o filtro abaixo não casaria com caixa nenhuma e o
+    // nível sumia do desenho — defeito real, pego pelo teste que conta os
+    // níveis desenhados.
+    const front = inLevel.reduce((far, { slot }) => Math.max(far, slot.z), -Infinity)
+    return {
+      index,
+      y: GROUND - (index + 1) * BOX_H,
+      boxes: inLevel
+        .filter(({ slot }) => Math.abs(slot.z - front) < 1e-9)
+        .sort((a, b) => a.slot.x - b.slot.x)
+        .map(({ slot, name }) => ({ x: AXIS + slot.x * SCALE - BOX_W / 2, name })),
+    }
+  })
+
+  const half = ((build?.width ?? CONTAINER.length) * SCALE) / 2
+  const top = GROUND - courses.length * BOX_H
   /** Linha de cota da altura total. */
   const dimX = AXIS - half - 22
   /** Linha de cota da largura da base. */
@@ -84,39 +112,43 @@ export function PorticoFallback({ layers }: { layers: readonly StackLayer[] }) {
       {/* Lâmpada de estado — o mesmo ponto único de `--color-data` da cena. */}
       <circle cx={AXIS + 20} cy="21.5" r="2" className="fill-data" />
 
-      {/* ── a pirâmide ── */}
-      {tiers.map((tier, index) => {
-        const y = GROUND - (index + 1) * BOX_H
-        const w = tier.width * SCALE
-        const x = AXIS - w / 2
-        const middle = y + BOX_H / 2
-        return (
-          <g key={`${index}:${tier.label}`}>
-            <rect x={x + 3} y={y + 3} width={Math.max(1, w - 6)} height={BOX_H - 6} fill="url(#portico-chapa)" />
-            <rect x={x} y={y} width={w} height={BOX_H} className="stroke-border" strokeWidth="1.2" />
-            {/* cantoneiras */}
-            {[
-              [x, y],
-              [x + w - 5, y],
-              [x, y + BOX_H - 4],
-              [x + w - 5, y + BOX_H - 4],
-            ].map(([cx, cy]) => (
-              <rect key={`${cx},${cy}`} x={cx} y={cy} width="5" height="4" className="fill-border" />
-            ))}
-            <line x1={x + w} y1={middle} x2={leaderX} y2={middle} className="stroke-faint" strokeWidth="0.7" />
-            <text
-              x={labelX}
-              y={middle}
-              dominantBaseline="middle"
-              fontSize="7"
-              letterSpacing="0.08em"
-              className="fill-muted font-mono"
-            >
-              {tier.label.toUpperCase()}
-            </text>
-          </g>
-        )
-      })}
+      {/* ── a montagem, caixa a caixa ── */}
+      {courses.map((course) => (
+        <g key={course.index}>
+          {course.boxes.map((cargo) => (
+            <g key={`${course.index}:${cargo.name}`}>
+              <rect
+                x={cargo.x + 3}
+                y={course.y + 3}
+                width={BOX_W - 6}
+                height={BOX_H - 6}
+                fill="url(#portico-chapa)"
+              />
+              <rect x={cargo.x} y={course.y} width={BOX_W} height={BOX_H} className="stroke-border" strokeWidth="1.2" />
+              {/* cantoneiras */}
+              {[
+                [cargo.x, course.y],
+                [cargo.x + BOX_W - 5, course.y],
+                [cargo.x, course.y + BOX_H - 4],
+                [cargo.x + BOX_W - 5, course.y + BOX_H - 4],
+              ].map(([cx, cy]) => (
+                <rect key={`${cx},${cy}`} x={cx} y={cy} width="5" height="4" className="fill-border" />
+              ))}
+              <text
+                x={cargo.x + BOX_W / 2}
+                y={course.y + BOX_H / 2}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize="4.6"
+                letterSpacing="0.08em"
+                className="fill-muted font-mono"
+              >
+                {cargo.name.toUpperCase()}
+              </text>
+            </g>
+          ))}
+        </g>
+      ))}
 
       {/* ── terreno ── */}
       <line x1="14" y1={GROUND} x2={VIEW_W - 10} y2={GROUND} className="stroke-border" strokeWidth="1.2" />
@@ -147,10 +179,14 @@ export function PorticoFallback({ layers }: { layers: readonly StackLayer[] }) {
         transform={`rotate(-90 ${dimX - 4} ${(top + GROUND) / 2})`}
         className="fill-muted font-mono"
       >
-        {mm(height)}
+        {mm(build?.height ?? 0)}
       </text>
       <text x={AXIS} y={dimY - 3} fontSize="6.5" textAnchor="middle" letterSpacing="0.08em" className="fill-muted font-mono">
-        {mm(width)}
+        {mm(build?.width ?? 0)}
+      </text>
+      {/* O nome do sistema, como o carimbo de uma prancha. Vem do conteúdo. */}
+      <text x="14" y={top - 16} fontSize="7.5" letterSpacing="0.16em" className="fill-muted font-mono">
+        {(first?.name ?? '').toUpperCase()}
       </text>
     </svg>
   )

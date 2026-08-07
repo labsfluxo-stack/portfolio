@@ -1,91 +1,152 @@
 import { describe, expect, it } from 'vitest'
-import { PITCH, buildArchitecture, byMastery, isArchitecture } from '@/components/three/portico-architecture'
+import { PITCH, buildAssembly, byFoundation, choosePile } from '@/components/three/portico-architecture'
+import { ROLE_COUNT, roleOf, sceneRotation } from '@/components/three/portico-systems'
 import { CONTAINER, slotCenterY } from '@/components/three/portico-model'
-import { pt } from '@/content/pt'
-import { en } from '@/content/en'
-import type { StackLayer } from '@/content/types'
+import { systems } from '@/content/systems'
 
-const built = (dict: typeof pt) => buildArchitecture(dict.stack.layers)
+const rotation = sceneRotation(systems)
+const assemblies = rotation.map(buildAssembly)
 
-describe('a pirâmide', () => {
-  it('tem um patamar por camada do stack, na ordem do dicionário', () => {
-    for (const dict of [pt, en]) {
-      const arch = built(dict)
-      expect(arch.tiers.map((tier) => tier.label)).toEqual(dict.stack.layers.map((layer) => layer.label))
+describe('a rotação de sistemas', () => {
+  it('monta os três da vitrine DERIVADOS de content/systems.ts, nunca copiados', () => {
+    for (const system of systems) {
+      const built = assemblies.find((build) => build.system.name === system.name)
+      expect(built, system.name).toBeDefined()
+      // A stack da cena é exatamente a do conteúdo, na mesma quantidade: se
+      // alguém acrescentar uma tecnologia lá, a cena monta um contêiner a mais
+      // aqui sem ninguém tocar na cena.
+      expect(new Set(built?.cargo.map((freight) => freight.name)), system.name).toEqual(new Set(system.stack))
+      expect(built?.cargo).toHaveLength(system.stack.length)
     }
   })
 
-  it('infra larga na base, qualidade estreita no topo — e nunca alarga subindo', () => {
-    for (const dict of [pt, en]) {
-      const arch = built(dict)
-      for (let i = 1; i < arch.tiers.length; i++) {
-        const above = arch.tiers[i]
-        const below = arch.tiers[i - 1]
-        if (!above || !below) continue
-        expect(above.cols, `${above.label} vs ${below.label}`).toBeLessThanOrEqual(below.cols)
-        expect(above.rows, `${above.label} vs ${below.label}`).toBeLessThanOrEqual(below.rows)
+  it('acrescenta os sistemas menores, e é deles que vem o contraste de porte', () => {
+    const sizes = assemblies.map((build) => build.cargo.length)
+    expect(assemblies.length).toBeGreaterThan(systems.length)
+    expect(Math.min(...sizes)).toBeLessThanOrEqual(4)
+    expect(Math.max(...sizes)).toBeGreaterThanOrEqual(9)
+  })
+
+  it('alterna porte: complexo, simples, complexo, simples', () => {
+    const sizes = assemblies.map((build) => build.cargo.length)
+    const median = [...sizes].sort((a, b) => a - b)[Math.floor(sizes.length / 2)] ?? 0
+    // Nenhum par vizinho pode estar do mesmo lado da mediana duas vezes
+    // seguidas na primeira metade da rotação — é o que faz o ritmo mudar para
+    // quem fica olhando, em vez de a cena descer uma rampa de tamanhos.
+    let sameSide = 0
+    for (let i = 1; i < sizes.length; i++) {
+      const before = (sizes[i - 1] ?? 0) >= median
+      const now = (sizes[i] ?? 0) >= median
+      if (before === now) sameSide += 1
+    }
+    expect(sameSide, `tamanhos: ${sizes.join(', ')}`).toBeLessThanOrEqual(1)
+  })
+
+  it('a ordem é determinística: a mesma entrada devolve sempre a mesma rotação', () => {
+    expect(sceneRotation(systems).map((s) => s.name)).toEqual(rotation.map((s) => s.name))
+  })
+
+  it('não quebra sem sistema nenhum', () => {
+    expect(sceneRotation([])).toHaveLength(4)
+  })
+})
+
+describe('a disposição', () => {
+  it('infraestrutura embaixo, aplicação em cima — a lógica visível da montagem', () => {
+    for (const build of assemblies) {
+      let floor = -Infinity
+      for (const level of build.levels) {
+        const roles = level.items.map((item) => item.role)
+        if (roles.length === 0) continue
+        // Nenhum nível pode ter uma peça mais fundamental do que a peça mais
+        // superficial do nível de baixo: o banco não roda sobre o React.
+        expect(Math.min(...roles), `${build.system.name} em y=${level.y}`).toBeGreaterThanOrEqual(floor)
+        floor = Math.max(...roles)
       }
-      const base = arch.tiers[0]
-      const top = arch.tiers[arch.tiers.length - 1]
-      expect(top?.items.length ?? 0).toBeLessThan(base?.items.length ?? 0)
-      expect(top?.width ?? 0).toBeLessThan(base?.width ?? 0)
-      expect(top?.depth ?? 0).toBeLessThan(base?.depth ?? 0)
     }
   })
 
-  it('cada patamar recua em ALGUMA dimensão — zigurate, não parede', () => {
-    const arch = built(pt)
-    let steps = 0
-    for (let i = 1; i < arch.tiers.length; i++) {
-      const above = arch.tiers[i]
-      const below = arch.tiers[i - 1]
-      if (!above || !below) continue
-      if (above.cols < below.cols || above.rows < below.rows) steps += 1
+  it('nunca termina num contêiner solto no topo — a agulha que o dono viu', () => {
+    for (const build of assemblies) {
+      const top = build.levels[build.levels.length - 1]
+      expect(top?.items.length ?? 0, build.system.name).toBeGreaterThan(1)
     }
-    // Um degrau por junta, menos a última (o topo já é um contêiner só e não
-    // tem para onde encolher).
-    expect(steps).toBeGreaterThanOrEqual(arch.tiers.length - 2)
   })
 
-  it('a largura sai do NÚMERO de tecnologias, não de tabela fixa', () => {
-    // Uma camada de base com muito mais itens tem de produzir uma base maior.
-    const item = { name: 'X', level: 'dominio' } as const
-    const layer = (n: number): StackLayer => ({
-      label: 'L',
-      source: 'repo',
-      items: Array.from({ length: n }, () => ({ ...item })),
-    })
-    const small = buildArchitecture([layer(4), layer(2)])
-    const big = buildArchitecture([layer(24), layer(12)])
-    expect(big.tiers[0]?.cols ?? 0).toBeGreaterThan(small.tiers[0]?.cols ?? 0)
-    expect(big.width).toBeGreaterThan(small.width)
-    expect(big.slots.length).toBeGreaterThan(small.slots.length)
+  it('nunca é um nível só: montagem tem altura', () => {
+    for (const build of assemblies) {
+      expect(build.levels.length, build.system.name).toBeGreaterThanOrEqual(2)
+    }
+  })
+
+  it('nenhum nível é mais largo nem mais fundo que o de baixo', () => {
+    for (const build of assemblies) {
+      for (let i = 1; i < build.levels.length; i++) {
+        const above = build.levels[i]
+        const below = build.levels[i - 1]
+        if (!above || !below) continue
+        expect(above.cols, `${build.system.name} nível ${i}`).toBeLessThanOrEqual(below.cols)
+        expect(above.rows, `${build.system.name} nível ${i}`).toBeLessThanOrEqual(below.rows)
+      }
+    }
+  })
+
+  it('a silhueta CRESCE com o tamanho da stack — é assim que o porte lê', () => {
+    // O defeito que este teste existe para pegar: com a forma escolhida só por
+    // proporção, um sistema de oito tecnologias saía num bloco mais estreito
+    // que um de cinco. A maior lia como menor, e o contraste que o dono pediu
+    // virava ruído.
+    //
+    // A medida é o VOLUME da caixa envolvente, não a largura: a pilha ganha
+    // massa em três eixos e um sistema de seis pode ser mais estreito que um
+    // de cinco desde que seja duas fileiras mais fundo. O que não pode é
+    // encolher.
+    const bulk = (n: number): number => {
+      const levels = choosePile(n)
+      const base = levels[0] ?? { cols: 1, rows: 1, count: 0 }
+      const width = (base.cols - 1) * PITCH.x + CONTAINER.length
+      const depth = (base.rows - 1) * PITCH.z + CONTAINER.width
+      return width * depth * levels.length * CONTAINER.height
+    }
+    for (let n = 4; n < 10; n++) expect(bulk(n + 1), `${n} → ${n + 1}`).toBeGreaterThanOrEqual(bulk(n))
+    expect(bulk(10)).toBeGreaterThan(bulk(4) * 2.5)
+  })
+
+  it('a forma sai do NÚMERO de contêineres, não de tabela fixa', () => {
+    for (let n = 2; n <= 14; n++) {
+      const levels = choosePile(n)
+      expect(levels.reduce((sum, level) => sum + level.count, 0), `n=${n}`).toBe(n)
+      for (const level of levels) expect(level.count).toBeLessThanOrEqual(level.cols * level.rows)
+    }
+    expect(choosePile(0)).toEqual([])
   })
 
   it('nenhum contêiner flutua: todo lugar acima da base tem apoio embaixo', () => {
-    for (const dict of [pt, en]) {
-      const arch = built(dict)
-      const taken = new Set(arch.slots.map((slot) => `${slot.x.toFixed(3)}:${slot.z.toFixed(3)}:${slot.y.toFixed(3)}`))
-      for (const slot of arch.slots) {
+    for (const build of assemblies) {
+      const taken = new Set(
+        build.slots.map((slot) => `${slot.x.toFixed(3)}:${slot.z.toFixed(3)}:${slot.y.toFixed(3)}`),
+      )
+      for (const slot of build.slots) {
         if (slot.y <= slotCenterY(0)) continue
         const below = `${slot.x.toFixed(3)}:${slot.z.toFixed(3)}:${(slot.y - CONTAINER.height).toFixed(3)}`
-        expect(taken.has(below), `${slot.x},${slot.z} em y=${slot.y}`).toBe(true)
+        expect(taken.has(below), `${build.system.name} em ${slot.x},${slot.z},${slot.y}`).toBe(true)
       }
     }
   })
 
   it('dois lugares nunca coincidem, e nenhum par se atravessa', () => {
-    const arch = built(pt)
-    for (let a = 0; a < arch.slots.length; a++) {
-      for (let b = a + 1; b < arch.slots.length; b++) {
-        const one = arch.slots[a]
-        const other = arch.slots[b]
-        if (!one || !other) continue
-        const apart =
-          Math.abs(one.x - other.x) > CONTAINER.length * 0.9 ||
-          Math.abs(one.y - other.y) > CONTAINER.height * 0.9 ||
-          Math.abs(one.z - other.z) > CONTAINER.width * 0.9
-        expect(apart, `lugares ${a} e ${b}`).toBe(true)
+    for (const build of assemblies) {
+      for (let a = 0; a < build.slots.length; a++) {
+        for (let b = a + 1; b < build.slots.length; b++) {
+          const one = build.slots[a]
+          const other = build.slots[b]
+          if (!one || !other) continue
+          const apart =
+            Math.abs(one.x - other.x) > CONTAINER.length * 0.9 ||
+            Math.abs(one.y - other.y) > CONTAINER.height * 0.9 ||
+            Math.abs(one.z - other.z) > CONTAINER.width * 0.9
+          expect(apart, `${build.system.name}: lugares ${a} e ${b}`).toBe(true)
+        }
       }
     }
   })
@@ -96,89 +157,77 @@ describe('a pirâmide', () => {
     expect(PITCH.x - CONTAINER.length).toBeLessThan(1)
   })
 
-  it('a montagem é de baixo para cima e, dentro do patamar, do fundo para a frente', () => {
-    const arch = built(pt)
-    let previous = arch.slots[0]
-    for (const slot of arch.slots.slice(1)) {
-      if (!previous) break
-      const rising = slot.y > previous.y + 1e-9
-      const sameTier = Math.abs(slot.y - previous.y) < 1e-9
-      expect(rising || sameTier, `y=${slot.y} depois de ${previous.y}`).toBe(true)
-      if (sameTier) expect(slot.z, 'ordem em profundidade').toBeGreaterThanOrEqual(previous.z - 1e-9)
-      previous = slot
+  it('a montagem é de baixo para cima e, dentro do nível, do fundo para a frente', () => {
+    for (const build of assemblies) {
+      let previous = build.slots[0]
+      for (const slot of build.slots.slice(1)) {
+        if (!previous) break
+        const rising = slot.y > previous.y + 1e-9
+        const sameLevel = Math.abs(slot.y - previous.y) < 1e-9
+        expect(rising || sameLevel, `${build.system.name}: y=${slot.y} depois de ${previous.y}`).toBe(true)
+        if (sameLevel) expect(slot.z, 'ordem em profundidade').toBeGreaterThanOrEqual(previous.z - 1e-9)
+        previous = slot
+      }
     }
   })
 
   it('um contêiner por tecnologia, sem repetir e sem inventar', () => {
-    for (const dict of [pt, en]) {
-      const arch = built(dict)
-      expect(arch.cargo).toHaveLength(arch.slots.length)
-      const names = arch.cargo.map((freight) => freight.item.name)
-      expect(new Set(names).size).toBe(names.length)
-      const dictionary = new Set(dict.stack.layers.flatMap((layer) => layer.items.map((i) => i.name)))
-      for (const name of names) expect(dictionary.has(name), name).toBe(true)
+    for (const build of assemblies) {
+      expect(build.cargo).toHaveLength(build.slots.length)
+      const names = build.cargo.map((freight) => freight.name)
+      expect(new Set(names).size, build.system.name).toBe(names.length)
+      for (const name of names) expect(build.system.stack, name).toContain(name)
     }
   })
 
-  it('nada se perde: o que não cabe na arquitetura vai para as pilhas paradas', () => {
-    for (const dict of [pt, en]) {
-      const arch = built(dict)
-      // Só o que a cena monta. O hardware de rede é excluído de propósito por
-      // `isArchitecture` — contar o dicionário inteiro faria o teste acusar a
-      // exclusão como perda.
-      const total = dict.stack.layers.reduce(
-        (sum, layer) => sum + layer.items.filter(isArchitecture).length,
-        0,
-      )
-      expect(arch.cargo.length + arch.spare.length).toBe(total)
+  it('todo contêiner leva o nome do sistema — o contexto da montagem', () => {
+    for (const build of assemblies) {
+      for (const freight of build.cargo) expect(freight.system).toBe(build.system.name)
     }
   })
 
-  it('quando um patamar não cabe inteiro, quem fica de fora é o de menor domínio', () => {
-    const arch = built(pt)
-    for (const tier of arch.tiers) {
-      const source = pt.stack.layers.find((layer) => layer.label === tier.label)
-      if (!source) continue
-      const elegiveis = source.items.filter(isArchitecture)
-      if (elegiveis.length === tier.items.length) continue
-      const chosen = new Set(tier.items.map((item) => item.name))
-      const dropped = elegiveis.filter((item) => !chosen.has(item.name))
-      const worst = Math.max(...tier.items.map((item) => rank(item.level)))
-      for (const item of dropped) expect(rank(item.level), item.name).toBeGreaterThanOrEqual(worst)
+  it('a camada de sustentação de toda tecnologia está dentro da tabela', () => {
+    for (const build of assemblies) {
+      for (const freight of build.cargo) {
+        expect(freight.role, freight.name).toBeGreaterThanOrEqual(0)
+        expect(freight.role, freight.name).toBeLessThan(ROLE_COUNT)
+      }
     }
   })
 
-  it('a ordem por domínio é estável — o mesmo dicionário dá sempre a mesma carga', () => {
-    const once = byMastery(pt.stack.layers[0]?.items ?? []).map((item) => item.name)
-    const twice = byMastery(pt.stack.layers[0]?.items ?? []).map((item) => item.name)
-    expect(once).toEqual(twice)
-    expect(byMastery([{ name: 'a', level: 'contato' }, { name: 'b', level: 'dominio' }]).map((i) => i.name)).toEqual([
-      'b',
-      'a',
-    ])
+  it('a camada casa pelo primeiro segmento — "Fastify 5" cai junto com "Fastify"', () => {
+    expect(roleOf('Fastify 5')).toBe(roleOf('Fastify'))
+    expect(roleOf('Docker')).toBeLessThan(roleOf('React'))
+    expect(roleOf('PostgreSQL')).toBeLessThan(roleOf('Next.js'))
+    // Tecnologia desconhecida não derruba a montagem: cai na camada de serviço.
+    expect(roleOf('Tecnologia Que Não Existe')).toBe(roleOf('TypeScript'))
   })
 
-  it('as tecnologias mais dominadas caem na fileira que a câmera lê', () => {
-    const arch = built(pt)
-    for (const tier of arch.tiers) {
-      if (tier.rows < 2) continue
-      const inTier = arch.slots
-        .map((slot, i) => ({ slot, freight: arch.cargo[i] }))
-        .filter(({ slot }) => Math.abs(slot.y - tier.y) < 1e-9)
-      const front = Math.max(...inTier.map(({ slot }) => slot.z))
-      const back = Math.min(...inTier.map(({ slot }) => slot.z))
-      const rankAt = (z: number) =>
-        Math.min(...inTier.filter(({ slot }) => slot.z === z).map(({ freight }) => rank(freight?.item.level)))
-      expect(rankAt(front), tier.label).toBeLessThanOrEqual(rankAt(back))
+  it('a ordem por camada é estável — a mesma stack dá sempre a mesma montagem', () => {
+    const once = byFoundation(['React', 'Docker', 'TypeScript'], 'X').map((f) => f.name)
+    expect(once).toEqual(byFoundation(['React', 'Docker', 'TypeScript'], 'X').map((f) => f.name))
+    expect(once).toEqual(['Docker', 'TypeScript', 'React'])
+  })
+
+  it('a fileira que a câmera lê é a que sustenta o sistema', () => {
+    for (const build of assemblies) {
+      for (const level of build.levels) {
+        if (level.rows < 2) continue
+        const inLevel = build.slots
+          .map((slot, i) => ({ slot, freight: build.cargo[i] }))
+          .filter(({ slot }) => Math.abs(slot.y - level.y) < 1e-9)
+        const front = Math.max(...inLevel.map(({ slot }) => slot.z))
+        const back = Math.min(...inLevel.map(({ slot }) => slot.z))
+        const rankAt = (z: number): number =>
+          Math.min(...inLevel.filter(({ slot }) => slot.z === z).map(({ freight }) => freight?.role ?? ROLE_COUNT))
+        expect(rankAt(front), build.system.name).toBeLessThanOrEqual(rankAt(back))
+      }
     }
   })
 
-  it('não quebra sem camada nenhuma', () => {
-    const empty = buildArchitecture([])
-    expect(empty.tiers).toHaveLength(0)
+  it('não quebra com stack vazia', () => {
+    const empty = buildAssembly({ name: 'X', stack: [] })
+    expect(empty.levels).toHaveLength(0)
     expect(empty.slots).toHaveLength(0)
   })
 })
-
-const rank = (level: string | undefined): number =>
-  level === 'dominio' ? 0 : level === 'producao' ? 1 : level === 'contato' ? 2 : 3

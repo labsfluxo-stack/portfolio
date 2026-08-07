@@ -1,18 +1,14 @@
 import {
-  siAnthropic,
   siAstro,
   siDocker,
   siDrizzle,
+  siExpress,
   siFastify,
-  siGithubactions,
-  siGoogle,
-  siJavascript,
+  siGsap,
   siNestjs,
   siNextdotjs,
   siNginx,
   siNodedotjs,
-  siPm2,
-  siPnpm,
   siPostgresql,
   siPrisma,
   siPwa,
@@ -21,27 +17,26 @@ import {
   siSupabase,
   siTailwindcss,
   siThreedotjs,
-  siTurborepo,
   siTypescript,
-  siVercel,
   siVite,
   siVitest,
   siZod,
 } from 'simple-icons'
 import { CONTAINER, type Slot, slotCenterY, stencilLines } from './portico-model'
+import { plain } from './portico-systems'
 
 /**
- * O pátio: de onde a máquina tira o material e onde fica o que ela ainda não
- * usou.
+ * O pátio: onde MORA cada contêiner de cada sistema.
  *
- * A cena começa com a FRENTE VAZIA — todo o material está aqui atrás, e a
- * ponte vai buscando de trás e trazendo. São dois conjuntos de pilhas com
- * papéis diferentes:
+ * Esta é a peça que faz a rotação de sistemas não ter corte. Cada sistema tem
+ * uma baia própria, e cada contêiner uma casa fixa dentro dela: a máquina
+ * esvazia a baia do sistema da vez para montá-lo, devolve tudo às mesmas
+ * pilhas e segue para a baia seguinte. Nenhum contêiner aparece, some ou troca
+ * de estampa no meio do caminho.
  *
- * - **origem**: exatamente um lugar por contêiner da arquitetura. Esvazia ao
- *   longo da montagem e enche de volta na desmontagem, nível a nível.
- * - **fundo**: o que não coube na pirâmide, parado. Dá porte de terminal em
- *   operação e é o que a névoa dissolve; a máquina nunca passa por cima dele.
+ * O ganho é duplo. O corte some, e o fundo deixa de ser cenário: as pilhas
+ * paradas do fundo não são mais enchimento — são os outros sistemas
+ * esperando a vez, com as tecnologias verdadeiras deles estampadas na chapa.
  *
  * Como `portico-model.ts`, aqui não entra three.js: é aritmética e dados,
  * testável sem GPU. Nenhum `Math.random()` — posição, altura e carga saem
@@ -59,23 +54,23 @@ import { CONTAINER, type Slot, slotCenterY, stencilLines } from './portico-model
  * inteiro — ou indexá-lo por string em tempo de execução — impediria o
  * tree-shaking e sozinho multiplicaria o peso da cena por seis.
  *
+ * A lista é a das tecnologias que os sistemas de fato usam, mais um punhado de
+ * vizinhas prováveis. Quem não estiver aqui não quebra nada: cai em estêncil,
+ * que é o comportamento certo (ver `markFor`).
+ *
  * CC0-1.0, então nada precisa ser atribuído na página.
  */
 const ICONS = [
-  siAnthropic,
   siAstro,
   siDocker,
   siDrizzle,
+  siExpress,
   siFastify,
-  siGithubactions,
-  siGoogle,
-  siJavascript,
+  siGsap,
   siNestjs,
   siNextdotjs,
   siNginx,
   siNodedotjs,
-  siPm2,
-  siPnpm,
   siPostgresql,
   siPrisma,
   siPwa,
@@ -84,9 +79,7 @@ const ICONS = [
   siSupabase,
   siTailwindcss,
   siThreedotjs,
-  siTurborepo,
   siTypescript,
-  siVercel,
   siVite,
   siVitest,
   siZod,
@@ -120,9 +113,9 @@ const SLUG_CHARS = new RegExp(`[${Object.keys(SLUG_REPLACEMENTS).join('')}]`, 'g
  *
  * É esta função que faz a ausência de ícone cair no texto **sozinha**: quem
  * não estiver em `ICONS` simplesmente não é encontrado. Uma lista manual de
- * exceções sairia de sincronia na primeira mudança do dicionário — e sairia
- * mesmo: o simple-icons TEM MikroTik, ao contrário do que se supunha, e
- * DEIXOU DE TER OpenAI e Playwright entre duas versões.
+ * exceções sairia de sincronia na primeira mudança do conteúdo — e sairia
+ * mesmo: o simple-icons DEIXOU DE TER OpenAI e Playwright entre duas versões,
+ * e nunca teve Groq, pgTAP, pgvector nem BullMQ.
  */
 export function iconSlug(name: string): string {
   return name
@@ -133,29 +126,22 @@ export function iconSlug(name: string): string {
 }
 
 /**
- * A escada de resolução: como o nome CURTO do dicionário chega à marca.
+ * A escada de resolução: como o nome CURTO do conteúdo chega à marca.
  *
- * O slug exato sozinho não bastava, e a conta é esta: o dicionário escreve
- * "Node", "Tailwind", "Supabase/RLS" e "Vercel AI SDK", enquanto o pacote
- * registra `nodedotjs`, `tailwindcss`, `supabase` e `vercel`. Quatro marcas
- * existiam, estavam pagas no bundle e caíam em estêncil por diferença de
- * grafia — não por ausência.
- *
- * A saída NÃO é uma tabela de sinônimos escrita à mão (essa sai de sincronia
- * na primeira mudança do dicionário). São três tentativas, nesta ordem:
+ * O slug exato sozinho não basta, e a conta é esta: o conteúdo escreve
+ * "Fastify 5", "Next.js" e "three.js", enquanto o pacote registra `fastify`,
+ * `nextdotjs` e `threedotjs`. São três tentativas, nesta ordem:
  *
  * 1. **Slug exato.** `React` → `react`. Vem primeiro para que `Vite` nunca
- *    caia em `vitest` e `GitHub Actions` nunca caia em `github`.
- * 2. **Primeiro segmento.** Corta em `/` e em espaço: `Supabase/RLS` →
- *    `supabase`, `Vercel AI SDK` → `vercel`. É como se escreve uma marca
- *    qualificada.
- * 3. **Prefixo ÚNICO dentro do que a cena importa.** `node` → `nodedotjs`,
- *    `tailwind` → `tailwindcss`. Único é a palavra que segura a regra: no
- *    pacote inteiro `node` casaria com cinco marcas (nodered, nodebb,
- *    nodegui, nodemon…), e é justamente por a busca correr só sobre `ICONS`
- *    que ela é segura — a lista de importação é a curadoria. Empate resolve
- *    para nada, e o nome cai em estêncil, que é o comportamento certo quando
- *    a intenção é ambígua.
+ *    caia em `vitest`.
+ * 2. **Primeiro segmento.** Corta em `/` e em espaço: `Fastify 5` → `fastify`.
+ *    É como se escreve uma marca qualificada.
+ * 3. **Prefixo ÚNICO dentro do que a cena importa.** `node` → `nodedotjs`.
+ *    Único é a palavra que segura a regra: no pacote inteiro `node` casaria
+ *    com cinco marcas, e é justamente por a busca correr só sobre `ICONS` que
+ *    ela é segura — a lista de importação é a curadoria. Empate resolve para
+ *    nada, e o nome cai em estêncil, que é o comportamento certo quando a
+ *    intenção é ambígua.
  */
 function resolveIcon(name: string): (typeof ICONS)[number] | undefined {
   const slug = iconSlug(name)
@@ -175,10 +161,10 @@ function resolveIcon(name: string): (typeof ICONS)[number] | undefined {
  * O que vai estampado na face longa do contêiner.
  *
  * Ícone quando a marca existe, nome em estêncil quando não — na mesma
- * tipografia dos rótulos de camada (`stencilLines`). A alternância não é
- * remendo: é o que faz o pátio parecer marcação de carga de verdade em vez de
- * vitrine de logos, e é o que garante que nenhuma tecnologia seja descartada
- * em silêncio por não ter logotipo.
+ * tipografia dos rótulos (`stencilLines`). A alternância não é remendo: é o
+ * que faz o pátio parecer marcação de carga de verdade em vez de vitrine de
+ * logos, e é o que garante que nenhuma tecnologia seja descartada em silêncio
+ * por não ter logotipo.
  *
  * `hex` é a cor OFICIAL da marca, declarada pelo próprio pacote. Ver
  * `portico-textures.ts`: é a única exceção autorizada à paleta do projeto.
@@ -194,155 +180,118 @@ export function markFor(name: string): YardMark {
     : { name, kind: 'text', lines: stencilLines(name) }
 }
 
-// ── Pilhas ────────────────────────────────────────────────────────────────
+/** Se uma tecnologia tem marca — usado pelos testes e pela contagem do atlas. */
+export const hasBrand = (name: string): boolean => !!resolveIcon(name) && !!plain(name)
+
+// ── Baias ─────────────────────────────────────────────────────────────────
 
 /**
- * Passo entre pilhas do pátio. Mais folgado que o da arquitetura: no pátio o
- * que passa entre as pilhas é caminhão, não spreader.
+ * Passo entre pilhas do pátio. Mais folgado que o da montagem, porque no pátio
+ * o que passa entre as pilhas é caminhão, não só o spreader — mas bem menos
+ * folgado do que era: com sete baias no chão ao mesmo tempo, cada metro de
+ * corredor a mais empurra a baia do fundo para dentro da névoa e alonga todo
+ * translado.
  */
-const YARD_PITCH = { x: CONTAINER.length + 1.35, z: CONTAINER.width + 1.4 } as const
+const YARD_PITCH = { x: CONTAINER.length + 0.95, z: CONTAINER.width + 1.05 } as const
 
 /**
- * Onde começa o pátio de origem.
+ * Altura máxima de uma pilha do pátio.
  *
- * A pirâmide termina em z ≈ −5,4 e a primeira baia começa em −11,6: seis
- * metros de corredor, a pista por onde um caminhão manobra. Sem esse vazio o
- * fundo encosta na frente e a cena inteira lê como uma pilha só.
+ * Três é o número que fecha a conta de todos os lados: baixo o bastante para a
+ * máquina passar por cima do pátio sem ir ao topo do quadro (o perfil de
+ * altura mede contra o que ela cruza, e o que ela cruza é isto), alto o
+ * bastante para as dezenove pilhas caberem em cinco fileiras, e o suficiente
+ * para o pátio ter volume em vez de parecer um estacionamento.
  */
-const SOURCE_ORIGIN = { x: 0, z: -11.6 } as const
-/** Pilhas de três: alto o bastante para o pátio ter volume, baixo o bastante
- *  para a máquina não ter de içar até o topo do quadro a cada movimento. */
-const SOURCE_HEIGHT = 3
-const SOURCE_COLS = 3
+const STACK_HEIGHT = 3
 
 /**
- * As pilhas paradas, mais fundas ainda.
+ * Colunas de pilha por fileira.
  *
- * Ficam FORA do caminho da máquina de propósito (atrás da última baia de
- * origem): assim a altura delas nunca entra na conta da folga de içamento, e
- * a ponte pode passar rasteiro sobre o pátio de trabalho. `SPARE_LANE` é o
- * vazio que garante isso — e é medido a partir da última baia de origem, não
- * de um Z escrito à mão, porque a baia de origem se afasta quando a
- * arquitetura cresce.
+ * Quatro é o compromisso entre largura e profundidade. Mais colunas afastam os
+ * trilhos (`rigFor` os dimensiona pelo alcance) e a câmera recua até a
+ * montagem virar miniatura; menos colunas empurram as baias para o fundo e
+ * alongam cada translado.
  */
-const SPARE_LANE = 13
-/**
- * Uma coluna a mais que o pátio de trabalho, e não três.
- *
- * O bloco parado não pode passar da largura da pirâmide: quando passava, as
- * pilhas do fundo apareciam pelos DOIS lados dela, cortadas na borda do
- * quadro, e o olho lia três montes de peso igual em vez de uma arquitetura com
- * um terminal atrás. Fundo é o que dá escala ao assunto, não o que disputa com
- * ele.
- */
-const SPARE_COLS = 4
+const YARD_COLS = 4
 
 /**
- * Altura de cada pilha parada — 3, 2, 4, repetindo.
- *
- * Um pátio parado nunca é nivelado, e é o dente de serra do topo das pilhas
- * que dá a leitura de "terminal em operação" em vez de "fileira de caixas".
- * Sai do índice, como tudo nesta cena: nenhum `Math.random()`, e o pátio é o
- * mesmo a cada carregamento.
+ * Corredor entre a área de montagem e a primeira fileira de baias — a pista
+ * por onde um caminhão manobra. Sem esse vazio o fundo encosta na frente e a
+ * cena inteira lê como uma pilha só.
  */
-const spareHeight = (index: number): number => 2 + ((index * 2 + 1) % 3)
+const LANE = 5.5
 
 export type YardPlan = {
-  /** Lugares da baia de origem, na ordem em que são enchidos (nível crescente). */
-  source: Slot[]
-  /** Lugares das pilhas paradas do fundo. */
-  spare: Slot[]
-  /** Planta de todas as pilhas, para o piso receber a marcação delas. */
-  footprints: { x: number; z: number }[]
+  /** Os lugares de cada sistema, na ordem em que as pilhas são enchidas. */
+  homes: Slot[][]
+  /**
+   * Planta de todas as pilhas, para o piso receber a marcação delas. `code` é
+   * o número de posição pintado no chão: letra da baia (um sistema) e número
+   * da pilha dentro dela. Sai do índice, como tudo aqui.
+   */
+  footprints: { x: number; z: number; code: string }[]
 }
 
 /**
- * Enche pilhas NÍVEL A NÍVEL, não pilha a pilha.
+ * Quantos contêineres em cada pilha de uma baia.
  *
- * A ordem importa duas vezes. Primeiro porque a máquina pega na ordem
- * inversa: enchendo por nível, o inverso sempre devolve um contêiner com nada
- * em cima, seja qual for o número de pilhas. Segundo porque, se o dicionário
- * encolher, o que falta é o topo das pilhas — que é exatamente como um pátio
- * esvazia.
+ * Distribuídos por igual, e não "enche uma, começa a outra": uma baia com duas
+ * pilhas cheias e uma com um contêiner só lê como sobra, não como carga
+ * organizada. O resto é distribuído nas primeiras pilhas, que é o que um
+ * operador faz.
  */
-function fillStacks(count: number, spots: readonly { x: number; z: number }[], height: number): Slot[] {
-  const slots: Slot[] = []
-  for (let level = 0; level < height && slots.length < count; level++) {
-    for (const spot of spots) {
-      if (slots.length >= count) break
-      slots.push({ x: spot.x, y: slotCenterY(level), z: spot.z })
-    }
-  }
-  return slots
+function stackHeights(count: number): number[] {
+  const stacks = Math.max(1, Math.ceil(count / STACK_HEIGHT))
+  const base = Math.floor(count / stacks)
+  const extra = count % stacks
+  return Array.from({ length: stacks }, (_, i) => base + (i < extra ? 1 : 0))
 }
 
 /**
- * Um bloco de pilhas: `count` plantas em fileiras de até `cols` colunas,
- * centradas em `origin` e recuando em profundidade.
+ * A planta do pátio inteiro sai do TAMANHO de cada sistema: uma baia por
+ * sistema, na ordem da rotação, preenchendo fileiras de `YARD_COLS` colunas e
+ * recuando em profundidade.
  *
- * `stagger` desloca as fileiras ímpares meio passo para o lado. Não é
- * capricho: um bloco em grade perfeita lê como parede de tijolo, e o pátio de
- * fundo existe justamente para dar profundidade. Vale zero no pátio de
- * trabalho, onde a máquina desce entre as pilhas e o alinhamento é operacional.
- */
-function block(
-  count: number,
-  colsMax: number,
-  origin: { x: number; z: number },
-  stagger: number,
-): { x: number; z: number }[] {
-  const cols = Math.max(1, Math.min(colsMax, count))
-  const spots: { x: number; z: number }[] = []
-  for (let row = 0; spots.length < count; row++) {
-    for (let col = 0; col < cols && spots.length < count; col++) {
-      spots.push({
-        x: origin.x + (col - (cols - 1) / 2) * YARD_PITCH.x + (row % 2) * stagger,
-        z: origin.z - row * YARD_PITCH.z,
-      })
-    }
-  }
-  return spots
-}
-
-/**
- * A planta do pátio inteiro sai do NÚMERO de contêineres da arquitetura:
- * pilhas de três num bloco de três colunas na frente, e atrás do corredor
- * tantas pilhas paradas quantas o excedente exigir. Mude o dicionário e o
- * pátio cresce ou encolhe junto — nenhuma posição escrita à mão.
+ * Pôr as baias na ordem da rotação não é arrumação: é o que deixa a baia do
+ * sistema seguinte perto da do atual, e portanto o translado da virada curto.
  *
- * A conta das pilhas paradas é CUMULATIVA porque as alturas variam: dividir o
- * excedente pela altura média deixaria contêiner sem lugar de onde sair, e a
- * cena o materializaria no ar — que é exatamente o defeito que uma lista fixa
- * de seis pilhas produziu quando a arquitetura passou a sobrar mais carga.
+ * `depth` é a profundidade da maior montagem — é dela que sai onde o corredor
+ * começa, para que o pátio recue junto se um sistema crescer.
  */
-export function buildYard(sourceCount: number, spareCount: number): YardPlan {
-  const spots = block(Math.max(1, Math.ceil(sourceCount / SOURCE_HEIGHT)), SOURCE_COLS, SOURCE_ORIGIN, 0)
-  const source = fillStacks(sourceCount, spots, SOURCE_HEIGHT)
+export function buildYard(counts: readonly number[], depth: number): YardPlan {
+  const originZ = -(depth / 2 + LANE + CONTAINER.width / 2)
+  const homes: Slot[][] = []
+  const footprints: { x: number; z: number; code: string }[] = []
+  let cursor = 0
 
-  let stacks = 0
-  for (let room = 0; room < spareCount; stacks++) room += spareHeight(stacks)
-
-  // O corredor é medido da última baia de origem, que se afasta quando a
-  // arquitetura cresce. Um Z fixo aqui encostaria as pilhas paradas no pátio
-  // de trabalho no dia em que o dicionário ganhasse uma tecnologia.
-  const back = spots.reduce<number>((far, spot) => Math.min(far, spot.z), SOURCE_ORIGIN.z)
-  const rest = block(stacks, SPARE_COLS, { x: SOURCE_ORIGIN.x, z: back - SPARE_LANE }, YARD_PITCH.x / 2)
-
-  const spare: Slot[] = []
-  rest.forEach((spot, index) => {
-    for (let level = 0; level < spareHeight(index) && spare.length < spareCount; level++) {
-      spare.push({ x: spot.x, y: slotCenterY(level), z: spot.z })
-    }
+  const spotAt = (index: number): { x: number; z: number } => ({
+    x: (((index % YARD_COLS) + YARD_COLS) % YARD_COLS - (YARD_COLS - 1) / 2) * YARD_PITCH.x,
+    z: originZ - Math.floor(index / YARD_COLS) * YARD_PITCH.z,
   })
 
-  return { source, spare, footprints: [...spots, ...rest] }
-}
+  counts.forEach((count, bay) => {
+    const heights = stackHeights(count)
+    const spots = heights.map((_, i) => spotAt(cursor + i))
+    footprints.push(
+      ...spots.map((spot, i) => ({ ...spot, code: `${String.fromCharCode(65 + (bay % 26))}${i + 1}` })),
+    )
+    cursor += heights.length
 
-/**
- * Variação de valor da chapa entre os contêineres parados do fundo.
- *
- * Faixa estreita e toda abaixo da pirâmide (que vai de 0,72 a 1,37): chapa
- * gasta de pátio, e um degrau a menos de contraste para o fundo não disputar
- * leitura com o que precisa ser lido.
- */
-export const yardShade = (index: number): number => 0.58 + (index % 4) * 0.04
+    // Enche NÍVEL A NÍVEL, não pilha a pilha. A ordem importa duas vezes:
+    // porque a máquina pega na ordem inversa (e o inverso de "nível a nível"
+    // sempre devolve um contêiner sem nada em cima), e porque se um sistema
+    // encolher o que falta é o topo das pilhas — que é como um pátio esvazia.
+    const slots: Slot[] = []
+    for (let level = 0; level < STACK_HEIGHT; level++) {
+      heights.forEach((height, i) => {
+        const spot = spots[i]
+        if (!spot || level >= height) return
+        slots.push({ x: spot.x, y: slotCenterY(level), z: spot.z })
+      })
+    }
+    homes.push(slots)
+  })
+
+  return { homes, footprints }
+}

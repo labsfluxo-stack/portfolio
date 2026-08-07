@@ -12,11 +12,12 @@
  * Nenhum `Math.random()` em lugar nenhum: a cena precisa ser idêntica a cada
  * carregamento.
  *
- * O modelo não sabe o que a máquina está montando. Ele recebe DOIS conjuntos
- * de lugares — de onde tirar e onde pôr — e devolve o ciclo que leva um ao
- * outro. Quem decide que os lugares de destino formam uma pirâmide de seis
- * patamares é `portico-architecture.ts`; quem decide onde ficam as pilhas de
- * origem é `portico-yard.ts`.
+ * O modelo não sabe o que a máquina está montando. Ele recebe conjuntos de
+ * lugares — de onde tirar, onde pôr, e o que mais existe no pátio — e devolve
+ * o ciclo que leva um ao outro. Quem decide que os lugares de destino formam
+ * a disposição de um sistema é `portico-architecture.ts`; quem decide onde
+ * mora cada contêiner no pátio é `portico-yard.ts`; e quem decide QUAL sistema
+ * é montado a cada volta é `createShow`, aqui embaixo.
  */
 
 /**
@@ -44,18 +45,11 @@ export const stackTop = (count: number): number => count * H
 export const topOf = (slot: Slot): number => slot.y + H / 2
 
 /**
- * Altura de trabalho de um movimento, medida contra o que ESTÁ LÁ.
+ * Altura de trabalho medida contra o que ESTÁ LÁ.
  *
- * `obstacles` é o topo do mais alto contêiner já assentado (ou ainda não
- * retirado) daquele lado do pátio, naquele instante do ciclo. `surface` é a
- * laje onde a carga vai pousar. O fundo do contêiner passa a folga acima do
- * maior dos dois.
- *
- * Medir contra a ocupação real, e não contra uma fração do ciclo nem contra
- * uma tabela de alturas, é o que faz a máquina passar rasteiro quando pode: no
- * começo da montagem a pirâmide tem um patamar e ela voa baixo; no fim, para
- * pôr o contêiner do topo, ela sobe — e nem um metro além. Foi a fração fixa
- * que mandava a carga por dentro do que já estava montado.
+ * `obstacles` é o topo do mais alto contêiner naquele ponto do pátio, naquele
+ * instante do ciclo. `surface` é a laje onde a carga vai pousar. O fundo do
+ * contêiner passa a folga acima do maior dos dois.
  */
 export const clearOver = (surface: number, obstacles: number): number =>
   Math.max(surface, obstacles) + H + CLEARANCE
@@ -86,14 +80,11 @@ const PEAK_FACTOR = 1 / (1 - RAMP)
  *
  * Não é capricho de curva — é a diferença entre uma máquina e uma animação.
  * Um `easeInOut` polinomial tem pico de 3× a 5× a velocidade média, o que num
- * curso de 13 m vira um salto: o mesmo movimento que é manso quando o cabo
- * corre meio metro sai disparado quando corre treze. O trapézio limita o pico
- * a `PEAK_FACTOR` da média em QUALQUER distância, que é exatamente o que um
- * acionamento com limite de velocidade e de aceleração faz na vida real.
- *
- * O ciclo novo é mais rápido que o anterior, e é aqui que se vê por quê: o
- * que dá peso é a curva, não a lentidão. As velocidades subiram; o perfil,
- * não mudou.
+ * curso de 25 m vira um salto: o mesmo movimento que é manso quando o cabo
+ * corre meio metro sai disparado quando corre vinte e cinco. O trapézio limita
+ * o pico a `PEAK_FACTOR` da média em QUALQUER distância, que é exatamente o
+ * que um acionamento com limite de velocidade e de aceleração faz na vida
+ * real.
  */
 export function trapezoid(x: number): number {
   const t = clamp01(x)
@@ -108,152 +99,151 @@ export function trapezoid(x: number): number {
 // ── Ritmo ─────────────────────────────────────────────────────────────────
 //
 // A duração de cada fase sai da DISTÂNCIA, não de um número redondo escolhido
-// à mão. Com ~25 movimentos por metade de ciclo isso importa mais do que
-// importava com seis: o translado varia de 6 m (um lugar ao lado do outro na
-// pirâmide) a 25 m (a baia mais funda do pátio até a fileira da frente), e
-// fases de duração fixa deixariam metade dos movimentos arrastada e a outra
-// metade disparada.
+// à mão. O translado varia de 6 m (um lugar ao lado do outro na montagem) a
+// 30 m (a baia mais funda do pátio até a fileira da frente), e fases de
+// duração fixa deixariam metade dos movimentos arrastada e a outra metade
+// disparada.
 
 /**
  * Velocidade de PICO de cada acionamento, em metros por segundo. O spreader
  * vazio sobe e desce mais rápido que carregado, e a descida com carga é a
  * mais lenta de todas — é ela que termina num encaixe.
  *
- * Nenhuma passa de 10 m/s: acima disso o movimento deixa de parecer uma massa
+ * Nenhuma passa de 15 m/s: acima disso o movimento deixa de parecer uma massa
  * de 24 toneladas pendurada num cabo, por mais correta que seja a curva.
  */
 const SPEED = { empty: 9.8, hoist: 9.4, land: 8.4, trolley: 15, bridge: 15 } as const
-
-/** Distância → duração, respeitando o pico do perfil trapezoidal. */
-const timeFor = (distance: number, speed: number, floor = MIN_PHASE): number =>
-  Math.max(floor, (Math.abs(distance) * PEAK_FACTOR) / speed)
 
 const MIN_PHASE = 0.3
 const LOCK = 0.16
 const RELEASE = 0.16
 
-/**
- * A sobreposição que dá ritmo a esta cena não é uma fase começando um pouco
- * antes da outra: é o GUINCHO CORRENDO DURANTE O TRANSLADO. A carga sobe (ou
- * desce) enquanto atravessa o pátio, que é o que um operador faz e o que
- * transforma um ciclo de nove segundos num de cinco.
- *
- * Onde essa troca de altura pode acontecer sai da GEOMETRIA, não de uma
- * fração escolhida a olho — ver `ZONE_PAD` e `transitWindow`.
- */
+/** Distância → duração, respeitando o pico do perfil trapezoidal. */
+const timeFor = (distance: number, speed: number, floor = MIN_PHASE): number =>
+  Math.max(floor, (Math.abs(distance) * PEAK_FACTOR) / speed)
+
+const horizontal = (from: Slot, to: Slot): number =>
+  Math.max(timeFor(to.x - from.x, SPEED.trolley), timeFor(to.z - from.z, SPEED.bridge))
+
+// ── O perfil de altura do translado ───────────────────────────────────────
+//
+// Esta é a peça que a rotação de sistemas obrigou a generalizar, e ela
+// SUBSTITUI a antiga folga em dois patamares (altura na origem, altura no
+// destino, uma troca no meio).
+//
+// O motivo é geométrico. Antes, o pátio tinha uma baia de trabalho e umas
+// pilhas paradas fora do caminho, então bastava medir a ocupação nas duas
+// pontas do percurso. Agora TODOS os sistemas moram no pátio ao mesmo tempo,
+// em baias próprias — é isso que faz a troca de sistema não ter corte, porque
+// nenhum contêiner precisa aparecer ou sumir. Só que a máquina passa por cima
+// das baias dos outros sistemas em quase todo movimento, e uma altura medida
+// só nas pontas manda a carga por dentro delas.
+//
+// A saída não é afrouxar a folga nem levantar a máquina a uma altura fixa de
+// corredor (que seria a máquina voando alto à toa em todo movimento, inclusive
+// nos curtinhos). É medir a ocupação AO LONGO DO PERCURSO e voar rente ao que
+// existe: a carga sobe o quanto a baia mais alta que ela cruza exigir, e nem
+// um metro além.
+
+/** Amostras do perfil de altura ao longo de um translado. */
+const RIDGE = 32
 
 /**
- * Quanto uma zona do pátio se estende além dos centros dos seus lugares.
+ * Topo do mais alto contêiner cuja planta a carga cruza em (x, z).
  *
- * Um contêiner inteiro em cada direção: é exatamente a distância em que a
- * planta da carga içada deixa de cruzar a planta de qualquer contêiner
- * daquela zona. Fora disso, a altura é livre.
+ * "Cruza" é sobreposição de planta de verdade: dois contêineres se cruzam
+ * quando os centros estão a menos de um comprimento e de uma largura. É o
+ * mesmo critério do teste que pega a carga raspando numa pilha, de propósito —
+ * o modelo e o teste medem a mesma coisa do mesmo jeito.
  */
-const ZONE_PAD = { x: CONTAINER.length, z: CONTAINER.width } as const
-
-type Zone = { x0: number; x1: number; z0: number; z1: number }
-
-function zoneOf(slots: readonly Slot[]): Zone | null {
-  if (slots.length === 0) return null
-  const xs = slots.map((slot) => slot.x)
-  const zs = slots.map((slot) => slot.z)
-  return {
-    x0: Math.min(...xs) - ZONE_PAD.x,
-    x1: Math.max(...xs) + ZONE_PAD.x,
-    z0: Math.min(...zs) - ZONE_PAD.z,
-    z1: Math.max(...zs) + ZONE_PAD.z,
+function ceilingAt(x: number, z: number, obstacles: readonly Slot[]): number {
+  let top = 0
+  for (const slot of obstacles) {
+    if (Math.abs(slot.x - x) >= CONTAINER.length || Math.abs(slot.z - z) >= CONTAINER.width) continue
+    const above = topOf(slot)
+    if (above > top) top = above
   }
+  return top
 }
 
-const within = (zone: Zone | null, x: number, z: number): boolean =>
-  !!zone && x > zone.x0 && x < zone.x1 && z > zone.z0 && z < zone.z1
-
-/** Fração do TEMPO em que o percurso alcança a fração `p` do caminho. */
-function untrapezoid(p: number): number {
-  let lo = 0
-  let hi = 1
-  for (let i = 0; i < 24; i++) {
-    const mid = (lo + hi) / 2
-    if (trapezoid(mid) < p) lo = mid
-    else hi = mid
-  }
-  return (lo + hi) / 2
-}
-
 /**
- * Quando a carga pode trocar de altura durante um translado — em fração do
- * tempo do translado.
+ * O perfil de altura de um translado: onde o gancho tem de estar em cada
+ * fração do percurso.
  *
- * A regra é geométrica e assimétrica, porque o risco é assimétrico:
+ * Duas etapas. Primeiro a EXIGÊNCIA: em cada amostra, a folga sobre o que a
+ * carga cruza ali. Depois a DILATAÇÃO CÔNICA: cada amostra recebe o máximo
+ * entre a própria exigência e a das vizinhas descontada da inclinação máxima
+ * que o acionamento aguenta. É o cone que transforma uma exigência em degrau
+ * (que nenhum guincho consegue seguir) num perfil que sobe antes e desce
+ * depois, exatamente como um operador faria.
  *
- * - **Subindo**, a carga tem de estar na altura alta ANTES de entrar na zona
- *   de destino, porque é lá que está o que ela vai sobrevoar. Subir cedo
- *   nunca raspa em nada, então a janela é `[0, entrada]`.
- * - **Descendo**, ela só pode começar DEPOIS de sair da zona de origem, pela
- *   razão espelhada. A janela é `[saída, 1]`.
+ * A inclinação sai dos limites dos dois acionamentos, não de um número
+ * escolhido: com o translado durando `travel` e o perfil trapezoidal chegando
+ * a `PEAK_FACTOR` da média, a altura pode variar no máximo
+ * `hoist × travel / PEAK_FACTOR` ao longo de todo o percurso. Dividido pelas
+ * amostras, é o degrau máximo por amostra — e por construção a velocidade
+ * vertical NUNCA passa do limite do guincho, em nenhum ponto de nenhum
+ * movimento.
  *
- * "Entrada" e "saída" saem das caixas envolventes das duas zonas do pátio, e
- * são convertidas de fração de CAMINHO para fração de TEMPO por
- * `untrapezoid` — o perfil de velocidade não é linear, e tratar as duas
- * frações como a mesma coisa erra justamente no meio do percurso, que é onde
- * a carga cruza o corredor.
+ * O que sobra nas pontas é informação, não erro: se o perfil exige que a carga
+ * já esteja alta ao arrancar, é porque a baia vizinha é alta — e a máquina
+ * então iça mais antes de sair, que é o que ela faria de verdade. Quem paga
+ * isso é a fase de içamento, não o translado.
  */
-function transitWindow(from: Slot, to: Slot, rising: boolean, zones: readonly (Zone | null)[]): [number, number] {
-  const steps = 64
-  const at = (u: number): { x: number; z: number } => ({
-    x: from.x + (to.x - from.x) * u,
-    z: from.z + (to.z - from.z) * u,
-  })
-  const origin = zones.find((zone) => within(zone, from.x, from.z)) ?? null
-  const destination = zones.find((zone) => within(zone, to.x, to.z)) ?? null
+function ridgeFor(from: Slot, to: Slot, obstacles: readonly Slot[], travel: number, speed: number): Float64Array {
+  const need = new Float64Array(RIDGE + 1)
+  for (let i = 0; i <= RIDGE; i++) {
+    const u = i / RIDGE
+    need[i] = clearOver(0, ceilingAt(from.x + (to.x - from.x) * u, from.z + (to.z - from.z) * u, obstacles))
+  }
 
-  if (rising) {
-    let enter = 1
-    for (let i = steps; i >= 0; i--) {
-      const u = i / steps
-      const point = at(u)
-      if (!within(destination, point.x, point.z)) {
-        enter = u
-        break
-      }
+  const step = (speed * travel) / (PEAK_FACTOR * RIDGE)
+  const ridge = new Float64Array(RIDGE + 1)
+  for (let i = 0; i <= RIDGE; i++) {
+    let top = -Infinity
+    for (let j = 0; j <= RIDGE; j++) {
+      const candidate = (need[j] ?? 0) - step * Math.abs(i - j)
+      if (candidate > top) top = candidate
     }
-    return [0, Math.max(0.12, untrapezoid(enter))]
+    ridge[i] = top
   }
-
-  let exit = 0
-  for (let i = 0; i <= steps; i++) {
-    const u = i / steps
-    const point = at(u)
-    if (!within(origin, point.x, point.z)) {
-      exit = u
-      break
-    }
-  }
-  return [Math.min(0.88, untrapezoid(exit)), 1]
+  return ridge
 }
+
+/** Altura do perfil na fração `u` do percurso, interpolada. */
+function ridgeAt(ridge: Float64Array, u: number): number {
+  const k = clamp01(u) * RIDGE
+  const i = Math.min(RIDGE - 1, Math.floor(k))
+  return mix(ridge[i] ?? 0, ridge[i + 1] ?? 0, k - i)
+}
+
+// ── Ritmo do ciclo ────────────────────────────────────────────────────────
 
 /** Sistema completo, parado — é o instante que a cena existe para mostrar. */
-export const HOLD = 14
-/** Respiro depois de desmontar, antes de recomeçar. */
-export const REST = 2.4
+export const HOLD = 8
+/** Respiro entre desmontar um sistema e começar o próximo. */
+export const REST = 1.4
 
 export type Move = {
-  /** Contêiner que este movimento carrega (índice na ordem de montagem). */
+  /** Contêiner que este movimento carrega (índice global de instância). */
   cargo: number
   /** Início do movimento dentro da metade do ciclo. */
   start: number
   duration: number
   pick: Slot
   place: Slot
-  /** Altura de trabalho sobre a origem e sobre o destino (ver `clearOver`). */
+  /** Altura em que o spreader CHEGA sobre a pegada (o estacionamento anterior). */
+  enterY: number
+  /** Altura de trabalho ao sair da pegada e ao chegar na largada. */
   liftY: number
   dropY: number
+  /** Altura a que o spreader vazio sobe depois de soltar. */
+  exitY: number
   /** Altura de trabalho do PRÓXIMO movimento — onde o spreader vazio estaciona. */
   parkY: number
-  /** Janela do translado em que a carga troca de altura, em fração do tempo. */
-  climb: [number, number]
-  /** A mesma janela na volta com o spreader vazio. */
-  descent: [number, number]
+  /** Perfil de altura do translado com carga, e o da volta com o spreader vazio. */
+  loaded: Float64Array
+  back: Float64Array
   /** Fim da descida do spreader vazio até o topo da carga. */
   downEnd: number
   lockEnd: number
@@ -263,7 +253,7 @@ export type Move = {
   landStart: number
   landEnd: number
   releaseEnd: number
-  /** Fim da subida do spreader vazio até a altura de trabalho do destino. */
+  /** Fim da subida do spreader vazio até a altura de saída. */
   riseEnd: number
   returnStart: number
   returnEnd: number
@@ -271,51 +261,67 @@ export type Move = {
   next: Slot
 }
 
-/** Um movimento antes de ganhar tempos: de onde, para onde, e a que altura. */
-type LegStep = { cargo: number; pick: Slot; place: Slot; liftY: number; dropY: number }
+/**
+ * Um movimento antes de ganhar tempos: de onde, para onde, e o que existe no
+ * pátio nos dois trechos.
+ *
+ * `standing` é a ocupação durante o translado COM carga (tudo menos o que está
+ * pendurado); `settled` é a ocupação na volta com o spreader vazio, que já
+ * inclui o contêiner recém-assentado.
+ */
+type LegStep = {
+  cargo: number
+  pick: Slot
+  place: Slot
+  standing: Slot[]
+  settled: Slot[]
+}
+
+type Leg = { moves: Move[]; time: number; enterY: number; parkY: number }
 
 /**
  * O calendário de uma metade do ciclo.
  *
  * A ordem das fases é o que garante que nada atravesse nada, e ela não tem
- * folga escondida: o carro arranca quando o içamento termina, a carga troca de
- * altura DURANTE o translado (na janela que `transitWindow` provou ser segura)
- * e só desce sobre o próprio lugar. Antecipar o início da descida — que é o
- * erro natural, e o que essa cena já cometeu — leva o contêiner a cruzar o
- * pátio ainda baixo e a atravessar o que já está montado.
+ * folga escondida: o carro arranca quando o içamento termina, a carga segue o
+ * perfil do terreno durante o translado, e só desce sobre o próprio lugar.
+ * Antecipar o início da descida — que é o erro natural, e o que essa cena já
+ * cometeu — leva o contêiner a cruzar o pátio ainda baixo e a atravessar o que
+ * já está montado.
  */
-function buildLeg(steps: readonly LegStep[], parkAfter: Slot, zones: readonly (Zone | null)[]): Move[] {
+function buildLeg(steps: readonly LegStep[], parkAfter: Slot, enterFrom: number | null): Leg {
   const moves: Move[] = []
   let start = 0
-
-  const horizontal = (from: Slot, to: Slot): number =>
-    Math.max(timeFor(to.x - from.x, SPEED.trolley), timeFor(to.z - from.z, SPEED.bridge))
+  let enterY = enterFrom ?? 0
 
   steps.forEach((step, k) => {
-    const { pick, place, liftY, dropY } = step
+    const { pick, place } = step
     // Depois do último assentamento a máquina não fica parada onde estava: ela
-    // já se posiciona sobre a primeira pegada da metade seguinte do ciclo. É o
-    // que faz a parada (`HOLD`) ser uma pose contínua com o que veio antes e
-    // com o que vem depois, em vez de um corte.
+    // já se posiciona sobre a primeira pegada da metade seguinte do ciclo — e,
+    // no último movimento de uma desmontagem, sobre a primeira pegada do
+    // SISTEMA SEGUINTE. É o que faz a troca de sistema ser uma pose contínua
+    // em vez de um corte.
     const following = steps[k + 1]
     const next = following?.pick ?? parkAfter
-    const parkY = following?.liftY ?? dropY
 
-    const drop = timeFor(liftY - topOf(pick), SPEED.empty)
+    const travel = horizontal(pick, place)
+    const loaded = ridgeFor(pick, place, step.standing, travel, SPEED.hoist)
+    const liftY = loaded[0] ?? 0
+    const dropY = loaded[RIDGE] ?? 0
+
+    const backTravel = horizontal(place, next)
+    const back = ridgeFor(place, next, step.settled, backTravel, SPEED.empty)
+    const exitY = back[0] ?? 0
+    const parkY = back[RIDGE] ?? 0
+
+    if (k === 0 && enterFrom === null) enterY = liftY
+
+    const down = timeFor(enterY - topOf(pick), SPEED.empty)
     const hoist = timeFor(liftY - topOf(pick), SPEED.hoist)
     const land = timeFor(dropY - topOf(place), SPEED.land, MIN_PHASE + 0.12)
-    const rise = timeFor(dropY - topOf(place), SPEED.empty)
+    const rise = timeFor(exitY - topOf(place), SPEED.empty)
 
-    // Translado: os dois acionamentos horizontais correm juntos e o mais lento
-    // manda, como numa ponte de verdade — o percurso sai diagonal. A troca de
-    // altura corre dentro da mesma janela e também pode mandar: só uma parte do
-    // percurso é segura para ela, e essa parte é o divisor.
-    const climb = transitWindow(pick, place, dropY >= liftY, zones)
-    const descent = transitWindow(place, next, parkY >= dropY, zones)
-    const travel = Math.max(horizontal(pick, place), timeFor(dropY - liftY, SPEED.hoist) / (climb[1] - climb[0]))
-    const back = Math.max(horizontal(place, next), timeFor(parkY - dropY, SPEED.empty) / (descent[1] - descent[0]))
-
-    const downEnd = drop
+    const downEnd = down
     const lockEnd = downEnd + LOCK
     const hoistEnd = lockEnd + hoist
     const travelStart = hoistEnd
@@ -325,7 +331,7 @@ function buildLeg(steps: readonly LegStep[], parkAfter: Slot, zones: readonly (Z
     const releaseEnd = landEnd + RELEASE
     const riseEnd = releaseEnd + rise
     const returnStart = riseEnd
-    const returnEnd = returnStart + back
+    const returnEnd = returnStart + backTravel
 
     moves.push({
       cargo: step.cargo,
@@ -333,11 +339,13 @@ function buildLeg(steps: readonly LegStep[], parkAfter: Slot, zones: readonly (Z
       duration: returnEnd,
       pick,
       place,
+      enterY,
       liftY,
       dropY,
+      exitY,
       parkY,
-      climb,
-      descent,
+      loaded,
+      back,
       downEnd,
       lockEnd,
       hoistEnd,
@@ -352,37 +360,57 @@ function buildLeg(steps: readonly LegStep[], parkAfter: Slot, zones: readonly (Z
       next,
     })
     start += returnEnd
+    enterY = parkY
   })
 
-  return moves
+  return {
+    moves,
+    time: start,
+    enterY: moves[0]?.enterY ?? 0,
+    parkY: moves[moves.length - 1]?.parkY ?? 0,
+  }
 }
 
 export type Plan = {
   count: number
-  /** Lugares do pátio de origem, na ordem em que as pilhas são enchidas. */
+  /** Índice da primeira instância deste sistema no conjunto global. */
+  offset: number
+  /** Lugares do pátio, na ordem em que as pilhas são enchidas. */
   source: readonly Slot[]
-  /** Lugares da arquitetura, na ordem em que ela é montada (base primeiro). */
+  /** Lugares da montagem, na ordem em que ela é feita (base primeiro). */
   target: readonly Slot[]
   load: Move[]
   unload: Move[]
   loadTime: number
   unloadTime: number
+  /** Duração da volta inteira deste sistema, paradas incluídas. */
   cycle: number
-  /** Ponto mais alto que a carga alcança — quem dimensiona a ponte. */
+  /** Ponto mais alto que a carga alcança neste sistema. */
   peakY: number
 }
 
 /**
- * Monta o ciclo completo a partir dos dois conjuntos de lugares.
+ * Monta o ciclo de UM sistema a partir dos lugares dele e do resto do pátio.
  *
  * O pátio guarda os contêineres na ordem INVERTIDA da montagem: o primeiro a
- * ser montado (a base da pirâmide) é o último a ser empilhado no pátio, e
- * portanto o que está no topo da pilha de origem. Isso não é arranjo estético
- * — é o que garante que a máquina sempre pegue um contêiner que não tem nada
- * em cima, tanto ao montar quanto ao desmontar, e é o que faz o laço fechar
- * sem corte: no fim do ciclo cada peça está exatamente de onde saiu.
+ * ser montado (a base) é o último a ser empilhado no pátio, e portanto o que
+ * está no topo da pilha de origem. Isso não é arranjo estético — é o que
+ * garante que a máquina sempre pegue um contêiner que não tem nada em cima,
+ * tanto ao montar quanto ao desmontar, e é o que faz o laço fechar sem corte:
+ * no fim da volta cada peça está exatamente de onde saiu.
+ *
+ * `foreign` são os contêineres dos OUTROS sistemas, parados nas baias deles.
+ * Eles não se movem nunca, mas entram em toda conta de altura: é por cima
+ * deles que a máquina passa.
  */
-export function createPlan(source: readonly Slot[], target: readonly Slot[]): Plan {
+function createPlan(
+  offset: number,
+  source: readonly Slot[],
+  target: readonly Slot[],
+  foreign: readonly Slot[],
+  parkAfter: Slot,
+  enterLoad: number | null,
+): Plan {
   const count = Math.min(source.length, target.length)
   const src = source.slice(0, count)
   const dst = target.slice(0, count)
@@ -390,63 +418,150 @@ export function createPlan(source: readonly Slot[], target: readonly Slot[]): Pl
   /** Lugar de origem do contêiner `id` — a ordem invertida explicada acima. */
   const sourceOf = (id: number): Slot => src[count - 1 - id] as Slot
 
-  const zones = [zoneOf(src), zoneOf(dst)]
-  const ORIGIN: Slot = { x: 0, y: 0, z: 0 }
+  // A ocupação em cada instante sai da regra única do ciclo: quem tem índice
+  // menor que a carga já está na montagem, quem tem índice maior ainda está no
+  // pátio. Montando, a carga sai do pátio; desmontando, volta.
+  const standingLoad = (k: number): Slot[] => [...foreign, ...src.slice(0, count - 1 - k), ...dst.slice(0, k)]
+  // Desmontando, o movimento `j` tira `dst[count-1-j]` e devolve em `src[j]`:
+  // o pátio enche na ordem em que foi esvaziado, nível a nível, de baixo para
+  // cima. Por isso o que já voltou é exatamente `src.slice(0, j)`.
+  const standingUnload = (j: number): Slot[] => [...foreign, ...dst.slice(0, count - 1 - j), ...src.slice(0, j)]
 
-  /** Topo do mais alto de um conjunto de lugares ocupados. */
-  const ceiling = (slots: readonly Slot[]): number =>
-    slots.reduce((high, slot) => Math.max(high, topOf(slot)), -Infinity)
-
-  // A altura de trabalho de CADA movimento sai da ocupação naquele instante:
-  // do lado de onde se tira, o que ainda não foi tirado; do lado onde se põe, o
-  // que já foi posto. É por isso que a máquina voa baixo no começo da montagem
-  // e sobe só quando a pirâmide sobe.
   const load = buildLeg(
     Array.from({ length: count }, (_, k) => {
       const pick = sourceOf(k)
       const place = dst[k] as Slot
-      return {
-        cargo: k,
-        pick,
-        place,
-        liftY: clearOver(topOf(pick) - H, ceiling(src.slice(0, count - 1 - k))),
-        dropY: clearOver(place.y - H / 2, ceiling(dst.slice(0, k))),
-      }
+      const standing = standingLoad(k)
+      return { cargo: offset + k, pick, place, standing, settled: [...standing, place] }
     }),
-    dst[count - 1] ?? ORIGIN,
-    zones,
+    dst[count - 1] ?? { x: 0, y: 0, z: 0 },
+    enterLoad,
   )
 
   const unload = buildLeg(
     Array.from({ length: count }, (_, j) => {
       const pick = dst[count - 1 - j] as Slot
       const place = sourceOf(count - 1 - j)
-      return {
-        cargo: count - 1 - j,
-        pick,
-        place,
-        liftY: clearOver(topOf(pick) - H, ceiling(dst.slice(0, count - 1 - j))),
-        dropY: clearOver(place.y - H / 2, ceiling(src.slice(0, j))),
-      }
+      const standing = standingUnload(j)
+      return { cargo: offset + count - 1 - j, pick, place, standing, settled: [...standing, place] }
     }),
-    src[count - 1] ?? ORIGIN,
-    zones,
+    parkAfter,
+    load.parkY,
   )
-
-  const total = (moves: Move[]): number => moves.reduce((sum, move) => sum + move.duration, 0)
-  const loadTime = total(load)
-  const unloadTime = total(unload)
 
   return {
     count,
+    offset,
     source: src,
     target: dst,
-    load,
-    unload,
-    loadTime,
-    unloadTime,
-    cycle: loadTime + HOLD + unloadTime + REST,
-    peakY: Math.max(...load.map((move) => Math.max(move.liftY, move.dropY)), 0),
+    load: load.moves,
+    unload: unload.moves,
+    loadTime: load.time,
+    unloadTime: unload.time,
+    cycle: load.time + HOLD + unload.time + REST,
+    peakY: Math.max(
+      0,
+      ...load.moves.map((move) => Math.max(move.liftY, move.dropY, move.parkY)),
+      ...unload.moves.map((move) => Math.max(move.liftY, move.dropY, move.parkY)),
+    ),
+  }
+}
+
+// ── A rotação ─────────────────────────────────────────────────────────────
+
+export type Show = {
+  plans: Plan[]
+  /** Onde cada contêiner mora quando não está sendo montado. */
+  home: readonly Slot[]
+  /** Duração da rotação inteira: todos os sistemas, uma vez cada. */
+  cycle: number
+  /** Instante em que cada sistema começa a ser montado. */
+  starts: number[]
+  peakY: number
+  /** Afastamento máximo em X de qualquer lugar — quem dimensiona a ponte. */
+  reach: number
+  total: number
+}
+
+/**
+ * A rotação sem fim: um sistema por vez, e nunca uma pausa longa.
+ *
+ * O truque que faz a troca de sistema não ter corte é o pátio: **cada
+ * contêiner tem uma casa fixa**, na baia do sistema dele. A máquina esvazia a
+ * baia de um sistema para montá-lo, devolve tudo para as mesmas pilhas, e
+ * segue para a baia seguinte. Nenhum contêiner aparece, some ou troca de
+ * marcação no meio do caminho — o que se vê é um terminal em que uma baia
+ * trabalha por vez, que é exatamente o que um terminal faz.
+ *
+ * A alternativa (uma baia só, recarregada a cada sistema) obrigaria os
+ * contêineres a trocar de estampa entre uma volta e outra, e isso é um corte
+ * por mais bem escondido que esteja.
+ */
+export function createShow(
+  homes: readonly (readonly Slot[])[],
+  targets: readonly (readonly Slot[])[],
+): Show {
+  const counts = homes.map((home, i) => Math.min(home.length, targets[i]?.length ?? 0))
+  const offsets: number[] = []
+  let running = 0
+  for (const count of counts) {
+    offsets.push(running)
+    running += count
+  }
+
+  // A casa do contêiner `id` é `src[count-1-id]`, não `src[id]`: o pátio é
+  // enchido de baixo para cima e a montagem é feita de cima para baixo da
+  // pilha, para que a máquina só pegue contêiner sem nada em cima. Indexar as
+  // casas na ordem crua das pilhas trocaria cada contêiner de lugar na virada
+  // de sistema — um pulo de oito metros, que foi exatamente o que apareceu.
+  const home = homes.flatMap((slots) => [...slots].reverse())
+  const plans: Plan[] = []
+
+  for (let i = 0; i < homes.length; i++) {
+    const mine = homes[i] ?? []
+    const foreign = homes.filter((_, k) => k !== i).flat()
+    const nextHome = homes[(i + 1) % homes.length] ?? []
+    // A primeira pegada do sistema seguinte: o topo da pilha dele.
+    const parkAfter = nextHome[nextHome.length - 1] ?? { x: 0, y: 0, z: 0 }
+    plans.push(createPlan(offsets[i] ?? 0, mine, targets[i] ?? [], foreign, parkAfter, null))
+  }
+
+  // Segunda passada: a altura em que o spreader CHEGA para a primeira pegada
+  // de cada sistema é a altura em que o sistema anterior o deixou. Sem isso o
+  // gancho daria um pulo vertical na virada — o único corte que a rotação
+  // ainda poderia ter.
+  for (let i = 0; i < plans.length; i++) {
+    const previous = plans[(i - 1 + plans.length) % plans.length]
+    const arriving = previous?.unload[previous.unload.length - 1]?.parkY
+    if (arriving === undefined) continue
+    const mine = homes[i] ?? []
+    const foreign = homes.filter((_, k) => k !== i).flat()
+    const nextHome = homes[(i + 1) % homes.length] ?? []
+    plans[i] = createPlan(
+      offsets[i] ?? 0,
+      mine,
+      targets[i] ?? [],
+      foreign,
+      nextHome[nextHome.length - 1] ?? { x: 0, y: 0, z: 0 },
+      arriving,
+    )
+  }
+
+  const starts: number[] = []
+  let clock = 0
+  for (const plan of plans) {
+    starts.push(clock)
+    clock += plan.cycle
+  }
+
+  return {
+    plans,
+    home,
+    starts,
+    cycle: clock,
+    peakY: Math.max(0, ...plans.map((plan) => plan.peakY)),
+    reach: [...home, ...targets.flat()].reduce((far, slot) => Math.max(far, Math.abs(slot.x)), 0),
+    total: home.length,
   }
 }
 
@@ -459,8 +574,10 @@ export type Pose = {
   bridgeZ: number
   /** Face inferior do spreader — coincide com o topo do contêiner engatado. */
   spreaderY: number
-  /** Índice do contêiner içado, ou -1 com o spreader vazio. */
+  /** Índice global do contêiner içado, ou -1 com o spreader vazio. */
   carried: number
+  /** Sistema que está sendo montado agora. */
+  system: number
   x: Float64Array
   y: Float64Array
   z: Float64Array
@@ -476,18 +593,25 @@ export type Pose = {
 
 const LAMP_IDLE = 0.22
 
-export function createPose(plan: Plan): Pose {
-  return {
+export function createPose(show: Show): Pose {
+  const pose: Pose = {
     trolleyX: 0,
     bridgeZ: 0,
     spreaderY: 0,
     carried: -1,
-    x: new Float64Array(plan.count),
-    y: new Float64Array(plan.count),
-    z: new Float64Array(plan.count),
+    system: 0,
+    x: new Float64Array(show.total),
+    y: new Float64Array(show.total),
+    z: new Float64Array(show.total),
     swayGate: 1,
     lamp: LAMP_IDLE,
   }
+  show.home.forEach((slot, id) => {
+    pose.x[id] = slot.x
+    pose.y[id] = slot.y
+    pose.z[id] = slot.z
+  })
+  return pose
 }
 
 /**
@@ -524,60 +648,93 @@ function lampFor(move: Move, local: number): number {
   return LAMP_IDLE
 }
 
-/**
- * Altura durante um translado horizontal.
- *
- * A curva corre dentro da janela que `transitWindow` calculou a partir da
- * geometria das zonas do pátio — subindo, ela termina antes de a carga entrar
- * na zona de destino; descendo, começa depois de ela sair da zona de origem.
- * Fora da janela a altura fica parada, e é isso que mantém o contêiner sempre
- * acima do que ele sobrevoa.
- */
-function transitY(from: number, to: number, window: readonly [number, number], u: number): number {
-  return mix(from, to, trapezoid(span(u, window[0], window[1])))
+/** Devolve todo contêiner que não é deste sistema para a casa dele. */
+function homeAll(show: Show, pose: Pose, except: Plan): void {
+  for (let id = 0; id < show.total; id++) {
+    if (id >= except.offset && id < except.offset + except.count) continue
+    const slot = show.home[id]
+    if (slot) place(pose, id, slot)
+  }
 }
 
-function idle(plan: Plan, pose: Pose, assembled: boolean): Pose {
-  const park = assembled ? plan.unload[0] : plan.load[0]
+/**
+ * As duas paradas do ciclo. A diferença entre elas não é só o que está
+ * montado: é ONDE a máquina espera.
+ *
+ * Segurando o sistema completo (`assembled`), ela já está sobre a primeira
+ * pegada da desmontagem. Terminada a desmontagem, ela já está sobre a primeira
+ * pegada do SISTEMA SEGUINTE — e é essa segunda parada que faz a troca de
+ * sistema não ter corte: a pose do último quadro de um sistema é a mesma do
+ * primeiro quadro do próximo.
+ */
+function idle(show: Show, plan: Plan, pose: Pose, assembled: boolean): Pose {
+  const next = show.plans[(show.plans.indexOf(plan) + 1) % show.plans.length]
+  const park = assembled ? plan.unload[0] : next?.load[0]
+  homeAll(show, pose, plan)
   for (let id = 0; id < plan.count; id++) {
-    place(pose, id, assembled ? (plan.target[id] as Slot) : (plan.source[plan.count - 1 - id] as Slot))
+    place(
+      pose,
+      plan.offset + id,
+      assembled ? (plan.target[id] as Slot) : (plan.source[plan.count - 1 - id] as Slot),
+    )
   }
   pose.trolleyX = park?.pick.x ?? 0
   pose.bridgeZ = park?.pick.z ?? 0
-  pose.spreaderY = park?.liftY ?? 0
+  pose.spreaderY = park?.enterY ?? 0
   pose.carried = -1
   pose.swayGate = 1
   pose.lamp = LAMP_IDLE
   return pose
 }
 
+/** Qual sistema está em cena no instante `t` da rotação. */
+function activeAt(show: Show, t: number): number {
+  let index = show.plans.length - 1
+  for (let i = 0; i < show.plans.length; i++) {
+    const start = show.starts[i] ?? 0
+    const plan = show.plans[i]
+    if (plan && t < start + plan.cycle) {
+      index = i
+      break
+    }
+  }
+  return index
+}
+
 /**
  * Preenche `pose` com o estado da máquina no instante `time` (segundos).
  * Reaproveita o objeto de propósito: isto roda a 120 Hz.
  */
-export function samplePose(plan: Plan, time: number, pose: Pose): Pose {
-  const t = ((time % plan.cycle) + plan.cycle) % plan.cycle
+export function samplePose(show: Show, time: number, pose: Pose): Pose {
+  const clock = ((time % show.cycle) + show.cycle) % show.cycle
+  const index = activeAt(show, clock)
+  const plan = show.plans[index]
+  if (!plan) return pose
+  pose.system = index
+  const t = clock - (show.starts[index] ?? 0)
 
-  // ── paradas: o sistema completo montado, e o respiro depois de desmontar
-  if (t >= plan.loadTime && t < plan.loadTime + HOLD) return idle(plan, pose, true)
-  if (t >= plan.loadTime + HOLD + plan.unloadTime) return idle(plan, pose, false)
+  // ── paradas: o sistema completo montado, e o respiro antes do próximo
+  if (t >= plan.loadTime && t < plan.loadTime + HOLD) return idle(show, plan, pose, true)
+  if (t >= plan.loadTime + HOLD + plan.unloadTime) return idle(show, plan, pose, false)
 
   const unloading = t >= plan.loadTime + HOLD
   const elapsed = unloading ? t - plan.loadTime - HOLD : t
   const leg = unloading ? plan.unload : plan.load
 
-  let index = leg.length - 1
+  let cursor = leg.length - 1
   for (let i = 0; i < leg.length; i++) {
     const candidate = leg[i]
     if (candidate && elapsed < candidate.start + candidate.duration) {
-      index = i
+      cursor = i
       break
     }
   }
-  const move = leg[index]
-  if (!move) return idle(plan, pose, false)
+  const move = leg[cursor]
+  if (!move) return idle(show, plan, pose, false)
   const local = elapsed - move.start
   const moving = move.cargo
+
+  homeAll(show, pose, plan)
 
   // ── carro e ponte ───────────────────────────────────────────────────────
   const travel = span(local, move.travelStart, move.travelEnd)
@@ -593,31 +750,30 @@ export function samplePose(plan: Plan, time: number, pose: Pose): Pose {
   // ── içamento ────────────────────────────────────────────────────────────
   pose.spreaderY =
     local < move.downEnd
-      ? mix(move.liftY, topOf(move.pick), trapezoid(span(local, 0, move.downEnd)))
+      ? mix(move.enterY, topOf(move.pick), trapezoid(span(local, 0, move.downEnd)))
       : local < move.lockEnd
         ? topOf(move.pick)
         : local < move.hoistEnd
           ? mix(topOf(move.pick), move.liftY, trapezoid(span(local, move.lockEnd, move.hoistEnd)))
           : local < move.travelEnd
-            ? transitY(move.liftY, move.dropY, move.climb, travel)
+            ? ridgeAt(move.loaded, u)
             : local < move.landEnd
               ? mix(move.dropY, topOf(move.place), trapezoid(span(local, move.landStart, move.landEnd)))
               : local < move.releaseEnd
                 ? topOf(move.place)
                 : local < move.riseEnd
-                  ? mix(topOf(move.place), move.dropY, trapezoid(span(local, move.releaseEnd, move.riseEnd)))
-                  : transitY(move.dropY, move.parkY, move.descent, back)
+                  ? mix(topOf(move.place), move.exitY, trapezoid(span(local, move.releaseEnd, move.riseEnd)))
+                  : ridgeAt(move.back, v)
 
   // ── contêineres em repouso ──────────────────────────────────────────────
   //
   // A regra é a mesma nas duas metades do ciclo: quem tem índice menor que a
-  // carga já está na arquitetura, quem tem índice maior ainda está no pátio.
-  // Montando, a carga sai do pátio e entra na arquitetura; desmontando, o
-  // contrário — e é só isso que muda.
+  // carga já está na montagem, quem tem índice maior ainda está no pátio.
+  const carriedLocal = moving - plan.offset
   for (let id = 0; id < plan.count; id++) {
-    if (id === moving) continue
-    if (id < moving) place(pose, id, plan.target[id] as Slot)
-    else place(pose, id, plan.source[plan.count - 1 - id] as Slot)
+    if (id === carriedLocal) continue
+    if (id < carriedLocal) place(pose, plan.offset + id, plan.target[id] as Slot)
+    else place(pose, plan.offset + id, plan.source[plan.count - 1 - id] as Slot)
   }
 
   const engaged = local >= move.lockEnd && local <= move.releaseEnd
@@ -645,9 +801,9 @@ export function samplePose(plan: Plan, time: number, pose: Pose): Pose {
 // ── Balanço do cabo ───────────────────────────────────────────────────────
 
 /**
- * Pêndulo amortecido de comprimento variável, integrado em passo fixo — agora
- * nos DOIS eixos, porque a máquina passou a ter dois: o carro corre sobre a
- * viga (X) e a viga corre sobre os trilhos (Z).
+ * Pêndulo amortecido de comprimento variável, integrado em passo fixo — nos
+ * DOIS eixos, porque a máquina tem dois: o carro corre sobre a viga (X) e a
+ * viga corre sobre os trilhos (Z).
  *
  * Passo fixo (e não o `delta` do quadro) por dois motivos: o resultado não
  * depende da taxa de quadros de quem visita — a cena é a mesma num notebook e
@@ -736,14 +892,14 @@ export function stepSway(sway: Sway, trolleyX: number, bridgeZ: number, length: 
 // ── Rótulos ───────────────────────────────────────────────────────────────
 
 /**
- * Quebra o rótulo da camada em no máximo duas linhas, buscando o corte que
- * deixa a linha mais longa menor possível — com penalidade para começar a
- * segunda linha com "&", que é como ninguém estampa uma chapa.
+ * Quebra o rótulo em no máximo duas linhas, buscando o corte que deixa a linha
+ * mais longa menor possível — com penalidade para começar a segunda linha com
+ * "&", que é como ninguém estampa uma chapa.
  *
- * Duas linhas não são estética: numa linha só, "Redes & Infraestrutura" (22
- * caracteres) teria de caber em 6 metros de chapa e sairia pequeno demais
- * para ler. Quebrado, a maior linha tem 14 caracteres e o caractere quase
- * dobra de tamanho.
+ * Duas linhas não são estética: numa linha só, "Fluxo Eventos" (13 caracteres)
+ * teria de caber em 6 metros de chapa e sairia pequeno demais para ler.
+ * Quebrado, a maior linha tem 7 caracteres e o caractere quase dobra de
+ * tamanho.
  */
 export function stencilLines(label: string): string[] {
   const words = label.trim().split(/\s+/).filter(Boolean)
@@ -762,11 +918,3 @@ export function stencilLines(label: string): string[] {
   }
   return [words.slice(0, bestCut).join(' ').toUpperCase(), words.slice(bestCut).join(' ').toUpperCase()]
 }
-
-/**
- * Variação de valor por patamar sobre a mesma tinta (`--color-surface-2`).
- * Não é cor nova: é o mesmo token multiplicado, como chapa que pegou sol
- * diferente. Serve para o olho ler a pirâmide como camadas — cada patamar
- * tem o seu valor, e é ele que diz onde uma camada acaba e a outra começa.
- */
-export const layerShade = (layer: number): number => 0.72 + layer * 0.13

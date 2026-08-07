@@ -1,4 +1,5 @@
 import type { Dictionary, Locale } from '@/content/types'
+import { systems } from '@/content/systems'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { PorticoSlot } from '@/components/three/PorticoSlot'
 
@@ -7,14 +8,16 @@ import { PorticoSlot } from '@/components/three/PorticoSlot'
  * anterior tinha um <h1> provisório; este componente o substitui.
  *
  * `data-portico-slot` é o contêiner atrás do texto, sem capturar clique
- * (`pointer-events-none`), com o pórtico que empilha as camadas do sistema:
- * a cena WebGL quando o navegador aguenta, ou a elevação técnica em SVG
- * quando não (`PorticoSlot` decide). Os rótulos dos contêineres são os
- * mesmos `dict.stack.layers[].label` da seção Stack, e as tecnologias
- * estampadas nas baias de fundo são os mesmos `items[].name` — a cena não
- * inventa texto nenhum. O `<h1>` e o resto continuam vivendo em HTML puro,
- * sem depender da cena para nada: ela é decoração, `aria-hidden` de ponta a
- * ponta.
+ * (`pointer-events-none`), com o pórtico que monta os sistemas do dono, um
+ * por vez, em rotação: a cena WebGL quando o navegador aguenta, ou a elevação
+ * técnica em SVG quando não (`PorticoSlot` decide).
+ *
+ * A cena recebe `content/systems.ts` DIRETO, e não o dicionário: as
+ * tecnologias estampadas nos contêineres são as mesmas `system.stack[]` da
+ * seção Sistemas, e não são conteúdo traduzível — "PostgreSQL" é PostgreSQL
+ * nos dois idiomas. A cena não inventa texto nenhum, e nada aqui é escrito à
+ * mão. O `<h1>` e o resto continuam vivendo em HTML puro, sem depender da
+ * cena para nada: ela é decoração, `aria-hidden` de ponta a ponta.
  */
 export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
   const { hero } = dict
@@ -38,7 +41,7 @@ export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-0 right-0 -z-10 w-full opacity-40 md:left-1/2 md:w-1/2 md:opacity-100"
       >
-        <PorticoSlot layers={dict.stack.layers} />
+        <PorticoSlot systems={systems} />
       </div>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-24 sm:py-32">
         <StatusBadge status="ok" label={hero.availability} />

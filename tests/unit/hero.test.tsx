@@ -1,7 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { Hero } from '@/components/sections/Hero'
+import { sceneRotation } from '@/components/three/portico-systems'
 import { pt } from '@/content/pt'
+import { systems } from '@/content/systems'
 
 describe('Hero', () => {
   it('renderiza nome, cargo e tagline', () => {
@@ -31,12 +33,20 @@ describe('Hero', () => {
     expect(slot?.querySelector('canvas')).not.toBeInTheDocument()
   })
 
-  it('os rótulos dos contêineres vêm do dicionário da seção Stack, não de string no código', () => {
+  it('os rótulos dos contêineres vêm de content/systems.ts, não de string no código', () => {
     const { container } = render(<Hero dict={pt} locale="pt" />)
     const slot = container.querySelector('[data-portico-slot]')
     const stencils = [...(slot?.querySelectorAll('text') ?? [])].map((node) => node.textContent)
-    for (const layer of pt.stack.layers) {
-      expect(stencils, `camada "${layer.label}" ausente na cena`).toContain(layer.label.toUpperCase())
-    }
+
+    // A cena monta os sistemas do dono, um por vez; o desenho estático mostra
+    // o primeiro da rotação. O nome dele e as tecnologias da stack dele saem
+    // do conteúdo, e nenhum dos dois é escrito no código da cena.
+    const first = sceneRotation(systems)[0]
+    expect(first, 'rotação vazia').toBeDefined()
+    expect(stencils, 'nome do sistema ausente na cena').toContain((first?.name ?? '').toUpperCase())
+
+    const stack = new Set((first?.stack ?? []).map((name) => name.toUpperCase()))
+    const named = stencils.filter((text) => text && stack.has(text))
+    expect(named.length, `nenhuma tecnologia estampada: ${stencils.join(' | ')}`).toBeGreaterThan(2)
   })
 })

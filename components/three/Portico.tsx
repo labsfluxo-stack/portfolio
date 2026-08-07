@@ -1,39 +1,43 @@
 'use client'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { ContactShadows, Environment, Lightformer } from '@react-three/drei'
 import * as THREE from 'three'
 import {
   CONTAINER,
   SWAY_STEP,
-  createPlan,
   createPose,
+  createShow,
   createSway,
-  layerShade,
   samplePose,
   stepSway,
   valueAt,
 } from './portico-model'
-import { buildArchitecture } from './portico-architecture'
+import { buildAssembly, plateShade } from './portico-architecture'
+import { type SceneSystem, sceneRotation } from './portico-systems'
 import {
   REEVING,
   type Rig,
   SPREADER_EAR_Y,
+  WALKWAY,
   bridgeGeometry,
   containerCastingsGeometry,
   containerFrameGeometry,
   containerPlateGeometry,
+  gratingGeometry,
   rigFor,
   runwayGeometry,
   spreaderGeometry,
   trolleyGeometry,
 } from './portico-geometry'
 import {
+  GRATING_TILE,
   SIDE_RIBS,
   cargoAtlas,
   containerSkinShader,
   corrugationNormalMap,
   floorTextures,
+  gratingTextures,
   grimeMap,
   resolveMonoFamily,
   skinWearMap,
@@ -41,12 +45,13 @@ import {
   unitNoise,
   type CargoAtlas,
   type CargoCell,
+  type FloorBay,
 } from './portico-textures'
-import { buildYard, markFor, yardShade } from './portico-yard'
-import type { StackLayer } from '@/content/types'
+import { buildYard, markFor } from './portico-yard'
 
 /**
- * Uma ponte rolante montando uma arquitetura de software.
+ * Uma ponte rolante montando os sistemas que o dono construiu — um por vez,
+ * em rotação sem fim.
  *
  * Nunca é montada direto: `PorticoSlot.tsx` a carrega por `next/dynamic` com
  * `ssr: false`, e só depois de confirmar que o navegador aguenta. O chunk do
@@ -65,12 +70,13 @@ import type { StackLayer } from '@/content/types'
  *    ganho aqui vem de luz, material e movimento.
  *
  * E um princípio governa o desenho: **o significado fica na frente, a escala
- * vem de trás**. A pirâmide é a arquitetura e é o que precisa ser lido; o
- * pátio de origem e as pilhas paradas entram atrás do corredor, recuando na
- * névoa, para dar porte de terminal em operação sem disputar a leitura.
+ * vem de trás**. O sistema da vez é montado na frente e é o que precisa ser
+ * lido; as baias dos outros sistemas ficam atrás do corredor, recuando na
+ * névoa — e elas não são enchimento, são os próximos sistemas esperando a
+ * vez, com as tecnologias verdadeiras deles estampadas na chapa.
  *
  * Tudo é `aria-hidden`: é decoração. A informação que ela ilustra vive em
- * texto de verdade na seção Stack.
+ * texto de verdade nas seções Sistemas e Stack.
  */
 
 // ── Paleta ────────────────────────────────────────────────────────────────
@@ -107,10 +113,9 @@ const shade = (hex: string, factor: number): string => new THREE.Color(hex).mult
  * para o objeto ter três dimensões, longe o bastante para não distorcer.
  * Perspectiva forçada é o vocabulário de quem quer impressionar.
  *
- * A elevação subiu em relação à cena anterior por um motivo geométrico: o que
- * faz a pirâmide ler como zigurate é o DEGRAU entre patamares, e o degrau só
- * aparece quando a câmera vê a laje do patamar de baixo na frente do de cima.
- * Rasteiro demais, os seis patamares colapsam numa parede.
+ * A elevação é o que faz a montagem ler como pilha em degraus e não como
+ * parede: o degrau só aparece quando a câmera vê a laje do nível de baixo na
+ * frente do de cima.
  */
 const VIEW = {
   fov: 29,
@@ -121,9 +126,8 @@ const VIEW = {
 } as const
 
 /**
- * Caixa envolvente do que precisa caber: a arquitetura montada e a ponte por
- * cima dela. Sai das medidas reais — se o dicionário crescer, o enquadramento
- * abre junto.
+ * Caixa envolvente do que precisa caber: a montagem e a ponte por cima dela.
+ * Sai das medidas reais — se um sistema crescer, o enquadramento abre junto.
  */
 type Bounds = { x: number; top: number; z: number; targetY: number }
 
@@ -135,21 +139,11 @@ type Bounds = { x: number; top: number; z: number; targetY: number }
  * largura o fundo sumiria, na outra chegaria na frente. Amarrado à distância,
  * a profundidade lê igual em qualquer viewport.
  *
- * `start` é a folga depois do alvo: a pirâmide inteira sai da névoa intocada,
- * e o que a névoa pega é o pátio atrás do corredor — inclusive a máquina
+ * `start` é a folga depois do alvo: a montagem inteira sai da névoa intocada,
+ * e o que a névoa pega são as baias atrás do corredor — inclusive a máquina
  * quando ela vai lá buscar, que é justamente o efeito.
  */
 const FOG = { start: 5.5, span: 34 } as const
-
-/**
- * Quanto antes da parada a cena abre, em segundos.
- *
- * Decisão de apresentação, e por isso mora aqui e não no modelo: `samplePose`
- * continua sem saber onde alguém olha. O suficiente para dois ou três
- * movimentos — quem chega vê a máquina fechar a pirâmide, e não uma pose já
- * pronta que pareceria um cenário estático.
- */
-const OPENING_LEAD = 16
 
 const cornersOf = (bounds: Bounds): [number, number, number][] =>
   [-1, 1].flatMap((sx) =>
@@ -226,12 +220,14 @@ type Assets = {
   castings: THREE.BufferGeometry
   runway: THREE.BufferGeometry
   bridge: THREE.BufferGeometry
+  grating: THREE.BufferGeometry
   trolley: THREE.BufferGeometry
   spreader: THREE.BufferGeometry
   cable: THREE.BufferGeometry
   rope: THREE.MeshPhysicalMaterial
   skin: THREE.MeshPhysicalMaterial
   steel: THREE.MeshPhysicalMaterial
+  mesh: THREE.MeshPhysicalMaterial
   casting: THREE.MeshPhysicalMaterial
   lamp: THREE.MeshStandardMaterial
   floor: THREE.MeshStandardMaterial
@@ -242,8 +238,6 @@ type Assets = {
    * saem do índice, nunca de sorteio.
    */
   jitter: Float32Array
-  /** Contêineres que a máquina move (a arquitetura) e os que ficam parados. */
-  moving: number
   total: number
   dispose: () => void
 }
@@ -269,8 +263,8 @@ function unitJitter(count: number): Float32Array {
 
 function buildAssets(
   cells: CargoCell[],
-  footprints: readonly { x: number; z: number }[],
-  moving: number,
+  bays: FloorBay[],
+  work: { x: number; z: number },
   rig: Rig,
   palette: Palette,
   family: string,
@@ -339,14 +333,17 @@ function buildAssets(
   }
   plate.setAttribute('aWear', new THREE.InstancedBufferAttribute(drift, 2))
 
-  const floor = floorTextures(
-    palette.bg,
-    palette.border,
-    footprints.map((spot) => ({ ...spot, length: CONTAINER.length, width: CONTAINER.width })),
-    floorHalf,
-  )
-  keep(floor.map)
+  const floor = floorTextures(palette.bg, palette.border, { bays, half: floorHalf, work }, family)
+  tune(floor.map)
   keep(floor.alpha)
+  tune(floor.rough)
+
+  const grate = gratingTextures()
+  const gratingSpan = rig.railX * 2
+  for (const texture of [grate.alpha, grate.orm, grate.normal]) {
+    texture.repeat.set(gratingSpan / GRATING_TILE, WALKWAY.width / GRATING_TILE)
+    tune(texture)
+  }
 
   const skin = keep(
     new THREE.MeshPhysicalMaterial({
@@ -385,6 +382,7 @@ function buildAssets(
     castings: keep(containerCastingsGeometry()),
     runway: keep(runwayGeometry(rig)),
     bridge: keep(bridgeGeometry(rig)),
+    grating: keep(gratingGeometry(rig)),
     trolley: keep(trolleyGeometry(rig)),
     spreader: keep(spreaderGeometry()),
     // 9 cm, não 5. A 5 cm o cabo não fecha um pixel nesta distância de câmera,
@@ -430,6 +428,30 @@ function buildAssets(
         envMapIntensity: 4.6,
       }),
     ),
+    // O piso de grade da passarela. Material PRÓPRIO, e não o aço da estrutura,
+    // porque grade não é chapa: a trama tem relevo nos dois sentidos e vão
+    // aberto entre as barras. `alphaTest` em vez de transparência — assim o vão
+    // é vão de verdade, inclusive na sombra, sem custo de ordenação.
+    //
+    // Um degrau abaixo do aço no valor, de propósito: a passarela é o elemento
+    // mais alto e mais largo da cena, e se ela acender mais que os contêineres
+    // o assunto vira o cenário.
+    mesh: keep(
+      new THREE.MeshPhysicalMaterial({
+        color: shade(palette.muted, 0.6),
+        alphaMap: grate.alpha,
+        alphaTest: 0.42,
+        normalMap: grate.normal,
+        normalScale: new THREE.Vector2(0.85, 0.85),
+        aoMap: grate.orm,
+        roughnessMap: grate.orm,
+        metalnessMap: grate.orm,
+        metalness: 1,
+        roughness: 1,
+        side: THREE.DoubleSide,
+        envMapIntensity: 3.4,
+      }),
+    ),
     casting: keep(
       new THREE.MeshPhysicalMaterial({
         color: shade(palette.muted, 0.55),
@@ -451,10 +473,14 @@ function buildAssets(
       new THREE.MeshStandardMaterial({
         map: floor.map,
         alphaMap: floor.alpha,
+        // A rugosidade do concreto varia, e é ela que faz o piso existir: a
+        // poça de óleo devolve o estúdio inteiro, o concreto seco não devolve
+        // nada. O escalar vale 1 porque o mapa é quem manda na faixa.
+        roughnessMap: floor.rough,
+        roughness: 1,
         transparent: true,
         depthWrite: false,
-        roughness: 0.62,
-        metalness: 0.18,
+        metalness: 0.16,
         // O piso é `--color-bg`, a MESMA tinta do fundo da página. Ele só
         // existe visualmente porque recebe luz: é essa diferença que vira a
         // mancha embaixo da máquina, e é sobre ela que a sombra de contato
@@ -465,7 +491,6 @@ function buildAssets(
     floorSide: floorHalf * 2,
     atlas,
     jitter: unitJitter(cells.length),
-    moving,
     total: cells.length,
     dispose: () => {
       for (const item of disposables) item.dispose()
@@ -477,33 +502,45 @@ function buildAssets(
 
 const UP = new THREE.Vector3(0, 1, 0)
 
-function Yard({ layers }: { layers: readonly StackLayer[] }) {
+function Yard({ systems }: { systems: readonly SceneSystem[] }) {
   const gl = useThree((state) => state.gl)
   const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl])
   const palette = useMemo(readPalette, [])
 
-  // A arquitetura sai do dicionário, o pátio sai do tamanho da arquitetura, e
-  // o ciclo sai dos dois. Nenhum dos três sabe de three.js.
-  const architecture = useMemo(() => buildArchitecture(layers), [layers])
+  // A rotação sai do conteúdo, a disposição de cada sistema sai do tamanho da
+  // stack dele, o pátio sai da rotação inteira, e o ciclo sai dos três.
+  // Nenhum dos quatro sabe de three.js.
+  const rotation = useMemo(() => sceneRotation(systems), [systems])
+  const assemblies = useMemo(() => rotation.map(buildAssembly), [rotation])
   const yard = useMemo(
-    () => buildYard(architecture.slots.length, architecture.spare.length),
-    [architecture],
+    () => buildYard(assemblies.map((build) => build.cargo.length), Math.max(...assemblies.map((b) => b.depth), 0)),
+    [assemblies],
   )
-  const plan = useMemo(() => createPlan(yard.source, architecture.slots), [yard, architecture])
+  const show = useMemo(
+    () => createShow(yard.homes, assemblies.map((build) => build.slots)),
+    [yard, assemblies],
+  )
 
-  // A máquina é dimensionada pelo trabalho: sobe até onde a carga sobe e
-  // abraça o alcance dos lugares, sem vão morto entre a viga e a pirâmide.
-  const rig = useMemo(() => {
-    const reach = [...plan.source, ...plan.target].reduce((far, slot) => Math.max(far, Math.abs(slot.x)), 0)
-    return rigFor(plan.peakY, reach)
-  }, [plan])
+  // A máquina é dimensionada pelo TRABALHO da rotação inteira, não pelo sistema
+  // da vez: se a ponte encolhesse junto com o sistema pequeno, a câmera se
+  // mexeria a cada troca e a cena inteira pularia.
+  const rig = useMemo(() => rigFor(show.peakY, show.reach), [show])
 
   /** Onde a lâmpada de estado mora, na testeira da casa de máquinas do carro. */
   const lampAt = useMemo((): [number, number, number] => [0, rig.trolleyY + 0.75, 1.6], [rig])
 
-  // O enquadramento fecha na arquitetura montada mais a ponte por cima dela.
-  // A profundidade cobre só a pirâmide: o pátio de origem fica de fora de
-  // propósito, dissolvido na névoa, porque ele é escala e não assunto.
+  /** A área que a máquina de fato trabalha — a maior montagem da rotação. */
+  const work = useMemo(
+    () => ({
+      x: Math.max(...assemblies.map((build) => build.width), 1) / 2,
+      z: Math.max(...assemblies.map((build) => build.depth), 1) / 2,
+    }),
+    [assemblies],
+  )
+
+  // O enquadramento fecha na montagem mais a ponte por cima dela. A
+  // profundidade cobre só a montagem: o pátio fica de fora de propósito,
+  // dissolvido na névoa, porque ele é escala e não assunto.
   //
   // `top` para no carro, não acima dele. A folga que existia aqui punha a
   // instalação flutuando no meio do quadro com um vão morto em cima, e os
@@ -515,24 +552,22 @@ function Yard({ layers }: { layers: readonly StackLayer[] }) {
     return {
       x: rig.railX,
       top,
-      z: architecture.depth / 2 + CONTAINER.width,
+      z: work.z + CONTAINER.width,
       // A mira fica pouco acima do MEIO da instalação, e a conta é geométrica,
       // não de gosto: `Framing` resolve a distância projetando os oito cantos
       // da caixa, então uma mira alta obriga a câmera a recuar o quanto for
       // preciso para o canto de BAIXO ainda caber — e a sobra toda vai parar
-      // em cima da ponte. Era daí que vinham as duas queixas de uma vez: a
-      // máquina pequena no quadro e o vão morto acima dela. Centrada, a mesma
-      // caixa cabe uns vinte por cento mais perto; o viés de 0,12 devolve o
-      // pouco de sobra para BAIXO, onde há chão e sombra de contato para ela
-      // pousar, em vez de céu vazio.
+      // em cima da ponte. Centrada, a mesma caixa cabe uns vinte por cento
+      // mais perto; o viés devolve o pouco de sobra para BAIXO, onde há chão e
+      // sombra de contato para ela pousar, em vez de céu vazio.
       targetY: top * 0.62,
     }
-  }, [rig, architecture])
+  }, [rig, work])
 
   /**
    * O chão cobre o pátio inteiro, com folga de uma baia. Sai das plantas reais
-   * — se o dicionário crescer e as pilhas paradas recuarem, o chão recua junto
-   * em vez de deixar os contêineres do fundo pairando sobre o nada.
+   * — se um sistema crescer e as baias recuarem, o chão recua junto em vez de
+   * deixar os contêineres do fundo pairando sobre o nada.
    */
   const floorHalf = useMemo(
     () =>
@@ -544,31 +579,32 @@ function Yard({ layers }: { layers: readonly StackLayer[] }) {
   )
 
   const assets = useMemo(() => {
-    // A ordem das células é a das instâncias: primeiro os contêineres que a
-    // máquina move, depois os que ficam parados no fundo.
-    const cells: CargoCell[] = [
-      ...architecture.cargo.map((freight) => ({
-        mark: markFor(freight.item.name),
-        plate: shade(palette.surface2, layerShade(freight.tier)),
-        code: freight.label,
+    // A ordem das células é a das instâncias: sistema por sistema, na ordem da
+    // rotação, e dentro de cada um na ordem de montagem.
+    const cells: CargoCell[] = assemblies.flatMap((build, system) =>
+      build.cargo.map((freight) => ({
+        mark: markFor(freight.name),
+        plate: shade(palette.surface2, plateShade(system, freight.role)),
+        // O nome do sistema estampado pequeno, como o código de um contêiner
+        // real. É o que dá contexto à montagem sem precisar de legenda — e ele
+        // vem de `content/systems.ts` (ou do arquivo de dados da cena, para os
+        // menores), nunca escrito aqui.
+        code: freight.system,
       })),
-      ...architecture.spare.map((freight, i) => ({
-        mark: markFor(freight.item.name),
-        plate: shade(palette.surface2, yardShade(i)),
-        code: freight.label,
-      })),
-    ]
-    return buildAssets(
-      cells,
-      yard.footprints,
-      architecture.slots.length,
-      rig,
-      palette,
-      resolveMonoFamily(),
-      anisotropy,
-      floorHalf,
     )
-  }, [architecture, yard, rig, palette, anisotropy, floorHalf])
+    const bays: FloorBay[] = [
+      ...yard.footprints.map((spot) => ({
+        x: spot.x,
+        z: spot.z,
+        length: CONTAINER.length,
+        width: CONTAINER.width,
+        code: spot.code,
+      })),
+      // A baia de montagem: uma marcação maior no chão, onde a máquina trabalha.
+      { x: 0, z: 0, length: work.x * 2 + 1.6, width: work.z * 2 + 1.6, code: '' },
+    ]
+    return buildAssets(cells, bays, work, rig, palette, resolveMonoFamily(), anisotropy, floorHalf)
+  }, [assemblies, yard, work, rig, palette, anisotropy, floorHalf])
 
   useEffect(() => assets.dispose, [assets])
 
@@ -597,45 +633,37 @@ function Yard({ layers }: { layers: readonly StackLayer[] }) {
   /** As três malhas instanciadas andam juntas: mesma matriz, materiais diferentes. */
   const containers = (): (THREE.InstancedMesh | null)[] => [plateRef.current, frameRef.current, castingsRef.current]
 
-  // As pilhas paradas do fundo não se mexem: a matriz de cada uma é escrita
-  // uma vez e nunca mais tocada. É o que separa "pátio" de "animação de
-  // pátio" — e o que deixa o laço do quadro cuidando só do que trabalha.
-  useLayoutEffect(() => {
-    const at = new THREE.Matrix4()
-    const position = new THREE.Vector3()
-    const quaternion = new THREE.Quaternion()
-    const euler = new THREE.Euler()
-    const one = new THREE.Vector3(1, 1, 1)
-    yard.spare.forEach((slot, i) => {
-      const unit = assets.moving + i
-      const yaw = assets.jitter[unit * 3] ?? 0
-      position.set(slot.x + (assets.jitter[unit * 3 + 1] ?? 0), slot.y, slot.z + (assets.jitter[unit * 3 + 2] ?? 0))
-      quaternion.setFromEuler(euler.set(0, yaw, 0))
-      at.compose(position, quaternion, one)
-      for (const mesh of containers()) mesh?.setMatrixAt(unit, at)
-    })
-    for (const mesh of containers()) {
-      if (mesh) mesh.instanceMatrix.needsUpdate = true
-    }
-  }, [assets, yard])
+  /**
+   * Onde a cena ABRE — e isto é decisão de apresentação, por isso mora aqui e
+   * não no modelo: `samplePose` continua sem saber onde alguém olha.
+   *
+   * O dono reclamou de encontrar vários contêineres já posicionados ao
+   * atualizar a página, e a queixa é justa: a cena antiga abria a dezesseis
+   * segundos do fim da montagem, então a primeira impressão era de cenário
+   * pronto, não de máquina trabalhando.
+   *
+   * As duas saídas honestas são o zero absoluto e o começo. O zero deixa o
+   * hero com o pátio cheio e a frente vazia por vários segundos — verdadeiro,
+   * mas é uma máquina que ainda não fez nada. Aqui a cena abre no MEIO DO
+   * SEGUNDO TRANSLADO do primeiro sistema: um contêiner assentado no chão, o
+   * segundo pendurado atravessando o pátio, e a baia ainda cheia atrás. É o
+   * primeiro quadro em que a cena mostra o que ela é — uma máquina montando —
+   * e ainda assim quem fica vê a montagem inteira acontecer.
+   *
+   * É deslocamento de FASE, não corte: a rotação continua a mesma, contínua e
+   * determinística, e no instante zero do modelo a frente segue vazia.
+   */
+  const opening = useMemo(() => {
+    const second = show.plans[0]?.load[1]
+    if (!second) return 0
+    return second.start + (second.travelStart + second.travelEnd) / 2
+  }, [show])
 
-  // A cena ABRE perto do fim da montagem, não no zero.
-  //
-  // Um ciclo honesto — vinte e um contêineres, ida e volta, na curva de um
-  // acionamento de verdade — leva minutos, e a parada com a arquitetura
-  // completa é o que essa cena existe para mostrar. Começando no zero, quem
-  // chega vê a máquina buscando a terceira caixa e vai embora antes da
-  // pirâmide fechar. Começando aqui, vê os últimos movimentos, a arquitetura
-  // inteira montada e só então a desmontagem — o arco na ordem que importa.
-  //
-  // É deslocamento de FASE, não corte: o ciclo continua o mesmo, contínuo e
-  // determinístico, e no instante zero do modelo a frente segue vazia.
-  const motion = useRef({
-    clock: Math.max(0, plan.loadTime - OPENING_LEAD),
-    spare: 0,
-    pose: createPose(plan),
-    sway: createSway(),
-  })
+  const motion = useRef({ clock: 0, spare: 0, pose: createPose(show), sway: createSway() })
+  useLayoutEffect(() => {
+    motion.current = { clock: opening, spare: 0, pose: createPose(show), sway: createSway() }
+  }, [show, opening])
+
   const scratch = useMemo(
     () => ({
       a: new THREE.Vector3(),
@@ -661,7 +689,7 @@ function Yard({ layers }: { layers: readonly StackLayer[] }) {
     let steps = 0
     while (own.spare >= SWAY_STEP && steps < 16) {
       own.clock += SWAY_STEP
-      samplePose(plan, own.clock, pose)
+      samplePose(show, own.clock, pose)
       stepSway(sway, pose.trolleyX, pose.bridgeZ, rig.pivotY - pose.spreaderY, pose.swayGate)
       own.spare -= SWAY_STEP
       steps += 1
@@ -690,7 +718,7 @@ function Yard({ layers }: { layers: readonly StackLayer[] }) {
       spreaderRef.current.rotation.set(-sway.thetaZ, 0, sway.thetaX)
     }
 
-    for (let i = 0; i < assets.moving; i++) {
+    for (let i = 0; i < assets.total; i++) {
       // O desalinhamento de fábrica de cada unidade acompanha a caixa o ciclo
       // inteiro, inclusive pendurada: um contêiner não fica reto no spreader
       // só porque foi içado, e alinhar tudo na hora do engate devolveria a
@@ -741,7 +769,7 @@ function Yard({ layers }: { layers: readonly StackLayer[] }) {
       <Framing bounds={bounds} />
 
       {/*
-        A névoa. É ela que faz o pátio recuar: as pilhas de trás perdem
+        A névoa. É ela que faz o pátio recuar: as baias de trás perdem
         contraste com a distância, como perderiam num terminal de verdade, em
         vez de serem apagadas com opacidade — que é o truque que denuncia
         "camada de fundo" em vez de profundidade. A cor é `--color-bg`, a
@@ -773,26 +801,27 @@ function Yard({ layers }: { layers: readonly StackLayer[] }) {
 
       {/*
         Uma luz direcional só, alinhada com o recorte: os lightformers moram no
-        mapa de ambiente e não projetam sombra nenhuma. É esta que faz o
-        patamar de cima escurecer o de baixo — a leitura de profundidade mais
-        forte da cena inteira, e o que separa os seis degraus da pirâmide.
+        mapa de ambiente e não projetam sombra nenhuma. É esta que faz o nível
+        de cima escurecer o de baixo — a leitura de profundidade mais forte da
+        cena inteira, e o que separa os degraus da montagem.
       */}
       <directionalLight
         castShadow
         position={[15, 27, 16]}
         intensity={2.6}
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-24}
-        shadow-camera-right={24}
-        shadow-camera-top={24}
-        shadow-camera-bottom={-24}
+        shadow-camera-left={-26}
+        shadow-camera-right={26}
+        shadow-camera-top={26}
+        shadow-camera-bottom={-26}
         shadow-camera-near={8}
-        shadow-camera-far={78}
+        shadow-camera-far={82}
         shadow-bias={-0.0006}
         shadow-normalBias={0.035}
       />
 
-      {/* Piso: as baias pintadas, dissolvidas no fundo da página. */}
+      {/* Piso: concreto de pátio com a marcação pintada e gasta, dissolvido no
+          fundo da página. */}
       <mesh receiveShadow renderOrder={1} rotation-x={-Math.PI / 2} material={assets.floor}>
         <planeGeometry args={[assets.floorSide, assets.floorSide]} />
       </mesh>
@@ -810,12 +839,10 @@ function Yard({ layers }: { layers: readonly StackLayer[] }) {
       />
 
       {/*
-        TODOS os contêineres da cena — os que a máquina move e os que ficam
-        parados — em três malhas instanciadas: chapa, moldura e cantoneiras.
-        Uma malha por contêiner seriam mais de cento e trinta chamadas de
-        desenho para uma decoração; assim são três, e o custo de mover a
-        arquitetura inteira vira reescrever quarenta e poucas matrizes por
-        quadro.
+        TODOS os contêineres da cena — o sistema da vez e os que esperam nas
+        baias — em três malhas instanciadas: chapa, moldura e cantoneiras.
+        Uma malha por contêiner seriam quase cento e cinquenta chamadas de
+        desenho para uma decoração; assim são três.
 
         `frustumCulled={false}` porque a caixa envolvente de uma malha
         instanciada não acompanha as matrizes: com culling ligado, a cena
@@ -846,6 +873,9 @@ function Yard({ layers }: { layers: readonly StackLayer[] }) {
 
       <group ref={bridgeRef}>
         <mesh castShadow geometry={assets.bridge} material={assets.steel} />
+        {/* A grade não projeta sombra: quinze metros acima do pátio, a trama
+            viraria chuvisco no chão e roubaria a leitura da montagem. */}
+        <mesh geometry={assets.grating} material={assets.mesh} />
       </group>
 
       <group ref={trolleyRef}>
@@ -889,7 +919,7 @@ function Yard({ layers }: { layers: readonly StackLayer[] }) {
  * o hero entra e sai da viewport: nada de queimar GPU e bateria animando uma
  * máquina que já rolou para fora da tela.
  */
-export function Portico({ layers }: { layers: readonly StackLayer[] }) {
+export function Portico({ systems }: { systems: readonly SceneSystem[] }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [inView, setInView] = useState(true)
 
@@ -920,7 +950,7 @@ export function Portico({ layers }: { layers: readonly StackLayer[] }) {
         }}
         camera={{ fov: VIEW.fov, near: 6, far: 190, position: [18, 16, 46] }}
       >
-        <Yard layers={layers} />
+        <Yard systems={systems} />
       </Canvas>
     </div>
   )

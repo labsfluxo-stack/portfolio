@@ -830,43 +830,227 @@ export function containerSkinShader(material: THREE.Material, scale: THREE.Vecto
   material.customProgramCacheKey = () => 'portico-container-skin'
 }
 
+// ── Piso do pátio ─────────────────────────────────────────────────────────
+
 /**
- * Piso do pátio: as baias pintadas, e uma máscara radial que dissolve o chão
- * no fundo da página.
+ * Uma baia pintada no chão: onde ela está e que número leva.
+ */
+export type FloorBay = { x: number; z: number; length: number; width: number; code: string }
+
+export type FloorPlan = {
+  bays: readonly FloorBay[]
+  /** Meia-largura do plano de chão, em metros. */
+  half: number
+  /** Meia-extensão da área onde a máquina monta — é lá que o piso é mais gasto. */
+  work: { x: number; z: number }
+}
+
+/** Resolução do concreto. Metade da do desenho: mancha não precisa de aresta. */
+const CONCRETE = 512
+/** Resolução do desenho por cima. Tinta precisa de aresta. */
+const YARD_MAP = 1024
+
+/**
+ * O concreto, pixel a pixel: cor e rugosidade saem da MESMA passada.
+ *
+ * Três escalas de mancha, e as três existem num pátio de verdade:
+ *
+ * - **cura irregular** — a placa não seca por igual, e a diferença fica.
+ * - **óleo** — mancha escura e LISA. É o detalhe que mais paga: uma superfície
+ *   uniformemente fosca não devolve reflexo nenhum, e é o contraste entre o
+ *   fosco do concreto e o espelhado da poça de óleo que faz o chão existir.
+ * - **água e poeira** — clareia, e é mais rugosa, não menos.
+ *
+ * Sai em meia resolução de propósito. Mancha de concreto não tem aresta: o que
+ * precisa de aresta é a tinta, que é desenhada depois, em cima, no dobro do
+ * tamanho. Gerar as duas na mesma resolução custaria quatro vezes mais tempo de
+ * carregamento para desenhar borrão com precisão de faca.
+ */
+function concreteBase(ground: string, work: { x: number; z: number }, half: number): {
+  color: CanvasRenderingContext2D
+  rough: CanvasRenderingContext2D
+} {
+  const color = surface(CONCRETE, CONCRETE)
+  const rough = surface(CONCRETE, CONCRETE)
+  const image = color.createImageData(CONCRETE, CONCRETE)
+  const wear = rough.createImageData(CONCRETE, CONCRETE)
+  const base = parseHex(ground)
+
+  for (let y = 0; y < CONCRETE; y++) {
+    const v = (y + 0.5) / CONCRETE
+    for (let x = 0; x < CONCRETE; x++) {
+      const u = (x + 0.5) / CONCRETE
+
+      const cure = fbm(u, v, 6, 6, 3, 2179) - 0.5
+      const grit = (valueNoise(u, v, 180, 180, 5051) - 0.5) * 0.35
+      // Óleo: mancha pequena e concentrada, com limiar — óleo não é gradiente,
+      // é poça. Fora do limiar o piso não tem óleo nenhum.
+      const spill = Math.max(0, fbm(u, v, 11, 11, 3, 7717) - 0.58) * 2.6
+      const damp = Math.max(0, fbm(u, v, 4, 9, 2, 3499) - 0.52) * 1.6
+
+      // Onde a máquina trabalha, o piso apanha mais: a área da montagem e o
+      // corredor de manobra na frente das baias.
+      const mx = ((x / CONCRETE - 0.5) * half * 2) / Math.max(1, work.x)
+      const mz = ((y / CONCRETE - 0.5) * half * 2) / Math.max(1, work.z)
+      const traffic = Math.max(0, 1 - Math.hypot(mx, mz) / 1.9)
+
+      const value = 1 + cure * 0.5 + grit + damp * 0.42 - spill * 0.55 - traffic * 0.22
+      const i = (y * CONCRETE + x) * 4
+      image.data[i] = Math.round(Math.max(0, Math.min(255, (base[0] || 0) * value + 10 * value)))
+      image.data[i + 1] = Math.round(Math.max(0, Math.min(255, (base[1] || 0) * value + 11 * value)))
+      image.data[i + 2] = Math.round(Math.max(0, Math.min(255, (base[2] || 0) * value + 12 * value)))
+      image.data[i + 3] = 255
+
+      const roughness = 0.94 - spill * 0.62 - traffic * 0.18 + cure * 0.12 + damp * 0.06
+      const grey = Math.round(255 * Math.max(0.12, Math.min(1, roughness)))
+      wear.data[i] = grey
+      wear.data[i + 1] = grey
+      wear.data[i + 2] = grey
+      wear.data[i + 3] = 255
+    }
+  }
+  color.putImageData(image, 0, 0)
+  rough.putImageData(wear, 0, 0)
+  return { color, rough }
+}
+
+/**
+ * Piso do pátio: concreto, marcação pintada e gasta, e uma máscara radial que
+ * dissolve o chão no fundo da página.
  *
  * A máscara existe porque a cena é servida com fundo transparente por cima do
  * `--color-bg` do site. Um plano de chão com borda dura desenharia uma linha
  * de horizonte atravessando o hero e denunciaria "render 3D colado na
  * página"; dissolvido, o chão existe só onde é preciso — embaixo da máquina,
  * onde a sombra de contato precisa de superfície para pousar.
+ *
+ * A marcação é o vocabulário de um terminal em operação: junta de dilatação
+ * em grade, faixa de baia, número de posição e hachura de área de segurança.
+ * E ela é TINTA GASTA, não adesivo novo — cada segmento tem a própria opacidade,
+ * tirada do índice (nunca de sorteio), e a faixa some de vez onde a máquina
+ * mais passa. Marcação impecável num pátio de trabalho é a assinatura mais
+ * rápida de cenário.
+ *
+ * O piso é cenário, não assunto: tudo aqui fica abaixo do valor da chapa dos
+ * contêineres de propósito. Se competir com eles, o erro é meu.
  */
 export function floorTextures(
   ground: string,
   paint: string,
-  bays: { x: number; z?: number; length: number; width: number }[],
-  half: number,
+  plan: FloorPlan,
+  family: string,
 ): {
   map: THREE.CanvasTexture
   alpha: THREE.CanvasTexture
+  rough: THREE.CanvasTexture
 } {
-  const size = 1024
+  const { bays, half, work } = plan
+  const size = YARD_MAP
+  const concrete = concreteBase(ground, work, half)
 
   const color = surface(size, size)
-  color.fillStyle = ground
-  color.fillRect(0, 0, size, size)
+  color.imageSmoothingEnabled = true
+  color.drawImage(concrete.color.canvas, 0, 0, size, size)
+  const rough = surface(size, size)
+  rough.imageSmoothingEnabled = true
+  rough.drawImage(concrete.rough.canvas, 0, 0, size, size)
 
+  // O plano do chão é girado −90° em X, então o topo do canvas cai no Z mais
+  // negativo da cena: canvas e cena crescem no mesmo sentido nos dois eixos.
   const toPx = (v: number): number => (v / (half * 2)) * size
-  color.strokeStyle = paint
-  color.lineWidth = Math.max(2, toPx(0.13))
-  color.globalAlpha = 0.75
-  for (const bay of bays) {
-    const w = toPx(bay.length + 1.1)
-    const h = toPx(bay.width + 1.1)
-    // O plano do chão é girado −90° em X, então o topo do canvas cai no Z mais
-    // negativo da cena: canvas e cena crescem no mesmo sentido nos dois eixos.
-    color.strokeRect(size / 2 + toPx(bay.x) - w / 2, size / 2 + toPx(bay.z ?? 0) - h / 2, w, h)
+  const at = (v: number): number => size / 2 + toPx(v)
+
+  // ── junta de dilatação: a grade que divide as placas de concreto ────────
+  // Serrada, não pintada: é um sulco, então escurece a cor E lisa a superfície
+  // (a borda da serra é polida). Cinco metros e meio é o pano padrão.
+  const JOINT = 5.5
+  const joints = Math.ceil((half * 2) / JOINT)
+  color.lineWidth = Math.max(1, toPx(0.05))
+  rough.lineWidth = color.lineWidth
+  for (let i = -joints; i <= joints; i++) {
+    const p = at(i * JOINT)
+    for (const ctx of [color, rough]) {
+      ctx.strokeStyle = ctx === color ? '#000000' : '#5a5a5a'
+      ctx.globalAlpha = ctx === color ? 0.42 : 0.8
+      ctx.beginPath()
+      ctx.moveTo(p, 0)
+      ctx.lineTo(p, size)
+      ctx.moveTo(0, p)
+      ctx.lineTo(size, p)
+      ctx.stroke()
+    }
   }
   color.globalAlpha = 1
+  rough.globalAlpha = 1
+
+  // ── faixa de baia e número de posição ───────────────────────────────────
+  const stroke = Math.max(2, toPx(0.16))
+  bays.forEach((bay, index) => {
+    const w = toPx(bay.length + 0.9)
+    const h = toPx(bay.width + 0.9)
+    const x = at(bay.x) - w / 2
+    const y = at(bay.z) - h / 2
+
+    // Cada lado da baia tem o próprio desgaste, e o lado que dá para o
+    // corredor apaga primeiro — é por ali que o caminhão encosta.
+    const sides: [number, number, number, number][] = [
+      [x, y, x + w, y],
+      [x + w, y, x + w, y + h],
+      [x + w, y + h, x, y + h],
+      [x, y + h, x, y],
+    ]
+    sides.forEach((side, k) => {
+      color.strokeStyle = paint
+      color.lineWidth = stroke
+      color.globalAlpha = 0.2 + 0.34 * unitNoise(index * 4 + k, 11)
+      color.beginPath()
+      color.moveTo(side[0], side[1])
+      color.lineTo(side[2], side[3])
+      color.stroke()
+    })
+    // Tinta é mais lisa que concreto, e continua sendo mesmo gasta.
+    rough.strokeStyle = '#8e8e8e'
+    rough.globalAlpha = 0.5
+    rough.lineWidth = stroke
+    rough.strokeRect(x, y, w, h)
+
+    // Número da posição, estampado no canto da baia como num pátio de
+    // verdade. Sai do índice da baia — nenhum texto escrito no código.
+    color.save()
+    color.globalAlpha = 0.16 + 0.2 * unitNoise(index, 12)
+    color.fillStyle = paint
+    color.textAlign = 'left'
+    color.textBaseline = 'top'
+    if ('letterSpacing' in color) color.letterSpacing = '0.12em'
+    color.font = `600 ${Math.round(toPx(1.15))}px ${family}`
+    color.fillText(bay.code, x + stroke * 1.6, y + stroke * 1.4)
+    color.restore()
+  })
+  color.globalAlpha = 1
+  rough.globalAlpha = 1
+
+  // ── hachura de área de segurança, no corredor entre o pátio e a montagem ─
+  // A faixa a 45° é o que diz "aqui não se estaciona", e é a marcação que mais
+  // lê de longe porque tem direção própria — todo o resto do desenho do chão é
+  // ortogonal.
+  const laneZ = at(-work.z - 2.6)
+  const laneH = toPx(1.5)
+  const laneX0 = at(-work.x - 3)
+  const laneX1 = at(work.x + 3)
+  color.save()
+  color.beginPath()
+  color.rect(laneX0, laneZ, laneX1 - laneX0, laneH)
+  color.clip()
+  color.strokeStyle = paint
+  color.lineWidth = Math.max(2, toPx(0.22))
+  for (let x = laneX0 - laneH; x < laneX1 + laneH; x += toPx(0.75)) {
+    color.globalAlpha = 0.1 + 0.16 * unitNoise(Math.round(x), 13)
+    color.beginPath()
+    color.moveTo(x, laneZ + laneH)
+    color.lineTo(x + laneH, laneZ)
+    color.stroke()
+  }
+  color.restore()
 
   const mask = surface(size, size)
   const gradient = mask.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
@@ -880,6 +1064,109 @@ export function floorTextures(
 
   const map = new THREE.CanvasTexture(color.canvas)
   map.colorSpace = THREE.SRGBColorSpace
-  const alpha = new THREE.CanvasTexture(mask.canvas)
-  return { map, alpha }
+  return {
+    map,
+    alpha: new THREE.CanvasTexture(mask.canvas),
+    rough: new THREE.CanvasTexture(rough.canvas),
+  }
 }
+
+// ── Piso de grade da passarela ────────────────────────────────────────────
+
+/**
+ * A trama de um piso de grade industrial, em três mapas.
+ *
+ * Uma passarela de chapa lisa devolve o especular numa faixa contínua e lê
+ * como fita adesiva atravessando o alto do quadro. Grade não: a barra
+ * portante corre num sentido, a barra travessa no outro, e o vão entre elas
+ * deixa passar luz. São três informações diferentes e cada uma precisa do
+ * próprio mapa — o relevo (normal) quebra o brilho, a oclusão escurece o
+ * fundo do vão, e o recorte (alpha) abre o vão de verdade.
+ *
+ * O recorte usa `alphaTest`, não transparência: transparência exigiria
+ * ordenação e mataria a sombra. E a cobertura é generosa de propósito —
+ * quando a passarela ficar pequena demais na tela, o mip devolve a média, e
+ * uma média acima do limiar degrada para chapa cheia em vez de sumir.
+ */
+export function gratingTextures(): {
+  alpha: THREE.CanvasTexture
+  orm: THREE.CanvasTexture
+  normal: THREE.CanvasTexture
+} {
+  const size = 128
+  /** Barras portantes por ladrilho, e travessas — a proporção real ~3:1. */
+  const bearers = 9
+  const cross = 3
+
+  const alphaCtx = surface(size, size)
+  const ormCtx = surface(size, size)
+  const normalCtx = surface(size, size)
+  const cutImage = alphaCtx.createImageData(size, size)
+  const ormImage = ormCtx.createImageData(size, size)
+  const normalImage = normalCtx.createImageData(size, size)
+  const cut = cutImage.data
+  const orm = ormImage.data
+  const nrm = normalImage.data
+
+  const bar = (t: number, count: number, width: number): number => {
+    const phase = ((t * count) % 1 + 1) % 1
+    const edge = Math.min(phase, 1 - phase) * 2
+    return edge < width ? 1 : 0
+  }
+  /** Distância à aresta da barra, para o relevo inclinar nas bordas. */
+  const slope = (t: number, count: number, width: number): number => {
+    const phase = ((t * count) % 1 + 1) % 1
+    const centred = phase < 0.5 ? phase : phase - 1
+    const k = (centred * 2) / width
+    return Math.abs(k) < 1 ? Math.sin(k * Math.PI) : 0
+  }
+
+  for (let y = 0; y < size; y++) {
+    const v = (y + 0.5) / size
+    for (let x = 0; x < size; x++) {
+      const u = (x + 0.5) / size
+      const solid = Math.max(bar(v, bearers, 0.52), bar(u, cross, 0.34))
+      const i = (y * size + x) * 4
+
+      cut[i] = solid ? 255 : 0
+      cut[i + 1] = cut[i] as number
+      cut[i + 2] = cut[i] as number
+      cut[i + 3] = 255
+
+      // Oclusão no fundo do vão, rugosidade baixa no topo da barra (é onde a
+      // bota lustra o aço), metalicidade alta: grade é aço galvanizado nu.
+      const occlusion = solid ? 1 : 0.42
+      const roughness = solid ? 0.34 : 0.72
+      orm[i] = Math.round(255 * occlusion)
+      orm[i + 1] = Math.round(255 * roughness)
+      orm[i + 2] = Math.round(255 * (solid ? 0.95 : 0.5))
+      orm[i + 3] = 255
+
+      const nx = -slope(u, cross, 0.34) * 0.9
+      const ny = -slope(v, bearers, 0.52) * 1.2
+      const inv = 1 / Math.hypot(nx, ny, 1)
+      nrm[i] = Math.round((nx * inv * 0.5 + 0.5) * 255)
+      nrm[i + 1] = Math.round((ny * inv * 0.5 + 0.5) * 255)
+      nrm[i + 2] = Math.round((inv * 0.5 + 0.5) * 255)
+      nrm[i + 3] = 255
+    }
+  }
+
+  alphaCtx.putImageData(cutImage, 0, 0)
+  ormCtx.putImageData(ormImage, 0, 0)
+  normalCtx.putImageData(normalImage, 0, 0)
+
+  const wrap = (ctx: CanvasRenderingContext2D, repeatX: number, repeatY: number): THREE.CanvasTexture => {
+    const texture = new THREE.CanvasTexture(ctx.canvas)
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(repeatX, repeatY)
+    return texture
+  }
+  // O ladrilho vale 0,30 m no mundo; quem multiplica pelo vão da passarela é
+  // `Portico.tsx`, que é quem conhece a medida da ponte.
+  return { alpha: wrap(alphaCtx, 1, 1), orm: wrap(ormCtx, 1, 1), normal: wrap(normalCtx, 1, 1) }
+}
+
+/** Lado do ladrilho da grade, em metros — o passo real de um piso de grade. */
+export const GRATING_TILE = 0.3
