@@ -283,6 +283,7 @@ export const pt: Dictionary = {
         label: 'Backend',
         source: 'repo',
         items: [
+          { name: 'JavaScript', level: 'dominio' },
           { name: 'TypeScript', level: 'dominio' },
           { name: 'Node', level: 'dominio' },
           { name: 'Fastify', level: 'dominio' },

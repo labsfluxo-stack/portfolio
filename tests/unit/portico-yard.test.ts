@@ -1,19 +1,24 @@
 import { describe, expect, it } from 'vitest'
+import * as simpleIcons from 'simple-icons'
+import { buildYard, iconSlug, markFor, yardShade } from '@/components/three/portico-yard'
+import { buildArchitecture, isArchitecture } from '@/components/three/portico-architecture'
+import { CONTAINER, slotCenterY } from '@/components/three/portico-model'
 import {
-  YARD_CAPACITY,
-  YARD_FOOTPRINTS,
-  YARD_SLOTS,
-  iconSlug,
-  markFor,
-  yardCargo,
-  yardShade,
-} from '@/components/three/portico-yard'
-import { BAY, CONTAINER, slotCenterY } from '@/components/three/portico-model'
+  PANEL_MIN_CONTRAST,
+  contrastRatio,
+  needsPanel,
+  relativeLuminance,
+  unitNoise,
+} from '@/components/three/portico-textures'
 import { pt } from '@/content/pt'
 import { en } from '@/content/en'
-import type { StackItem } from '@/content/types'
 
-const items = (dict: typeof pt): StackItem[] => dict.stack.layers.flatMap((layer) => layer.items)
+const items = (dict: typeof pt) => dict.stack.layers.flatMap((layer) => layer.items)
+const architecture = buildArchitecture(pt.stack.layers)
+const yard = buildYard(architecture.slots.length, architecture.spare.length)
+
+/** A chapa mais escura da cena — é contra ela que o contraste tem de fechar. */
+const PLATE = '#101216'
 
 describe('resolução de ícone', () => {
   it('segue a regra de slug do simple-icons, incluindo as substituições de caractere', () => {
@@ -25,26 +30,50 @@ describe('resolução de ícone', () => {
     expect(iconSlug('Ícone com acento')).toBe('iconecomacento')
   })
 
-  it('tecnologia com marca no pacote vira ícone', () => {
-    for (const name of ['Cisco', 'Docker', 'TypeScript', 'React', 'PostgreSQL', 'MikroTik']) {
-      expect(markFor(name), name).toMatchObject({ kind: 'icon', name })
+  it('tecnologia com marca no pacote vira ícone, com a cor oficial junto', () => {
+    for (const name of ['JavaScript', 'Docker', 'TypeScript', 'React', 'PostgreSQL', 'Supabase/RLS', 'Next.js']) {
+      const mark = markFor(name)
+      expect(mark, name).toMatchObject({ kind: 'icon', name })
+      if (mark.kind !== 'icon') continue
+      expect(mark.hex, name).toMatch(/^#[0-9A-Fa-f]{6}$/)
     }
   })
 
   it('tecnologia sem marca cai no texto SOZINHA, sem lista de exceções', () => {
     // Nenhuma destas está em `ICONS`. Não há nada no código dizendo isso: a
     // busca pelo slug simplesmente não encontra, e o estêncil assume.
-    for (const name of ['Switching', 'VPS', 'DNS', 'SQL puro', 'Supabase/RLS', 'Heartbeat/uptime']) {
+    for (const name of ['VPS', 'DNS', 'SQL puro', 'Heartbeat/uptime', 'Playwright', 'Groq']) {
       expect(markFor(name), name).toMatchObject({ kind: 'text', name })
     }
     // O caso que prova a automação: um nome que nunca existiu no dicionário.
-    const invented = markFor('Tecnologia Que Não Existe')
-    expect(invented.kind).toBe('text')
+    expect(markFor('Tecnologia Que Não Existe').kind).toBe('text')
+  })
+
+  it('nenhuma tecnologia do dicionário cai em texto tendo marca no pacote', () => {
+    // O defeito que este teste existe para pegar já aconteceu: cinco marcas
+    // (Node, Tailwind, Supabase, Vercel, Zod) existiam no simple-icons e
+    // ficaram de fora do array `ICONS`, então renderizavam como texto sem que
+    // nada acusasse. Aqui a fonte da verdade é o pacote, não uma lista nossa.
+    // A fonte da verdade aqui é o PACOTE inteiro, não o nosso array `ICONS` —
+    // se fosse o array, o teste concordaria com o próprio esquecimento.
+    const noPacote = new Set(Object.values(simpleIcons).map((icon) => icon.slug))
+    // Só o que a cena de fato monta: o hardware de rede (Cisco, MikroTik,
+    // Furukawa, Switching) é excluído de propósito por `isArchitecture`, então
+    // não ter ícone deles não é esquecimento.
+    const doDicionario = pt.stack.layers.flatMap((layer) =>
+      layer.items.filter(isArchitecture).map((item) => item.name),
+    )
+    const semIcone = doDicionario.filter((name) => markFor(name).kind === 'text')
+    const perdidas = semIcone.filter((name) => noPacote.has(iconSlug(name)))
+    expect(perdidas, `tecnologias com marca disponível caindo em texto: ${perdidas.join(', ')}`).toEqual([])
   })
 
   it('o estêncil da marca de texto usa o nome do dicionário, na tipografia dos rótulos', () => {
-    const mark = markFor('Deploy blue-green')
-    expect(mark).toEqual({ name: 'Deploy blue-green', kind: 'text', lines: ['DEPLOY', 'BLUE-GREEN'] })
+    expect(markFor('Deploy blue-green')).toEqual({
+      name: 'Deploy blue-green',
+      kind: 'text',
+      lines: ['DEPLOY', 'BLUE-GREEN'],
+    })
   })
 
   it('todo nome de tecnologia do dicionário resolve para alguma marca, nos dois idiomas', () => {
@@ -57,75 +86,94 @@ describe('resolução de ícone', () => {
       }
     }
   })
-})
-
-describe('carga do pátio', () => {
-  it('prioriza o que o dono declara dominar', () => {
-    const cargo = yardCargo(items(pt))
-    const dominados = new Set(
-      items(pt)
-        .filter((item) => item.level === 'dominio')
-        .map((item) => item.name),
-    )
-    for (const mark of cargo) expect(dominados.has(mark.name), mark.name).toBe(true)
-  })
-
-  it('a ordem é estável: a mesma chamada devolve sempre a mesma carga', () => {
-    expect(yardCargo(items(pt)).map((mark) => mark.name)).toEqual(yardCargo(items(pt)).map((mark) => mark.name))
-  })
 
   it('mistura ícone e texto — não é vitrine de logos nem só estêncil', () => {
     for (const dict of [pt, en]) {
-      const cargo = yardCargo(items(dict))
-      const icons = cargo.filter((mark) => mark.kind === 'icon').length
-      expect(icons, 'ícones').toBeGreaterThanOrEqual(4)
-      expect(cargo.length - icons, 'estênceis').toBeGreaterThanOrEqual(4)
+      const marks = items(dict).map((item) => markFor(item.name))
+      const icons = marks.filter((mark) => mark.kind === 'icon').length
+      expect(icons, 'ícones').toBeGreaterThanOrEqual(8)
+      expect(marks.length - icons, 'estênceis').toBeGreaterThanOrEqual(8)
     }
-  })
-
-  it('nunca passa da capacidade das baias, e com poucos itens não inventa carga', () => {
-    expect(yardCargo(items(pt)).length).toBe(YARD_CAPACITY)
-    const poucos: StackItem[] = [
-      { name: 'Docker', level: 'dominio' },
-      { name: 'VPS', level: 'contato' },
-    ]
-    expect(yardCargo(poucos).map((mark) => mark.name)).toEqual(['Docker', 'VPS'])
-    expect(yardCargo(items(pt), 3)).toHaveLength(3)
-    expect(yardCargo([], 5)).toHaveLength(0)
-  })
-
-  it('nível mais alto primeiro, e a ordem do dicionário desempata', () => {
-    const mixed: StackItem[] = [
-      { name: 'Groq', level: 'contato' },
-      { name: 'Redis', level: 'producao' },
-      { name: 'Docker', level: 'dominio' },
-      { name: 'Nginx', level: 'dominio' },
-    ]
-    expect(yardCargo(mixed).map((mark) => mark.name)).toEqual(['Docker', 'Nginx', 'Redis', 'Groq'])
   })
 })
 
-describe('baias de fundo', () => {
-  it('todas ficam atrás do corredor, longe do truque das pernas do pórtico', () => {
-    // A perna do pórtico e seu truque terminam em z ≈ −5,1. Nada de fundo
-    // pode invadir a pista por onde a máquina transita.
-    for (const slot of YARD_SLOTS) expect(slot.z + CONTAINER.width / 2, `z=${slot.z}`).toBeLessThan(-9)
+describe('cor de marca', () => {
+  it('a luminância relativa segue a fórmula do WCAG 2', () => {
+    expect(relativeLuminance('#000000')).toBeCloseTo(0, 6)
+    expect(relativeLuminance('#FFFFFF')).toBeCloseTo(1, 6)
+    // Verde puro pesa muito mais que azul puro — é o ponto da fórmula.
+    expect(relativeLuminance('#00FF00')).toBeGreaterThan(relativeLuminance('#0000FF'))
   })
 
-  it('nenhuma pilha de fundo ocupa o lugar das duas baias operacionais', () => {
-    for (const spot of YARD_FOOTPRINTS) {
-      for (const bay of [BAY.source, BAY.target]) {
-        const apart = Math.abs(spot.x - bay) > CONTAINER.length || Math.abs(spot.z) > CONTAINER.width
-        expect(apart, `pilha em ${spot.x},${spot.z}`).toBe(true)
+  it('a razão de contraste é simétrica e bate com os extremos conhecidos', () => {
+    expect(contrastRatio('#000000', '#FFFFFF')).toBeCloseTo(21, 4)
+    expect(contrastRatio('#FFFFFF', '#000000')).toBeCloseTo(21, 4)
+    expect(contrastRatio('#161A20', '#161A20')).toBeCloseTo(1, 6)
+  })
+
+  it('marca escura ganha painel; marca clara vai direto na chapa', () => {
+    // Pretas e azul-escuras: Next.js, Fastify, three.js, Anthropic, Prisma.
+    for (const brand of ['#000000', '#191919', '#2D3748', '#293239']) {
+      expect(needsPanel(brand, PLATE), brand).toBe(true)
+    }
+    // Claras o bastante para se separar da chapa sozinhas.
+    for (const brand of ['#61DAFB', '#2496ED', '#00FF74', '#F69220', '#4169E1']) {
+      expect(needsPanel(brand, PLATE), brand).toBe(false)
+    }
+  })
+
+  it('a decisão é MEDIDA, não listada: o limiar é o do WCAG para elemento gráfico', () => {
+    expect(PANEL_MIN_CONTRAST).toBe(3)
+    for (const brand of ['#000000', '#61DAFB', '#2D3748', '#F69220']) {
+      expect(needsPanel(brand, PLATE)).toBe(contrastRatio(brand, PLATE) < PANEL_MIN_CONTRAST)
+    }
+  })
+
+  it('o painel resolve de fato: sobre ele, toda marca do dicionário passa de 4,5:1', () => {
+    // `--color-text` a 0,9 — o painel de aplicação da cena.
+    const panel = '#DCDAD7'
+    for (const dict of [pt, en]) {
+      for (const item of items(dict)) {
+        const mark = markFor(item.name)
+        if (mark.kind !== 'icon' || !needsPanel(mark.hex, PLATE)) continue
+        expect(contrastRatio(mark.hex, panel), item.name).toBeGreaterThan(4.5)
       }
     }
   })
 
+  it('nenhuma marca fica ilegível: ou passa na chapa, ou passa no painel', () => {
+    for (const item of items(pt)) {
+      const mark = markFor(item.name)
+      if (mark.kind !== 'icon') continue
+      const best = Math.max(contrastRatio(mark.hex, PLATE), needsPanel(mark.hex, PLATE) ? 4.5 : 0)
+      expect(best, item.name).toBeGreaterThanOrEqual(PANEL_MIN_CONTRAST)
+    }
+  })
+})
+
+describe('pátio', () => {
+  it('tem exatamente um lugar de origem por contêiner da arquitetura', () => {
+    expect(yard.source).toHaveLength(architecture.slots.length)
+    expect(yard.spare).toHaveLength(architecture.spare.length)
+  })
+
+  it('todo o material começa atrás do corredor, longe da arquitetura', () => {
+    for (const slot of [...yard.source, ...yard.spare]) {
+      expect(slot.z + CONTAINER.width / 2, `z=${slot.z}`).toBeLessThan(-architecture.depth / 2 - 4)
+    }
+  })
+
+  it('as pilhas paradas ficam ainda mais fundas que o pátio de trabalho', () => {
+    const workFar = Math.min(...yard.source.map((slot) => slot.z))
+    for (const slot of yard.spare) expect(slot.z, `z=${slot.z}`).toBeLessThan(workFar)
+  })
+
   it('duas pilhas nunca se atravessam', () => {
-    for (let a = 0; a < YARD_FOOTPRINTS.length; a++) {
-      for (let b = a + 1; b < YARD_FOOTPRINTS.length; b++) {
-        const one = YARD_FOOTPRINTS[a]
-        const other = YARD_FOOTPRINTS[b]
+    const spots = yard.footprints
+    for (let a = 0; a < spots.length; a++) {
+      for (let b = a + 1; b < spots.length; b++) {
+        const one = spots[a]
+        const other = spots[b]
         if (!one || !other) continue
         const apart =
           Math.abs(one.x - other.x) >= CONTAINER.length || Math.abs(one.z - other.z) >= CONTAINER.width
@@ -134,47 +182,88 @@ describe('baias de fundo', () => {
     }
   })
 
-  it('as alturas são irregulares e ficam entre 2 e 5 contêineres', () => {
-    const heights = new Map<string, number>()
-    for (const slot of YARD_SLOTS) {
-      const key = `${slot.x}:${slot.z}`
-      heights.set(key, (heights.get(key) ?? 0) + 1)
-    }
-    const values = [...heights.values()]
-    for (const height of values) {
-      expect(height).toBeGreaterThanOrEqual(2)
-      expect(height).toBeLessThanOrEqual(5)
-    }
-    // Pátio nivelado parece prateleira: tem de haver mais de uma altura.
-    expect(new Set(values).size).toBeGreaterThan(1)
-    expect(heights.size).toBe(YARD_FOOTPRINTS.length)
-  })
-
   it('nenhum contêiner flutua: todo lugar acima do piso tem um embaixo', () => {
-    const taken = new Set(YARD_SLOTS.map((slot) => `${slot.x}:${slot.z}:${slot.y.toFixed(3)}`))
-    for (const slot of YARD_SLOTS) {
-      if (slot.y <= slotCenterY(0)) continue
-      const below = (slot.y - CONTAINER.height).toFixed(3)
-      expect(taken.has(`${slot.x}:${slot.z}:${below}`), `${slot.x},${slot.z} em y=${slot.y}`).toBe(true)
+    for (const stacks of [yard.source, yard.spare]) {
+      const taken = new Set(stacks.map((slot) => `${slot.x}:${slot.z}:${slot.y.toFixed(3)}`))
+      for (const slot of stacks) {
+        if (slot.y <= slotCenterY(0)) continue
+        const below = (slot.y - CONTAINER.height).toFixed(3)
+        expect(taken.has(`${slot.x}:${slot.z}:${below}`), `${slot.x},${slot.z} em y=${slot.y}`).toBe(true)
+      }
     }
   })
 
   it('carrega por nível: o piso de todas as pilhas antes de qualquer segundo andar', () => {
-    const base = YARD_FOOTPRINTS.length
-    for (let i = 0; i < base; i++) expect(YARD_SLOTS[i]?.y, `lugar ${i}`).toBeCloseTo(slotCenterY(0), 6)
-    expect(YARD_SLOTS[base]?.y).toBeCloseTo(slotCenterY(1), 6)
+    const base = new Set(yard.source.filter((slot) => slot.y === slotCenterY(0)).map((slot) => `${slot.x}:${slot.z}`))
+    for (let i = 0; i < base.size; i++) expect(yard.source[i]?.y, `lugar ${i}`).toBeCloseTo(slotCenterY(0), 6)
+    expect(yard.source[base.size]?.y).toBeCloseTo(slotCenterY(1), 6)
   })
 
-  it('a planta tem uma pilha por posição e o total fica na ordem de grandeza pedida', () => {
-    // 16 a 24 contêineres ao todo, contando os 6 da fileira operacional.
-    expect(YARD_CAPACITY + 6).toBeGreaterThanOrEqual(16)
-    expect(YARD_CAPACITY + 6).toBeLessThanOrEqual(24)
+  it('a planta do pátio sai do tamanho da arquitetura, não de número escrito à mão', () => {
+    const small = buildYard(4, 0)
+    expect(small.source).toHaveLength(4)
+    // Quatro contêineres cabem em duas pilhas de três; nunca em nove.
+    expect(new Set(small.source.map((slot) => `${slot.x}:${slot.z}`)).size).toBe(2)
+    expect(buildYard(0, 0).source).toHaveLength(0)
   })
 
-  it('a variação de valor da chapa de fundo fica abaixo da fileira da frente', () => {
-    for (let i = 0; i < YARD_CAPACITY; i++) {
+  it('as pilhas paradas crescem com o excedente — nenhuma carga fica sem lugar', () => {
+    // O defeito que este teste existe para pegar: as pilhas paradas eram seis
+    // posições escritas à mão, dezoito lugares ao todo. No dia em que a
+    // pirâmide passou a sobrar vinte e quatro tecnologias, seis contêineres
+    // ficaram sem lugar de onde sair e a cena os materializaria no ar. A
+    // varredura vai bem além do dicionário de hoje de propósito: a promessa é
+    // que o pátio cresce com a arquitetura, não que ele cabe neste dicionário.
+    for (let excedente = 0; excedente <= 60; excedente++) {
+      const plan = buildYard(12, excedente)
+      expect(plan.spare, `excedente ${excedente}`).toHaveLength(excedente)
+      // E cada pilha continua apoiada no chão, sem buraco no meio.
+      const levels = new Map<string, number[]>()
+      for (const slot of plan.spare) {
+        const key = `${slot.x}:${slot.z}`
+        levels.set(key, [...(levels.get(key) ?? []), slot.y])
+      }
+      for (const [key, ys] of levels) {
+        const sorted = [...ys].sort((a, b) => a - b)
+        sorted.forEach((y, level) => expect(y, `${key} nível ${level}`).toBeCloseTo(slotCenterY(level), 6))
+      }
+    }
+  })
+
+  it('a variação por unidade sai do índice: determinística, espalhada e sem canais gêmeos', () => {
+    const units = 48
+    const channels = [0, 1, 2, 3, 4]
+
+    for (const channel of channels) {
+      const values = Array.from({ length: units }, (_, i) => unitNoise(i, channel))
+      // Determinismo: a mesma cena volta idêntica a cada carregamento. É a
+      // regra que proíbe `Math.random()`, e ela vale aqui mais do que em
+      // qualquer outro lugar — é isto que difere um contêiner do vizinho.
+      for (let i = 0; i < units; i++) expect(unitNoise(i, channel), `${i}@${channel}`).toBe(values[i])
+      for (const value of values) {
+        expect(value).toBeGreaterThanOrEqual(0)
+        expect(value).toBeLessThanOrEqual(1)
+      }
+      // Espalhado de verdade: um hash que devolvesse quase o mesmo número para
+      // todo índice passaria no determinismo e não variaria nada na tela.
+      expect(new Set(values.map((v) => Math.floor(v * 8))).size, `canal ${channel}`).toBeGreaterThanOrEqual(6)
+    }
+
+    // E os canais não podem andar juntos: mancha, giro e empurrão da mesma
+    // unidade têm de ser independentes, senão o desalinhamento vira padrão.
+    for (const a of channels) {
+      for (const b of channels) {
+        if (a >= b) continue
+        const equal = Array.from({ length: units }, (_, i) => unitNoise(i, a) === unitNoise(i, b)).filter(Boolean)
+        expect(equal, `canais ${a} e ${b}`).toHaveLength(0)
+      }
+    }
+  })
+
+  it('a variação de valor da chapa de fundo fica abaixo da pirâmide', () => {
+    for (let i = 0; i < yard.spare.length; i++) {
       expect(yardShade(i)).toBeGreaterThan(0.5)
-      // `layerShade(0)` = 0,72 é a chapa mais escura da frente.
+      // `layerShade(0)` = 0,72 é a chapa mais escura da pirâmide.
       expect(yardShade(i)).toBeLessThan(0.72)
     }
   })

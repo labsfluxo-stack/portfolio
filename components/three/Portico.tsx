@@ -4,46 +4,49 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { ContactShadows, Environment, Lightformer } from '@react-three/drei'
 import * as THREE from 'three'
 import {
-  BAY,
   CONTAINER,
-  LAYER_COUNT,
   SWAY_STEP,
+  createPlan,
   createPose,
   createSway,
-  layerAt,
   layerShade,
   samplePose,
-  stencilLines,
   stepSway,
+  valueAt,
 } from './portico-model'
+import { buildArchitecture } from './portico-architecture'
 import {
   REEVING,
-  RIG,
+  type Rig,
   SPREADER_EAR_Y,
+  bridgeGeometry,
   containerCastingsGeometry,
   containerFrameGeometry,
-  gantryGeometry,
-  plateGeometry,
+  containerPlateGeometry,
+  rigFor,
+  runwayGeometry,
   spreaderGeometry,
   trolleyGeometry,
-  yardPlateGeometry,
 } from './portico-geometry'
 import {
+  SIDE_RIBS,
   cargoAtlas,
-  cargoAtlasShader,
+  containerSkinShader,
   corrugationNormalMap,
   floorTextures,
-  plateTexture,
+  grimeMap,
   resolveMonoFamily,
-  stencilTexture,
+  skinWearMap,
+  steelWearMap,
+  unitNoise,
   type CargoAtlas,
-  type RedrawableTexture,
+  type CargoCell,
 } from './portico-textures'
-import { YARD_FOOTPRINTS, YARD_SLOTS, yardCargo, yardShade } from './portico-yard'
-import type { StackItem } from '@/content/types'
+import { buildYard, markFor, yardShade } from './portico-yard'
+import type { StackLayer } from '@/content/types'
 
 /**
- * Um pórtico de pátio empilhando as camadas do sistema.
+ * Uma ponte rolante montando uma arquitetura de software.
  *
  * Nunca é montada direto: `PorticoSlot.tsx` a carrega por `next/dynamic` com
  * `ssr: false`, e só depois de confirmar que o navegador aguenta. O chunk do
@@ -61,11 +64,10 @@ import type { StackItem } from '@/content/types'
  *    cromática. Empilhar efeito é justamente o que envelhece uma cena; o
  *    ganho aqui vem de luz, material e movimento.
  *
- * E um princípio governa tudo que foi acrescentado depois: **o significado
- * fica na frente, a escala vem de trás**. A fileira das seis camadas
- * rotuladas é o que precisa ser lido e não muda; as baias de fundo
- * (`portico-yard.ts`) entram atrás do corredor, recuando na névoa, para dar
- * porte de terminal em operação sem disputar a leitura.
+ * E um princípio governa o desenho: **o significado fica na frente, a escala
+ * vem de trás**. A pirâmide é a arquitetura e é o que precisa ser lido; o
+ * pátio de origem e as pilhas paradas entram atrás do corredor, recuando na
+ * névoa, para dar porte de terminal em operação sem disputar a leitura.
  *
  * Tudo é `aria-hidden`: é decoração. A informação que ela ilustra vive em
  * texto de verdade na seção Stack.
@@ -104,18 +106,26 @@ const shade = (hex: string, factor: number): string => new THREE.Color(hex).mult
  * Teleobjetiva (fov baixo), pouca altura e pouco desvio lateral: o suficiente
  * para o objeto ter três dimensões, longe o bastante para não distorcer.
  * Perspectiva forçada é o vocabulário de quem quer impressionar.
+ *
+ * A elevação subiu em relação à cena anterior por um motivo geométrico: o que
+ * faz a pirâmide ler como zigurate é o DEGRAU entre patamares, e o degrau só
+ * aparece quando a câmera vê a laje do patamar de baixo na frente do de cima.
+ * Rasteiro demais, os seis patamares colapsam numa parede.
  */
 const VIEW = {
   fov: 29,
   azimuth: 0.38,
-  elevation: 0.105,
-  targetY: 9.6,
+  elevation: 0.165,
   /** Sobra em volta da máquina, em fração do enquadramento. */
-  margin: 1.04,
+  margin: 1.03,
 } as const
 
-/** Caixa envolvente da máquina inteira, do truque das pernas ao topo da casa de máquinas. */
-const BOUNDS = { x: 9.9, top: 19.8, z: 4.9 } as const
+/**
+ * Caixa envolvente do que precisa caber: a arquitetura montada e a ponte por
+ * cima dela. Sai das medidas reais — se o dicionário crescer, o enquadramento
+ * abre junto.
+ */
+type Bounds = { x: number; top: number; z: number; targetY: number }
 
 /**
  * A névoa, medida A PARTIR DA CÂMERA — nunca em coordenada de mundo.
@@ -125,17 +135,28 @@ const BOUNDS = { x: 9.9, top: 19.8, z: 4.9 } as const
  * largura o fundo sumiria, na outra chegaria na frente. Amarrado à distância,
  * a profundidade lê igual em qualquer viewport.
  *
- * `start` é a folga depois do alvo: o ponto mais fundo da máquina fica ~2,5 m
- * atrás dele, então a fileira operacional inteira sai da névoa intocada. O que
- * a névoa pega é o que está atrás do corredor.
+ * `start` é a folga depois do alvo: a pirâmide inteira sai da névoa intocada,
+ * e o que a névoa pega é o pátio atrás do corredor — inclusive a máquina
+ * quando ela vai lá buscar, que é justamente o efeito.
  */
-const FOG = { start: 3.4, span: 38 } as const
+const FOG = { start: 5.5, span: 34 } as const
 
-const CORNERS: [number, number, number][] = [-1, 1].flatMap((sx) =>
-  [0, 1].flatMap((sy) =>
-    [-1, 1].map((sz): [number, number, number] => [sx * BOUNDS.x, sy * BOUNDS.top, sz * BOUNDS.z]),
-  ),
-)
+/**
+ * Quanto antes da parada a cena abre, em segundos.
+ *
+ * Decisão de apresentação, e por isso mora aqui e não no modelo: `samplePose`
+ * continua sem saber onde alguém olha. O suficiente para dois ou três
+ * movimentos — quem chega vê a máquina fechar a pirâmide, e não uma pose já
+ * pronta que pareceria um cenário estático.
+ */
+const OPENING_LEAD = 16
+
+const cornersOf = (bounds: Bounds): [number, number, number][] =>
+  [-1, 1].flatMap((sx) =>
+    [0, 1].flatMap((sy) =>
+      [-1, 1].map((sz): [number, number, number] => [sx * bounds.x, sy * bounds.top, sz * bounds.z]),
+    ),
+  )
 
 /**
  * A distância da câmera é resolvida a partir do formato real do contêiner na
@@ -149,7 +170,7 @@ const CORNERS: [number, number, number][] = [-1, 1].flatMap((sx) =>
  * ponta de baixo, e a máquina sai da tela pelo chão — que é a única parte que
  * não pode faltar, porque é onde a sombra de contato a ancora.
  */
-function Framing() {
+function Framing({ bounds }: { bounds: Bounds }) {
   const camera = useThree((state) => state.camera)
   const scene = useThree((state) => state.scene)
   const width = useThree((state) => state.size.width)
@@ -169,11 +190,11 @@ function Framing() {
     )
     const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), dir).normalize()
     const up = new THREE.Vector3().crossVectors(dir, right).normalize()
-    const target = new THREE.Vector3(0, VIEW.targetY, 0)
+    const target = new THREE.Vector3(0, bounds.targetY, 0)
     const corner = new THREE.Vector3()
 
     let distance = 0
-    for (const [x, y, z] of CORNERS) {
+    for (const [x, y, z] of cornersOf(bounds)) {
       corner.set(x, y, z).sub(target)
       const depth = corner.dot(dir)
       distance = Math.max(
@@ -192,48 +213,68 @@ function Framing() {
       scene.fog.near = distance + FOG.start
       scene.fog.far = distance + FOG.start + FOG.span
     }
-  }, [camera, scene, width, height])
+  }, [camera, scene, width, height, bounds])
 
   return null
 }
 
 // ── Recursos ──────────────────────────────────────────────────────────────
 
-type LayerAssets = { label: string; materials: THREE.Material[]; stencil: RedrawableTexture }
-
-/** As baias de fundo: uma geometria, um material, N transformações. */
-type YardAssets = {
-  plate: THREE.BufferGeometry
-  skin: THREE.MeshStandardMaterial
-  steel: THREE.MeshStandardMaterial
-  atlas: CargoAtlas
-  count: number
-}
-
 type Assets = {
   plate: THREE.BufferGeometry
   frame: THREE.BufferGeometry
   castings: THREE.BufferGeometry
-  gantry: THREE.BufferGeometry
+  runway: THREE.BufferGeometry
+  bridge: THREE.BufferGeometry
   trolley: THREE.BufferGeometry
   spreader: THREE.BufferGeometry
   cable: THREE.BufferGeometry
+  skin: THREE.MeshPhysicalMaterial
   steel: THREE.MeshPhysicalMaterial
   casting: THREE.MeshPhysicalMaterial
   lamp: THREE.MeshStandardMaterial
   floor: THREE.MeshStandardMaterial
   floorSide: number
-  layers: LayerAssets[]
-  yard: YardAssets
+  atlas: CargoAtlas
+  /**
+   * Três números por unidade — giro, e empurrão em X e em Z. Ver `unitNoise`:
+   * saem do índice, nunca de sorteio.
+   */
+  jitter: Float32Array
+  /** Contêineres que a máquina move (a arquitetura) e os que ficam parados. */
+  moving: number
+  total: number
   dispose: () => void
 }
 
+/**
+ * Quanto uma unidade sai do lugar exato. Fração de grau e poucos centímetros:
+ * abaixo do que alguém consegue apontar, acima do que o olho aceita como
+ * grade. É o desalinhamento que faz um pátio parecer operado por gente.
+ */
+const UNIT_YAW = 0.012
+const UNIT_NUDGE = 0.07
+
+/** Três por instância: giro em torno de Y, empurrão em X e em Z. */
+function unitJitter(count: number): Float32Array {
+  const jitter = new Float32Array(count * 3)
+  for (let i = 0; i < count; i++) {
+    jitter[i * 3] = (unitNoise(i, 2) - 0.5) * UNIT_YAW
+    jitter[i * 3 + 1] = (unitNoise(i, 3) - 0.5) * UNIT_NUDGE
+    jitter[i * 3 + 2] = (unitNoise(i, 4) - 0.5) * UNIT_NUDGE
+  }
+  return jitter
+}
+
 function buildAssets(
-  labels: readonly string[],
-  cargo: readonly StackItem[],
+  cells: CargoCell[],
+  footprints: readonly { x: number; z: number }[],
+  moving: number,
+  rig: Rig,
   palette: Palette,
   family: string,
   anisotropy: number,
+  floorHalf: number,
 ): Assets {
   const disposables: { dispose: () => void }[] = []
   const keep = <T extends { dispose: () => void }>(item: T): T => {
@@ -246,112 +287,129 @@ function buildAssets(
   }
 
   // Passo da onda calibrado por face: ~0,23 m, que é o de uma chapa real.
-  const sideNormal = tune(corrugationNormalMap({ ribs: 26, depth: 1.05, band: 0.085 }))
-  const endNormal = tune(corrugationNormalMap({ ribs: 11, depth: 1.05, band: 0.09 }))
-  const roofNormal = tune(corrugationNormalMap({ ribs: 24, depth: 0.5, band: 0.05 }))
-  const normalScale = new THREE.Vector2(0.85, 0.85)
-
-  const layers: LayerAssets[] = []
-  for (let i = 0; i < LAYER_COUNT; i++) {
-    const label = labels[i] ?? ''
-    const plateColor = shade(palette.surface2, layerShade(i))
-    const stencil = stencilTexture(stencilLines(label), plateColor, palette.text, family)
-    tune(stencil.texture)
-    const flat = tune(plateTexture(plateColor))
-
-    const painted = (map: THREE.Texture, normalMap: THREE.Texture | null, roughness: number): THREE.Material =>
-      keep(
-        new THREE.MeshPhysicalMaterial({
-          map,
-          normalMap,
-          normalScale,
-          // Chapa pintada é dielétrica com verniz por cima: pouco metalness,
-          // rugosidade média-alta e um clearcoat que devolve o especular sem
-          // clarear a tinta. O clearcoat é o que salva uma paleta escura: o
-          // brilho de uma camada dielétrica é BRANCO, independente da cor
-          // debaixo, então a chapa continua quase preta e mesmo assim acende
-          // onde o estúdio a atinge.
-          metalness: 0.22,
-          roughness,
-          clearcoat: 0.8,
-          clearcoatRoughness: 0.26,
-          envMapIntensity: 3,
-        }),
-      )
-
-    const side = painted(stencil.texture, sideNormal, 0.55)
-    const end = painted(flat, endNormal, 0.56)
-    const roof = painted(flat, roofNormal, 0.66)
-    const underside = painted(flat, null, 0.78)
-
-    // Ordem dos grupos de BoxGeometry: +X, −X, +Y, −Y, +Z, −Z.
-    layers.push({ label, materials: [end, end, roof, underside, side, side], stencil })
-  }
-
-  const floor = floorTextures(palette.bg, palette.border, [
-    { x: BAY.source, length: CONTAINER.length, width: CONTAINER.width },
-    { x: BAY.target, length: CONTAINER.length, width: CONTAINER.width },
-    ...YARD_FOOTPRINTS.map((spot) => ({ ...spot, length: CONTAINER.length, width: CONTAINER.width })),
-  ])
-  keep(floor.map)
-  keep(floor.alpha)
-
-  // ── baias de fundo ──────────────────────────────────────────────────────
   //
-  // Um contêiner por tecnologia, com o ícone da marca quando ele existe e o
-  // nome em estêncil quando não. As dezoito chapas moram num atlas só, e cada
-  // instância recebe o deslocamento da sua célula: o pátio inteiro sai em
-  // duas chamadas de desenho.
-  const marks = yardCargo(cargo)
-  // Tinta rebaixada: é `--color-text`, o mesmo token dos estênceis da frente,
-  // num valor mais baixo. A névoa sozinha não bastava — ela empurra a chapa
-  // para o fundo mas a marcação continuava tão branca quanto os rótulos que
-  // precisam ser lidos, e o fundo roubava a frente.
-  const atlas = cargoAtlas(marks, (i) => shade(palette.surface2, yardShade(i)), shade(palette.text, 0.26), family)
+  // `wear` acrescenta amassado raso e risco por cima da onda. É o que impede a
+  // luz de ESCORREGAR pela chapa: numa superfície perfeitamente lisa o
+  // especular desliza sem quebrar em lugar nenhum, e é justamente isso que faz
+  // um render parecer desenho animado. Chapa de contêiner nunca é lisa.
+  const sideNormal = tune(corrugationNormalMap({ ribs: SIDE_RIBS, depth: 1.05, band: 0.085, wear: 0.55 }))
+  // Um pouco acima de 1: com a oclusão dos vales entrando junto, o relevo
+  // aguenta mais inclinação sem virar ruído — e é o par (normal forte, vale
+  // escuro) que faz a onda ler como CHAPA DOBRADA em vez de listra impressa.
+  const normalScale = new THREE.Vector2(1.05, 1.05)
+
+  // Oclusão, rugosidade e metalicidade da chapa num mapa só — travado na face,
+  // porque é ele que carrega o VALE da corrugação e a fresta da cantoneira. É a
+  // oclusão que separa relevo de adesivo: sem sombra nenhuma no fundo da onda,
+  // o normal map só inclina a luz e o olho lê decalque impresso.
+  const skinWear = tune(skinWearMap(SIDE_RIBS))
+  // E a história de cada unidade, amostrada com deslocamento por instância.
+  const grime = tune(grimeMap())
+  const steelWear = tune(steelWearMap())
+
+  // Todas as chapas da cena num atlas só. É o que permite instanciar: um
+  // material carrega uma textura, então a marcação de cada contêiner vira uma
+  // célula e cada instância recebe o deslocamento da sua.
+  const atlas = cargoAtlas(
+    cells,
+    {
+      stencil: shade(palette.text, 0.62),
+      code: shade(palette.text, 0.34),
+      // O painel de aplicação continua dentro da paleta: é `--color-text` num
+      // valor mais baixo, a mesma tinta dos estênceis. O que sai fora dela é
+      // só a marca impressa por cima — a exceção autorizada.
+      panel: shade(palette.text, 0.9),
+    },
+    family,
+  )
   tune(atlas.texture)
   atlas.texture.channel = 1
 
-  const yardPlate = keep(yardPlateGeometry())
-  yardPlate.setAttribute('aCargo', new THREE.InstancedBufferAttribute(atlas.offsets, 2))
+  const plate = keep(containerPlateGeometry())
+  plate.setAttribute('aCargo', new THREE.InstancedBufferAttribute(atlas.offsets, 2))
 
-  // Padrão, não físico: sem clearcoat e com pouco reflexo de ambiente. O
-  // brilho especular é o que puxa o olho, e o fundo existe para NÃO puxar —
-  // é o mesmo recuo da névoa, feito pelo material.
-  const yardSkin = keep(
-    new THREE.MeshStandardMaterial({
+  // Onde cada unidade amostra o mapa de história. Dois canais da mesma semente
+  // que gira e empurra a caixa, para que mancha, giro e empurrão de um mesmo
+  // contêiner andem juntos em vez de se contradizerem.
+  const drift = new Float32Array(cells.length * 2)
+  for (let i = 0; i < cells.length; i++) {
+    drift[i * 2] = unitNoise(i, 0)
+    drift[i * 2 + 1] = unitNoise(i, 1)
+  }
+  plate.setAttribute('aWear', new THREE.InstancedBufferAttribute(drift, 2))
+
+  const floor = floorTextures(
+    palette.bg,
+    palette.border,
+    footprints.map((spot) => ({ ...spot, length: CONTAINER.length, width: CONTAINER.width })),
+    floorHalf,
+  )
+  keep(floor.map)
+  keep(floor.alpha)
+
+  const skin = keep(
+    new THREE.MeshPhysicalMaterial({
       map: atlas.texture,
       normalMap: sideNormal,
       normalScale,
-      metalness: 0.16,
-      roughness: 0.74,
-      envMapIntensity: 1.7,
+      // As três informações de superfície saem do MESMO mapa e da mesma
+      // amostragem — oclusão no vermelho, rugosidade no verde, metalicidade no
+      // azul, que é a embalagem que o three lê por padrão.
+      aoMap: skinWear,
+      aoMapIntensity: 1,
+      roughnessMap: skinWear,
+      metalnessMap: skinWear,
+      // Chapa pintada é dielétrica com verniz por cima: pouco metalness,
+      // rugosidade média-alta e um clearcoat que devolve o especular sem
+      // clarear a tinta. O clearcoat é o que salva uma paleta escura: o
+      // brilho de uma camada dielétrica é BRANCO, independente da cor
+      // debaixo, então a chapa continua quase preta e mesmo assim acende
+      // onde o estúdio a atinge.
+      //
+      // Os dois fatores valem 1 de propósito: com mapa, o three MULTIPLICA o
+      // escalar pelo texel, então qualquer valor menor que 1 aqui achataria a
+      // variação que o mapa existe para trazer. Quem manda na faixa é o mapa.
+      metalness: 1,
+      roughness: 1,
+      clearcoat: 0.72,
+      clearcoatRoughness: 0.28,
+      envMapIntensity: 2.7,
     }),
   )
-  cargoAtlasShader(yardSkin, atlas.scale)
+  containerSkinShader(skin, atlas.scale, grime)
 
   return {
-    plate: keep(plateGeometry()),
+    plate,
     frame: keep(containerFrameGeometry()),
     castings: keep(containerCastingsGeometry()),
-    gantry: keep(gantryGeometry()),
-    trolley: keep(trolleyGeometry()),
+    runway: keep(runwayGeometry(rig)),
+    bridge: keep(bridgeGeometry(rig)),
+    trolley: keep(trolleyGeometry(rig)),
     spreader: keep(spreaderGeometry()),
     cable: keep(new THREE.CylinderGeometry(0.05, 0.05, 1, 6)),
+    skin,
     // Aço aparente: metalness alto e rugosidade baixa. Num metal a COR BASE é
     // a própria refletância, e é por isso que a primeira versão usava
-    // `--color-border` e o pórtico inteiro sumia: um difuso quase preto
+    // `--color-border` e a máquina inteira sumia: um difuso quase preto
     // continua quase preto por mais luz que se jogue nele. O clearcoat sozinho
     // só acendia as arestas — o corpo seguia invisível.
     //
     // `--color-muted` é o token certo aqui e continua dentro da paleta: é um
-    // cinza médio, exatamente a cor de aço industrial pintado. O perfil segue
-    // sendo tinta do design system; a diferença é que agora tem refletância
-    // suficiente para o lightformer ter o que desenhar.
+    // cinza médio, exatamente a cor de aço industrial pintado.
+    //
+    // O mapa de desgaste entra aqui como MULTIPLICADOR: o escalar continua
+    // marcando o regime (rugosidade baixa, aço aparente) e o mapa quebra o
+    // valor em volta dele. Sem essa quebra a viga inteira devolve o mesmo
+    // especular de ponta a ponta e vira plástico cromado — o outro jeito de
+    // uma cena 3D parecer desenho.
     steel: keep(
       new THREE.MeshPhysicalMaterial({
         color: shade(palette.muted, 0.78),
-        metalness: 0.82,
-        roughness: 0.26,
+        aoMap: steelWear,
+        roughnessMap: steelWear,
+        metalnessMap: steelWear,
+        metalness: 0.98,
+        roughness: 0.36,
         clearcoat: 1,
         clearcoatRoughness: 0.16,
         envMapIntensity: 4.6,
@@ -360,15 +418,18 @@ function buildAssets(
     casting: keep(
       new THREE.MeshPhysicalMaterial({
         color: shade(palette.muted, 0.55),
-        metalness: 0.9,
-        roughness: 0.38,
+        aoMap: steelWear,
+        roughnessMap: steelWear,
+        metalnessMap: steelWear,
+        metalness: 1,
+        roughness: 0.5,
         clearcoat: 0.85,
         clearcoatRoughness: 0.26,
         envMapIntensity: 3.4,
       }),
     ),
     // A única coisa da cena com `emissive`, e o único uso de `--color-data`:
-    // a lâmpada de estado do pórtico. Uma lâmpada que não emite não é lâmpada,
+    // a lâmpada de estado da máquina. Uma lâmpada que não emite não é lâmpada,
     // é adesivo azul — e cor, aqui, é informação.
     lamp: keep(new THREE.MeshStandardMaterial({ color: palette.data, emissive: palette.data, roughness: 0.35 })),
     floor: keep(
@@ -386,24 +447,11 @@ function buildAssets(
         envMapIntensity: 3.2,
       }),
     ),
-    floorSide: floor.half * 2,
-    layers,
-    yard: {
-      plate: yardPlate,
-      skin: yardSkin,
-      // Aço mais fosco e mais escuro que o da máquina, pela mesma razão da
-      // chapa: um perfil que brilha lá atrás vira ruído na frente.
-      steel: keep(
-        new THREE.MeshStandardMaterial({
-          color: shade(palette.muted, 0.5),
-          metalness: 0.7,
-          roughness: 0.55,
-          envMapIntensity: 2.2,
-        }),
-      ),
-      atlas,
-      count: marks.length,
-    },
+    floorSide: floorHalf * 2,
+    atlas,
+    jitter: unitJitter(cells.length),
+    moving,
+    total: cells.length,
     dispose: () => {
       for (const item of disposables) item.dispose()
     },
@@ -413,17 +461,100 @@ function buildAssets(
 // ── Cena ──────────────────────────────────────────────────────────────────
 
 const UP = new THREE.Vector3(0, 1, 0)
-/** Onde a lâmpada de estado mora, na testeira da casa de máquinas do carro. */
-const LAMP_AT: [number, number, number] = [0, RIG.trolleyY + 0.7, 1.68]
 
-function Yard({ labels, cargo }: { labels: readonly string[]; cargo: readonly StackItem[] }) {
+function Yard({ layers }: { layers: readonly StackLayer[] }) {
   const gl = useThree((state) => state.gl)
   const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl])
   const palette = useMemo(readPalette, [])
-  const assets = useMemo(
-    () => buildAssets(labels, cargo, palette, resolveMonoFamily(), anisotropy),
-    [labels, cargo, palette, anisotropy],
+
+  // A arquitetura sai do dicionário, o pátio sai do tamanho da arquitetura, e
+  // o ciclo sai dos dois. Nenhum dos três sabe de three.js.
+  const architecture = useMemo(() => buildArchitecture(layers), [layers])
+  const yard = useMemo(
+    () => buildYard(architecture.slots.length, architecture.spare.length),
+    [architecture],
   )
+  const plan = useMemo(() => createPlan(yard.source, architecture.slots), [yard, architecture])
+
+  // A máquina é dimensionada pelo trabalho: sobe até onde a carga sobe e
+  // abraça o alcance dos lugares, sem vão morto entre a viga e a pirâmide.
+  const rig = useMemo(() => {
+    const reach = [...plan.source, ...plan.target].reduce((far, slot) => Math.max(far, Math.abs(slot.x)), 0)
+    return rigFor(plan.peakY, reach)
+  }, [plan])
+
+  /** Onde a lâmpada de estado mora, na testeira da casa de máquinas do carro. */
+  const lampAt = useMemo((): [number, number, number] => [0, rig.trolleyY + 0.75, 1.6], [rig])
+
+  // O enquadramento fecha na arquitetura montada mais a ponte por cima dela.
+  // A profundidade cobre só a pirâmide: o pátio de origem fica de fora de
+  // propósito, dissolvido na névoa, porque ele é escala e não assunto.
+  //
+  // `top` para no carro, não acima dele. A folga que existia aqui punha a
+  // instalação flutuando no meio do quadro com um vão morto em cima, e os
+  // tirantes do trilho apareciam inteiros — dezesseis hastes em fila, que lê
+  // como CERCA. Cortando a fita no carro, o tirante sai do quadro pelo topo, e
+  // é o corte que diz "isto continua preso lá em cima".
+  const bounds = useMemo(() => {
+    const top = rig.trolleyY + 0.35
+    return {
+      x: rig.railX,
+      top,
+      z: architecture.depth / 2 + CONTAINER.width,
+      // A mira fica pouco acima do MEIO da instalação, e a conta é geométrica,
+      // não de gosto: `Framing` resolve a distância projetando os oito cantos
+      // da caixa, então uma mira alta obriga a câmera a recuar o quanto for
+      // preciso para o canto de BAIXO ainda caber — e a sobra toda vai parar
+      // em cima da ponte. Era daí que vinham as duas queixas de uma vez: a
+      // máquina pequena no quadro e o vão morto acima dela. Centrada, a mesma
+      // caixa cabe uns vinte por cento mais perto; o viés de 0,12 devolve o
+      // pouco de sobra para BAIXO, onde há chão e sombra de contato para ela
+      // pousar, em vez de céu vazio.
+      targetY: top * 0.62,
+    }
+  }, [rig, architecture])
+
+  /**
+   * O chão cobre o pátio inteiro, com folga de uma baia. Sai das plantas reais
+   * — se o dicionário crescer e as pilhas paradas recuarem, o chão recua junto
+   * em vez de deixar os contêineres do fundo pairando sobre o nada.
+   */
+  const floorHalf = useMemo(
+    () =>
+      yard.footprints.reduce(
+        (far, spot) => Math.max(far, Math.abs(spot.x) + CONTAINER.length, Math.abs(spot.z) + CONTAINER.length),
+        12,
+      ),
+    [yard],
+  )
+
+  const assets = useMemo(() => {
+    // A ordem das células é a das instâncias: primeiro os contêineres que a
+    // máquina move, depois os que ficam parados no fundo.
+    const cells: CargoCell[] = [
+      ...architecture.cargo.map((freight) => ({
+        mark: markFor(freight.item.name),
+        plate: shade(palette.surface2, layerShade(freight.tier)),
+        code: freight.label,
+      })),
+      ...architecture.spare.map((freight, i) => ({
+        mark: markFor(freight.item.name),
+        plate: shade(palette.surface2, yardShade(i)),
+        code: freight.label,
+      })),
+    ]
+    return buildAssets(
+      cells,
+      yard.footprints,
+      architecture.slots.length,
+      rig,
+      palette,
+      resolveMonoFamily(),
+      anisotropy,
+      floorHalf,
+    )
+  }, [architecture, yard, rig, palette, anisotropy, floorHalf])
+
   useEffect(() => assets.dispose, [assets])
 
   // A fonte mono do site pode não estar pronta quando o estêncil é desenhado.
@@ -432,41 +563,77 @@ function Yard({ labels, cargo }: { labels: readonly string[]; cargo: readonly St
   useEffect(() => {
     let alive = true
     void document.fonts.ready.then(() => {
-      if (!alive) return
-      for (const layer of assets.layers) layer.stencil.redraw()
-      assets.yard.atlas.redraw()
+      if (alive) assets.atlas.redraw()
     })
     return () => {
       alive = false
     }
   }, [assets])
 
-  // As baias de fundo não se mexem: a matriz de cada instância é escrita uma
-  // vez e nunca mais tocada. É o que separa "pátio" de "animação de pátio".
-  const yardPlateRef = useRef<THREE.InstancedMesh>(null)
-  const yardFrameRef = useRef<THREE.InstancedMesh>(null)
-  useLayoutEffect(() => {
-    const at = new THREE.Matrix4()
-    for (let i = 0; i < assets.yard.count; i++) {
-      const slot = YARD_SLOTS[i]
-      if (!slot) continue
-      at.makeTranslation(slot.x, slot.y, slot.z)
-      yardPlateRef.current?.setMatrixAt(i, at)
-      yardFrameRef.current?.setMatrixAt(i, at)
-    }
-    for (const node of [yardPlateRef.current, yardFrameRef.current]) {
-      if (node) node.instanceMatrix.needsUpdate = true
-    }
-  }, [assets])
-
+  const plateRef = useRef<THREE.InstancedMesh>(null)
+  const frameRef = useRef<THREE.InstancedMesh>(null)
+  const castingsRef = useRef<THREE.InstancedMesh>(null)
+  const bridgeRef = useRef<THREE.Group>(null)
   const trolleyRef = useRef<THREE.Group>(null)
   const spreaderRef = useRef<THREE.Group>(null)
   const lampRef = useRef<THREE.PointLight>(null)
   const cableRefs = useRef<(THREE.Mesh | null)[]>([])
-  const layerRefs = useRef<(THREE.Group | null)[]>([])
 
-  const motion = useRef({ clock: 0, spare: 0, pose: createPose(), sway: createSway() })
-  const scratch = useMemo(() => ({ a: new THREE.Vector3(), b: new THREE.Vector3(), d: new THREE.Vector3() }), [])
+  /** As três malhas instanciadas andam juntas: mesma matriz, materiais diferentes. */
+  const containers = (): (THREE.InstancedMesh | null)[] => [plateRef.current, frameRef.current, castingsRef.current]
+
+  // As pilhas paradas do fundo não se mexem: a matriz de cada uma é escrita
+  // uma vez e nunca mais tocada. É o que separa "pátio" de "animação de
+  // pátio" — e o que deixa o laço do quadro cuidando só do que trabalha.
+  useLayoutEffect(() => {
+    const at = new THREE.Matrix4()
+    const position = new THREE.Vector3()
+    const quaternion = new THREE.Quaternion()
+    const euler = new THREE.Euler()
+    const one = new THREE.Vector3(1, 1, 1)
+    yard.spare.forEach((slot, i) => {
+      const unit = assets.moving + i
+      const yaw = assets.jitter[unit * 3] ?? 0
+      position.set(slot.x + (assets.jitter[unit * 3 + 1] ?? 0), slot.y, slot.z + (assets.jitter[unit * 3 + 2] ?? 0))
+      quaternion.setFromEuler(euler.set(0, yaw, 0))
+      at.compose(position, quaternion, one)
+      for (const mesh of containers()) mesh?.setMatrixAt(unit, at)
+    })
+    for (const mesh of containers()) {
+      if (mesh) mesh.instanceMatrix.needsUpdate = true
+    }
+  }, [assets, yard])
+
+  // A cena ABRE perto do fim da montagem, não no zero.
+  //
+  // Um ciclo honesto — vinte e um contêineres, ida e volta, na curva de um
+  // acionamento de verdade — leva minutos, e a parada com a arquitetura
+  // completa é o que essa cena existe para mostrar. Começando no zero, quem
+  // chega vê a máquina buscando a terceira caixa e vai embora antes da
+  // pirâmide fechar. Começando aqui, vê os últimos movimentos, a arquitetura
+  // inteira montada e só então a desmontagem — o arco na ordem que importa.
+  //
+  // É deslocamento de FASE, não corte: o ciclo continua o mesmo, contínuo e
+  // determinístico, e no instante zero do modelo a frente segue vazia.
+  const motion = useRef({
+    clock: Math.max(0, plan.loadTime - OPENING_LEAD),
+    spare: 0,
+    pose: createPose(plan),
+    sway: createSway(),
+  })
+  const scratch = useMemo(
+    () => ({
+      a: new THREE.Vector3(),
+      b: new THREE.Vector3(),
+      d: new THREE.Vector3(),
+      at: new THREE.Matrix4(),
+      position: new THREE.Vector3(),
+      quaternion: new THREE.Quaternion(),
+      euler: new THREE.Euler(),
+      one: new THREE.Vector3(1, 1, 1),
+    }),
+    [],
+  )
 
   useFrame((_, delta) => {
     const own = motion.current
@@ -479,51 +646,72 @@ function Yard({ labels, cargo }: { labels: readonly string[]; cargo: readonly St
     let steps = 0
     while (own.spare >= SWAY_STEP && steps < 16) {
       own.clock += SWAY_STEP
-      samplePose(own.clock, pose)
-      stepSway(sway, pose.trolleyX, RIG.pivotY - pose.spreaderY, pose.swayGate)
+      samplePose(plan, own.clock, pose)
+      stepSway(sway, pose.trolleyX, pose.bridgeZ, rig.pivotY - pose.spreaderY, pose.swayGate)
       own.spare -= SWAY_STEP
       steps += 1
     }
     if (steps === 0) return
     if (steps === 16) own.spare = 0
 
-    const sin = Math.sin(sway.theta)
-    const cos = Math.cos(sway.theta)
+    const sinX = Math.sin(sway.thetaX)
+    const sinZ = Math.sin(sway.thetaZ)
+    const drop = Math.cos(sway.thetaX) * Math.cos(sway.thetaZ)
 
-    if (trolleyRef.current) trolleyRef.current.position.x = pose.trolleyX
+    if (bridgeRef.current) bridgeRef.current.position.z = pose.bridgeZ
+    if (trolleyRef.current) trolleyRef.current.position.set(pose.trolleyX, 0, pose.bridgeZ)
     if (lampRef.current) lampRef.current.intensity = pose.lamp * 3.2
     assets.lamp.emissiveIntensity = pose.lamp * 2.6
 
     // Corpo rígido pendurado no carro: tudo que está no cabo gira em torno do
-    // mesmo pivô, cada peça pelo seu próprio braço.
-    const armSpreader = RIG.pivotY - pose.spreaderY
+    // mesmo pivô, cada peça pelo seu próprio braço, agora nos dois planos.
+    const armSpreader = rig.pivotY - pose.spreaderY
     if (spreaderRef.current) {
-      spreaderRef.current.position.set(pose.trolleyX + armSpreader * sin, RIG.pivotY - armSpreader * cos, 0)
-      spreaderRef.current.rotation.z = sway.theta
+      spreaderRef.current.position.set(
+        pose.trolleyX + armSpreader * sinX,
+        rig.pivotY - armSpreader * drop,
+        pose.bridgeZ + armSpreader * sinZ,
+      )
+      spreaderRef.current.rotation.set(-sway.thetaZ, 0, sway.thetaX)
     }
 
-    for (let i = 0; i < LAYER_COUNT; i++) {
-      const node = layerRefs.current[i]
-      if (!node) continue
+    for (let i = 0; i < assets.moving; i++) {
+      // O desalinhamento de fábrica de cada unidade acompanha a caixa o ciclo
+      // inteiro, inclusive pendurada: um contêiner não fica reto no spreader
+      // só porque foi içado, e alinhar tudo na hora do engate devolveria a
+      // grade perfeita justamente no movimento que a câmera segue.
+      const yaw = assets.jitter[i * 3] ?? 0
+      const dx = assets.jitter[i * 3 + 1] ?? 0
+      const dz = assets.jitter[i * 3 + 2] ?? 0
       if (i === pose.carried) {
-        const arm = RIG.pivotY - layerAt(pose.y, i)
-        node.position.set(pose.trolleyX + arm * sin, RIG.pivotY - arm * cos, 0)
-        node.rotation.z = sway.theta
+        const arm = rig.pivotY - valueAt(pose.y, i)
+        scratch.position.set(
+          pose.trolleyX + arm * sinX + dx,
+          rig.pivotY - arm * drop,
+          pose.bridgeZ + arm * sinZ + dz,
+        )
+        scratch.euler.set(-sway.thetaZ, yaw, sway.thetaX)
       } else {
-        node.position.set(layerAt(pose.x, i), layerAt(pose.y, i), 0)
-        node.rotation.z = 0
+        scratch.position.set(valueAt(pose.x, i) + dx, valueAt(pose.y, i), valueAt(pose.z, i) + dz)
+        scratch.euler.set(0, yaw, 0)
       }
+      scratch.quaternion.setFromEuler(scratch.euler)
+      scratch.at.compose(scratch.position, scratch.quaternion, scratch.one)
+      for (const mesh of containers()) mesh?.setMatrixAt(i, scratch.at)
+    }
+    for (const mesh of containers()) {
+      if (mesh) mesh.instanceMatrix.needsUpdate = true
     }
 
     REEVING.forEach((cable, i) => {
       const node = cableRefs.current[i]
       if (!node) return
-      scratch.a.set(pose.trolleyX + cable.top[0], RIG.pivotY, cable.top[1])
+      scratch.a.set(pose.trolleyX + cable.top[0], rig.pivotY, pose.bridgeZ + cable.top[1])
       const rise = SPREADER_EAR_Y - armSpreader
       scratch.b.set(
-        pose.trolleyX + cable.bottom[0] * cos - rise * sin,
-        RIG.pivotY + cable.bottom[0] * sin + rise * cos,
-        cable.bottom[1],
+        pose.trolleyX + cable.bottom[0] * Math.cos(sway.thetaX) - rise * sinX,
+        rig.pivotY + cable.bottom[0] * sinX + rise * drop,
+        pose.bridgeZ + cable.bottom[1] * Math.cos(sway.thetaZ) - rise * sinZ,
       )
       scratch.d.subVectors(scratch.b, scratch.a)
       const span = scratch.d.length() || 1
@@ -535,17 +723,17 @@ function Yard({ labels, cargo }: { labels: readonly string[]; cargo: readonly St
 
   return (
     <>
-      <Framing />
+      <Framing bounds={bounds} />
 
       {/*
-        A névoa. É ela que faz o pátio recuar: as baias de trás perdem
+        A névoa. É ela que faz o pátio recuar: as pilhas de trás perdem
         contraste com a distância, como perderiam num terminal de verdade, em
         vez de serem apagadas com opacidade — que é o truque que denuncia
         "camada de fundo" em vez de profundidade. A cor é `--color-bg`, a
         mesma do fundo da página, então o que recua não desbota: dissolve.
         `Framing` reescreve o alcance conforme a distância real da câmera.
       */}
-      <fog attach="fog" args={[palette.bg, 50, 84]} />
+      <fog attach="fog" args={[palette.bg, 50, 96]} />
 
       {/*
         O estúdio. Planos emissivos capturados num cube map: chave larga e
@@ -556,40 +744,40 @@ function Yard({ labels, cargo }: { labels: readonly string[]; cargo: readonly St
       */}
       <Environment resolution={256} frames={1}>
         {/* chave: larga, alta e quente — dá a forma geral */}
-        <Lightformer form="rect" color={palette.text} intensity={2.6} scale={[15, 10]} position={[-1, 12, 1.5]} />
+        <Lightformer form="rect" color={palette.text} intensity={2.6} scale={[18, 12]} position={[-1, 15, 2]} />
         {/* recorte principal: estreito e forte na direita, o que desenha a aresta */}
-        <Lightformer form="rect" color={palette.text} intensity={8} scale={[0.85, 15]} position={[8, 5, 3]} />
-        {/* contra-recorte atrás e à esquerda: sem ele, a perna daquele lado
+        <Lightformer form="rect" color={palette.text} intensity={8} scale={[0.9, 18]} position={[9, 6, 3]} />
+        {/* contra-recorte atrás e à esquerda: sem ele, a lateral daquele lado
             vira um bloco preto sem contorno contra um fundo preto */}
-        <Lightformer form="rect" color={palette.text} intensity={5} scale={[0.7, 14]} position={[-7, 7, -5]} />
+        <Lightformer form="rect" color={palette.text} intensity={5} scale={[0.8, 16]} position={[-8, 8, -6]} />
         {/* preenchimento frio e amplo */}
-        <Lightformer form="rect" color={palette.muted} intensity={1.9} scale={[9, 12]} position={[-9, 6, 4]} />
+        <Lightformer form="rect" color={palette.muted} intensity={1.9} scale={[10, 14]} position={[-10, 7, 5]} />
         {/* retorno fraco por baixo, para o metal não morrer na sombra */}
-        <Lightformer form="rect" color={palette.faint} intensity={1.1} scale={[16, 7]} position={[0, -4, 9]} />
+        <Lightformer form="rect" color={palette.faint} intensity={1.1} scale={[18, 8]} position={[0, -4, 10]} />
       </Environment>
 
       {/*
         Uma luz direcional só, alinhada com o recorte: os lightformers moram no
         mapa de ambiente e não projetam sombra nenhuma. É esta que faz o
-        contêiner de cima escurecer o de baixo — a leitura de profundidade mais
-        forte da cena inteira.
+        patamar de cima escurecer o de baixo — a leitura de profundidade mais
+        forte da cena inteira, e o que separa os seis degraus da pirâmide.
       */}
       <directionalLight
         castShadow
-        position={[13, 24, 14]}
+        position={[15, 27, 16]}
         intensity={2.6}
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-20}
-        shadow-camera-right={20}
-        shadow-camera-top={20}
-        shadow-camera-bottom={-20}
+        shadow-camera-left={-24}
+        shadow-camera-right={24}
+        shadow-camera-top={24}
+        shadow-camera-bottom={-24}
         shadow-camera-near={8}
-        shadow-camera-far={62}
+        shadow-camera-far={78}
         shadow-bias={-0.0006}
         shadow-normalBias={0.035}
       />
 
-      {/* Piso: as duas baias pintadas, dissolvidas no fundo da página. */}
+      {/* Piso: as baias pintadas, dissolvidas no fundo da página. */}
       <mesh receiveShadow renderOrder={1} rotation-x={-Math.PI / 2} material={assets.floor}>
         <planeGeometry args={[assets.floorSide, assets.floorSide]} />
       </mesh>
@@ -597,9 +785,9 @@ function Yard({ labels, cargo }: { labels: readonly string[]; cargo: readonly St
       {/* A sombra de contato é o que ancora a máquina no chão. Sem ela tudo flutua. */}
       <ContactShadows
         renderOrder={2}
-        position={[0, 0.015, 0]}
-        scale={[26, 14]}
-        far={6}
+        position={[0, 0.015, -3]}
+        scale={[34, 26]}
+        far={7}
         blur={2.4}
         opacity={0.72}
         resolution={512}
@@ -607,34 +795,50 @@ function Yard({ labels, cargo }: { labels: readonly string[]; cargo: readonly St
       />
 
       {/*
-        As baias de fundo. Duas malhas instanciadas — chapa e perfil — dão
-        conta de dezoito contêineres: mesma geometria, muda a transformação e
-        a célula do atlas. Uma malha por contêiner seriam trinta e seis
-        chamadas de desenho para uma coisa que não se mexe.
+        TODOS os contêineres da cena — os que a máquina move e os que ficam
+        parados — em três malhas instanciadas: chapa, moldura e cantoneiras.
+        Uma malha por contêiner seriam mais de cento e trinta chamadas de
+        desenho para uma decoração; assim são três, e o custo de mover a
+        arquitetura inteira vira reescrever quarenta e poucas matrizes por
+        quadro.
 
-        Não projetam nem recebem sombra de propósito: estão fora do tronco de
-        sombra da direcional, e o mapa de sombra é orçamento — vale gastá-lo
-        inteiro na fileira que precisa ser lida.
+        `frustumCulled={false}` porque a caixa envolvente de uma malha
+        instanciada não acompanha as matrizes: com culling ligado, a cena
+        inteira pisca quando o primeiro contêiner sai de quadro.
       */}
       <instancedMesh
-        ref={yardPlateRef}
-        args={[assets.yard.plate, assets.yard.skin, assets.yard.count]}
+        ref={plateRef}
+        castShadow
+        receiveShadow
+        args={[assets.plate, assets.skin, assets.total]}
         frustumCulled={false}
       />
       <instancedMesh
-        ref={yardFrameRef}
-        args={[assets.frame, assets.yard.steel, assets.yard.count]}
+        ref={frameRef}
+        castShadow
+        args={[assets.frame, assets.steel, assets.total]}
+        frustumCulled={false}
+      />
+      <instancedMesh
+        ref={castingsRef}
+        castShadow
+        args={[assets.castings, assets.casting, assets.total]}
         frustumCulled={false}
       />
 
-      <mesh castShadow receiveShadow geometry={assets.gantry} material={assets.steel} />
+      {/* Os trilhos: entram por cima, saem pelas laterais, dissolvem na névoa. */}
+      <mesh castShadow geometry={assets.runway} material={assets.steel} />
+
+      <group ref={bridgeRef}>
+        <mesh castShadow geometry={assets.bridge} material={assets.steel} />
+      </group>
 
       <group ref={trolleyRef}>
         <mesh castShadow geometry={assets.trolley} material={assets.steel} />
-        <mesh position={LAMP_AT} material={assets.lamp}>
+        <mesh position={lampAt} material={assets.lamp}>
           <sphereGeometry args={[0.11, 12, 10]} />
         </mesh>
-        <pointLight ref={lampRef} position={LAMP_AT} color={palette.data} distance={5} decay={2} />
+        <pointLight ref={lampRef} position={lampAt} color={palette.data} distance={6} decay={2} />
       </group>
 
       {REEVING.map((cable, i) => (
@@ -651,29 +855,16 @@ function Yard({ labels, cargo }: { labels: readonly string[]; cargo: readonly St
       <group ref={spreaderRef}>
         <mesh castShadow geometry={assets.spreader} material={assets.steel} />
       </group>
-
-      {assets.layers.map((layer, i) => (
-        <group
-          key={`${i}:${layer.label}`}
-          ref={(node) => {
-            layerRefs.current[i] = node
-          }}
-        >
-          <mesh castShadow receiveShadow geometry={assets.plate} material={layer.materials} />
-          <mesh castShadow receiveShadow geometry={assets.frame} material={assets.steel} />
-          <mesh castShadow receiveShadow geometry={assets.castings} material={assets.casting} />
-        </group>
-      ))}
     </>
   )
 }
 
 /**
  * Envelope da cena. O `frameloop` alterna entre `always` e `demand` conforme
- * o hero entra e sai da viewport: nada de queimar GPU e bateria animando um
- * pórtico que já rolou para fora da tela.
+ * o hero entra e sai da viewport: nada de queimar GPU e bateria animando uma
+ * máquina que já rolou para fora da tela.
  */
-export function Portico({ labels, cargo }: { labels: readonly string[]; cargo: readonly StackItem[] }) {
+export function Portico({ layers }: { layers: readonly StackLayer[] }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [inView, setInView] = useState(true)
 
@@ -702,9 +893,9 @@ export function Portico({ labels, cargo }: { labels: readonly string[]; cargo: r
         onCreated={({ gl }) => {
           gl.toneMappingExposure = 1.72
         }}
-        camera={{ fov: VIEW.fov, near: 6, far: 140, position: [16, 15, 40] }}
+        camera={{ fov: VIEW.fov, near: 6, far: 190, position: [18, 16, 46] }}
       >
-        <Yard labels={labels} cargo={cargo} />
+        <Yard layers={layers} />
       </Canvas>
     </div>
   )

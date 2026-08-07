@@ -18,8 +18,6 @@ import { PorticoSlot } from '@/components/three/PorticoSlot'
  */
 export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
   const { hero } = dict
-  const layerLabels = dict.stack.layers.map((layer) => layer.label)
-  const cargo = dict.stack.layers.flatMap((layer) => layer.items)
 
   return (
     <section
@@ -40,7 +38,7 @@ export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-0 right-0 -z-10 w-full opacity-40 md:left-1/2 md:w-1/2 md:opacity-100"
       >
-        <PorticoSlot labels={layerLabels} cargo={cargo} />
+        <PorticoSlot layers={dict.stack.layers} />
       </div>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-24 sm:py-32">
         <StatusBadge status="ok" label={hero.availability} />

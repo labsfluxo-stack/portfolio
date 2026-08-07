@@ -4,13 +4,17 @@ import { CONTAINER } from './portico-model'
 import { CARGO_FLAT_UV } from './portico-textures'
 
 /**
- * A carpintaria da cena: as peças do contêiner e do pórtico, fundidas em
+ * A carpintaria da cena: as peças do contêiner e da ponte rolante, fundidas em
  * poucas geometrias.
  *
  * Um contêiner de verdade tem moldura aparente e chapa recuada — a caixa lisa
  * é o que faz uma cena 3D parecer Minecraft. Isso custa umas vinte peças por
- * contêiner; `mergeGeometries` funde cada conjunto numa geometria só, e as
- * seis camadas passam a custar três draw calls cada em vez de vinte.
+ * contêiner; `mergeGeometries` funde cada conjunto numa geometria só, e os
+ * quarenta e poucos contêineres passam a custar TRÊS chamadas de desenho ao
+ * todo, porque as três geometrias são instanciadas.
+ *
+ * A máquina perdeu as pernas: virou ponte rolante suspensa. Ver `runway` e
+ * `bridge` no fim do arquivo.
  */
 
 const { length: L, width: W, height: H } = CONTAINER
@@ -26,20 +30,24 @@ const box = (w: number, h: number, d: number, x = 0, y = 0, z = 0): THREE.Buffer
 const rod = (radius: number, height: number, x: number, y: number, z: number): THREE.BufferGeometry =>
   new THREE.CylinderGeometry(radius, radius, height, 10).translate(x, y, z)
 
-/** Barra inclinada no plano YZ (contraventamento das pernas do pórtico). */
-function braceYZ(thickness: number, from: THREE.Vector3, to: THREE.Vector3): THREE.BufferGeometry {
+/**
+ * Cilindro DEITADO no eixo X, girado antes de ser posicionado.
+ *
+ * Existe por causa de um defeito real: `rod(...).rotateZ(Math.PI / 2)` gira a
+ * geometria JÁ TRANSLADADA em torno da origem, então o tambor do guincho, que
+ * devia ficar sob o carro, ia parar em `x = −pivotY` — um cilindro solto
+ * flutuando à esquerda, acompanhando a ponte, porque a peça continuava filha
+ * do grupo do carro. Girar primeiro e transladar depois é a única ordem que
+ * põe a peça onde o nome dela diz.
+ */
+const rodX = (radius: number, length: number, x: number, y: number, z: number): THREE.BufferGeometry =>
+  new THREE.CylinderGeometry(radius, radius, length, 10).rotateZ(Math.PI / 2).translate(x, y, z)
+
+/** Barra inclinada no plano XY (contraventamento da viga). */
+function braceXY(thickness: number, from: THREE.Vector3, to: THREE.Vector3): THREE.BufferGeometry {
   const span = from.distanceTo(to)
   const geometry = new THREE.BoxGeometry(thickness, span, thickness)
-  geometry.rotateX(Math.atan2(to.z - from.z, to.y - from.y))
-  geometry.translate((from.x + to.x) / 2, (from.y + to.y) / 2, (from.z + to.z) / 2)
-  return geometry
-}
-
-/** Barra inclinada no plano XZ (contraventamento entre os estradeiros). */
-function braceXZ(thickness: number, from: THREE.Vector3, to: THREE.Vector3): THREE.BufferGeometry {
-  const span = from.distanceTo(to)
-  const geometry = new THREE.BoxGeometry(span, thickness, thickness)
-  geometry.rotateY(Math.atan2(from.z - to.z, to.x - from.x))
+  geometry.rotateZ(Math.atan2(from.x - to.x, to.y - from.y))
   geometry.translate((from.x + to.x) / 2, (from.y + to.y) / 2, (from.z + to.z) / 2)
   return geometry
 }
@@ -47,37 +55,27 @@ function braceXZ(thickness: number, from: THREE.Vector3, to: THREE.Vector3): THR
 const merge = (parts: THREE.BufferGeometry[]): THREE.BufferGeometry => {
   const merged = mergeGeometries(parts, false)
   for (const part of parts) part.dispose()
-  if (!merged) throw new Error('não deu para fundir a geometria do pórtico')
+  if (!merged) throw new Error('não deu para fundir a geometria da ponte')
   return merged
 }
 
 /**
- * A chapa: uma caixa recuada da moldura, com um material por face para que a
- * lateral (que leva o estêncil e a corrugação em pé) não seja a mesma coisa
- * que o teto (corrugação atravessada) ou o fundo (liso).
+ * A chapa do contêiner, preparada para ser instanciada.
  *
- * Ordem dos grupos de `BoxGeometry`: +X, −X, +Y, −Y, +Z, −Z — ou seja,
- * testeira da porta, testeira cega, teto, fundo e as duas laterais.
- */
-export const plateGeometry = (): THREE.BoxGeometry => new THREE.BoxGeometry(L - 2 * INSET, H - 2 * INSET, W - 2 * INSET)
-
-/**
- * A mesma chapa, preparada para ser instanciada nas baias de fundo.
+ * Duas particularidades, as duas exigidas pela instanciação — que exige
+ * material ÚNICO, e portanto textura única:
  *
- * Duas diferenças, as duas exigidas pela instanciação — que exige material
- * ÚNICO, e portanto textura única:
- *
- * 1. Sem grupos. As seis faces passam a compartilhar um material só.
+ * 1. Sem grupos. As seis faces compartilham um material só.
  * 2. Um segundo canal de UV (`uv1`). O canal 0 continua 0..1 por face e é o
- *    que a corrugação usa, então a chapa de fundo ondula igual à da frente.
- *    O canal 1 é o da marcação de carga: as duas faces longas recebem a
- *    célula inteira do atlas, e as outras quatro colapsam num ponto da margem
- *    — do contrário o ícone sairia esticado na testeira e no teto.
+ *    que a corrugação usa, então toda chapa ondula igual. O canal 1 é o da
+ *    marcação de carga: as duas faces longas recebem a célula inteira do
+ *    atlas, e as outras quatro colapsam num ponto da margem — do contrário o
+ *    ícone sairia esticado na testeira e no teto.
  *
  * Ordem dos vértices de `BoxGeometry`: +X, −X, +Y, −Y, +Z, −Z, quatro por
  * face. As faces longas são as duas últimas.
  */
-export function yardPlateGeometry(): THREE.BoxGeometry {
+export function containerPlateGeometry(): THREE.BoxGeometry {
   const geometry = new THREE.BoxGeometry(L - 2 * INSET, H - 2 * INSET, W - 2 * INSET)
   geometry.clearGroups()
 
@@ -133,87 +131,163 @@ export function containerCastingsGeometry(): THREE.BufferGeometry {
   return merge(parts)
 }
 
-// ── Pórtico ───────────────────────────────────────────────────────────────
+// ── Ponte rolante ─────────────────────────────────────────────────────────
 
-export const RIG = {
-  /** Distância do eixo das pernas ao centro do pátio. */
-  legX: 8.8,
-  legZ: 4.2,
-  /** Altura do eixo dos estradeiros. */
-  girderY: 17.55,
+/**
+ * A máquina não tem pernas.
+ *
+ * O dono autorizou tirá-las, e o ganho é concreto: o chão fica livre — antes
+ * uma perna cruzava na frente da pilha e poluía a leitura — e a máquina pode
+ * crescer sem brigar por espaço com o que ela monta. O que sobra é uma ponte
+ * rolante de verdade: dois trilhos altos correndo em Z, um par de vigas
+ * atravessando em X sobre eles, o carro correndo sobre as vigas e o spreader
+ * pendurado no cabo.
+ *
+ * São DOIS eixos de translado, e é por isso que a arquitetura pode ter
+ * fileiras em profundidade: a ponte anda sobre os trilhos, o carro anda sobre
+ * a ponte.
+ */
+export type Rig = {
+  /** Distância dos trilhos ao eixo do pátio. */
+  railX: number
+  railY: number
+  /** Altura do eixo das vigas da ponte. */
+  girderY: number
+  /** Afastamento das duas vigas: os cabos descem no vão entre elas. */
+  girderZ: number
   /** Onde os cabos saem do carro — é o pivô do pêndulo. */
-  pivotY: 18.5,
-  trolleyY: 18.83,
-} as const
+  pivotY: number
+  trolleyY: number
+  /** Onde os trilhos entram e saem do enquadramento. */
+  runway: { near: number; far: number }
+}
 
-const GIRDER_SPAN = RIG.legX * 2 + 1
+/**
+ * A ponte é dimensionada pelo TRABALHO, não por números escolhidos à mão.
+ *
+ * `peak` é o ponto mais alto que a carga alcança no ciclo (`plan.peakY`, que
+ * por sua vez sai da altura real da pirâmide) e `reach` é o afastamento máximo
+ * em X de qualquer lugar do pátio. A viga fica um cabo acima da carga mais
+ * alta e os trilhos abraçam o alcance.
+ *
+ * É isto que evita o defeito mais fácil de cometer aqui: uma ponte pairando lá
+ * em cima com um vão morto entre ela e o que ela monta. Se a arquitetura
+ * crescer, a máquina sobe junto; se encolher, desce.
+ */
+export function rigFor(peak: number, reach: number): Rig {
+  // Cabo mínimo à vista com a carga no ponto mais alto: menos que isto e o
+  // spreader encosta no carro, muito mais e volta o vão morto.
+  const pivotY = peak + 1.55
+  return {
+    railX: reach + 2.4,
+    railY: pivotY - 0.5,
+    girderY: pivotY - 0.5,
+    girderZ: 1.9,
+    pivotY,
+    trolleyY: pivotY + 0.45,
+    runway: { near: 10, far: -36 },
+  }
+}
 
-export function gantryGeometry(): THREE.BufferGeometry {
+/**
+ * Comprimento do tirante que pendura o trilho. Ver o comentário no laço de
+ * `runwayGeometry`: é a medida que separa "instalação presa ao teto" de
+ * "cerca".
+ *
+ * O que decide não é o comprimento em si, é onde o QUADRO corta — e por isso o
+ * número é generoso em vez de ajustado. Um tirante que termina DENTRO do
+ * enquadramento vira mourão: a fileira inteira lê como cerca, e nenhuma das
+ * hastes parece sustentar coisa nenhuma. Cortado pelo topo, o mesmo desenho
+ * vira suspensão. Como a folga vertical do quadro cresce quando o painel
+ * estreita (ver `Framing`), o tirante tem de passar do topo no formato mais
+ * alto que a cena aceita, não no mais largo — daí sobrar em vez de encostar.
+ */
+const RAIL_HANGER = 16
+
+/**
+ * Os trilhos e o que os segura.
+ *
+ * Eles ATRAVESSAM o enquadramento em vez de caber nele: entram por cima,
+ * saem pelas laterais e se dissolvem na névoa ao fundo. Uma instalação que
+ * continua além do quadro é mais imponente que uma máquina inteira e
+ * pequena — e é também o que explica, sem dizer, por que a ponte não precisa
+ * de pernas: ela está pendurada em algo que não cabe na foto.
+ */
+export function runwayGeometry(rig: Rig): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = []
-  const { legX, legZ, girderY } = RIG
+  const { railX, railY, runway } = rig
+  const span = runway.near - runway.far
+  const middle = (runway.near + runway.far) / 2
 
   for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) {
-      // perna e o truque que a apoia no piso
-      parts.push(box(0.62, girderY, 0.62, sx * legX, girderY / 2, sz * legZ))
-      parts.push(box(1.35, 0.6, 1.8, sx * legX, 0.3, sz * legZ))
-    }
-    // travessa inferior e cabeceira do pórtico, unindo as duas pernas do lado
-    parts.push(box(0.46, 0.46, legZ * 2 + 0.62, sx * legX, 1.55, 0))
-    parts.push(box(0.72, 0.78, legZ * 2 + 0.62, sx * legX, girderY, 0))
-
-    // contraventamento em X no plano da perna — o que faz a estrutura parecer
-    // calculada em vez de desenhada
-    parts.push(braceYZ(0.3, new THREE.Vector3(sx * legX, 2.0, -legZ), new THREE.Vector3(sx * legX, girderY - 1.1, legZ)))
-    parts.push(braceYZ(0.3, new THREE.Vector3(sx * legX, 2.0, legZ), new THREE.Vector3(sx * legX, girderY - 1.1, -legZ)))
-
-    for (const sz of [-1, 1]) {
-      // cartela no encontro da perna com o estradeiro
-      const gusset = new THREE.BoxGeometry(1.9, 0.34, 0.5)
-      gusset.rotateZ((sx * Math.PI) / 4)
-      gusset.translate(sx * (legX - 0.72), girderY - 0.95, sz * legZ)
-      parts.push(gusset)
+    // viga de rolamento e o boleto do trilho por cima
+    parts.push(box(1.05, 1.15, span, sx * railX, railY - 0.7, middle))
+    parts.push(box(0.34, 0.2, span, sx * railX, railY - 0.03, middle))
+    // mísula sob a viga, a cada nove metros: dá ritmo e escala ao alto do
+    // quadro. A cada seis, os apoios ficavam próximos demais e a fileira
+    // fechava numa paliçada — é a densidade, tanto quanto a altura, que faz
+    // uma fila de hastes verticais ler como cerca.
+    for (let z = runway.near; z > runway.far; z -= 9) {
+      parts.push(box(0.9, 0.42, 0.5, sx * railX, railY - 1.4, z))
+      // Tirante subindo para FORA do enquadramento. A fileira só vira cerca
+      // quando a ponta de cima aparece: dezesseis hastes com começo e fim
+      // dentro do quadro lêem como mourão, e nenhuma delas sustenta nada aos
+      // olhos de quem vê. Cortado no topo, o mesmo desenho vira suspensão.
+      parts.push(box(0.26, RAIL_HANGER, 0.26, sx * railX, railY + RAIL_HANGER / 2 - 0.2, z))
+      parts.push(box(0.22, 0.22, 2.6, sx * railX, railY + 0.9, z))
     }
   }
+
+  return merge(parts)
+}
+
+/**
+ * A ponte: duas vigas atravessando em X e os carros de translação nas pontas.
+ * Corre sobre os trilhos em Z; o Y já vem embutido.
+ */
+export function bridgeGeometry(rig: Rig): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = []
+  const { railX, railY, girderY, girderZ } = rig
+  const span = railX * 2
 
   for (const sz of [-1, 1]) {
-    // estradeiro e o trilho por onde o carro corre
-    parts.push(box(GIRDER_SPAN, 0.9, 0.6, 0, girderY, sz * legZ))
-    parts.push(box(GIRDER_SPAN, 0.14, 0.26, 0, girderY + 0.52, sz * legZ))
-
-    // Passadiço e guarda-corpo por fora do estradeiro. Sem isto o estradeiro é
-    // uma barra chapada atravessando o alto do quadro — o elemento mais largo
-    // da cena e o único sem estrutura. Um corrimão é o detalhe que diz "gente
-    // sobe aqui para fazer manutenção", e é o que separa máquina de bloco.
-    const walk = sz * (legZ + 0.62)
-    parts.push(box(GIRDER_SPAN, 0.08, 0.62, 0, girderY - 0.4, walk))
-    for (const height of [0.62, 1.02]) {
-      parts.push(box(GIRDER_SPAN, 0.07, 0.07, 0, girderY - 0.4 + height, walk + sz * 0.28))
+    // viga caixão e o trilho do carro por cima dela
+    parts.push(box(span, 1.05, 0.72, 0, girderY, sz * girderZ))
+    parts.push(box(span, 0.16, 0.3, 0, girderY + 0.61, sz * girderZ))
+    // passadiço e guarda-corpo por fora da viga: sem isto a viga é uma barra
+    // chapada atravessando o alto do quadro — o elemento mais largo da cena e
+    // o único sem estrutura. Um corrimão diz "gente sobe aqui".
+    const walk = sz * (girderZ + 0.66)
+    parts.push(box(span, 0.08, 0.6, 0, girderY - 0.45, walk))
+    for (const height of [0.6, 1]) {
+      parts.push(box(span, 0.07, 0.07, 0, girderY - 0.45 + height, walk + sz * 0.27))
     }
-    for (let i = 0; i <= 12; i++) {
-      const x = -GIRDER_SPAN / 2 + (GIRDER_SPAN * i) / 12
-      parts.push(box(0.07, 1.06, 0.07, x, girderY + 0.15, walk + sz * 0.28))
+    for (let i = 0; i <= 14; i++) {
+      parts.push(box(0.07, 1.04, 0.07, -span / 2 + (span * i) / 14, girderY + 0.09, walk + sz * 0.27))
     }
   }
 
-  // Escada de marinheiro numa das pernas — mesma ideia: dá escala humana à
-  // estrutura e diz de que tamanho a máquina é.
-  const ladderX = legX - 0.38
+  // contraventamento em X entre as duas vigas, visto de cima
   for (const sx of [-1, 1]) {
-    parts.push(box(0.07, girderY - 2.2, 0.07, ladderX, girderY / 2 + 0.9, legZ + sx * 0.26))
-  }
-  for (let i = 0; i < 26; i++) {
-    parts.push(box(0.06, 0.06, 0.52, ladderX, 1.6 + i * 0.58, legZ))
+    parts.push(box(0.5, 0.34, girderZ * 2, sx * railX * 0.55, girderY - 0.62, 0))
   }
 
-  // contraventamento horizontal entre os dois estradeiros
-  const half = GIRDER_SPAN / 2
-  parts.push(
-    braceXZ(0.28, new THREE.Vector3(-half, girderY - 0.52, -legZ), new THREE.Vector3(half, girderY - 0.52, legZ)),
-  )
-  parts.push(
-    braceXZ(0.28, new THREE.Vector3(-half, girderY - 0.52, legZ), new THREE.Vector3(half, girderY - 0.52, -legZ)),
-  )
+  for (const sx of [-1, 1]) {
+    // carro de translação: a caixa que abraça o trilho, com as rodas
+    parts.push(box(1.5, 0.95, girderZ * 2 + 1.5, sx * railX, railY - 0.2, 0))
+    parts.push(box(1.1, 0.5, 0.9, sx * railX, railY - 0.95, 0))
+    for (const sz of [-1, 1]) {
+      parts.push(rod(0.42, 0.34, sx * railX, railY - 0.62, sz * (girderZ + 0.5)))
+    }
+    // cartela entre o carro de translação e a viga
+    parts.push(
+      braceXY(
+        0.3,
+        new THREE.Vector3(sx * railX, railY - 1.1, 0),
+        new THREE.Vector3(sx * (railX - 2.6), girderY + 0.4, 0),
+      ),
+    )
+  }
 
   return merge(parts)
 }
@@ -229,15 +303,17 @@ export const REEVING = [
 /** Altura do ponto de amarração no spreader, acima da face que encosta na carga. */
 export const SPREADER_EAR_Y = 0.46
 
-/** O carro: rodas sobre o trilho, corpo e a casa de máquinas. Y já embutido. */
-export function trolleyGeometry(): THREE.BufferGeometry {
+/** O carro: rodas sobre o trilho da viga, corpo e a casa de máquinas. Y embutido. */
+export function trolleyGeometry(rig: Rig): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [
-    box(2.7, 0.66, RIG.legZ * 2 + 1, 0, RIG.trolleyY, 0),
-    box(1.7, 0.55, 3.2, 0, RIG.trolleyY + 0.61, 0),
+    box(3.1, 0.7, rig.girderZ * 2 + 1.1, 0, rig.trolleyY, 0),
+    box(1.9, 0.62, 3, 0, rig.trolleyY + 0.66, 0),
+    // tambor do guincho, atravessado sob o carro
+    rodX(0.34, 2.4, 0, rig.pivotY + 0.02, 0),
   ]
   for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) parts.push(box(0.42, 0.36, 0.32, sx * 0.98, RIG.girderY + 0.77, sz * RIG.legZ))
-    for (const sz of [-1, 1]) parts.push(box(0.16, 0.5, 0.16, sx * 1.55, RIG.pivotY + 0.1, sz * 1.35))
+    for (const sz of [-1, 1]) parts.push(box(0.46, 0.4, 0.34, sx * 1.1, rig.girderY + 0.85, sz * rig.girderZ))
+    for (const sz of [-1, 1]) parts.push(box(0.16, 0.5, 0.16, sx * 1.55, rig.pivotY + 0.12, sz * 1.35))
   }
   return merge(parts)
 }
