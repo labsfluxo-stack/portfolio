@@ -195,7 +195,11 @@ export function rigFor(peak: number, reach: number): Rig {
   // spreader encosta no carro, muito mais e volta o vão morto.
   const pivotY = peak + 1.55
   return {
-    railX: reach + 2.4,
+    // `reach` é o afastamento do CENTRO do lugar mais distante, e o contêiner
+    // assentado ali avança meio comprimento além dele. Somar só a folga
+    // encostava o trilho na carga no dia em que o pátio ficou mais estreito
+    // que a montagem: os trilhos passavam por dentro da fileira da ponta.
+    railX: reach + CONTAINER.length / 2 + 2.4,
     railY: pivotY - 0.5,
     girderY: pivotY - 0.5,
     girderZ: 1.9,

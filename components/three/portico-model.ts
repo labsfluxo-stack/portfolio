@@ -191,10 +191,31 @@ function ceilingAt(x: number, z: number, obstacles: readonly Slot[]): number {
  * isso é a fase de içamento, não o translado.
  */
 function ridgeFor(from: Slot, to: Slot, obstacles: readonly Slot[], travel: number, speed: number): Float64Array {
+  const at = (u: number): number =>
+    clearOver(0, ceilingAt(from.x + (to.x - from.x) * u, from.z + (to.z - from.z) * u, obstacles))
+
+  // A exigência de cada amostra é a do PEDAÇO dela, não a do ponto: o meio de
+  // cada intervalo entra na conta. Uma pilha cuja planta a carga começa a
+  // cruzar logo depois de uma amostra não pode escapar por cair entre duas.
   const need = new Float64Array(RIDGE + 1)
   for (let i = 0; i <= RIDGE; i++) {
     const u = i / RIDGE
-    need[i] = clearOver(0, ceilingAt(from.x + (to.x - from.x) * u, from.z + (to.z - from.z) * u, obstacles))
+    need[i] = Math.max(at(u), at(u - 0.5 / RIDGE), at(u + 0.5 / RIDGE))
+  }
+
+  // E cada amostra herda a exigência das vizinhas ANTES da dilatação.
+  //
+  // Isto não é excesso de zelo, é o que fecha o vão entre duas amostras. O
+  // perfil é seguido por interpolação linear, então quem manda num trecho é o
+  // MENOR dos dois extremos — e a dilatação cônica permite que dois vizinhos
+  // difiram de um passo inteiro. Com passo de 0,69 m e folga de 0,55 m, a
+  // carga afundava dentro de uma pilha no meio do trecho: defeito real, pego
+  // pela varredura quadro a quadro no dia em que o pátio ficou mais apertado.
+  // Herdando a exigência dos vizinhos, os DOIS extremos de todo trecho ficam
+  // acima do que existe nele, e a reta entre eles também.
+  const guard = new Float64Array(RIDGE + 1)
+  for (let i = 0; i <= RIDGE; i++) {
+    guard[i] = Math.max(need[Math.max(0, i - 1)] ?? 0, need[i] ?? 0, need[Math.min(RIDGE, i + 1)] ?? 0)
   }
 
   const step = (speed * travel) / (PEAK_FACTOR * RIDGE)
@@ -202,7 +223,7 @@ function ridgeFor(from: Slot, to: Slot, obstacles: readonly Slot[], travel: numb
   for (let i = 0; i <= RIDGE; i++) {
     let top = -Infinity
     for (let j = 0; j <= RIDGE; j++) {
-      const candidate = (need[j] ?? 0) - step * Math.abs(i - j)
+      const candidate = (guard[j] ?? 0) - step * Math.abs(i - j)
       if (candidate > top) top = candidate
     }
     ridge[i] = top

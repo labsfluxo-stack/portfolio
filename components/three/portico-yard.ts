@@ -192,7 +192,7 @@ export const hasBrand = (name: string): boolean => !!resolveIcon(name) && !!plai
  * corredor a mais empurra a baia do fundo para dentro da névoa e alonga todo
  * translado.
  */
-const YARD_PITCH = { x: CONTAINER.length + 0.95, z: CONTAINER.width + 1.05 } as const
+const YARD_PITCH = { x: CONTAINER.length + 0.95, z: CONTAINER.width + 0.71 } as const
 
 /**
  * Altura máxima de uma pilha do pátio.
@@ -208,19 +208,38 @@ const STACK_HEIGHT = 3
 /**
  * Colunas de pilha por fileira.
  *
- * Quatro é o compromisso entre largura e profundidade. Mais colunas afastam os
- * trilhos (`rigFor` os dimensiona pelo alcance) e a câmera recua até a
- * montagem virar miniatura; menos colunas empurram as baias para o fundo e
- * alongam cada translado.
+ * Três, e a decisão é de COMPOSIÇÃO antes de ser de espaço.
+ *
+ * O pátio tem de ser mais estreito que a montagem, senão vira o objeto mais
+ * largo do quadro e passa a disputar a leitura com o que ele existe para
+ * emoldurar. Com quatro colunas ele era: as baias sangravam pela borda direita
+ * enquanto sobrava laje vazia na esquerda, porque a câmera é girada e o fundo
+ * balança para o lado ao recuar. Com três, a montagem volta a ser o elemento
+ * mais largo, e o pátio cresce para onde a perspectiva o comprime — a
+ * profundidade — em vez de para os lados.
+ *
+ * O custo é translado: as baias do fundo ficam mais longe. Isso é honesto (uma
+ * baia funda é uma viagem longa) e ainda varia o ritmo entre um sistema e
+ * outro.
  */
-const YARD_COLS = 4
+const YARD_COLS = 3
 
 /**
- * Corredor entre a área de montagem e a primeira fileira de baias — a pista
- * por onde um caminhão manobra. Sem esse vazio o fundo encosta na frente e a
- * cena inteira lê como uma pilha só.
+ * Corredor entre a área de montagem e a primeira fileira de baias.
+ *
+ * Doze metros, e o número dobrou por uma razão de composição que só apareceu
+ * quando o pátio passou de vinte para quarenta e nove contêineres: com cinco
+ * metros e meio, a montagem e a fila de espera encostavam uma na outra e o
+ * quadro inteiro virava caixa de ponta a ponta — "pilha em close" em vez de
+ * "máquina montando num pátio".
+ *
+ * O que separa os dois não é a câmera: é o VAZIO. Doze metros de concreto
+ * pintado entre a última baia e a montagem dão à frente o que ela precisa para
+ * ser assunto — chão em volta, sombra com onde pousar — e empurram as baias
+ * para dentro da névoa, que é onde cenário deve estar. Custa uns dois
+ * segundos de translado por movimento, e vale.
  */
-const LANE = 5.5
+const LANE = 12
 
 export type YardPlan = {
   /** Os lugares de cada sistema, na ordem em que as pilhas são enchidas. */

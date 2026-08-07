@@ -121,15 +121,51 @@ const VIEW = {
   fov: 29,
   azimuth: 0.38,
   elevation: 0.165,
-  /** Sobra em volta da máquina, em fração do enquadramento. */
-  margin: 1.03,
+  /**
+   * Sobra em volta da máquina, em fração do enquadramento.
+   *
+   * Subiu junto com o pátio de sete baias: uma moldura de três por cento não
+   * deixa chão nenhum aparecer em volta, e sem chão em volta o olho não tem
+   * como ler "pátio" — lê "objeto encostado na lente". A sobra a mais custa o
+   * mesmo tanto de tamanho de estêncil, que é o preço mais barato desta cena.
+   */
+  margin: 1.12,
 } as const
 
 /**
- * Caixa envolvente do que precisa caber: a montagem e a ponte por cima dela.
- * Sai das medidas reais — se um sistema crescer, o enquadramento abre junto.
+ * Caixa envolvente do que precisa caber: a montagem, a ponte por cima dela e a
+ * PRIMEIRA fileira de baias. Sai das medidas reais — se um sistema crescer, o
+ * enquadramento abre junto.
+ *
+ * A profundidade é assimétrica, e é isso que conserta a composição. Uma caixa
+ * simétrica em Z descrevia só a montagem, e o pátio inteiro ficava fora da
+ * conta — só que com a câmera girada o fundo BALANÇA PARA O LADO conforme
+ * recua (cada metro de profundidade empurra a projeção uns 37 cm para a
+ * direita). O que o enquadramento não conhece ele não emoldura: as baias
+ * sangravam pela borda direita enquanto sobrava laje vazia na esquerda.
+ *
+ * `far` é onde o cenário pode ser cortado sem prejuízo — as baias do fundo
+ * saem de quadro de propósito, e um pátio cortado pela borda lê como pátio que
+ * continua. O que não pode faltar é o que vem até aqui.
  */
-type Bounds = { x: number; top: number; z: number; targetY: number }
+type Bounds = {
+  x: number
+  top: number
+  near: number
+  far: number
+  targetY: number
+  /**
+   * A MASSA — a caixa dos contêineres, sem os trilhos.
+   *
+   * Existe porque caber e compor são duas perguntas diferentes, e responder as
+   * duas com a mesma caixa deixa a cena torta. Quem manda no recuo são os
+   * trilhos, que abraçam o pátio inteiro e passam do quadro pelas laterais de
+   * propósito; quem manda no CENTRO é a carga, que é o que alguém olha. Com uma
+   * caixa só, o canto vazio da laje contava tanto quanto a pilha cheia do outro
+   * lado, e o enquadramento centrava no vazio.
+   */
+  mass: { x: number; top: number; near: number; far: number }
+}
 
 /**
  * A névoa, medida A PARTIR DA CÂMERA — nunca em coordenada de mundo.
@@ -143,12 +179,12 @@ type Bounds = { x: number; top: number; z: number; targetY: number }
  * e o que a névoa pega são as baias atrás do corredor — inclusive a máquina
  * quando ela vai lá buscar, que é justamente o efeito.
  */
-const FOG = { start: 5.5, span: 34 } as const
+const FOG = { start: 3, span: 27 } as const
 
-const cornersOf = (bounds: Bounds): [number, number, number][] =>
+const boxOf = (half: { x: number; top: number; near: number; far: number }): [number, number, number][] =>
   [-1, 1].flatMap((sx) =>
     [0, 1].flatMap((sy) =>
-      [-1, 1].map((sz): [number, number, number] => [sx * bounds.x, sy * bounds.top, sz * bounds.z]),
+      [half.near, half.far].map((z): [number, number, number] => [sx * half.x, sy * half.top, z]),
     ),
   )
 
@@ -186,16 +222,55 @@ function Framing({ bounds }: { bounds: Bounds }) {
     const up = new THREE.Vector3().crossVectors(dir, right).normalize()
     const target = new THREE.Vector3(0, bounds.targetY, 0)
     const corner = new THREE.Vector3()
+    const box = boxOf(bounds)
+    const mass = boxOf(bounds.mass)
 
+    // Duas contas, e a segunda é a que faltava.
+    //
+    // A primeira resolve a DISTÂNCIA: o quanto a câmera precisa recuar para
+    // que os oito cantos ainda caibam. A segunda resolve o CENTRO — e sem ela
+    // o enquadramento garante que tudo caiba e mesmo assim compõe torto.
+    //
+    // O motivo é perspectiva pura: com a câmera girada, o canto da frente está
+    // mais PERTO que o de trás, então ele projeta mais para fora mesmo tendo o
+    // mesmo afastamento em metros. A conta da distância toma o pior dos dois e
+    // recua até ele caber; o resultado é a carga colada numa borda e uma faixa
+    // de chão vazio na outra. Foi exatamente o que apareceu quando o pátio
+    // cresceu: contêineres cortados à direita, laje sobrando à esquerda.
+    //
+    // A correção é medir os extremos do que aparece na tela e deslocar a MIRA
+    // pela metade da diferença. Itera porque deslocar a mira muda a projeção
+    // de todo canto — três passadas fecham em fração de pixel.
+    //
+    // E os extremos que valem são os da CARGA, não os da caixa que precisa
+    // caber: os trilhos abraçam o pátio inteiro e saem do quadro pelas
+    // laterais de propósito, então centrar por eles é centrar pelo vazio.
     let distance = 0
-    for (const [x, y, z] of cornersOf(bounds)) {
-      corner.set(x, y, z).sub(target)
-      const depth = corner.dot(dir)
-      distance = Math.max(
-        distance,
-        depth + (Math.abs(corner.dot(right)) / tanH) * VIEW.margin,
-        depth + (Math.abs(corner.dot(up)) / tanV) * VIEW.margin,
-      )
+    for (let pass = 0; pass < 3; pass++) {
+      distance = 0
+      for (const [x, y, z] of box) {
+        corner.set(x, y, z).sub(target)
+        const depth = corner.dot(dir)
+        distance = Math.max(
+          distance,
+          depth + (Math.abs(corner.dot(right)) / tanH) * VIEW.margin,
+          depth + (Math.abs(corner.dot(up)) / tanV) * VIEW.margin,
+        )
+      }
+
+      let low = Infinity
+      let high = -Infinity
+      for (const [x, y, z] of mass) {
+        corner.set(x, y, z).sub(target)
+        // Coordenada de tela do canto, em tangentes: é a divisão pela
+        // profundidade que traz a perspectiva para dentro da conta.
+        const screen = corner.dot(right) / Math.max(1, distance - corner.dot(dir))
+        low = Math.min(low, screen)
+        high = Math.max(high, screen)
+      }
+      const off = ((low + high) / 2) * distance
+      if (Math.abs(off) < 0.01) break
+      target.addScaledVector(right, off)
     }
 
     camera.fov = VIEW.fov
@@ -538,9 +613,9 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
     [assemblies],
   )
 
-  // O enquadramento fecha na montagem mais a ponte por cima dela. A
-  // profundidade cobre só a montagem: o pátio fica de fora de propósito,
-  // dissolvido na névoa, porque ele é escala e não assunto.
+  // O enquadramento fecha na montagem, na ponte por cima dela e na primeira
+  // fileira de baias. O resto do pátio fica de fora de propósito, dissolvido
+  // na névoa, porque ele é escala e não assunto.
   //
   // `top` para no carro, não acima dele. A folga que existia aqui punha a
   // instalação flutuando no meio do quadro com um vão morto em cima, e os
@@ -549,10 +624,24 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
   // é o corte que diz "isto continua preso lá em cima".
   const bounds = useMemo(() => {
     const top = rig.trolleyY + 0.35
+    // A borda de trás do que precisa caber é a PRIMEIRA fileira de baias, não
+    // a montagem: é ela que fecha a composição por cima do corredor vazio. O
+    // resto do pátio recua para dentro da névoa e pode ser cortado pela borda.
+    const firstBay = yard.footprints.reduce((near, spot) => Math.max(near, spot.z), -work.z)
+    const cargoX =
+      yard.footprints.reduce((far, spot) => Math.max(far, Math.abs(spot.x)), work.x) + CONTAINER.length / 2
     return {
       x: rig.railX,
       top,
-      z: work.z + CONTAINER.width,
+      near: work.z + CONTAINER.width,
+      far: firstBay - CONTAINER.width,
+      // Só as caixas: é por elas que a composição se centra.
+      mass: {
+        x: cargoX,
+        top: Math.max(...assemblies.map((build) => build.height), CONTAINER.height),
+        near: work.z + CONTAINER.width / 2,
+        far: firstBay - CONTAINER.width / 2,
+      },
       // A mira fica pouco acima do MEIO da instalação, e a conta é geométrica,
       // não de gosto: `Framing` resolve a distância projetando os oito cantos
       // da caixa, então uma mira alta obriga a câmera a recuar o quanto for
@@ -562,7 +651,7 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
       // sombra de contato para ela pousar, em vez de céu vazio.
       targetY: top * 0.62,
     }
-  }, [rig, work])
+  }, [rig, work, yard, assemblies])
 
   /**
    * O chão cobre o pátio inteiro, com folga de uma baia. Sai das plantas reais
