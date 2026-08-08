@@ -348,7 +348,19 @@ const SETTLE = 1.5
  */
 function useQuality(): { tier: Tier; watch: (delta: number) => void } {
   const setDpr = useThree((state) => state.setDpr)
-  const [step, setStep] = useState(0)
+  // Começa no degrau SEGURO, não no de estúdio — e sobe se a máquina provar
+  // que aguenta.
+  //
+  // A versão anterior começava no topo e caía. A ordem parece equivalente e não
+  // é: numa máquina fraca, os primeiros segundos rodam a resolução dobrada
+  // inteira antes de a escada perceber e descer, e quem a proteção existe para
+  // socorrer paga o custo máximo justamente no pior momento — o carregamento.
+  // Medido: o Lighthouse caiu de 78 para 76 e o LCP subiu de 5,6 s para 6,4 s
+  // só por causa dessa janela.
+  //
+  // Provar antes de gastar custa um segundo de imagem mais macia em quem tem
+  // GPU, e poupa o engasgo inteiro em quem não tem. É a troca certa.
+  const [step, setStep] = useState(1)
   const meter = useRef({
     age: 0,
     since: 0,
@@ -395,7 +407,7 @@ function useQuality(): { tier: Tier; watch: (delta: number) => void } {
       if (delta > 1 / 240 && delta < own.vsync) own.vsync = Math.min(delta, 1 / 20)
       return
     }
-    if (own.age - own.since < SETTLE || step >= TIERS.length - 1) return
+    if (own.age - own.since < SETTLE) return
 
     own.gaps[own.at++] = delta
     own.span += delta
@@ -405,12 +417,30 @@ function useQuality(): { tier: Tier; watch: (delta: number) => void } {
     const median = sorted[own.at >> 1] ?? 0
     own.at = 0
     own.span = 0
+
     // Metade da taxa do monitor, e nunca mais folgado que 45 quadros por
     // segundo: num painel de 144 Hz, "metade" ainda seria rápido demais para
     // valer um rebaixamento.
-    if (median <= Math.max(own.vsync * 2.2, 1 / 45)) return
-    own.since = own.age
-    setStep((current) => current + 1)
+    const slow = Math.max(own.vsync * 2.2, 1 / 45)
+    if (median > slow && step < TIERS.length - 1) {
+      own.since = own.age
+      setStep((current) => current + 1)
+      return
+    }
+
+    // A SUBIDA, e o limiar dela é bem mais apertado que o da descida.
+    //
+    // A assimetria é de propósito: subir dobra o custo de fragmento, então só
+    // vale quando sobra folga de verdade — não quando o quadro está apenas
+    // dentro do orçamento. Com os dois limiares iguais, a cena ficaria pingando
+    // entre dois degraus, e trocar de resolução a cada dois segundos incomoda
+    // mais que a resolução menor.
+    //
+    // `SETTLE` já impede a oscilação rápida; a margem impede a lenta.
+    if (median < own.vsync * 1.25 && step > 0) {
+      own.since = own.age
+      setStep((current) => current - 1)
+    }
   }
 
   return { tier, watch }
