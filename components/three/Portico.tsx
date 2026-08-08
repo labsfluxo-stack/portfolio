@@ -361,9 +361,28 @@ function useQuality(): { tier: Tier; watch: (delta: number) => void } {
   const tier = TIERS[Math.min(step, TIERS.length - 1)] ?? TIERS[0]
 
   useEffect(() => {
-    // Teto, não valor fixo: num painel comum `devicePixelRatio` é 1 e o degrau
-    // cheio já está no máximo que a tela sabe mostrar.
-    setDpr(Math.min(window.devicePixelRatio, tier.dpr))
+    // O valor do degrau, DIRETO — sem teto no `devicePixelRatio`.
+    //
+    // A versão anterior fazia `Math.min(window.devicePixelRatio, tier.dpr)` com
+    // o raciocínio de que "num painel comum o devicePixelRatio é 1 e isso já é
+    // o máximo que a tela sabe mostrar". O raciocínio é falso, e o dono viu o
+    // resultado antes de mim: subi o degrau de estúdio para 2, ele recarregou,
+    // e nada mudou — porque no monitor dele o `Math.min` devolvia 1.
+    //
+    // 1 é o máximo que a tela EXIBE, não o máximo que vale renderizar. Desenhar
+    // acima e deixar o navegador reduzir é SUPERSAMPLING: cada pixel da tela
+    // passa a ser a média de quatro amostras, e é a técnica mais eficaz que
+    // existe contra serrilhado — a única que trata aresta fina, textura e
+    // especular ao mesmo tempo, coisa que o MSAA não faz (ele só suaviza
+    // silhueta de geometria).
+    //
+    // Esta cena é feita de aresta fina: cabo de 9 cm, montante de guarda-corpo,
+    // degrau de escada, trama de grade. Sem supersampling nenhuma delas fecha
+    // um pixel, e é por isso que cintilam quando a câmera se move.
+    //
+    // O custo é quadrático e assumido: quem não sustentar cai pelos degraus
+    // abaixo, que continuam intactos.
+    setDpr(tier.dpr)
   }, [tier, setDpr])
 
   const watch = (delta: number): void => {
