@@ -25,7 +25,17 @@ export const pt: Dictionary = {
   hero: {
     name: 'Neto Alves',
     role: 'Arquiteto de software',
-    tagline: 'O sistema inteiro, do modelo de dados ao deploy — 9 construídos, 5 em produção',
+    // Sem número, de propósito. Os números vivem na Telemetria, a uma
+    // rolagem daqui — repeti-los aqui gastava a linha mais visível do site
+    // com informação duplicada, e o trabalho desta linha é outro: fazer
+    // continuar lendo.
+    //
+    // Ela carrega a década de infraestrutura sem dizer "infraestrutura",
+    // "switch" nem "camada 2": o recrutador técnico lê "já esteve de
+    // plantão, conhece produção", e o empresário lê a mesma coisa sem
+    // precisar de vocabulário nenhum. É a única linha do site que fala com
+    // os dois públicos usando exatamente as mesmas palavras.
+    tagline: 'Software escrito por quem já foi acordado por ele',
     availability: 'Disponível para vaga ou projeto',
     scrollHint: 'role para operar',
   },
@@ -112,7 +122,11 @@ export const pt: Dictionary = {
   },
   about: {
     label: 'Sobre',
-    lead: 'A mesma pessoa modela o banco, escreve a API, sobe o front e faz o deploy — e atende quando alguma coisa quebra às três da manhã.',
+    // A hero já carrega o argumento do plantão ("acordado por ele"). Esta
+    // linha ficava com "atende quando quebra às três da manhã" e repetia a
+    // mesma jogada a uma rolagem de distância — repetição gasta as duas.
+    // Aqui o argumento é outro: os quatro papéis numa pessoa só.
+    lead: 'A mesma pessoa modela o banco, escreve a API, sobe o front e faz o deploy — e responde pelos quatro.',
     body: [
       'Construo sistemas completos, do zero até produção: modelagem de dados, API, interface, fila, deploy e a instrumentação que diz se aquilo continua de pé. Nove sistemas até aqui, cinco rodando hoje — os três maiores estão abertos nesta página, com os números que dá para conferir um por um.',
       'Antes do código vieram dez anos de infraestrutura: redes, switches e servidores. Não é o serviço que eu vendo hoje, é a razão de o que eu entrego aguentar. Quem passou uma década sendo acordado por sistema fora do ar projeta software pensando em como ele cai, não só em como ele funciona.',
