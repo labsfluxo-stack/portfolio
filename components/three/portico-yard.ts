@@ -22,21 +22,29 @@ import {
   siVitest,
   siZod,
 } from 'simple-icons'
+import type { Freight } from './portico-architecture'
 import { CONTAINER, type Slot, slotCenterY, stencilLines } from './portico-model'
 import { plain } from './portico-systems'
 
 /**
  * O pátio: onde MORA cada contêiner de cada sistema.
  *
- * Esta é a peça que faz a rotação de sistemas não ter corte. Cada sistema tem
- * uma baia própria, e cada contêiner uma casa fixa dentro dela: a máquina
- * esvazia a baia do sistema da vez para montá-lo, devolve tudo às mesmas
- * pilhas e segue para a baia seguinte. Nenhum contêiner aparece, some ou troca
- * de estampa no meio do caminho.
+ * Esta é a peça que faz a rotação de sistemas não ter corte. Cada contêiner
+ * tem uma casa fixa: a máquina tira do pátio o que o sistema da vez precisa,
+ * monta, devolve tudo aos mesmos lugares e segue para o sistema seguinte.
+ * Nenhum contêiner aparece, some ou troca de estampa no meio do caminho.
  *
  * O ganho é duplo. O corte some, e o fundo deixa de ser cenário: as pilhas
  * paradas do fundo não são mais enchimento — são os outros sistemas
  * esperando a vez, com as tecnologias verdadeiras deles estampadas na chapa.
+ *
+ * O pátio tem DOIS tipos de baia, e decidir quem vai para qual é o que
+ * `manifestFor` calcula:
+ *
+ * - **baia de sistema**, uma por sistema, com as tecnologias que são
+ *   ASSINATURA dele — as que nenhum outro, ou quase nenhum outro, usa;
+ * - **estoque comum**, uma fileira rasa na frente, com UM contêiner por
+ *   tecnologia que quase todos usam, emprestado a cada montagem por vez.
  *
  * Como `portico-model.ts`, aqui não entra three.js: é aritmética e dados,
  * testável sem GPU. Nenhum `Math.random()` — posição, altura e carga saem
@@ -183,6 +191,140 @@ export function markFor(name: string): YardMark {
 /** Se uma tecnologia tem marca — usado pelos testes e pela contagem do atlas. */
 export const hasBrand = (name: string): boolean => !!resolveIcon(name) && !!plain(name)
 
+// ── Assinatura e estoque ──────────────────────────────────────────────────
+
+/**
+ * A identidade VISUAL de uma tecnologia — o que o olho conta como repetição.
+ *
+ * Não é o nome. O conteúdo escreve "Fastify 5" num sistema e "Fastify" noutro,
+ * e a chapa dos dois recebe o MESMO logotipo: contar por nome diria que são
+ * duas marcas diferentes e deixaria as duas paradas no pátio. Contar pela
+ * marca resolvida conta o que a cena de fato mostra.
+ */
+export function brandOf(name: string): string {
+  const icon = resolveIcon(name)
+  return icon ? `icon:${icon.slug}` : `text:${plain(name)}`
+}
+
+/**
+ * Em quantos sistemas uma marca ainda conta como ASSINATURA, e é este número
+ * que decide quem espera na baia e quem vai para o estoque comum.
+ *
+ * O defeito que ele existe para corrigir foi visto e reportado: com cada baia
+ * mostrando a stack completa do seu sistema, o TypeScript aparecia sete vezes
+ * no pátio e o Docker três. É verdade factual — TypeScript está mesmo nos sete
+ * sistemas — e mesmo assim lê como preguiça, porque uma marca que se repete no
+ * fundo inteiro não distingue nada. `pgvector`, `BullMQ`, `three.js`, `NestJS`
+ * e `GSAP` distinguem: cada uma aponta para um sistema só.
+ *
+ * O corte é CALCULADO sobre a rotação, nunca escrito à mão — uma lista de
+ * "tecnologias comuns" sairia de sincronia na primeira mudança de
+ * `content/systems.ts`, que é justamente a mudança que a cena existe para
+ * acompanhar sozinha.
+ *
+ * E o valor 2 não é gosto: ele é o único que fecha os dois lados.
+ *
+ * - Uma marca de assinatura aparece uma vez por sistema que a usa, então o
+ *   limiar É o teto de repetição no pátio. Com 3, Docker e Prisma voltariam a
+ *   aparecer três vezes — o defeito de novo, mais fraco.
+ * - Com 1, a baia da Academia SaaS ficaria VAZIA: as duas tecnologias que
+ *   sobram nela (PWA e Nginx) são compartilhadas com a Moveis.pro, e uma baia
+ *   vazia é um sistema que sumiu do pátio.
+ *
+ * Dois é o que resta. A conta se refaz sozinha quando o conteúdo mudar; o que
+ * não se refaz é o critério, e ele está escrito aqui.
+ */
+export const SIGNATURE_MAX = 2
+
+/** Um contêiner da cena: o que ele leva estampado e de quem ele é. */
+export type Unit = {
+  name: string
+  /** O sistema dono, ou -1 quando a peça é do estoque comum. */
+  system: number
+  role: number
+}
+
+export type Manifest = {
+  /** Uma entrada por contêiner da cena, na ordem das instâncias. */
+  units: Unit[]
+  /** O contêiner de cada posição da montagem, sistema a sistema. */
+  crews: number[][]
+  /** As baias do pátio: o estoque comum na frente, depois uma por sistema. */
+  bays: Bay[]
+}
+
+/**
+ * Quem existe no pátio, e de quem é cada peça.
+ *
+ * Recebe a carga de cada montagem (`Assembly.cargo`, na ordem em que ela é
+ * montada) e devolve o inventário da cena inteira. Duas regras, e as duas
+ * saem da frequência calculada acima:
+ *
+ * 1. Tecnologia de ASSINATURA ganha um contêiner por sistema, e ele espera na
+ *    baia do dono, com o nome do sistema estampado.
+ * 2. Tecnologia COMUM ganha UM contêiner, e um só, no estoque. Ele é montado
+ *    por todo sistema que a usa — o que é possível porque só um sistema é
+ *    montado por vez, e é o que garante que a marca nunca apareça duas vezes
+ *    no quadro.
+ *
+ * O estoque é montado na ordem da rotação, então a grafia que fica é a do
+ * primeiro sistema que usa a marca: determinístico, e sem ninguém escolher.
+ *
+ * **A montagem não muda.** `crews[i]` tem um contêiner para CADA posição de
+ * `cargos[i]`, na mesma ordem: o sistema da vez continua sendo montado com a
+ * stack completa e real dele, TypeScript incluído. O que mudou é de onde vem
+ * cada peça, e portanto o que o pátio mostra enquanto ela espera.
+ */
+export function manifestFor(cargos: readonly (readonly Freight[])[]): Manifest {
+  const tally = new Map<string, number>()
+  for (const cargo of cargos) {
+    for (const brand of new Set(cargo.map((freight) => brandOf(freight.name)))) {
+      tally.set(brand, (tally.get(brand) ?? 0) + 1)
+    }
+  }
+
+  const units: Unit[] = []
+  const stock = new Map<string, number>()
+  for (const cargo of cargos) {
+    for (const freight of cargo) {
+      const brand = brandOf(freight.name)
+      if ((tally.get(brand) ?? 0) <= SIGNATURE_MAX || stock.has(brand)) continue
+      stock.set(brand, units.length)
+      units.push({ name: freight.name, system: -1, role: freight.role })
+    }
+  }
+
+  const crews = cargos.map((cargo, system) => {
+    // Uma peça do estoque só pode ser emprestada UMA vez por montagem: dois
+    // nomes da mesma marca na mesma stack (um "Node" e um "Node.js") mandariam
+    // a máquina buscar o mesmo contêiner duas vezes. O segundo vira peça
+    // própria, que é o que ele é.
+    const borrowed = new Set<number>()
+    return cargo.map((freight) => {
+      const shared = stock.get(brandOf(freight.name))
+      if (shared !== undefined && !borrowed.has(shared)) {
+        borrowed.add(shared)
+        return shared
+      }
+      units.push({ name: freight.name, system, role: freight.role })
+      return units.length - 1
+    })
+  })
+
+  return {
+    units,
+    crews,
+    // O estoque é RASO — um andar só — e essa é a única forma que funciona:
+    // cada sistema leva um subconjunto diferente dele, e numa pilha de três a
+    // peça que um sistema não quer acaba em cima da que ele quer. No chão,
+    // qualquer peça está sempre livre.
+    bays: [
+      { count: stock.size, levels: 1 },
+      ...crews.map((crew, system) => ({ count: crew.filter((id) => units[id]?.system === system).length })),
+    ],
+  }
+}
+
 // ── Baias ─────────────────────────────────────────────────────────────────
 
 /**
@@ -200,10 +342,16 @@ const YARD_PITCH = { x: CONTAINER.length + 0.95, z: CONTAINER.width + 0.71 } as 
  * Três é o número que fecha a conta de todos os lados: baixo o bastante para a
  * máquina passar por cima do pátio sem ir ao topo do quadro (o perfil de
  * altura mede contra o que ela cruza, e o que ela cruza é isto), alto o
- * bastante para as dezenove pilhas caberem em cinco fileiras, e o suficiente
- * para o pátio ter volume em vez de parecer um estacionamento.
+ * bastante para as pilhas caberem em poucas fileiras, e o suficiente para o
+ * pátio ter volume em vez de parecer um estacionamento.
+ *
+ * É o padrão, não a lei: o estoque comum pede um andar só (ver `manifestFor`),
+ * e por isso a altura é uma propriedade da baia.
  */
-const STACK_HEIGHT = 3
+export const STACK_HEIGHT = 3
+
+/** Uma baia do pátio: quantos contêineres ela guarda, e em quantos andares. */
+export type Bay = { count: number; levels?: number }
 
 /**
  * Colunas de pilha por fileira.
@@ -242,12 +390,12 @@ const YARD_COLS = 3
 const LANE = 12
 
 export type YardPlan = {
-  /** Os lugares de cada sistema, na ordem em que as pilhas são enchidas. */
+  /** Os lugares de cada baia, na ordem em que as pilhas são enchidas. */
   homes: Slot[][]
   /**
    * Planta de todas as pilhas, para o piso receber a marcação delas. `code` é
-   * o número de posição pintado no chão: letra da baia (um sistema) e número
-   * da pilha dentro dela. Sai do índice, como tudo aqui.
+   * o número de posição pintado no chão: letra da baia e número da pilha
+   * dentro dela. Sai do índice, como tudo aqui.
    */
   footprints: { x: number; z: number; code: string }[]
 }
@@ -260,25 +408,28 @@ export type YardPlan = {
  * organizada. O resto é distribuído nas primeiras pilhas, que é o que um
  * operador faz.
  */
-function stackHeights(count: number): number[] {
-  const stacks = Math.max(1, Math.ceil(count / STACK_HEIGHT))
+function stackHeights(count: number, levels: number): number[] {
+  if (count <= 0) return []
+  const stacks = Math.max(1, Math.ceil(count / levels))
   const base = Math.floor(count / stacks)
   const extra = count % stacks
   return Array.from({ length: stacks }, (_, i) => base + (i < extra ? 1 : 0))
 }
 
 /**
- * A planta do pátio inteiro sai do TAMANHO de cada sistema: uma baia por
- * sistema, na ordem da rotação, preenchendo fileiras de `YARD_COLS` colunas e
- * recuando em profundidade.
+ * A planta do pátio inteiro sai do TAMANHO de cada baia, preenchendo fileiras
+ * de `YARD_COLS` colunas e recuando em profundidade.
  *
- * Pôr as baias na ordem da rotação não é arrumação: é o que deixa a baia do
- * sistema seguinte perto da do atual, e portanto o translado da virada curto.
+ * A ordem das baias é a da rotação, com o estoque comum na frente. Não é
+ * arrumação: o estoque é a baia que TODA montagem visita, então ela é a que
+ * tem de ficar mais perto do corredor; e as baias de sistema em ordem de
+ * rotação deixam a do sistema seguinte perto da do atual, o que encurta o
+ * translado da virada.
  *
  * `depth` é a profundidade da maior montagem — é dela que sai onde o corredor
  * começa, para que o pátio recue junto se um sistema crescer.
  */
-export function buildYard(counts: readonly number[], depth: number): YardPlan {
+export function buildYard(bays: readonly Bay[], depth: number): YardPlan {
   const originZ = -(depth / 2 + LANE + CONTAINER.width / 2)
   const homes: Slot[][] = []
   const footprints: { x: number; z: number; code: string }[] = []
@@ -289,11 +440,12 @@ export function buildYard(counts: readonly number[], depth: number): YardPlan {
     z: originZ - Math.floor(index / YARD_COLS) * YARD_PITCH.z,
   })
 
-  counts.forEach((count, bay) => {
-    const heights = stackHeights(count)
+  bays.forEach((bay, index) => {
+    const levels = bay.levels ?? STACK_HEIGHT
+    const heights = stackHeights(bay.count, levels)
     const spots = heights.map((_, i) => spotAt(cursor + i))
     footprints.push(
-      ...spots.map((spot, i) => ({ ...spot, code: `${String.fromCharCode(65 + (bay % 26))}${i + 1}` })),
+      ...spots.map((spot, i) => ({ ...spot, code: `${String.fromCharCode(65 + (index % 26))}${i + 1}` })),
     )
     cursor += heights.length
 
@@ -302,7 +454,7 @@ export function buildYard(counts: readonly number[], depth: number): YardPlan {
     // sempre devolve um contêiner sem nada em cima), e porque se um sistema
     // encolher o que falta é o topo das pilhas — que é como um pátio esvazia.
     const slots: Slot[] = []
-    for (let level = 0; level < STACK_HEIGHT; level++) {
+    for (let level = 0; level < levels; level++) {
       heights.forEach((height, i) => {
         const spot = spots[i]
         if (!spot || level >= height) return
@@ -313,4 +465,39 @@ export function buildYard(counts: readonly number[], depth: number): YardPlan {
   })
 
   return { homes, footprints }
+}
+
+/**
+ * A casa de cada contêiner, indexada pelo id da instância.
+ *
+ * É aqui que o inventário encontra a planta. A regra que não pode ser
+ * afrouxada é a de EMPILHAMENTO: a máquina esvazia a baia na ordem da
+ * montagem, então a peça montada primeiro — a base, a infraestrutura — tem de
+ * ser a que está no ALTO da pilha, senão a máquina escava.
+ *
+ * Como a baia é enchida de baixo para cima (`buildYard`), a conta é direta:
+ * a n-ésima peça da montagem mora no n-ésimo lugar contado do fim. As peças de
+ * estoque não entram nessa conta porque o estoque é raso: no chão, toda peça
+ * está sempre livre, e a máquina pode buscá-la a qualquer altura do ciclo.
+ */
+export function stow(manifest: Manifest, homes: readonly (readonly Slot[])[]): Slot[] {
+  const ground: Slot = { x: 0, y: slotCenterY(0), z: 0 }
+  const home: Slot[] = manifest.units.map(() => ground)
+
+  const stock = homes[0] ?? []
+  let next = 0
+  manifest.units.forEach((unit, id) => {
+    if (unit.system < 0) home[id] = stock[next++] ?? ground
+  })
+
+  manifest.crews.forEach((crew, system) => {
+    const slots = homes[system + 1] ?? []
+    crew
+      .filter((id) => manifest.units[id]?.system === system)
+      .forEach((id, order) => {
+        home[id] = slots[slots.length - 1 - order] ?? ground
+      })
+  })
+
+  return home
 }

@@ -149,33 +149,56 @@ const horizontal = (from: Slot, to: Slot): number =>
 const RIDGE = 32
 
 /**
- * Topo do mais alto contêiner cuja planta a carga cruza em (x, z).
+ * A faixa de `u` em que `|offset + delta·u| < half` — as duas raízes de uma
+ * desigualdade linear, ou a reta inteira quando o eixo não se move.
+ */
+function band(offset: number, delta: number, half: number): [number, number] | null {
+  if (Math.abs(delta) < 1e-9) return Math.abs(offset) < half ? [0, 1] : null
+  const a = (-half - offset) / delta
+  const b = (half - offset) / delta
+  return a < b ? [a, b] : [b, a]
+}
+
+/**
+ * O TRECHO do percurso em que a carga cruza a planta de `slot`, ou `null`
+ * quando ela nunca cruza.
  *
  * "Cruza" é sobreposição de planta de verdade: dois contêineres se cruzam
  * quando os centros estão a menos de um comprimento e de uma largura. É o
  * mesmo critério do teste que pega a carga raspando numa pilha, de propósito —
  * o modelo e o teste medem a mesma coisa do mesmo jeito.
+ *
+ * E o trecho é RESOLVIDO, não amostrado. O translado é uma reta, então em cada
+ * eixo a sobreposição é uma desigualdade linear em `u`, e o cruzamento é a
+ * interseção das duas faixas com [0, 1]. Amostrar custou um defeito real: ao
+ * sair de uma pilha do estoque, a carga raspava o CANTO da pilha vizinha, e
+ * esse cruzamento durava 0,7 % do percurso — mais curto que o passo da
+ * amostragem, então nenhuma amostra caía dentro dele e o perfil passava dois
+ * metros por baixo do canto. Resolvido, nenhum cruzamento é curto demais para
+ * ser visto, e a conta ainda fica mais barata: uma passada pelos obstáculos em
+ * vez de uma por amostra.
  */
-function ceilingAt(x: number, z: number, obstacles: readonly Slot[]): number {
-  let top = 0
-  for (const slot of obstacles) {
-    if (Math.abs(slot.x - x) >= CONTAINER.length || Math.abs(slot.z - z) >= CONTAINER.width) continue
-    const above = topOf(slot)
-    if (above > top) top = above
-  }
-  return top
+function crossing(from: Slot, to: Slot, slot: Slot): [number, number] | null {
+  const x = band(from.x - slot.x, to.x - from.x, CONTAINER.length)
+  if (!x) return null
+  const z = band(from.z - slot.z, to.z - from.z, CONTAINER.width)
+  if (!z) return null
+  const start = Math.max(0, x[0], z[0])
+  const end = Math.min(1, x[1], z[1])
+  return start <= end ? [start, end] : null
 }
 
 /**
  * O perfil de altura de um translado: onde o gancho tem de estar em cada
  * fração do percurso.
  *
- * Duas etapas. Primeiro a EXIGÊNCIA: em cada amostra, a folga sobre o que a
- * carga cruza ali. Depois a DILATAÇÃO CÔNICA: cada amostra recebe o máximo
- * entre a própria exigência e a das vizinhas descontada da inclinação máxima
- * que o acionamento aguenta. É o cone que transforma uma exigência em degrau
- * (que nenhum guincho consegue seguir) num perfil que sobe antes e desce
- * depois, exatamente como um operador faria.
+ * Duas etapas. Primeiro a EXIGÊNCIA: cada obstáculo é resolvido para o trecho
+ * do percurso em que a carga cruza a planta dele (ver `crossing`), e as
+ * amostras desse trecho passam a pedir a folga sobre ele. Depois a DILATAÇÃO
+ * CÔNICA: cada amostra recebe o máximo entre a própria exigência e a das
+ * vizinhas descontada da inclinação máxima que o acionamento aguenta. É o cone
+ * que transforma uma exigência em degrau (que nenhum guincho consegue seguir)
+ * num perfil que sobe antes e desce depois, exatamente como um operador faria.
  *
  * A inclinação sai dos limites dos dois acionamentos, não de um número
  * escolhido: com o translado durando `travel` e o perfil trapezoidal chegando
@@ -191,31 +214,21 @@ function ceilingAt(x: number, z: number, obstacles: readonly Slot[]): number {
  * isso é a fase de içamento, não o translado.
  */
 function ridgeFor(from: Slot, to: Slot, obstacles: readonly Slot[], travel: number, speed: number): Float64Array {
-  const at = (u: number): number =>
-    clearOver(0, ceilingAt(from.x + (to.x - from.x) * u, from.z + (to.z - from.z) * u, obstacles))
-
-  // A exigência de cada amostra é a do PEDAÇO dela, não a do ponto: o meio de
-  // cada intervalo entra na conta. Uma pilha cuja planta a carga começa a
-  // cruzar logo depois de uma amostra não pode escapar por cair entre duas.
-  const need = new Float64Array(RIDGE + 1)
-  for (let i = 0; i <= RIDGE; i++) {
-    const u = i / RIDGE
-    need[i] = Math.max(at(u), at(u - 0.5 / RIDGE), at(u + 0.5 / RIDGE))
-  }
-
-  // E cada amostra herda a exigência das vizinhas ANTES da dilatação.
-  //
-  // Isto não é excesso de zelo, é o que fecha o vão entre duas amostras. O
-  // perfil é seguido por interpolação linear, então quem manda num trecho é o
-  // MENOR dos dois extremos — e a dilatação cônica permite que dois vizinhos
-  // difiram de um passo inteiro. Com passo de 0,69 m e folga de 0,55 m, a
-  // carga afundava dentro de uma pilha no meio do trecho: defeito real, pego
-  // pela varredura quadro a quadro no dia em que o pátio ficou mais apertado.
-  // Herdando a exigência dos vizinhos, os DOIS extremos de todo trecho ficam
-  // acima do que existe nele, e a reta entre eles também.
-  const guard = new Float64Array(RIDGE + 1)
-  for (let i = 0; i <= RIDGE; i++) {
-    guard[i] = Math.max(need[Math.max(0, i - 1)] ?? 0, need[i] ?? 0, need[Math.min(RIDGE, i + 1)] ?? 0)
+  // A exigência: o piso é a folga sobre a laje vazia, e cada obstáculo levanta
+  // as amostras dos TRECHOS que ele cruza — as DUAS pontas de cada trecho, não
+  // só a que cai dentro dele. O perfil é seguido por interpolação linear,
+  // então quem manda num trecho é o MENOR dos dois extremos: levantar um só
+  // deixa a reta entre eles passar por dentro da pilha, defeito que esta cena
+  // já cometeu e que a varredura quadro a quadro pegou.
+  const need = new Float64Array(RIDGE + 1).fill(clearOver(0, 0))
+  for (const slot of obstacles) {
+    const span = crossing(from, to, slot)
+    if (!span) continue
+    const height = clearOver(0, topOf(slot))
+    const last = Math.ceil(span[1] * RIDGE)
+    for (let i = Math.floor(span[0] * RIDGE); i <= last; i++) {
+      if (height > (need[i] ?? 0)) need[i] = height
+    }
   }
 
   const step = (speed * travel) / (PEAK_FACTOR * RIDGE)
@@ -223,7 +236,7 @@ function ridgeFor(from: Slot, to: Slot, obstacles: readonly Slot[], travel: numb
   for (let i = 0; i <= RIDGE; i++) {
     let top = -Infinity
     for (let j = 0; j <= RIDGE; j++) {
-      const candidate = (guard[j] ?? 0) - step * Math.abs(i - j)
+      const candidate = (need[j] ?? 0) - step * Math.abs(i - j)
       if (candidate > top) top = candidate
     }
     ridge[i] = top
@@ -394,8 +407,17 @@ function buildLeg(steps: readonly LegStep[], parkAfter: Slot, enterFrom: number 
 
 export type Plan = {
   count: number
-  /** Índice da primeira instância deste sistema no conjunto global. */
-  offset: number
+  /**
+   * Os contêineres que este sistema monta, na ordem da montagem.
+   *
+   * Lista explícita, e não uma faixa de índices, porque as peças de um sistema
+   * NÃO são contíguas: as de assinatura pertencem a ele, e as comuns vêm do
+   * estoque, emprestadas por toda a rotação. Ver `manifestFor`, em
+   * `portico-yard.ts`.
+   */
+  ids: readonly number[]
+  /** Os mesmos ids em conjunto, para o pátio saber num passo quem não é daqui. */
+  members: ReadonlySet<number>
   /** Lugares do pátio, na ordem em que as pilhas são enchidas. */
   source: readonly Slot[]
   /** Lugares da montagem, na ordem em que ela é feita (base primeiro). */
@@ -411,7 +433,7 @@ export type Plan = {
 }
 
 /**
- * Monta o ciclo de UM sistema a partir dos lugares dele e do resto do pátio.
+ * Monta o ciclo de UM sistema a partir das peças dele e do resto do pátio.
  *
  * O pátio guarda os contêineres na ordem INVERTIDA da montagem: o primeiro a
  * ser montado (a base) é o último a ser empilhado no pátio, e portanto o que
@@ -420,20 +442,25 @@ export type Plan = {
  * tanto ao montar quanto ao desmontar, e é o que faz o laço fechar sem corte:
  * no fim da volta cada peça está exatamente de onde saiu.
  *
- * `foreign` são os contêineres dos OUTROS sistemas, parados nas baias deles.
- * Eles não se movem nunca, mas entram em toda conta de altura: é por cima
- * deles que a máquina passa.
+ * `ids` vem na ordem da MONTAGEM e `home` diz onde cada peça mora, então a
+ * ordem invertida é construída aqui: `src` é a fila do pátio, e `src[count-1-k]`
+ * é a casa da k-ésima peça a ser montada.
+ *
+ * `foreign` são os contêineres que não são deste sistema — as baias dos outros
+ * e o que sobra no estoque. Eles não se movem nesta volta, mas entram em toda
+ * conta de altura: é por cima deles que a máquina passa.
  */
 function createPlan(
-  offset: number,
-  source: readonly Slot[],
+  ids: readonly number[],
+  home: readonly Slot[],
   target: readonly Slot[],
   foreign: readonly Slot[],
   parkAfter: Slot,
   enterLoad: number | null,
 ): Plan {
-  const count = Math.min(source.length, target.length)
-  const src = source.slice(0, count)
+  const count = Math.min(ids.length, target.length)
+  const crew = ids.slice(0, count)
+  const src = [...crew].reverse().map((id) => home[id] ?? { x: 0, y: 0, z: 0 })
   const dst = target.slice(0, count)
 
   /** Lugar de origem do contêiner `id` — a ordem invertida explicada acima. */
@@ -453,7 +480,7 @@ function createPlan(
       const pick = sourceOf(k)
       const place = dst[k] as Slot
       const standing = standingLoad(k)
-      return { cargo: offset + k, pick, place, standing, settled: [...standing, place] }
+      return { cargo: crew[k] ?? 0, pick, place, standing, settled: [...standing, place] }
     }),
     dst[count - 1] ?? { x: 0, y: 0, z: 0 },
     enterLoad,
@@ -464,7 +491,7 @@ function createPlan(
       const pick = dst[count - 1 - j] as Slot
       const place = sourceOf(count - 1 - j)
       const standing = standingUnload(j)
-      return { cargo: offset + count - 1 - j, pick, place, standing, settled: [...standing, place] }
+      return { cargo: crew[count - 1 - j] ?? 0, pick, place, standing, settled: [...standing, place] }
     }),
     parkAfter,
     load.parkY,
@@ -472,7 +499,8 @@ function createPlan(
 
   return {
     count,
-    offset,
+    ids: crew,
+    members: new Set(crew),
     source: src,
     target: dst,
     load: load.moves,
@@ -508,44 +536,43 @@ export type Show = {
  * A rotação sem fim: um sistema por vez, e nunca uma pausa longa.
  *
  * O truque que faz a troca de sistema não ter corte é o pátio: **cada
- * contêiner tem uma casa fixa**, na baia do sistema dele. A máquina esvazia a
- * baia de um sistema para montá-lo, devolve tudo para as mesmas pilhas, e
- * segue para a baia seguinte. Nenhum contêiner aparece, some ou troca de
- * marcação no meio do caminho — o que se vê é um terminal em que uma baia
- * trabalha por vez, que é exatamente o que um terminal faz.
+ * contêiner tem uma casa fixa**. A máquina tira do pátio o que o sistema da
+ * vez precisa, monta, devolve tudo para os mesmos lugares e segue para o
+ * sistema seguinte. Nenhum contêiner aparece, some ou troca de marcação no
+ * meio do caminho — o que se vê é um terminal em que uma baia trabalha por
+ * vez, que é exatamente o que um terminal faz.
  *
  * A alternativa (uma baia só, recarregada a cada sistema) obrigaria os
  * contêineres a trocar de estampa entre uma volta e outra, e isso é um corte
  * por mais bem escondido que esteja.
+ *
+ * `crews[i]` são os contêineres do sistema `i`, na ordem da montagem dele — e
+ * eles podem se repetir ENTRE sistemas: a peça de estoque é a mesma para todo
+ * mundo que a usa. É por isso que o plano guarda uma lista de ids em vez de
+ * uma faixa contígua, e é o que permite ao pátio mostrar assinatura em vez de
+ * sete cópias do mesmo inventário. Como só um sistema é montado por vez, uma
+ * peça emprestada nunca é disputada.
  */
 export function createShow(
-  homes: readonly (readonly Slot[])[],
+  home: readonly Slot[],
+  crews: readonly (readonly number[])[],
   targets: readonly (readonly Slot[])[],
 ): Show {
-  const counts = homes.map((home, i) => Math.min(home.length, targets[i]?.length ?? 0))
-  const offsets: number[] = []
-  let running = 0
-  for (const count of counts) {
-    offsets.push(running)
-    running += count
+  const build = (i: number, enterLoad: number | null): Plan => {
+    const ids = crews[i] ?? []
+    const target = targets[i] ?? []
+    const mine = new Set(ids.slice(0, Math.min(ids.length, target.length)))
+    // Tudo que não é deste sistema fica parado — e continua entrando na conta
+    // de altura, porque é por cima dele que a máquina passa.
+    const foreign = home.filter((_, id) => !mine.has(id))
+    // A primeira pegada do sistema seguinte: a casa da primeira peça dele.
+    const next = crews[(i + 1) % crews.length]?.[0]
+    const parkAfter = (next === undefined ? undefined : home[next]) ?? { x: 0, y: 0, z: 0 }
+    return createPlan(ids, home, target, foreign, parkAfter, enterLoad)
   }
 
-  // A casa do contêiner `id` é `src[count-1-id]`, não `src[id]`: o pátio é
-  // enchido de baixo para cima e a montagem é feita de cima para baixo da
-  // pilha, para que a máquina só pegue contêiner sem nada em cima. Indexar as
-  // casas na ordem crua das pilhas trocaria cada contêiner de lugar na virada
-  // de sistema — um pulo de oito metros, que foi exatamente o que apareceu.
-  const home = homes.flatMap((slots) => [...slots].reverse())
   const plans: Plan[] = []
-
-  for (let i = 0; i < homes.length; i++) {
-    const mine = homes[i] ?? []
-    const foreign = homes.filter((_, k) => k !== i).flat()
-    const nextHome = homes[(i + 1) % homes.length] ?? []
-    // A primeira pegada do sistema seguinte: o topo da pilha dele.
-    const parkAfter = nextHome[nextHome.length - 1] ?? { x: 0, y: 0, z: 0 }
-    plans.push(createPlan(offsets[i] ?? 0, mine, targets[i] ?? [], foreign, parkAfter, null))
-  }
+  for (let i = 0; i < crews.length; i++) plans.push(build(i, null))
 
   // Segunda passada: a altura em que o spreader CHEGA para a primeira pegada
   // de cada sistema é a altura em que o sistema anterior o deixou. Sem isso o
@@ -555,17 +582,7 @@ export function createShow(
     const previous = plans[(i - 1 + plans.length) % plans.length]
     const arriving = previous?.unload[previous.unload.length - 1]?.parkY
     if (arriving === undefined) continue
-    const mine = homes[i] ?? []
-    const foreign = homes.filter((_, k) => k !== i).flat()
-    const nextHome = homes[(i + 1) % homes.length] ?? []
-    plans[i] = createPlan(
-      offsets[i] ?? 0,
-      mine,
-      targets[i] ?? [],
-      foreign,
-      nextHome[nextHome.length - 1] ?? { x: 0, y: 0, z: 0 },
-      arriving,
-    )
+    plans[i] = build(i, arriving)
   }
 
   const starts: number[] = []
@@ -672,7 +689,7 @@ function lampFor(move: Move, local: number): number {
 /** Devolve todo contêiner que não é deste sistema para a casa dele. */
 function homeAll(show: Show, pose: Pose, except: Plan): void {
   for (let id = 0; id < show.total; id++) {
-    if (id >= except.offset && id < except.offset + except.count) continue
+    if (except.members.has(id)) continue
     const slot = show.home[id]
     if (slot) place(pose, id, slot)
   }
@@ -693,11 +710,9 @@ function idle(show: Show, plan: Plan, pose: Pose, assembled: boolean): Pose {
   const park = assembled ? plan.unload[0] : next?.load[0]
   homeAll(show, pose, plan)
   for (let id = 0; id < plan.count; id++) {
-    place(
-      pose,
-      plan.offset + id,
-      assembled ? (plan.target[id] as Slot) : (plan.source[plan.count - 1 - id] as Slot),
-    )
+    const box = plan.ids[id]
+    if (box === undefined) continue
+    place(pose, box, assembled ? (plan.target[id] as Slot) : (plan.source[plan.count - 1 - id] as Slot))
   }
   pose.trolleyX = park?.pick.x ?? 0
   pose.bridgeZ = park?.pick.z ?? 0
@@ -788,13 +803,19 @@ export function samplePose(show: Show, time: number, pose: Pose): Pose {
 
   // ── contêineres em repouso ──────────────────────────────────────────────
   //
-  // A regra é a mesma nas duas metades do ciclo: quem tem índice menor que a
-  // carga já está na montagem, quem tem índice maior ainda está no pátio.
-  const carriedLocal = moving - plan.offset
+  // A regra é a mesma nas duas metades do ciclo: quem tem posição menor que a
+  // carga já está na montagem, quem tem posição maior ainda está no pátio.
+  //
+  // A posição sai do CURSOR, não de uma subtração de índices: montando, o
+  // movimento `k` carrega a peça `k`; desmontando, o movimento `j` carrega a
+  // peça `count-1-j`. É a mesma conta de `createPlan`, e ela continua exata
+  // agora que os ids de um sistema não são contíguos.
+  const carriedLocal = unloading ? plan.count - 1 - cursor : cursor
   for (let id = 0; id < plan.count; id++) {
     if (id === carriedLocal) continue
-    if (id < carriedLocal) place(pose, plan.offset + id, plan.target[id] as Slot)
-    else place(pose, plan.offset + id, plan.source[plan.count - 1 - id] as Slot)
+    const box = plan.ids[id]
+    if (box === undefined) continue
+    place(pose, box, id < carriedLocal ? (plan.target[id] as Slot) : (plan.source[plan.count - 1 - id] as Slot))
   }
 
   const engaged = local >= move.lockEnd && local <= move.releaseEnd

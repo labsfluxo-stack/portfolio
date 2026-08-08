@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import * as simpleIcons from 'simple-icons'
-import { buildYard, iconSlug, markFor } from '@/components/three/portico-yard'
+import {
+  SIGNATURE_MAX,
+  brandOf,
+  buildYard,
+  iconSlug,
+  manifestFor,
+  markFor,
+  stow,
+} from '@/components/three/portico-yard'
 import { buildAssembly, plateShade } from '@/components/three/portico-architecture'
 import { sceneRotation } from '@/components/three/portico-systems'
 import { CONTAINER, slotCenterY } from '@/components/three/portico-model'
@@ -17,7 +25,9 @@ const rotation = sceneRotation(systems)
 const assemblies = rotation.map(buildAssembly)
 const counts = assemblies.map((build) => build.cargo.length)
 const depth = Math.max(...assemblies.map((build) => build.depth))
-const yard = buildYard(counts, depth)
+const manifest = manifestFor(assemblies.map((build) => build.cargo))
+const yard = buildYard(manifest.bays, depth)
+const home = stow(manifest, yard.homes)
 
 /** Toda tecnologia que a cena estampa, em qualquer sistema. */
 const stacked = [...new Set(rotation.flatMap((system) => system.stack))]
@@ -146,22 +156,58 @@ describe('cor de marca', () => {
 })
 
 describe('pátio', () => {
-  it('tem uma baia por sistema, com um lugar por contêiner da stack dele', () => {
-    expect(yard.homes).toHaveLength(rotation.length)
-    yard.homes.forEach((home, i) => expect(home, rotation[i]?.name).toHaveLength(counts[i] ?? 0))
+  it('tem uma baia por sistema mais o estoque comum, com um lugar por contêiner que espera nela', () => {
+    // São as baias dos sistemas MAIS uma: o estoque comum, que é a primeira do
+    // pátio (ver `manifestFor`). Nenhum dos dois números é escrito à mão — o
+    // tamanho de cada baia sai do inventário, então a planta acompanha sozinha
+    // qualquer mudança de `content/systems.ts`, que é o que a cena existe para
+    // fazer.
+    expect(yard.homes).toHaveLength(rotation.length + 1)
+    const owned = (system: number) => manifest.units.filter((unit) => unit.system === system).length
+    expect(yard.homes[0], 'estoque comum').toHaveLength(owned(-1))
+    rotation.forEach((system, i) => expect(yard.homes[i + 1], system.name).toHaveLength(owned(i)))
+    // E nenhuma baia de sistema fica vazia: baia vazia é um sistema que sumiu
+    // do pátio, que é exatamente o que `SIGNATURE_MAX` acima de 1 evita.
+    rotation.forEach((system, i) => expect(yard.homes[i + 1]?.length, system.name).toBeGreaterThan(0))
   })
 
   it('as baias dos outros sistemas SÃO o fundo — nada de pilha decorativa', () => {
     // O que antes era enchimento ("spare") agora é carga de verdade: cada
-    // contêiner parado no fundo pertence a um sistema que ainda vai ser
-    // montado. Esta é a asserção que impede alguém de reintroduzir pilha
-    // fantasma para "dar volume".
+    // contêiner parado no fundo é peça de um sistema que ainda vai ser montado,
+    // ou peça do estoque que a montagem da vez toma emprestada. Esta é a
+    // asserção que impede alguém de reintroduzir pilha fantasma para "dar
+    // volume" — e, do outro lado, que uma peça do inventário fique sem lugar de
+    // onde sair.
     const parked = yard.homes.flat().length
-    expect(parked).toBe(counts.reduce((sum, count) => sum + count, 0))
+    expect(parked).toBe(manifest.units.length)
+    // E cada peça tem a SUA casa: dois inquilinos no mesmo lugar seriam dois
+    // contêineres um dentro do outro.
+    expect(new Set(home.map((slot) => `${slot.x}:${slot.y}:${slot.z}`)).size).toBe(home.length)
     // E enquanto um sistema é montado, o resto continua no chão: o fundo nunca
     // é menos que os sistemas que não são o maior.
     const biggest = Math.max(...counts)
     expect(parked - biggest).toBeGreaterThan(biggest)
+  })
+
+  it('nenhuma marca aparece mais de duas vezes no pátio — é para isso que o estoque comum existe', () => {
+    // O defeito reportado pelo dono: TypeScript está na stack dos sete
+    // sistemas, então aparecia sete vezes no fundo, e Docker três. Uma marca
+    // que se repete no pátio inteiro não distingue nada.
+    //
+    // O teto é `SIGNATURE_MAX` por construção — marca de assinatura vale um
+    // contêiner por sistema que a usa, e o que passa disso vira peça única de
+    // estoque —, e esta é a asserção que amarra o desenho ao número em vez de
+    // deixar os dois combinarem por acaso.
+    const times = new Map<string, number>()
+    for (const unit of manifest.units) {
+      const brand = brandOf(unit.name)
+      times.set(brand, (times.get(brand) ?? 0) + 1)
+    }
+    const repeated = [...times].filter(([, seen]) => seen > SIGNATURE_MAX)
+    expect(repeated.map(([brand, seen]) => `${brand} ×${seen}`)).toEqual([])
+    // E a deduplicação de fato encolheu o pátio: sem o estoque seria uma cópia
+    // da stack inteira por sistema.
+    expect(manifest.units.length).toBeLessThan(counts.reduce((sum, count) => sum + count, 0))
   })
 
   it('todo o material começa atrás do corredor, longe da área de montagem', () => {
@@ -223,7 +269,7 @@ describe('pátio', () => {
     // deixou seis contêineres sem lugar de onde sair, e a cena os
     // materializaria no ar.
     for (let size = 1; size <= 40; size++) {
-      const plan = buildYard([size, 4], 6)
+      const plan = buildYard([{ count: size }, { count: 4 }], 6)
       expect(plan.homes[0], `sistema de ${size}`).toHaveLength(size)
       expect(plan.homes[1]).toHaveLength(4)
       const levels = new Map<string, number[]>()

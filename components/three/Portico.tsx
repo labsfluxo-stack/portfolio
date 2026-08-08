@@ -47,7 +47,7 @@ import {
   type CargoCell,
   type FloorBay,
 } from './portico-textures'
-import { buildYard, markFor } from './portico-yard'
+import { buildYard, manifestFor, markFor, stow } from './portico-yard'
 
 /**
  * Uma ponte rolante montando os sistemas que o dono construiu — um por vez,
@@ -70,10 +70,12 @@ import { buildYard, markFor } from './portico-yard'
  *    ganho aqui vem de luz, material e movimento.
  *
  * E um princípio governa o desenho: **o significado fica na frente, a escala
- * vem de trás**. O sistema da vez é montado na frente e é o que precisa ser
- * lido; as baias dos outros sistemas ficam atrás do corredor, recuando na
- * névoa — e elas não são enchimento, são os próximos sistemas esperando a
- * vez, com as tecnologias verdadeiras deles estampadas na chapa.
+ * vem de trás**. O sistema da vez é montado na frente com a stack COMPLETA e
+ * real dele, e é o que precisa ser lido; as baias dos outros ficam atrás do
+ * corredor, recuando na névoa, e mostram só a ASSINATURA técnica de cada um —
+ * as tecnologias que os outros sistemas não usam. Ver `manifestFor`, em
+ * `portico-yard.ts`: uma marca repetida no fundo inteiro não informa nada, e o
+ * que ela ocupa é lugar do que informa.
  *
  * Tudo é `aria-hidden`: é decoração. A informação que ela ilustra vive em
  * texto de verdade nas seções Sistemas e Stack.
@@ -583,17 +585,19 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
   const palette = useMemo(readPalette, [])
 
   // A rotação sai do conteúdo, a disposição de cada sistema sai do tamanho da
-  // stack dele, o pátio sai da rotação inteira, e o ciclo sai dos três.
-  // Nenhum dos quatro sabe de three.js.
+  // stack dele, o inventário do pátio sai da frequência das marcas na rotação
+  // inteira, e o ciclo sai dos três. Nenhum dos quatro sabe de three.js.
   const rotation = useMemo(() => sceneRotation(systems), [systems])
   const assemblies = useMemo(() => rotation.map(buildAssembly), [rotation])
+  const manifest = useMemo(() => manifestFor(assemblies.map((build) => build.cargo)), [assemblies])
   const yard = useMemo(
-    () => buildYard(assemblies.map((build) => build.cargo.length), Math.max(...assemblies.map((b) => b.depth), 0)),
-    [assemblies],
+    () => buildYard(manifest.bays, Math.max(...assemblies.map((b) => b.depth), 0)),
+    [manifest, assemblies],
   )
+  const home = useMemo(() => stow(manifest, yard.homes), [manifest, yard])
   const show = useMemo(
-    () => createShow(yard.homes, assemblies.map((build) => build.slots)),
-    [yard, assemblies],
+    () => createShow(home, manifest.crews, assemblies.map((build) => build.slots)),
+    [home, manifest, assemblies],
   )
 
   // A máquina é dimensionada pelo TRABALHO da rotação inteira, não pelo sistema
@@ -668,19 +672,21 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
   )
 
   const assets = useMemo(() => {
-    // A ordem das células é a das instâncias: sistema por sistema, na ordem da
-    // rotação, e dentro de cada um na ordem de montagem.
-    const cells: CargoCell[] = assemblies.flatMap((build, system) =>
-      build.cargo.map((freight) => ({
-        mark: markFor(freight.name),
-        plate: shade(palette.surface2, plateShade(system, freight.role)),
-        // O nome do sistema estampado pequeno, como o código de um contêiner
-        // real. É o que dá contexto à montagem sem precisar de legenda — e ele
-        // vem de `content/systems.ts` (ou do arquivo de dados da cena, para os
-        // menores), nunca escrito aqui.
-        code: freight.system,
-      })),
-    )
+    // A ordem das células é a das instâncias: o estoque comum primeiro, depois
+    // as peças de assinatura de cada sistema na ordem da rotação.
+    const cells: CargoCell[] = manifest.units.map((unit) => ({
+      mark: markFor(unit.name),
+      // O estoque tem valor de chapa próprio — a baia dele é uma baia como
+      // outra qualquer, e é o que faz a fileira rasa da frente ler como um
+      // conjunto em vez de peças soltas.
+      plate: shade(palette.surface2, plateShade(unit.system < 0 ? rotation.length : unit.system, unit.role)),
+      // O nome do sistema estampado pequeno, como o código de um contêiner
+      // real. É o que dá contexto à montagem sem precisar de legenda — e ele
+      // vem de `content/systems.ts` (ou do arquivo de dados da cena, para os
+      // menores), nunca escrito aqui. Peça de estoque não leva código: ela não
+      // é de sistema nenhum, e é justamente por isso que ela é uma só.
+      code: unit.system < 0 ? '' : rotation[unit.system]?.name ?? '',
+    }))
     const bays: FloorBay[] = [
       ...yard.footprints.map((spot) => ({
         x: spot.x,
@@ -693,7 +699,7 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
       { x: 0, z: 0, length: work.x * 2 + 1.6, width: work.z * 2 + 1.6, code: '' },
     ]
     return buildAssets(cells, bays, work, rig, palette, resolveMonoFamily(), anisotropy, floorHalf)
-  }, [assemblies, yard, work, rig, palette, anisotropy, floorHalf])
+  }, [manifest, rotation, yard, work, rig, palette, anisotropy, floorHalf])
 
   useEffect(() => assets.dispose, [assets])
 
@@ -928,10 +934,10 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
       />
 
       {/*
-        TODOS os contêineres da cena — o sistema da vez e os que esperam nas
-        baias — em três malhas instanciadas: chapa, moldura e cantoneiras.
-        Uma malha por contêiner seriam quase cento e cinquenta chamadas de
-        desenho para uma decoração; assim são três.
+        TODOS os contêineres da cena — o sistema da vez, os que esperam nas
+        baias e o estoque comum — em três malhas instanciadas: chapa, moldura
+        e cantoneiras. Uma malha por contêiner seriam quase noventa chamadas
+        de desenho para uma decoração; assim são três.
 
         `frustumCulled={false}` porque a caixa envolvente de uma malha
         instanciada não acompanha as matrizes: com culling ligado, a cena

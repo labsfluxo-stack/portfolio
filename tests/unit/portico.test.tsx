@@ -18,21 +18,23 @@ import {
 } from '@/components/three/portico-model'
 import { buildAssembly } from '@/components/three/portico-architecture'
 import { sceneRotation } from '@/components/three/portico-systems'
-import { buildYard } from '@/components/three/portico-yard'
+import { buildYard, manifestFor, stow } from '@/components/three/portico-yard'
 import { systems } from '@/content/systems'
 
 const rotation = sceneRotation(systems)
 const assemblies = rotation.map(buildAssembly)
 const depth = Math.max(...assemblies.map((build) => build.depth))
-const yard = buildYard(assemblies.map((build) => build.cargo.length), depth)
-const show: Show = createShow(yard.homes, assemblies.map((build) => build.slots))
+const manifest = manifestFor(assemblies.map((build) => build.cargo))
+const yard = buildYard(manifest.bays, depth)
+const home = stow(manifest, yard.homes)
+const show: Show = createShow(home, manifest.crews, assemblies.map((build) => build.slots))
 
 /**
  * Percorre a rotação inteira num passo fino chamando `visit` a cada quadro.
  *
- * Reaproveita a pose de propósito: com quarenta e nove contêineres e uma
- * rotação de minutos, guardar todos os quadros numa lista estoura a memória do
- * runner antes de provar qualquer coisa.
+ * Reaproveita a pose de propósito: com o pátio inteiro e uma rotação de
+ * minutos, guardar todos os quadros numa lista estoura a memória do runner
+ * antes de provar qualquer coisa.
  */
 function sweep(step: number, visit: (t: number, pose: Pose) => void): void {
   const pose = createPose(show)
@@ -170,12 +172,13 @@ describe('a rotação sem fim', () => {
       expect(pose.system).toBe(index)
       for (let id = 0; id < plan.count; id++) {
         const slot = plan.target[id]
-        expect(valueAt(pose.x, plan.offset + id), `${index}:${id}`).toBeCloseTo(slot?.x ?? 0, 6)
-        expect(valueAt(pose.y, plan.offset + id), `${index}:${id}`).toBeCloseTo(slot?.y ?? 0, 6)
-        expect(valueAt(pose.z, plan.offset + id), `${index}:${id}`).toBeCloseTo(slot?.z ?? 0, 6)
+        const box = plan.ids[id] ?? 0
+        expect(valueAt(pose.x, box), `${index}:${id}`).toBeCloseTo(slot?.x ?? 0, 6)
+        expect(valueAt(pose.y, box), `${index}:${id}`).toBeCloseTo(slot?.y ?? 0, 6)
+        expect(valueAt(pose.z, box), `${index}:${id}`).toBeCloseTo(slot?.z ?? 0, 6)
       }
       for (let id = 0; id < show.total; id++) {
-        if (id >= plan.offset && id < plan.offset + plan.count) continue
+        if (plan.members.has(id)) continue
         const home = homeOf(id)
         expect(valueAt(pose.y, id), `parado ${id}`).toBeCloseTo(home?.y ?? 0, 6)
       }
