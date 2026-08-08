@@ -24,8 +24,56 @@ const FRAME = 0.16
 /** Quanto a chapa recua da moldura — é o que faz o perfil ficar aparente. */
 const INSET = FRAME / 2
 
+/**
+ * O tamanho REAL de cada face, em metros, guardado no canal 1 de UV.
+ *
+ * Existe por causa do desgaste de aresta, e ele não fecha sem isto. Aço de
+ * verdade mostra metal nu nas quinas onde a tinta raspou, e o contêiner já tem
+ * o efeito (ver `skinWearMap`) porque a face dele tem UV 0..1 E um tamanho só:
+ * "5 % da face" ali é sempre a mesma medida em centímetros.
+ *
+ * Na máquina não é. Aqui uma peça é a alma da viga, com 25 m de vão, e a
+ * seguinte é um montante de guarda-corpo de 6 cm — as duas com UV 0..1. Uma
+ * quina de "5 % da face" valeria 1,25 m numa e 3 mm na outra: a viga inteira
+ * descascada e o montante intocado, que é o contrário do que acontece com aço.
+ *
+ * Com o tamanho da face por vértice, o shader converte a distância à borda de
+ * fração para METROS, e o desgaste vira medida física: a tinta some nos
+ * primeiros centímetros da quina, seja qual for o tamanho da peça. É o que faz
+ * o montante inteiro (3 cm de meia-seção) ler como metal gasto e a alma da viga
+ * mostrar só um fio de aço na borda — sem uma linha de exceção.
+ */
+const NO_EDGE = 99
+
+/**
+ * Grava o tamanho das faces no canal 1.
+ *
+ * `BoxGeometry` emite quatro vértices por face, na ordem +X, −X, +Y, −Y, +Z,
+ * −Z; cada par é o tamanho daquela face nos eixos U e V DELA. Peça sem par
+ * declarado recebe `NO_EDGE`, que é o mesmo que dizer "esta superfície não tem
+ * quina" — o caso do cilindro e do toro, que de fato não têm.
+ */
+function faceSpans(geometry: THREE.BufferGeometry, spans: readonly (readonly [number, number])[]): THREE.BufferGeometry {
+  const uv = geometry.getAttribute('uv')
+  const face = new Float32Array(uv.count * 2)
+  for (let i = 0; i < uv.count; i++) {
+    const span = spans[Math.floor(i / 4)] ?? [NO_EDGE, NO_EDGE]
+    face[i * 2] = span[0]
+    face[i * 2 + 1] = span[1]
+  }
+  geometry.setAttribute('uv1', new THREE.BufferAttribute(face, 2))
+  return geometry
+}
+
 const box = (w: number, h: number, d: number, x = 0, y = 0, z = 0): THREE.BufferGeometry =>
-  new THREE.BoxGeometry(w, h, d).translate(x, y, z)
+  faceSpans(new THREE.BoxGeometry(w, h, d), [
+    [d, h],
+    [d, h],
+    [w, d],
+    [w, d],
+    [w, h],
+    [w, h],
+  ]).translate(x, y, z)
 
 const rod = (radius: number, height: number, x: number, y: number, z: number): THREE.BufferGeometry =>
   new THREE.CylinderGeometry(radius, radius, height, 10).translate(x, y, z)
@@ -50,10 +98,21 @@ const hoop = (radius: number, x: number, y: number, z: number): THREE.BufferGeom
     .rotateZ(-Math.PI * 0.17)
     .translate(x, y, z)
 
+/** A caixa de uma barra inclinada, com o tamanho das faces já gravado. */
+const bar = (thickness: number, span: number): THREE.BufferGeometry =>
+  faceSpans(new THREE.BoxGeometry(thickness, span, thickness), [
+    [thickness, span],
+    [thickness, span],
+    [thickness, thickness],
+    [thickness, thickness],
+    [thickness, span],
+    [thickness, span],
+  ])
+
 /** Barra inclinada no plano ZY — o consolo que segura o passadiço na alma da viga. */
 function braceZY(thickness: number, from: THREE.Vector3, to: THREE.Vector3): THREE.BufferGeometry {
   const span = from.distanceTo(to)
-  const geometry = new THREE.BoxGeometry(thickness, span, thickness)
+  const geometry = bar(thickness, span)
   geometry.rotateX(Math.atan2(to.z - from.z, to.y - from.y))
   geometry.translate((from.x + to.x) / 2, (from.y + to.y) / 2, (from.z + to.z) / 2)
   return geometry
@@ -62,13 +121,22 @@ function braceZY(thickness: number, from: THREE.Vector3, to: THREE.Vector3): THR
 /** Barra inclinada no plano XY (contraventamento da viga). */
 function braceXY(thickness: number, from: THREE.Vector3, to: THREE.Vector3): THREE.BufferGeometry {
   const span = from.distanceTo(to)
-  const geometry = new THREE.BoxGeometry(thickness, span, thickness)
+  const geometry = bar(thickness, span)
   geometry.rotateZ(Math.atan2(from.x - to.x, to.y - from.y))
   geometry.translate((from.x + to.x) / 2, (from.y + to.y) / 2, (from.z + to.z) / 2)
   return geometry
 }
 
 const merge = (parts: THREE.BufferGeometry[]): THREE.BufferGeometry => {
+  // `mergeGeometries` exige o MESMO conjunto de atributos em todas as peças, e
+  // só a caixa sabe declarar o tamanho das próprias faces. Quem chegou sem o
+  // canal 1 é redondo — cilindro, toro, disco — e redondo não tem quina para
+  // descascar: `NO_EDGE` diz exatamente isso ao shader.
+  for (const part of parts) {
+    if (part.getAttribute('uv1')) continue
+    const count = part.getAttribute('uv').count
+    part.setAttribute('uv1', new THREE.BufferAttribute(new Float32Array(count * 2).fill(NO_EDGE), 2))
+  }
   const merged = mergeGeometries(parts, false)
   for (const part of parts) part.dispose()
   if (!merged) throw new Error('não deu para fundir a geometria da ponte')
@@ -593,17 +661,85 @@ export function trolleyGeometry(rig: Rig): THREE.BufferGeometry {
   return merge(parts)
 }
 
+/** Onde ficam os quatro cantos de pega do spreader. */
+const SPREADER_CORNER = { x: 2.9, z: 1.16 } as const
+
 /**
- * O spreader. A origem fica na face que encosta no contêiner, para que
- * `position.y = spreaderY` do modelo já o coloque no lugar certo.
+ * O spreader — a peça mais PRÓXIMA da câmera de toda a cena, e a que estava
+ * menos detalhada: até aqui, duas longarinas, duas travessas e um pino em cada
+ * canto. Uma chapa lisa que descia e subia.
+ *
+ * O que um spreader tem, e o que cada coisa está fazendo aqui:
+ *
+ * - **Twistlock.** É o que efetivamente trava no contêiner, e é a peça que dá
+ *   nome à operação. São três volumes, não um: a SAPATA que pousa na
+ *   cantoneira, o PINO que entra no furo, e a CABEÇA oblonga que gira 90° e
+ *   prende por baixo. O pino sozinho — que era o que estava aqui — não explica
+ *   como a carga fica pendurada; a cabeça atravessada explica.
+ * - **Flipper.** As chapas-guia inclinadas para fora nos quatro cantos, que
+ *   funilam o spreader em cima da caixa. São a silhueta mais reconhecível do
+ *   equipamento vista de longe, e ficam FORA da planta do contêiner de
+ *   propósito: por dentro elas atravessariam a carga no instante do engate.
+ * - **Plaqueta de dados.** Uma chapa lisa aparafusada na casa hidráulica.
+ *   Fica em branco, e isso é regra, não preguiça: a cena não inventa texto
+ *   nenhum — tudo que está escrito nela sai de `content/`. O que a plaqueta
+ *   entrega é a aresta viva e os dois parafusos, que é o que o olho lê a esta
+ *   distância.
+ * - **Mangueira hidráulica.** O único elemento CURVO da máquina inteira. Ela
+ *   paga o próprio custo justamente por isso: tudo o mais aqui é reto e
+ *   ortogonal, e uma curva no meio disso é o que diz "isto foi montado, não
+ *   modelado".
+ *
+ * A origem fica na face que encosta no contêiner, para que `position.y =
+ * spreaderY` do modelo já ponha a peça no lugar certo. Tudo que trava na carga
+ * desce abaixo de zero; tudo que é máquina fica acima.
  */
 export function spreaderGeometry(): THREE.BufferGeometry {
+  const { x: CX, z: CZ } = SPREADER_CORNER
   const parts: THREE.BufferGeometry[] = [box(1.6, 0.28, 0.55, 0, 0.6, 0)]
-  for (const sz of [-1, 1]) parts.push(box(L + 0.1, 0.3, 0.24, 0, 0.19, sz * 1.16))
-  for (const sx of [-1, 1]) parts.push(box(0.28, 0.28, 2.55, sx * 2.88, 0.19, 0))
+  for (const sz of [-1, 1]) parts.push(box(L + 0.1, 0.3, 0.24, 0, 0.19, sz * CZ))
+  for (const sx of [-1, 1]) parts.push(box(0.28, 0.28, 2.55, sx * (CX - 0.02), 0.19, 0))
+
   for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) parts.push(rod(0.075, 0.18, sx * 2.9, -0.05, sz * 1.16))
+    for (const sz of [-1, 1]) {
+      // sapata: a chapa que pousa na cantoneira e distribui a carga
+      parts.push(box(0.44, 0.07, 0.44, sx * CX, 0.005, sz * CZ))
+      // pino e cabeça oblonga — a cabeça é mais LARGA que o furo num eixo só,
+      // que é exatamente o princípio da trava
+      parts.push(rod(0.068, 0.17, sx * CX, -0.07, sz * CZ))
+      parts.push(box(0.21, 0.075, 0.095, sx * CX, -0.163, sz * CZ))
+      // cartela soldada entre a longarina e a travessa de ponta
+      parts.push(box(0.22, 0.2, 0.05, sx * (CX - 0.26), 0.19, sz * (CZ - 0.14)))
+      // flipper: chapa-guia inclinada para fora, na quina da planta
+      const flip = box(0.05, 0.52, 0.3)
+      flip.rotateZ(sx * 0.42)
+      flip.translate(sx * (CX + 0.24), -0.19, sz * (CZ + 0.02))
+      parts.push(flip)
+    }
   }
+
+  // plaqueta de dados na testeira da casa hidráulica, com os dois parafusos
+  parts.push(box(0.017, 0.16, 0.3, 0.81, 0.62, 0))
+  for (const sz of [-0.11, 0.11]) parts.push(rodX(0.017, 0.04, 0.83, 0.62, sz))
+
+  // mangueira: da casa hidráulica até a travessa de ponta, com barriga
+  for (const sx of [-1, 1]) {
+    parts.push(
+      new THREE.TubeGeometry(
+        new THREE.CatmullRomCurve3([
+          new THREE.Vector3(sx * 0.78, 0.55, 0.2),
+          new THREE.Vector3(sx * 1.6, 0.3, 0.28),
+          new THREE.Vector3(sx * 2.3, 0.14, 0.24),
+          new THREE.Vector3(sx * (CX - 0.06), 0.24, 0.12),
+        ]),
+        14,
+        0.032,
+        5,
+        false,
+      ),
+    )
+  }
+
   for (const cable of REEVING) {
     parts.push(box(0.16, 0.3, 0.16, cable.bottom[0], SPREADER_EAR_Y - 0.1, cable.bottom[1]))
   }

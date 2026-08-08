@@ -47,6 +47,7 @@ import {
 } from './portico-geometry'
 import {
   GRATING_TILE,
+  ROPE_LAY,
   SIDE_RIBS,
   cargoAtlas,
   containerSkinShader,
@@ -55,7 +56,10 @@ import {
   gratingTextures,
   grimeMap,
   resolveMonoFamily,
+  ropeTextures,
+  rustStreakMap,
   skinWearMap,
+  steelSkinShader,
   steelWearMap,
   unitNoise,
   type CargoAtlas,
@@ -277,6 +281,24 @@ function Framing({ bounds, lens, still }: { bounds: Bounds; lens: React.RefObjec
  * e a cena passa a degradar mais do que precisava.
  */
 const TIERS = [
+  // O degrau de estúdio, e a cena COMEÇA nele.
+  //
+  // Antes o topo era 1,25, e isso estava errado: o teto de proteção virou teto
+  // de todo mundo, então nem uma GPU boa recebia qualidade. O dono viu o
+  // resultado antes de eu ver — "está ficando muito serrilhado" — e a causa era
+  // exatamente essa.
+  //
+  // Esta cena é o pior caso possível para resolução baixa, porque é feita de
+  // geometria FINA: cabo de 9 cm, montante de guarda-corpo, degrau de escada,
+  // trama da grade, mesa da viga. Nenhuma delas cobre um pixel inteiro a 1,25,
+  // e aresta que não cobre um pixel serrilha por definição — MSAA ajuda, não
+  // salva.
+  //
+  // A lógica certa é qualidade por padrão e degradação como SEGURO: quem tem
+  // máquina forte recebe o melhor, e a escada abaixo continua inteira para
+  // socorrer quem não tem. O teto em 2 não é gosto — acima disso o ganho não se
+  // vê e o custo, sendo quadrático, dobra.
+  { dpr: 2, shadow: 4096, practicals: true },
   { dpr: 1.25, shadow: 2048, practicals: true },
   { dpr: 1.0, shadow: 2048, practicals: true },
   { dpr: 1.0, shadow: 1024, practicals: false },
@@ -411,6 +433,8 @@ type Assets = {
   runwayLens: THREE.BufferGeometry
   trolleyLens: THREE.BufferGeometry
   rope: THREE.MeshPhysicalMaterial
+  /** A laçada do cabo. O `repeat` em V acompanha o comprimento, quadro a quadro. */
+  ropeLay: THREE.Texture[]
   skin: THREE.MeshPhysicalMaterial
   steel: THREE.MeshPhysicalMaterial
   mesh: THREE.MeshPhysicalMaterial
@@ -488,6 +512,12 @@ function buildAssets(
   // E a história de cada unidade, amostrada com deslocamento por instância.
   const grime = tune(grimeMap())
   const steelWear = tune(steelWearMap())
+  // A IDADE da máquina: escorrido de ferrugem, sujeira que assenta e o grão que
+  // quebra a quina. `steelWearMap` continua dizendo de que aço a peça é feita;
+  // este diz há quanto tempo ela está lá. Ver `steelSkinShader`.
+  const age = tune(rustStreakMap())
+  const rope = ropeTextures()
+  const ropeLay = [tune(rope.normal), tune(rope.orm)]
 
   // Todas as chapas da cena num atlas só. É o que permite instanciar: um
   // material carrega uma textura, então a marcação de cada contêiner vira uma
@@ -563,6 +593,51 @@ function buildAssets(
   )
   containerSkinShader(skin, atlas.scale, grime)
 
+  // Aço aparente: metalness alto e rugosidade baixa. Num metal a COR BASE é a
+  // própria refletância, e é por isso que a primeira versão usava
+  // `--color-border` e a máquina inteira sumia: um difuso quase preto continua
+  // quase preto por mais luz que se jogue nele. O clearcoat sozinho só acendia
+  // as arestas — o corpo seguia invisível.
+  //
+  // `--color-muted` é o token certo aqui e continua dentro da paleta: é um
+  // cinza médio, exatamente a cor de aço industrial pintado.
+  //
+  // O mapa de desgaste entra como MULTIPLICADOR: o escalar marca o regime
+  // (rugosidade baixa, aço aparente) e o mapa quebra o valor em volta dele.
+  // Sem essa quebra a viga inteira devolve o mesmo especular de ponta a ponta e
+  // vira plástico cromado — o outro jeito de uma cena 3D parecer desenho.
+  const steel = keep(
+    new THREE.MeshPhysicalMaterial({
+      color: shade(palette.muted, 0.78),
+      aoMap: steelWear,
+      roughnessMap: steelWear,
+      metalnessMap: steelWear,
+      metalness: 0.98,
+      roughness: 0.36,
+      clearcoat: 1,
+      clearcoatRoughness: 0.16,
+      envMapIntensity: 4.6,
+    }),
+  )
+  const casting = keep(
+    new THREE.MeshPhysicalMaterial({
+      color: shade(palette.muted, 0.55),
+      aoMap: steelWear,
+      roughnessMap: steelWear,
+      metalnessMap: steelWear,
+      metalness: 1,
+      roughness: 0.5,
+      clearcoat: 0.85,
+      clearcoatRoughness: 0.26,
+      envMapIntensity: 3.4,
+    }),
+  )
+  // A idade entra nos dois, e é a mesma injeção nos dois — então eles PODEM
+  // dividir o programa compilado, que é o motivo de a chave de cache ser uma
+  // constante e não sair do material.
+  steelSkinShader(steel, age)
+  steelSkinShader(casting, age)
+
   return {
     plate,
     frame: keep(containerFrameGeometry()),
@@ -576,47 +651,37 @@ function buildAssets(
     // e o spreader passava a ler como peça solta flutuando — foi exatamente o
     // que o dono reportou, duas vezes. O cabo é o que prende a garra à máquina:
     // se ele some, a física da cena some junto.
-    cable: keep(new THREE.CylinderGeometry(0.09, 0.09, 1, 8)),
+    // Doze lados, não oito. A silhueta de um octógono de 18 cm já se via nesta
+    // distância, e com a laçada por cima ela se veria mais: o normal map
+    // desenha o cordão dando a volta e a facetagem entrega que a volta é reta.
+    // Quatro cabos — a conta inteira são algumas centenas de triângulos.
+    cable: keep(new THREE.CylinderGeometry(0.09, 0.09, 1, 12)),
     runwayLens: keep(runwayLensGeometry(rig)),
     trolleyLens: keep(trolleyLensGeometry(rig)),
     // Cabo de aço trançado, não chapa pintada: reflete muito mais e quase não
     // tem cor própria. Clarear aqui não é licença de paleta, é o material.
+    //
+    // E ele é TRANÇADO, o que até aqui era só uma afirmação do comentário: um
+    // cilindro liso devolve o especular numa faixa contínua e lê como tubo de
+    // plástico. A laçada helicoidal (ver `ropeTextures`) é o que o olho
+    // reconhece como cabo de aço.
     rope: keep(
       new THREE.MeshPhysicalMaterial({
         color: palette.muted,
+        normalMap: rope.normal,
+        normalScale: new THREE.Vector2(1.1, 1.1),
+        aoMap: rope.orm,
+        roughnessMap: rope.orm,
+        metalnessMap: rope.orm,
         metalness: 1,
-        roughness: 0.28,
+        roughness: 1,
         envMapIntensity: 5.4,
       }),
     ),
+    ropeLay,
     skin,
-    // Aço aparente: metalness alto e rugosidade baixa. Num metal a COR BASE é
-    // a própria refletância, e é por isso que a primeira versão usava
-    // `--color-border` e a máquina inteira sumia: um difuso quase preto
-    // continua quase preto por mais luz que se jogue nele. O clearcoat sozinho
-    // só acendia as arestas — o corpo seguia invisível.
-    //
-    // `--color-muted` é o token certo aqui e continua dentro da paleta: é um
-    // cinza médio, exatamente a cor de aço industrial pintado.
-    //
-    // O mapa de desgaste entra aqui como MULTIPLICADOR: o escalar continua
-    // marcando o regime (rugosidade baixa, aço aparente) e o mapa quebra o
-    // valor em volta dele. Sem essa quebra a viga inteira devolve o mesmo
-    // especular de ponta a ponta e vira plástico cromado — o outro jeito de
-    // uma cena 3D parecer desenho.
-    steel: keep(
-      new THREE.MeshPhysicalMaterial({
-        color: shade(palette.muted, 0.78),
-        aoMap: steelWear,
-        roughnessMap: steelWear,
-        metalnessMap: steelWear,
-        metalness: 0.98,
-        roughness: 0.36,
-        clearcoat: 1,
-        clearcoatRoughness: 0.16,
-        envMapIntensity: 4.6,
-      }),
-    ),
+    steel,
+    casting,
     // O piso de grade da passarela. Material PRÓPRIO, e não o aço da estrutura,
     // porque grade não é chapa: a trama tem relevo nos dois sentidos e vão
     // aberto entre as barras. `alphaTest` em vez de transparência — assim o vão
@@ -638,19 +703,6 @@ function buildAssets(
         metalness: 1,
         roughness: 1,
         side: THREE.DoubleSide,
-        envMapIntensity: 3.4,
-      }),
-    ),
-    casting: keep(
-      new THREE.MeshPhysicalMaterial({
-        color: shade(palette.muted, 0.55),
-        aoMap: steelWear,
-        roughnessMap: steelWear,
-        metalnessMap: steelWear,
-        metalness: 1,
-        roughness: 0.5,
-        clearcoat: 0.85,
-        clearcoatRoughness: 0.26,
         envMapIntensity: 3.4,
       }),
     ),
@@ -985,6 +1037,16 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
       node.position.copy(scratch.a).addScaledVector(scratch.d, 0.5)
       node.quaternion.setFromUnitVectors(UP, scratch.d.divideScalar(span))
       node.scale.set(1, span, 1)
+      // A laçada do cabo é uma medida em METROS, e o cabo estica: a malha é um
+      // cilindro de altura 1 escalado pelo vão, então o UV em V vale o cabo
+      // inteiro, seja ele de três metros ou de doze. Sem reescalar o `repeat`,
+      // o passo da trança esticaria junto e o cabo de aço viraria elástico.
+      // Os quatro cabos têm o mesmo vão a menos de um por cento, então um
+      // número serve para os dois mapas.
+      if (i === 0) {
+        const lay = span / ROPE_LAY
+        for (const texture of assets.ropeLay) texture.repeat.set(1, lay)
+      }
     })
   })
 
@@ -1227,11 +1289,15 @@ export function Portico({ systems }: { systems: readonly SceneSystem[] }) {
         // que gritando no console de quem abre o site.
         shadows="percentage"
         frameloop={inView ? 'always' : 'demand'}
-        // O teto desce de 1,6 para 1,25 mesmo no caminho bom, e é o corte mais
-        // barato desta tarefa: o custo de fragmento cai uns 40 % e, numa cena
-        // escura com pouca borda de alto contraste, a perda visual não se acha
-        // sem comparar lado a lado. `useQuality` desce mais a partir daqui.
-        dpr={[1, 1.25]}
+        // O teto abre até 2 e quem manda nele é `useQuality`, que começa no
+        // degrau de estúdio e desce se o quadro não sustentar.
+        //
+        // A versão anterior fixava 1,25 aqui, e o valor virava teto de todo
+        // mundo: nem uma GPU com folga recebia qualidade, e a cena serrilhava
+        // na geometria fina — cabo, guarda-corpo, degrau de escada, trama da
+        // grade. Proteger o caso ruim punindo o caso bom é o erro; o seguro
+        // certo é a escada de degradação, que continua inteira logo abaixo.
+        dpr={[1, 2]}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         // A paleta é escura de ponta a ponta e o tone mapping ACES (padrão do
         // r3f) fecha ainda mais a sombra. Um pouco de exposição extra é o que

@@ -425,6 +425,340 @@ export function steelWearMap(): THREE.CanvasTexture {
   return texture
 }
 
+// ── A história do aço: gravidade, escorrido e quina ───────────────────────
+
+/**
+ * O mapa da IDADE da máquina, em três canais — e é ele, mais do que qualquer
+ * outra coisa desta rodada, que separa "aço que trabalha há anos" de "aço
+ * recém-saído do render".
+ *
+ * O que faltava não era geometria. Ampliada, a máquina já tinha perfil de I com
+ * mesa, passarela com grade, casa de máquinas, escada com degraus e chapa
+ * aparafusada nas juntas. O que faltava era **superfície com direção**: a tinta
+ * era uniforme de ponta a ponta, e tinta uniforme é a assinatura mais rápida de
+ * modelo novo. Aço exposto não envelhece por igual — envelhece PARA BAIXO.
+ *
+ * - **Vermelho — o escorrido.** Ferrugem nasce num ponto (o parafuso, o cordão
+ *   de solda, a quina onde a água empoça) e desce. Cada coluna do mapa tem até
+ *   dois nascedouros, sorteados do hash (nunca de `Math.random()`), e de cada um
+ *   sai um rastro que decai exponencialmente PARA BAIXO. É esse rastro vertical
+ *   que o cérebro lê como tempo: ele só existe se houver gravidade, e gravidade
+ *   só existe se o objeto for real.
+ * - **Verde — a sujeira que assenta.** Mancha larga, sem direção. Quem decide
+ *   onde ela aparece é o shader, não o mapa: superfície horizontal acumula,
+ *   vertical fica relativamente limpa, porque é a chuva que lava.
+ * - **Azul — o grão.** Ruído de escala média que quebra o desgaste de aresta.
+ *   Uma quina perfeitamente descascada de ponta a ponta é tão falsa quanto uma
+ *   intocada; a tinta larga em pedaços.
+ *
+ * **A ferrugem aqui não tem matiz, e isso é decisão de paleta, não limitação.**
+ * Os onze tokens continuam valendo, e óxido laranja seria a décima segunda cor
+ * da cena. O que a ferrugem faz de fato ao aço é físico e sobrevive inteiro em
+ * valor: ela MATA a metalicidade (óxido é dielétrico, não metal), sobe a
+ * rugosidade e escurece. Numa cena monocromática é exatamente esse contraste —
+ * fosco e morto contra polido e vivo — que lê como ferrugem. Ver
+ * `steelSkinShader`.
+ *
+ * Ladrilha nos dois eixos: a distância à origem do escorrido é tomada em
+ * fração, e a distância lateral pelo menor caminho no toro. Sem isso apareceria
+ * uma emenda reta atravessando a viga.
+ */
+export function rustStreakMap(): THREE.CanvasTexture {
+  const size = 256
+  /** Colunas de escorrido por ladrilho. Ver `AGE` — dá ~15 cm por coluna. */
+  const columns = 42
+  const ctx = surface(size, size)
+  const image = ctx.createImageData(size, size)
+  const data = image.data
+
+  for (let y = 0; y < size; y++) {
+    // O eixo V do mapa é o Y do mundo, e cresce PARA CIMA (`flipY` do
+    // CanvasTexture). O topo do canvas é o alto da peça.
+    const v = 1 - (y + 0.5) / size
+    for (let x = 0; x < size; x++) {
+      const u = (x + 0.5) / size
+
+      let drip = 0
+      const cf = u * columns
+      const at = Math.floor(cf)
+      // As colunas vizinhas entram na conta porque um escorrido é mais largo
+      // que a célula que o gerou — sem isso ele ficaria preso à grade.
+      for (let k = -1; k <= 1; k++) {
+        const column = ((at + k) % columns + columns) % columns
+        for (let s = 0; s < 2; s++) {
+          if (hash(column, s, 3121) < 0.42) continue
+          const centre = (column + 0.2 + 0.6 * hash(column, s + 7, 5077)) / columns
+          const width = (0.28 + 0.72 * hash(column, s + 11, 911)) / columns
+          let across = u - centre
+          across -= Math.round(across)
+          const lateral = Math.max(0, 1 - Math.abs(across) / width)
+          if (lateral <= 0) continue
+          // Onde ele nasce, e o quanto desce antes de acabar.
+          const source = hash(column, s + 3, 7331)
+          const below = source - v - Math.floor(source - v)
+          const run = Math.exp(-below * (3 + 5 * hash(column, s + 5, 401)))
+          drip = Math.max(drip, lateral * lateral * run)
+        }
+      }
+      // Nem toda a peça enferruja igual, e nenhum escorrido é uma faixa lisa.
+      drip *= Math.min(1, 0.3 + 1.15 * fbm(u, v, 3, 2, 2, 6779))
+      drip *= 0.55 + 0.45 * valueNoise(u, v, 120, 26, 9199)
+
+      const grime = fbm(u, v, 4, 4, 3, 2609)
+      // Duas escalas, e as duas precisam existir: a larga decide QUE TRECHO da
+      // quina descascou (meio metro de cada vez), a fina decide a borda do
+      // pedaço (uns cinco centímetros). Só a larga daria manchas moles; só a
+      // fina daria um pontilhado uniforme, que é o mesmo que nenhuma.
+      const grain = Math.min(1, fbm(u, v, 10, 10, 2, 8191) * 0.62 + valueNoise(u, v, 46, 46, 3541) * 0.66)
+
+      const i = (y * size + x) * 4
+      data[i] = Math.round(255 * Math.max(0, Math.min(1, drip)))
+      data[i + 1] = Math.round(255 * Math.max(0, Math.min(1, grime)))
+      data[i + 2] = Math.round(255 * Math.max(0, Math.min(1, grain)))
+      data[i + 3] = 255
+    }
+  }
+  ctx.putImageData(image, 0, 0)
+
+  const texture = new THREE.CanvasTexture(ctx.canvas)
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  return texture
+}
+
+/**
+ * A escala do mapa de idade no mundo, em ladrilhos por metro.
+ *
+ * `along` dá ~6,3 m de volta lateral — com 42 colunas, um escorrido a cada 15
+ * cm, que é a largura de uma mancha de ferrugem de verdade. `rise` dá ~11 m de
+ * ladrilho vertical, e o decaimento do rastro come entre um oitavo e um terço
+ * dele: escorridos de 1,4 a 3,7 m, que é o que se vê numa viga de pátio.
+ */
+const AGE = { along: 0.16, rise: 0.09 } as const
+
+/**
+ * Faixa da quina, em METROS, onde a tinta já não existe.
+ *
+ * Três centímetros não é palpite: é a ordem de grandeza do raio de dobra de uma
+ * chapa e da mordida que a lixadeira dá antes de repintar. O número só significa
+ * alguma coisa porque a face declara o próprio tamanho (ver `NO_EDGE` e
+ * `faceSpans`, em `portico-geometry.ts`) — em fração de UV ele valeria metros
+ * numa peça e milímetros na outra.
+ */
+const EDGE_BITE = { start: 0.004, end: 0.03 } as const
+
+/**
+ * Liga o mapa de idade ao aço da máquina: gravidade, escorrido e desgaste de
+ * quina, tudo em espaço de OBJETO.
+ *
+ * **Espaço de objeto, e não de mundo, e a escolha não é detalhe.** A ponte anda
+ * em Z, o carro anda em X e Z, o spreader gira com o balanço. Amostrado em
+ * coordenada de mundo, o mapa ficaria PARADO e a máquina passaria por baixo
+ * dele: a ferrugem escorreria pela viga como água num vidro, que é o defeito
+ * mais delator que existe numa textura procedural. Em espaço de objeto a
+ * sujeira está pintada na peça e viaja com ela — que é o que sujeira faz. E
+ * como nenhum grupo desta cena gira em torno de X ou Z além de poucos graus, o
+ * "para cima" do objeto continua sendo o para cima do mundo, que é o que a
+ * gravidade exige.
+ *
+ * As três leituras, e o que cada uma faz com o material:
+ *
+ * - **`lie`** — o quanto a face está deitada. Topo de viga e piso de passarela
+ *   acumulam; parede fica limpa, porque a chuva lava. É a assimetria que dá
+ *   volume à sujeira em vez de espalhá-la por igual.
+ * - **`drip`** — o escorrido, e ele só existe em superfície DE PÉ (`wall`).
+ *   Escorrido no teto de uma caixa seria água correndo para o lado.
+ * - **`edge`** — a quina descascada, em metros de verdade.
+ *
+ * O que o desgaste faz com o material é o oposto do que faz a ferrugem, e é por
+ * isso que os dois se distinguem numa cena sem cor: **quina descascada é METAL**
+ * (metalicidade sobe, rugosidade cai, clareia, porque aço nu reflete o
+ * estúdio); **ferrugem é o contrário de metal** (metalicidade desce a quase
+ * zero, rugosidade sobe, escurece). Um mesmo cinza médio lido de dois jeitos
+ * opostos pela luz.
+ *
+ * E o verniz morre junto: onde a ferrugem venceu não há mais tinta, então não
+ * há mais camada transparente por cima dela. Sem isso o escorrido sairia
+ * envernizado — ferrugem com brilho de carro novo.
+ */
+export function steelSkinShader(material: THREE.Material, age: THREE.Texture): void {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uAge = { value: age }
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        [
+          '#include <common>',
+          // `uv1` carrega o TAMANHO da face, não uma coordenada. O three só o
+          // declara sozinho quando alguma textura usa o canal 1, e aqui
+          // nenhuma usa — se um dia usar, esta linha vira declaração dupla.
+          'attribute vec2 uv1;',
+          'varying vec3 vAgePos;',
+          'varying vec3 vAgeNormal;',
+          'varying vec4 vAgeFace;',
+        ].join('\n'),
+      )
+      .replace(
+        '#include <begin_vertex>',
+        [
+          '#include <begin_vertex>',
+          // `objectNormal` já existe: `beginnormal_vertex` vem antes deste.
+          'vAgePos = transformed;',
+          'vAgeNormal = objectNormal;',
+          'vAgeFace = vec4( uv, uv1 );',
+        ].join('\n\t'),
+      )
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        [
+          '#include <common>',
+          'uniform sampler2D uAge;',
+          'varying vec3 vAgePos;',
+          'varying vec3 vAgeNormal;',
+          'varying vec4 vAgeFace;',
+        ].join('\n'),
+      )
+      .replace(
+        '#include <metalnessmap_fragment>',
+        [
+          '#include <metalnessmap_fragment>',
+          'vec3 ageN = normalize( vAgeNormal );',
+          'float lie = smoothstep( 0.22, 0.82, ageN.y );',
+          'float wall = 1.0 - abs( ageN.y );',
+          // A coordenada que corre ao longo da face: numa face virada para X
+          // quem anda é Z, e vice-versa. Sem isso o mapa esticaria nas laterais.
+          'float along = mix( vAgePos.x, vAgePos.z, step( abs( ageN.z ), abs( ageN.x ) ) );',
+          `vec3 age = texture2D( uAge, vec2( along * ${AGE.along}, vAgePos.y * ${AGE.rise} ) ).rgb;`,
+          'float drip = age.r * wall;',
+          'float dirt = age.g * mix( 0.18, 1.0, lie );',
+          'vec2 inset = ( 0.5 - abs( vAgeFace.xy - 0.5 ) ) * vAgeFace.zw;',
+          `float edge = 1.0 - smoothstep( ${EDGE_BITE.start}, ${EDGE_BITE.end}, min( inset.x, inset.y ) );`,
+          // A tinta larga a quina EM PEDAÇOS. Sem esta mordida o desgaste sai
+          // como um fio contínuo em volta de cada peça, e uma peça contornada
+          // de ponta a ponta lê como arame de wireframe, não como aço gasto —
+          // foi o que a primeira captura mostrou.
+          'edge *= 0.14 + 0.86 * age.b;',
+          // Superfície deitada acumula e fica FOSCA: é a rugosidade, e não o
+          // valor, que faz a sujeira horizontal ler. Escurecer o topo brigaria
+          // com o sol, que é justamente quem mais bate nele.
+          'roughnessFactor = clamp( roughnessFactor * ( 1.0 + 0.72 * drip + 0.8 * dirt ) - 0.2 * edge, 0.05, 1.0 );',
+          'metalnessFactor = clamp( metalnessFactor * ( 1.0 - 0.82 * drip - 0.4 * dirt ) + 0.45 * edge, 0.0, 1.0 );',
+          'diffuseColor.rgb *= 1.0 - 0.46 * drip - 0.26 * dirt + 0.19 * edge;',
+        ].join('\n\t'),
+      )
+      .replace(
+        '#include <lights_physical_fragment>',
+        [
+          '#include <lights_physical_fragment>',
+          'material.clearcoat = clamp( material.clearcoat * ( 1.0 - 0.85 * drip - 0.45 * dirt ), 0.0, 1.0 );',
+          'material.clearcoatRoughness = clamp( material.clearcoatRoughness + 0.32 * drip + 0.2 * dirt, 0.0, 1.0 );',
+        ].join('\n\t'),
+      )
+  }
+  // Sem isto o three reaproveita o programa de um material com as mesmas
+  // opções e a máquina sai sem história nenhuma.
+  material.customProgramCacheKey = () => 'portico-steel-age'
+}
+
+// ── Cabo de aço ───────────────────────────────────────────────────────────
+
+/**
+ * O passo da laçada, em metros — o comprimento em que um cordão dá uma volta
+ * inteira em torno do cabo.
+ *
+ * Sete diâmetros é o passo de um cabo de aço real, e o cabo desta máquina tem
+ * 18 cm. Quem multiplica é `Portico.tsx`, a cada quadro: o cabo ESTICA conforme
+ * a garra desce, e um `repeat` fixo faria a laçada esticar junto — o cabo
+ * viraria elástico. Amarrado ao comprimento, o passo é sempre o mesmo em metros
+ * e o que muda é quantas voltas cabem.
+ */
+export const ROPE_LAY = 1.26
+
+/**
+ * A torção do cabo, em normal e ORM.
+ *
+ * Ampliados, os cabos liam como tubo de plástico — um cilindro liso com um
+ * especular escorrendo por ele de ponta a ponta. Cabo de aço não é liso: são
+ * seis cordões laçados em hélice, e é a laçada que o olho reconhece.
+ *
+ * A hélice sai de graça da geometria do UV do cilindro. `u` dá a volta na
+ * circunferência e `v` corre no comprimento, então um cordão que avança uma
+ * volta por passo é a reta `u − v = constante` — e `fract((u − v) * 6)` são os
+ * seis cordões. Fecha nos dois eixos porque seis é inteiro: atravessar o mapa
+ * em `u` ou em `v` avança seis cordões exatos, e não há emenda.
+ *
+ * O ângulo aparente da hélice não é escolhido: ele CAI do mapeamento. Uma volta
+ * de `u` vale a circunferência (56 cm) e uma de `v` vale o passo (1,26 m), então
+ * a diagonal a 45° no mapa sai a 24° no cabo — que é o ângulo de um cabo de
+ * verdade, sem ninguém ter digitado 24.
+ *
+ * Por cima vem a contra-hélice dos ARAMES dentro de cada cordão, no sentido
+ * oposto (`u + v`) e cinco vezes mais fina. É ela que impede o cordão de
+ * parecer uma rosca de parafuso.
+ */
+export function ropeTextures(): { normal: THREE.CanvasTexture; orm: THREE.CanvasTexture } {
+  const size = 128
+  /** Cordões no cabo. Seis em volta de uma alma é a construção mais comum. */
+  const strands = 6
+  const normalCtx = surface(size, size)
+  const ormCtx = surface(size, size)
+  const normalImage = normalCtx.createImageData(size, size)
+  const ormImage = ormCtx.createImageData(size, size)
+  const nrm = normalImage.data
+  const orm = ormImage.data
+
+  for (let y = 0; y < size; y++) {
+    const v = 1 - (y + 0.5) / size
+    for (let x = 0; x < size; x++) {
+      const u = (x + 0.5) / size
+      const i = (y * size + x) * 4
+
+      // Onde o pixel está DENTRO do cordão, em -0,5..0,5.
+      const lay = (u - v) * strands
+      const across = lay - Math.floor(lay) - 0.5
+      // Perfil redondo do cordão: a derivada é o que vira normal.
+      const slope = -Math.sin(2 * Math.PI * across)
+      const round = Math.cos(Math.PI * across)
+
+      // Os arames dentro do cordão, no sentido contrário.
+      const wire = (u + v) * strands * 5
+      const wireAcross = wire - Math.floor(wire) - 0.5
+      const wireSlope = -Math.sin(2 * Math.PI * wireAcross) * 0.22
+
+      // O gradiente do sulco corre na diagonal do mapa, e é ele que dá a
+      // hélice: a laçada empurra U num sentido e V no outro.
+      const nx = (slope + wireSlope) * 1.35
+      const ny = -(slope - wireSlope) * 1.35
+      const inv = 1 / Math.hypot(nx, ny, 1)
+      nrm[i] = Math.round((nx * inv * 0.5 + 0.5) * 255)
+      nrm[i + 1] = Math.round((ny * inv * 0.5 + 0.5) * 255)
+      nrm[i + 2] = Math.round((inv * 0.5 + 0.5) * 255)
+      nrm[i + 3] = 255
+
+      // Fundo do sulco escuro e áspero — é onde mora a graxa. Topo do cordão
+      // lustrado, porque é ele que corre na polia.
+      const crown = Math.max(0, round)
+      const occlusion = 0.42 + 0.58 * crown
+      const roughness = 0.5 - 0.28 * crown + 0.1 * (valueNoise(u, v, 40, 40, 5387) - 0.5)
+      orm[i] = Math.round(255 * Math.max(0, Math.min(1, occlusion)))
+      orm[i + 1] = Math.round(255 * Math.max(0.08, Math.min(1, roughness)))
+      orm[i + 2] = 255
+      orm[i + 3] = 255
+    }
+  }
+  normalCtx.putImageData(normalImage, 0, 0)
+  ormCtx.putImageData(ormImage, 0, 0)
+
+  const wrap = (ctx: CanvasRenderingContext2D): THREE.CanvasTexture => {
+    const texture = new THREE.CanvasTexture(ctx.canvas)
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    return texture
+  }
+  return { normal: wrap(normalCtx), orm: wrap(ormCtx) }
+}
+
 /**
  * Descobre a família mono resolvida do design system.
  *
@@ -849,6 +1183,63 @@ export type FloorPlan = {
 const CONCRETE = 512
 /** Resolução do desenho por cima. Tinta precisa de aresta. */
 const YARD_MAP = 1024
+/** Resolução do recorte da laje. É borrão puro: não precisa de mais que isto. */
+const SLAB_MAP = 256
+
+/**
+ * **Onde a laje ACABA** — e é isto, não uma máscara de tela, que dissolve a
+ * borda do canvas.
+ *
+ * O defeito que este bloco existe para corrigir: o canvas é um retângulo e o
+ * concreto é mais claro que a página (medido — 45 de luminância contra 9 do
+ * `--color-bg`), então dava para ver exatamente onde a cena começava e
+ * terminava. A primeira correção foi uma máscara de gradiente em CSS, e ela
+ * estava errada pelo motivo mais simples: máscara de tela apaga a IMAGEM
+ * inteira, uniformemente, inclusive a geometria. A viga da ponte dissolvia no
+ * meio do vão, e o hero lia como "a imagem está sendo apagada" em vez de "o
+ * espaço continua no escuro".
+ *
+ * O que acaba num pátio é o CHÃO. Uma laje de concreto é lançada sobre a área
+ * de operação e sobre as baias, e além dela não há nada iluminado — então a
+ * forma certa é a da própria laje, e não um círculo centrado na origem (que era
+ * o que estava aqui: um gradiente radial que só chegava a zero em 32 m, bem
+ * depois da borda do quadro).
+ *
+ * As três rampas são separáveis porque as três restrições são independentes, e
+ * cada número saiu de uma medida no enquadramento resolvido (`portico-camera`),
+ * não de gosto:
+ *
+ * - **`x`** — a borda ESQUERDA do quadro cruza o chão a uns 14 m do eixo, a
+ *   quatro metros da marcação da baia de montagem. É a restrição mais apertada
+ *   da cena e é ela que decide `xGone`.
+ * - **`near`** — a borda de BAIXO cruza o chão a partir de z ≈ +10 (em 1440) e
+ *   z ≈ +23 (em 1024). É o pior caso medido, e o mais visível: era ali que o
+ *   concreto encostava no corte reto com a seção seguinte.
+ * - **`far`** — do lado do pátio a laje vai até depois da última fileira, que
+ *   àquela distância já está 90 % comida pela névoa. Aqui a laje e a névoa
+ *   fazem o mesmo trabalho, e é de propósito: nenhuma das duas precisa fechar
+ *   a conta sozinha.
+ *
+ * A borda é RASGADA por ruído, e não é enfeite: uma curva matematicamente lisa
+ * lê como gradiente, que é exatamente o que se quer parar de parecer. Laje de
+ * verdade acaba torta.
+ */
+const SLAB = {
+  xFull: 12.5,
+  xGone: 18.5,
+  nearFull: 4.5,
+  nearGone: 10.5,
+  farFull: 25,
+  farGone: 33,
+  /** Amplitude do rasgo da borda, em metros. */
+  ragged: 1.4,
+} as const
+
+/** Rampa suave de 1 a 0 entre `full` e `gone`. */
+function ramp(value: number, full: number, gone: number): number {
+  const t = Math.max(0, Math.min(1, (value - full) / (gone - full)))
+  return 1 - fade(t)
+}
 
 /**
  * O concreto, pixel a pixel: cor e rugosidade saem da MESMA passada.
@@ -923,14 +1314,16 @@ function concreteBase(ground: string, work: { x: number; z: number }, half: numb
 }
 
 /**
- * Piso do pátio: concreto, marcação pintada e gasta, e uma máscara radial que
- * dissolve o chão no fundo da página.
+ * Piso do pátio: concreto, marcação pintada e gasta, e o recorte da LAJE, que
+ * é onde o chão acaba.
  *
- * A máscara existe porque a cena é servida com fundo transparente por cima do
+ * O recorte existe porque a cena é servida com fundo transparente por cima do
  * `--color-bg` do site. Um plano de chão com borda dura desenharia uma linha
  * de horizonte atravessando o hero e denunciaria "render 3D colado na
- * página"; dissolvido, o chão existe só onde é preciso — embaixo da máquina,
- * onde a sombra de contato precisa de superfície para pousar.
+ * página"; recortado, o chão existe só onde é preciso — embaixo da máquina,
+ * onde a sombra de contato precisa de superfície para pousar, e sobre as
+ * baias. Ver `SLAB`: é ele, e não uma máscara de tela, que faz o retângulo do
+ * canvas sumir.
  *
  * A marcação é o vocabulário de um terminal em operação: junta de dilatação
  * em grade, faixa de baia, número de posição e hachura de área de segurança.
@@ -1060,23 +1453,60 @@ export function floorTextures(
   }
   color.restore()
 
-  const mask = surface(size, size)
-  const gradient = mask.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
-  gradient.addColorStop(0, '#ffffff')
-  gradient.addColorStop(0.3, '#ffffff')
-  gradient.addColorStop(0.58, '#9a9a9a')
-  gradient.addColorStop(0.82, '#1e1e1e')
-  gradient.addColorStop(0.94, '#000000')
-  mask.fillStyle = gradient
-  mask.fillRect(0, 0, size, size)
-
   const map = new THREE.CanvasTexture(color.canvas)
   map.colorSpace = THREE.SRGBColorSpace
   return {
     map,
-    alpha: new THREE.CanvasTexture(mask.canvas),
+    alpha: new THREE.CanvasTexture(slabCutout(half).canvas),
     rough: new THREE.CanvasTexture(rough.canvas),
   }
+}
+
+/**
+ * O recorte da laje: onde há concreto, e onde o escuro já tomou conta.
+ *
+ * Sai em 256 porque é borrão de ponta a ponta — a única aresta que existe aqui
+ * é a que o ruído rasga, e ela é grande. Gerar isto no tamanho do desenho
+ * custaria dezesseis vezes mais tempo de carregamento para dizer a mesma coisa.
+ *
+ * O mapeamento é o mesmo do resto do piso: o topo do canvas cai no Z mais
+ * negativo da cena (ver o comentário de `floorTextures`), então canvas e mundo
+ * crescem no mesmo sentido nos dois eixos.
+ */
+function slabCutout(half: number): CanvasRenderingContext2D {
+  const ctx = surface(SLAB_MAP, SLAB_MAP)
+  const image = ctx.createImageData(SLAB_MAP, SLAB_MAP)
+  const data = image.data
+  // A laje nunca pode passar do próprio plano do chão: se o pátio encolher, o
+  // limite de trás encolhe junto em vez de prometer concreto onde não há malha.
+  const farGone = Math.min(SLAB.farGone, half - 1)
+
+  for (let y = 0; y < SLAB_MAP; y++) {
+    const v = (y + 0.5) / SLAB_MAP
+    const z = (v - 0.5) * half * 2
+    for (let x = 0; x < SLAB_MAP; x++) {
+      const u = (x + 0.5) / SLAB_MAP
+      const wx = (u - 0.5) * half * 2
+
+      // O rasgo: dois ruídos independentes, um por eixo, para a borda não
+      // ondular em fase nos quatro lados como um selo recortado.
+      const tornX = (fbm(u, v, 5, 5, 2, 6151) - 0.5) * 2 * SLAB.ragged
+      const tornZ = (fbm(u, v, 4, 6, 2, 8837) - 0.5) * 2 * SLAB.ragged
+
+      const cover =
+        ramp(Math.abs(wx) + tornX, SLAB.xFull, SLAB.xGone) *
+        ramp(z + tornZ, SLAB.nearFull, SLAB.nearGone) *
+        ramp(-z + tornZ, SLAB.farFull, farGone)
+
+      const i = (y * SLAB_MAP + x) * 4
+      data[i] = Math.round(255 * Math.max(0, Math.min(1, cover)))
+      data[i + 1] = data[i] as number
+      data[i + 2] = data[i] as number
+      data[i + 3] = 255
+    }
+  }
+  ctx.putImageData(image, 0, 0)
+  return ctx
 }
 
 // ── Piso de grade da passarela ────────────────────────────────────────────
