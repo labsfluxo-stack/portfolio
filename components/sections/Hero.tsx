@@ -35,11 +35,31 @@ export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
           inteira, a máquina cruzava o badge de disponibilidade e o bloco do
           nome — lia como acidente, não como composição. Abaixo de `md` a cena
           vira a elevação em SVG e fica bem apagada, para não competir com o
-          texto na largura onde não há espaço para os dois. */}
+          texto na largura onde não há espaço para os dois.
+
+          A máscara existe porque o canvas é um RETÂNGULO e o piso é mais claro
+          que a página: sem ela dá para ver exatamente onde a cena começa e
+          termina, e o hero lê como uma janela colada por cima em vez de um
+          espaço que continua além do quadro. O dono viu isso e reportou.
+
+          As três paradas não são simétricas de propósito. À esquerda a
+          dissolução é longa, porque é ali que a cena encosta na coluna do
+          texto e qualquer aresta compete com a leitura. Embaixo é mais curta,
+          só o suficiente para o piso não terminar num corte reto contra a
+          seção seguinte. À direita e em cima não há máscara: ali o corte na
+          borda da janela é o que sugere que o pátio continua. */}
       <div
         data-portico-slot
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-0 right-0 -z-10 w-full opacity-40 md:left-1/2 md:w-1/2 md:opacity-100"
+        style={{
+          maskImage:
+            'linear-gradient(to right, transparent 0%, black 26%), linear-gradient(to top, transparent 0%, black 14%)',
+          maskComposite: 'intersect',
+          WebkitMaskImage:
+            'linear-gradient(to right, transparent 0%, black 26%), linear-gradient(to top, transparent 0%, black 14%)',
+          WebkitMaskComposite: 'source-in',
+        }}
       >
         <PorticoSlot systems={systems} />
       </div>

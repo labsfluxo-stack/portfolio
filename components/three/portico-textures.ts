@@ -883,9 +883,17 @@ function concreteBase(ground: string, work: { x: number; z: number }, half: numb
 
       const cure = fbm(u, v, 6, 6, 3, 2179) - 0.5
       const grit = (valueNoise(u, v, 180, 180, 5051) - 0.5) * 0.35
-      // Óleo: mancha pequena e concentrada, com limiar — óleo não é gradiente,
-      // é poça. Fora do limiar o piso não tem óleo nenhum.
-      const spill = Math.max(0, fbm(u, v, 11, 11, 3, 7717) - 0.58) * 2.6
+      // A mancha de óleo saiu a pedido do dono.
+      //
+      // A ideia era plausível — pátio real tem óleo — mas na cena ela não lia
+      // como óleo: lia como borrão escuro flutuando sobre a laje. O motivo é o
+      // enquadramento. As poças caíam em escala grande o bastante para a
+      // câmera pegar duas ou três inteiras, e mancha grande sem contorno nem
+      // reflexo vira sujeira de render, não sujeira de piso.
+      //
+      // O que o concreto guarda é o resto: cura irregular, granulado, umidade e
+      // o desgaste onde a máquina trabalha. Isso basta para o piso não ser um
+      // plano liso, e é o que ele já fazia bem.
       const damp = Math.max(0, fbm(u, v, 4, 9, 2, 3499) - 0.52) * 1.6
 
       // Onde a máquina trabalha, o piso apanha mais: a área da montagem e o
@@ -894,14 +902,14 @@ function concreteBase(ground: string, work: { x: number; z: number }, half: numb
       const mz = ((y / CONCRETE - 0.5) * half * 2) / Math.max(1, work.z)
       const traffic = Math.max(0, 1 - Math.hypot(mx, mz) / 1.9)
 
-      const value = 1 + cure * 0.5 + grit + damp * 0.42 - spill * 0.55 - traffic * 0.22
+      const value = 1 + cure * 0.5 + grit + damp * 0.42 - traffic * 0.22
       const i = (y * CONCRETE + x) * 4
       image.data[i] = Math.round(Math.max(0, Math.min(255, (base[0] || 0) * value + 10 * value)))
       image.data[i + 1] = Math.round(Math.max(0, Math.min(255, (base[1] || 0) * value + 11 * value)))
       image.data[i + 2] = Math.round(Math.max(0, Math.min(255, (base[2] || 0) * value + 12 * value)))
       image.data[i + 3] = 255
 
-      const roughness = 0.94 - spill * 0.62 - traffic * 0.18 + cure * 0.12 + damp * 0.06
+      const roughness = 0.94 - traffic * 0.18 + cure * 0.12 + damp * 0.06
       const grey = Math.round(255 * Math.max(0.12, Math.min(1, roughness)))
       wear.data[i] = grey
       wear.data[i + 1] = grey
