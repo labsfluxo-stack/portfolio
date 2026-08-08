@@ -285,6 +285,9 @@ export function runwayGeometry(rig: Rig): THREE.BufferGeometry {
     parts.push(box(0.05, RAIL_HANGER * 0.55, 0.05, ladderX + 0.58, railY + RAIL_HANGER * 0.3, ladderZ + dz))
   }
 
+  // Os refletores de pátio, pendurados sob a viga de rolamento. Ver `FLOOD`.
+  for (const flood of floodsFor(rig).runway) parts.push(...floodHousing(flood))
+
   return merge(parts)
 }
 
@@ -430,6 +433,135 @@ export function bridgeGeometry(rig: Rig): THREE.BufferGeometry {
   return merge(parts)
 }
 
+// ── Luminárias ────────────────────────────────────────────────────────────
+
+/**
+ * As luminárias do pórtico.
+ *
+ * Máquina de trabalho tem lâmpada, e é daí que sai a atmosfera desta cena: a
+ * poça no concreto não é um efeito colado por cima, é o que ESTE objeto faz.
+ * A diferença aparece no chão — um piso uniforme lê como plano infinito, um
+ * piso com poça e queda lê como pátio.
+ *
+ * A luminária do CARRO é a que importa, e é a única que projeta sombra: ela
+ * viaja com a máquina, então a carga suspensa está sempre dentro do facho dela
+ * e a sombra da carga cai sempre dentro da própria poça. As do TRILHO são
+ * ambiente e fixas — dão ao pátio uma estrutura de luz que não depende de onde
+ * a máquina está, e não custam passo de sombra nenhum.
+ */
+export const FLOOD = {
+  /** Raio do refletor e profundidade do corpo. */
+  radius: 0.34,
+  depth: 0.42,
+  /**
+   * A do carro fica ATRÁS da carga (Z negativo é o lado oposto à câmera) e
+   * aponta para a frente e para baixo. Não é capricho de posição: com o facho
+   * vindo de trás, a sombra da carga é projetada NA DIREÇÃO DA CÂMERA, dentro
+   * da parte da poça que aparece. Um facho a pino esconderia a sombra debaixo
+   * da própria carga, que é o mesmo que não ter sombra.
+   */
+  trolleyBack: -2.35,
+  trolleyAim: 2.2,
+} as const
+
+/**
+ * Uma luminária: onde ela mora, para onde o facho vai, e como o corpo está
+ * inclinado para concordar com ele.
+ *
+ * `tilt` gira em torno de X (o facho cai para +Z) e `lean` em torno de Z (o
+ * facho cai para +X). Dois casos simples em vez de uma rotação genérica, porque
+ * são os dois únicos que a máquina tem: a do carro aponta para a frente, as do
+ * trilho apontam para dentro.
+ */
+export type Flood = {
+  at: [number, number, number]
+  aim: [number, number, number]
+  tilt: number
+  lean: number
+}
+
+/**
+ * Onde cada luminária mora. O Y já vem embutido, como no resto da máquina.
+ *
+ * As do TRILHO são fixas, e é isso que elas trazem: uma poça que está sempre
+ * lá, independente de onde a máquina esteja. Foi o que faltou na primeira
+ * tentativa, com as duas luminárias na viga — elas viajavam junto com a ponte,
+ * então metade do ciclo o quadro voltava a ter um piso uniforme, que é
+ * exatamente o defeito que a luz prática existe para corrigir. Presas ao
+ * trilho, o pátio tem estrutura de luz o tempo todo e a máquina PASSA por ela.
+ *
+ * Cada uma num lado e num Z diferente, de propósito: espelhadas, as duas poças
+ * desenhariam uma simetria que nenhum terminal tem.
+ */
+export function floodsFor(rig: Rig): { runway: readonly Flood[]; trolley: Flood } {
+  const y = rig.railY - 1.75
+  // O facho sai do trilho e cruza o pátio na diagonal. É luz RASANTE, e é ela
+  // que faz a textura do concreto aparecer: um facho a pino sobre piso liso
+  // devolve um disco chapado, um facho rasante devolve o grão.
+  const rake = (sx: number, z: number, reach: number): Flood => ({
+    at: [sx * rig.railX, y, z],
+    aim: [sx * rig.railX * reach, 0, z],
+    lean: sx * Math.atan2(rig.railX * (1 - reach), y),
+    tilt: 0,
+  })
+  const at: [number, number, number] = [0, rig.trolleyY - 0.22, FLOOD.trolleyBack]
+  return {
+    // `reach` é a fração do vão que o facho atravessa, e ele encolheu depois da
+    // primeira captura: mirando o outro lado do pátio (fração negativa), o cone
+    // se abria por vinte e cinco metros de concreto e o resultado não era poça,
+    // era um clareado geral que não se lia como luz de nada. Um facho que
+    // atravessa meio vão pousa numa mancha com borda — e mancha com borda é o
+    // que dá lugar ao chão.
+    runway: [rake(-1, rig.runway.near - 9, 0.38), rake(1, rig.runway.near - 26, 0.52)],
+    trolley: {
+      at,
+      aim: [0, 0, FLOOD.trolleyAim],
+      // A inclinação sai de para ONDE ela aponta, não de um ângulo escolhido: o
+      // corpo e o facho têm de concordar, senão a poça aparece fora do refletor
+      // e a cena denuncia que a luz é decoração colada.
+      tilt: -Math.atan2(FLOOD.trolleyAim - FLOOD.trolleyBack, at[1]),
+      lean: 0,
+    },
+  }
+}
+
+/** O corpo da luminária: caixa cônica, aro do refletor e o suporte que a prende. */
+function floodHousing(flood: Flood): THREE.BufferGeometry[] {
+  const [x, y, z] = flood.at
+  const parts: THREE.BufferGeometry[] = [
+    new THREE.CylinderGeometry(FLOOD.radius, FLOOD.radius * 0.82, FLOOD.depth, 10),
+    new THREE.TorusGeometry(FLOOD.radius, 0.045, 4, 12).rotateX(Math.PI / 2).translate(0, -FLOOD.depth / 2, 0),
+  ]
+  for (const part of parts) part.rotateX(flood.tilt).rotateZ(flood.lean)
+  // Suporte preso na estrutura, ACIMA do corpo e sem inclinação: é ele que diz
+  // que a luminária foi parafusada ali e não está flutuando.
+  parts.push(box(0.09, 0.5, 0.09, 0, FLOOD.depth / 2 + 0.24, 0))
+  return parts.map((part) => part.translate(x, y, z))
+}
+
+/**
+ * O vidro dos refletores, num objeto só por grupo.
+ *
+ * Separado do corpo porque tem material próprio: uma lâmpada acesa emite, e uma
+ * que não emite é um adesivo. Um disco por luminária, recuado para dentro do
+ * aro.
+ */
+const floodLenses = (floods: readonly Flood[]): THREE.BufferGeometry =>
+  merge(
+    floods.map((flood) =>
+      new THREE.CircleGeometry(FLOOD.radius * 0.84, 12)
+        .rotateX(Math.PI / 2)
+        .translate(0, -FLOOD.depth / 2 + 0.03, 0)
+        .rotateX(flood.tilt)
+        .rotateZ(flood.lean)
+        .translate(flood.at[0], flood.at[1], flood.at[2]),
+    ),
+  )
+
+export const runwayLensGeometry = (rig: Rig): THREE.BufferGeometry => floodLenses(floodsFor(rig).runway)
+
+export const trolleyLensGeometry = (rig: Rig): THREE.BufferGeometry => floodLenses([floodsFor(rig).trolley])
+
 /** Onde os quatro cabos nascem no carro, e onde encostam no spreader. */
 export const REEVING = [
   { top: [-1.55, -1.35], bottom: [-1.15, -0.85] },
@@ -453,6 +585,11 @@ export function trolleyGeometry(rig: Rig): THREE.BufferGeometry {
     for (const sz of [-1, 1]) parts.push(box(0.46, 0.4, 0.34, sx * 1.1, rig.girderY + 0.85, sz * rig.girderZ))
     for (const sz of [-1, 1]) parts.push(box(0.16, 0.5, 0.16, sx * 1.55, rig.pivotY + 0.12, sz * 1.35))
   }
+  // O refletor de trabalho, na traseira do carro. Ver `FLOOD`: é a única luz da
+  // cena que projeta sombra além do sol, e a razão de ela morar AQUI é que só
+  // daqui ela viaja junto com a carga.
+  const flood = floodsFor(rig).trolley
+  parts.push(...floodHousing(flood), box(0.5, 0.22, 0.5, 0, flood.at[1] + 0.55, flood.at[2]))
   return merge(parts)
 }
 

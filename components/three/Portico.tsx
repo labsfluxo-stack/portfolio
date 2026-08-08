@@ -14,6 +14,18 @@ import {
   valueAt,
 } from './portico-model'
 import { buildAssembly, plateShade } from './portico-architecture'
+import {
+  type Bounds,
+  ENVELOPE,
+  type Framed,
+  type Shot,
+  VIEW,
+  boundsFor,
+  boxOf,
+  frameFor,
+  poseAt,
+  shotAt,
+} from './portico-camera'
 import { type SceneSystem, sceneRotation } from './portico-systems'
 import {
   REEVING,
@@ -24,11 +36,14 @@ import {
   containerCastingsGeometry,
   containerFrameGeometry,
   containerPlateGeometry,
+  floodsFor,
   gratingGeometry,
   rigFor,
   runwayGeometry,
+  runwayLensGeometry,
   spreaderGeometry,
   trolleyGeometry,
+  trolleyLensGeometry,
 } from './portico-geometry'
 import {
   GRATING_TILE,
@@ -58,16 +73,31 @@ import { buildYard, manifestFor, markFor, stow } from './portico-yard'
  * three.js, com isso, nunca é referenciado pelo HTML inicial — o orçamento de
  * JS da página não paga por uma decoração.
  *
- * Duas decisões governam o acabamento:
+ * Quatro decisões governam o acabamento:
  *
  * 1. **Luz de ambiente, não lâmpada.** O que faz metal parecer metal é
  *    refletir um entorno. `<Environment>` com `<Lightformer>` monta um
  *    estúdio de planos emissivos e o captura num cube map — reflexo de
  *    qualidade fotográfica sem baixar HDRI nenhum, o que é obrigatório num
  *    site que é export estático.
- * 2. **Nenhum pós-processamento.** Sem bloom, sem grão, sem aberração
- *    cromática. Empilhar efeito é justamente o que envelhece uma cena; o
- *    ganho aqui vem de luz, material e movimento.
+ * 2. **Luz prática, motivada pelo objeto.** Máquina de trabalho tem lâmpada, e
+ *    é dela que vem a atmosfera: os refletores do trilho abrem poça no
+ *    concreto, o do carro viaja com a máquina e joga a sombra da carga dentro
+ *    da própria poça. Ver `PRACTICAL` e `floodsFor`. Não é efeito colado por
+ *    cima; é o que este objeto faria.
+ * 3. **A câmera se move.** Um arco lento, uma aproximação e o tremor de quem
+ *    segura o aparelho — tudo derivado do relógio do ciclo, nada de
+ *    `Math.random()`. Plano parado lê como render; plano em movimento lê como
+ *    tomada, e a matriz da câmera é a única coisa que muda. Ver
+ *    `portico-camera.ts`.
+ * 4. **Nenhum pós-processamento, e agora por medição.** Sem bloom, sem grão,
+ *    sem aberração cromática — isso já era regra. O que a tarefa 23
+ *    acrescentou foi a conta do resto: SMAA não paga porque o canvas já tem
+ *    MSAA por hardware; ACES já está aplicado pelo renderer; a vinheta medida
+ *    mexeu 0,7 na média de luminância, ou seja, nada; e a profundidade de campo
+ *    comeu o cabo do guincho, transformando-o num cordão de contas — o mesmo
+ *    defeito que esta cena já corrigiu duas vezes. Custo do conjunto: +57 % de
+ *    tempo de quadro e 105 KB comprimidos. Cortado.
  *
  * E um princípio governa o desenho: **o significado fica na frente, a escala
  * vem de trás**. O sistema da vez é montado na frente com a stack COMPLETA e
@@ -111,65 +141,6 @@ const shade = (hex: string, factor: number): string => new THREE.Color(hex).mult
 // ── Enquadramento ─────────────────────────────────────────────────────────
 
 /**
- * Teleobjetiva (fov baixo), pouca altura e pouco desvio lateral: o suficiente
- * para o objeto ter três dimensões, longe o bastante para não distorcer.
- * Perspectiva forçada é o vocabulário de quem quer impressionar.
- *
- * A elevação é o que faz a montagem ler como pilha em degraus e não como
- * parede: o degrau só aparece quando a câmera vê a laje do nível de baixo na
- * frente do de cima.
- */
-const VIEW = {
-  fov: 29,
-  azimuth: 0.38,
-  elevation: 0.165,
-  /**
-   * Sobra em volta da máquina, em fração do enquadramento.
-   *
-   * Subiu junto com o pátio de sete baias: uma moldura de três por cento não
-   * deixa chão nenhum aparecer em volta, e sem chão em volta o olho não tem
-   * como ler "pátio" — lê "objeto encostado na lente". A sobra a mais custa o
-   * mesmo tanto de tamanho de estêncil, que é o preço mais barato desta cena.
-   */
-  margin: 1.12,
-} as const
-
-/**
- * Caixa envolvente do que precisa caber: a montagem, a ponte por cima dela e a
- * PRIMEIRA fileira de baias. Sai das medidas reais — se um sistema crescer, o
- * enquadramento abre junto.
- *
- * A profundidade é assimétrica, e é isso que conserta a composição. Uma caixa
- * simétrica em Z descrevia só a montagem, e o pátio inteiro ficava fora da
- * conta — só que com a câmera girada o fundo BALANÇA PARA O LADO conforme
- * recua (cada metro de profundidade empurra a projeção uns 37 cm para a
- * direita). O que o enquadramento não conhece ele não emoldura: as baias
- * sangravam pela borda direita enquanto sobrava laje vazia na esquerda.
- *
- * `far` é onde o cenário pode ser cortado sem prejuízo — as baias do fundo
- * saem de quadro de propósito, e um pátio cortado pela borda lê como pátio que
- * continua. O que não pode faltar é o que vem até aqui.
- */
-type Bounds = {
-  x: number
-  top: number
-  near: number
-  far: number
-  targetY: number
-  /**
-   * A MASSA — a caixa dos contêineres, sem os trilhos.
-   *
-   * Existe porque caber e compor são duas perguntas diferentes, e responder as
-   * duas com a mesma caixa deixa a cena torta. Quem manda no recuo são os
-   * trilhos, que abraçam o pátio inteiro e passam do quadro pelas laterais de
-   * propósito; quem manda no CENTRO é a carga, que é o que alguém olha. Com uma
-   * caixa só, o canto vazio da laje contava tanto quanto a pilha cheia do outro
-   * lado, e o enquadramento centrava no vazio.
-   */
-  mass: { x: number; top: number; near: number; far: number }
-}
-
-/**
  * A névoa, medida A PARTIR DA CÂMERA — nunca em coordenada de mundo.
  *
  * A distância da câmera é resolvida pelo formato do contêiner na página, então
@@ -183,12 +154,54 @@ type Bounds = {
  */
 const FOG = { start: 3, span: 27 } as const
 
-const boxOf = (half: { x: number; top: number; near: number; far: number }): [number, number, number][] =>
-  [-1, 1].flatMap((sx) =>
-    [0, 1].flatMap((sy) =>
-      [half.near, half.far].map((z): [number, number, number] => [sx * half.x, sy * half.top, z]),
-    ),
-  )
+/**
+ * A potência das luminárias, em candelas — a unidade que o three usa de fato
+ * desde a r155.
+ *
+ * Parece absurdo ao lado do `intensity` 2,6 do sol, e não é: uma luz pontual
+ * com `decay` 2 cai com o quadrado da distância, e daqui até o concreto vão
+ * quinze metros. O que chega ao chão é `intensity / d²` — dividido por
+ * duzentos e poucos. Escrever 3 aqui não daria uma poça fraca, não daria poça
+ * nenhuma.
+ *
+ * Os valores caíram para MENOS DA METADE do primeiro palpite depois de olhar a
+ * captura: a 2600 e 1500 a poça existia e o resto se perdia junto — o concreto
+ * ficava lavado, a chapa dos contêineres virava prata e a cena inteira deixava
+ * de ser um terminal à noite. Luz prática é para dar estrutura ao escuro, não
+ * para acabar com ele.
+ */
+const PRACTICAL = { trolley: 1150, runway: 880 } as const
+
+/** A pose base, para quando a câmera não pode se mexer. */
+const STILL: Shot = { yaw: 0, pitch: 0, push: 1, panX: 0, panY: 0 }
+
+/** A lente resolvida para o formato atual do painel. */
+type Lens = { framed: Framed; aspect: number }
+
+/**
+ * Põe a câmera na pose `shot` e arrasta a névoa junto.
+ *
+ * A névoa acompanha a distância REAL, não a resolvida: a aproximação move a
+ * câmera 8 % e, com um alcance fixo, o fundo clarearia e escureceria junto com
+ * ela — um efeito de "respiração" na atmosfera que ninguém pediu e que denuncia
+ * o movimento. Amarrada à distância, a profundidade lê igual em todo o percurso,
+ * pelo mesmo motivo que ela já era medida a partir da câmera e não em metros de
+ * mundo.
+ */
+function aim(camera: THREE.PerspectiveCamera, scene: THREE.Scene, lens: Lens, shot: Shot): void {
+  const { position, look, distance } = poseAt(lens.framed, shot, {
+    azimuth: VIEW.azimuth,
+    elevation: VIEW.elevation,
+    fov: VIEW.fov,
+    aspect: lens.aspect,
+  })
+  camera.position.set(position[0], position[1], position[2])
+  camera.lookAt(look[0], look[1], look[2])
+  if (scene.fog instanceof THREE.Fog) {
+    scene.fog.near = distance + FOG.start
+    scene.fog.far = distance + FOG.start + FOG.span
+  }
+}
 
 /**
  * A distância da câmera é resolvida a partir do formato real do contêiner na
@@ -196,13 +209,14 @@ const boxOf = (half: { x: number; top: number; near: number; far: number }): [nu
  * (1440) e num painel quase quadrado (1024) sem cortar a máquina nem
  * deixá-la nadando no vazio.
  *
- * Projetar os oito cantos da caixa envolvente e resolver para cada um a
- * distância em que ele ainda cabe no frustum é o único jeito de acertar isso
- * com a câmera inclinada: estimar "altura aparente" a olho erra justamente na
- * ponta de baixo, e a máquina sai da tela pelo chão — que é a única parte que
- * não pode faltar, porque é onde a sombra de contato a ancora.
+ * A conta mora em `portico-camera.ts` (`frameFor`), sem three.js, porque o que
+ * ela promete é testável sem GPU e precisa ser testado: a promessa não é mais
+ * "a máquina cabe", é **"a máquina cabe em todo o percurso da câmera"**, e a
+ * diferença entre as duas é um canto raspando a borda no primeiro grau de arco.
+ * É `ENVELOPE` que liga uma coisa à outra — o mesmo número que limita o
+ * animador entra como pior caso no solucionador.
  */
-function Framing({ bounds }: { bounds: Bounds }) {
+function Framing({ bounds, lens, still }: { bounds: Bounds; lens: React.RefObject<Lens | null>; still: boolean }) {
   const camera = useThree((state) => state.camera)
   const scene = useThree((state) => state.scene)
   const width = useThree((state) => state.size.width)
@@ -211,82 +225,175 @@ function Framing({ bounds }: { bounds: Bounds }) {
   useLayoutEffect(() => {
     if (!(camera instanceof THREE.PerspectiveCamera)) return
     const aspect = width / Math.max(1, height)
-    const tanV = Math.tan((VIEW.fov * Math.PI) / 360)
-    const tanH = tanV * aspect
-
-    const flat = Math.cos(VIEW.elevation)
-    const dir = new THREE.Vector3(
-      Math.sin(VIEW.azimuth) * flat,
-      Math.sin(VIEW.elevation),
-      Math.cos(VIEW.azimuth) * flat,
-    )
-    const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), dir).normalize()
-    const up = new THREE.Vector3().crossVectors(dir, right).normalize()
-    const target = new THREE.Vector3(0, bounds.targetY, 0)
-    const corner = new THREE.Vector3()
-    const box = boxOf(bounds)
-    const mass = boxOf(bounds.mass)
-
-    // Duas contas, e a segunda é a que faltava.
-    //
-    // A primeira resolve a DISTÂNCIA: o quanto a câmera precisa recuar para
-    // que os oito cantos ainda caibam. A segunda resolve o CENTRO — e sem ela
-    // o enquadramento garante que tudo caiba e mesmo assim compõe torto.
-    //
-    // O motivo é perspectiva pura: com a câmera girada, o canto da frente está
-    // mais PERTO que o de trás, então ele projeta mais para fora mesmo tendo o
-    // mesmo afastamento em metros. A conta da distância toma o pior dos dois e
-    // recua até ele caber; o resultado é a carga colada numa borda e uma faixa
-    // de chão vazio na outra. Foi exatamente o que apareceu quando o pátio
-    // cresceu: contêineres cortados à direita, laje sobrando à esquerda.
-    //
-    // A correção é medir os extremos do que aparece na tela e deslocar a MIRA
-    // pela metade da diferença. Itera porque deslocar a mira muda a projeção
-    // de todo canto — três passadas fecham em fração de pixel.
-    //
-    // E os extremos que valem são os da CARGA, não os da caixa que precisa
-    // caber: os trilhos abraçam o pátio inteiro e saem do quadro pelas
-    // laterais de propósito, então centrar por eles é centrar pelo vazio.
-    let distance = 0
-    for (let pass = 0; pass < 3; pass++) {
-      distance = 0
-      for (const [x, y, z] of box) {
-        corner.set(x, y, z).sub(target)
-        const depth = corner.dot(dir)
-        distance = Math.max(
-          distance,
-          depth + (Math.abs(corner.dot(right)) / tanH) * VIEW.margin,
-          depth + (Math.abs(corner.dot(up)) / tanV) * VIEW.margin,
-        )
-      }
-
-      let low = Infinity
-      let high = -Infinity
-      for (const [x, y, z] of mass) {
-        corner.set(x, y, z).sub(target)
-        // Coordenada de tela do canto, em tangentes: é a divisão pela
-        // profundidade que traz a perspectiva para dentro da conta.
-        const screen = corner.dot(right) / Math.max(1, distance - corner.dot(dir))
-        low = Math.min(low, screen)
-        high = Math.max(high, screen)
-      }
-      const off = ((low + high) / 2) * distance
-      if (Math.abs(off) < 0.01) break
-      target.addScaledVector(right, off)
+    const solved: Lens = {
+      aspect,
+      framed: frameFor({
+        box: boxOf(bounds),
+        // Os extremos que centram são os da CARGA, não os da caixa que precisa
+        // caber: os trilhos abraçam o pátio inteiro e saem do quadro pelas
+        // laterais de propósito, então centrar por eles é centrar pelo vazio.
+        mass: boxOf(bounds.mass),
+        fov: VIEW.fov,
+        aspect,
+        azimuth: VIEW.azimuth,
+        elevation: VIEW.elevation,
+        margin: VIEW.margin,
+        targetY: bounds.targetY,
+        // Sem movimento, sem envelope: quem não pode ver a câmera andar recebe
+        // o enquadramento apertado de sempre, e não a sobra que o arco pede.
+        envelope: still ? null : ENVELOPE,
+      }),
     }
-
+    lens.current = solved
     camera.fov = VIEW.fov
-    camera.position.copy(dir).multiplyScalar(distance).add(target)
-    camera.lookAt(target)
+    aim(camera, scene, solved, STILL)
     camera.updateProjectionMatrix()
-
-    if (scene.fog instanceof THREE.Fog) {
-      scene.fog.near = distance + FOG.start
-      scene.fog.far = distance + FOG.start + FOG.span
-    }
-  }, [camera, scene, width, height, bounds])
+  }, [camera, scene, width, height, bounds, lens, still])
 
   return null
+}
+
+// ── Qualidade adaptativa ──────────────────────────────────────────────────
+
+/**
+ * Os degraus de qualidade, do cheio ao mínimo.
+ *
+ * A ordem não é de gosto: é de ganho por unidade de estrago.
+ *
+ * 1. **`dpr` primeiro**, porque o custo de pixel é QUADRÁTICO e nenhum outro
+ *    corte chega perto. De 1,25 para 1,0 são 36 % menos fragmentos por um
+ *    contorno pouco mais duro, que numa cena escura quase não se vê.
+ * 2. **Sombra depois**: o mapa do sol cai pela metade e as luminárias do
+ *    pórtico param de projetar — o que apaga um passe de sombra inteiro. O sol
+ *    continua projetando, porque é ele que separa os degraus da montagem: a
+ *    leitura de profundidade mais forte da cena.
+ * 3. **`dpr` de novo, por último.** O terceiro degrau seria o pós-processamento
+ *    se ele existisse; ele foi medido e cortado (ver o relatório da tarefa), e
+ *    o que sobrou como último recurso é o mesmo corte que já é o mais eficaz.
+ *    Abaixo de 1 a imagem amacia de verdade, mas quem chegou aqui está a menos
+ *    da metade da taxa do próprio monitor.
+ *
+ * Cada degrau mexe em UM eixo. Descer dois de uma vez esconde qual deles pagou,
+ * e a cena passa a degradar mais do que precisava.
+ */
+const TIERS = [
+  { dpr: 1.25, shadow: 2048, practicals: true },
+  { dpr: 1.0, shadow: 2048, practicals: true },
+  { dpr: 1.0, shadow: 1024, practicals: false },
+  { dpr: 0.8, shadow: 1024, practicals: false },
+] as const
+
+type Tier = (typeof TIERS)[number]
+
+/**
+ * A janela de avaliação, medida nos DOIS eixos — e é o segundo que importa.
+ *
+ * Uma janela contada só em quadros parece razoável e falha exatamente onde não
+ * pode falhar: numa máquina a dois quadros por segundo, quarenta e oito quadros
+ * são vinte e quatro segundos, e o visitante que a qualidade adaptativa existe
+ * para socorrer já foi embora antes da primeira decisão. Foi medido, com esses
+ * números: no rasterizador de software a cena nunca chegou a rebaixar.
+ *
+ * Contada só em tempo, o problema se inverte: meio segundo a 144 Hz são setenta
+ * quadros de mediana desnecessária, e a 2 Hz é UM quadro — mediana de amostra
+ * única, que é o mesmo que reagir a um soluço.
+ *
+ * Os dois juntos: pelo menos `min` amostras para a mediana significar alguma
+ * coisa, pelo menos `span` segundos para ela não ser um pico, e um teto de
+ * amostras para a máquina rápida não passar a vida acumulando.
+ */
+const WINDOW = { min: 10, span: 0.5, cap: 90 } as const
+/** Segundos ignorados no começo: compilação de shader, cube map e envio de textura. */
+const WARMUP = 3
+/** Segundos de espera depois de cada degrau, para o novo regime assentar. */
+const SETTLE = 1.5
+
+/**
+ * Mede os quadros e rebaixa a cena sozinha quando a máquina não aguenta.
+ *
+ * **O orçamento sai do próprio monitor, não de um número redondo.** É a parte
+ * que quase todo medidor de quadros erra: comparar `delta` contra 16,7 ms
+ * rebaixa uma cena perfeita num painel de 30 Hz, onde o navegador nunca vai
+ * entregar melhor que 33 ms por mais folga que a GPU tenha. O que se mede aqui,
+ * durante o aquecimento, é o quadro MAIS RÁPIDO que o navegador entregou — que
+ * é o período do vsync — e o orçamento passa a ser "não segurar metade da taxa
+ * do monitor". Serve igual em 30, 60 e 144 Hz.
+ *
+ * **Só desce.** Subir de volta exigiria histerese, e histerese mal calibrada
+ * faz a cena oscilar entre dois acabamentos a cada poucos segundos — o que é
+ * pior de assistir do que ficar no degrau de baixo. Uma decisão que se toma uma
+ * vez por carregamento e não se desfaz é a que menos chama atenção para si.
+ */
+function useQuality(): { tier: Tier; watch: (delta: number) => void } {
+  const setDpr = useThree((state) => state.setDpr)
+  const [step, setStep] = useState(0)
+  const meter = useRef({
+    age: 0,
+    since: 0,
+    at: 0,
+    span: 0,
+    vsync: Infinity,
+    gaps: new Float64Array(WINDOW.cap),
+  })
+
+  const tier = TIERS[Math.min(step, TIERS.length - 1)] ?? TIERS[0]
+
+  useEffect(() => {
+    // Teto, não valor fixo: num painel comum `devicePixelRatio` é 1 e o degrau
+    // cheio já está no máximo que a tela sabe mostrar.
+    setDpr(Math.min(window.devicePixelRatio, tier.dpr))
+  }, [tier, setDpr])
+
+  const watch = (delta: number): void => {
+    const own = meter.current
+    own.age += delta
+    if (own.age < WARMUP) {
+      // O piso do aquecimento é o período do vsync. Preso entre 240 e 20 Hz
+      // porque dois rAF que se juntam devolvem um delta absurdamente curto, e
+      // uma leitura dessas fixaria um orçamento que nenhuma máquina cumpre.
+      if (delta > 1 / 240 && delta < own.vsync) own.vsync = Math.min(delta, 1 / 20)
+      return
+    }
+    if (own.age - own.since < SETTLE || step >= TIERS.length - 1) return
+
+    own.gaps[own.at++] = delta
+    own.span += delta
+    if (own.at < WINDOW.min || (own.span < WINDOW.span && own.at < WINDOW.cap)) return
+
+    const sorted = [...own.gaps.subarray(0, own.at)].sort((a, b) => a - b)
+    const median = sorted[own.at >> 1] ?? 0
+    own.at = 0
+    own.span = 0
+    // Metade da taxa do monitor, e nunca mais folgado que 45 quadros por
+    // segundo: num painel de 144 Hz, "metade" ainda seria rápido demais para
+    // valer um rebaixamento.
+    if (median <= Math.max(own.vsync * 2.2, 1 / 45)) return
+    own.since = own.age
+    setStep((current) => current + 1)
+  }
+
+  return { tier, watch }
+}
+
+/**
+ * `prefers-reduced-motion`, medido aqui dentro.
+ *
+ * `PorticoSlot` já não monta a cena quando a preferência está ligada, então
+ * esta leitura é redundante **do ponto de vista da página** — e deliberada do
+ * ponto de vista do componente: quem garante que a câmera não se mexe é a
+ * câmera, não quem a montou. Sem isso, a promessa depende de um invólucro em
+ * outro arquivo continuar fazendo a coisa certa para sempre.
+ */
+function useStill(): boolean {
+  const [still, setStill] = useState(false)
+  useEffect(() => {
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const read = () => setStill(query.matches)
+    read()
+    query.addEventListener('change', read)
+    return () => query.removeEventListener('change', read)
+  }, [])
+  return still
 }
 
 // ── Recursos ──────────────────────────────────────────────────────────────
@@ -301,12 +408,15 @@ type Assets = {
   trolley: THREE.BufferGeometry
   spreader: THREE.BufferGeometry
   cable: THREE.BufferGeometry
+  runwayLens: THREE.BufferGeometry
+  trolleyLens: THREE.BufferGeometry
   rope: THREE.MeshPhysicalMaterial
   skin: THREE.MeshPhysicalMaterial
   steel: THREE.MeshPhysicalMaterial
   mesh: THREE.MeshPhysicalMaterial
   casting: THREE.MeshPhysicalMaterial
   lamp: THREE.MeshStandardMaterial
+  flood: THREE.MeshStandardMaterial
   floor: THREE.MeshStandardMaterial
   floorSide: number
   atlas: CargoAtlas
@@ -467,6 +577,8 @@ function buildAssets(
     // que o dono reportou, duas vezes. O cabo é o que prende a garra à máquina:
     // se ele some, a física da cena some junto.
     cable: keep(new THREE.CylinderGeometry(0.09, 0.09, 1, 8)),
+    runwayLens: keep(runwayLensGeometry(rig)),
+    trolleyLens: keep(trolleyLensGeometry(rig)),
     // Cabo de aço trançado, não chapa pintada: reflete muito mais e quase não
     // tem cor própria. Clarear aqui não é licença de paleta, é o material.
     rope: keep(
@@ -542,10 +654,22 @@ function buildAssets(
         envMapIntensity: 3.4,
       }),
     ),
-    // A única coisa da cena com `emissive`, e o único uso de `--color-data`:
-    // a lâmpada de estado da máquina. Uma lâmpada que não emite não é lâmpada,
-    // é adesivo azul — e cor, aqui, é informação.
+    // O único uso de `--color-data` na cena: a lâmpada de estado da máquina.
+    // Uma lâmpada que não emite não é lâmpada, é adesivo azul — e cor, aqui, é
+    // informação.
     lamp: keep(new THREE.MeshStandardMaterial({ color: palette.data, emissive: palette.data, roughness: 0.35 })),
+    // O vidro das luminárias de trabalho. Emite pelo mesmo motivo que a lâmpada
+    // de estado emite — um refletor apagado que ilumina o chão é uma
+    // contradição que o olho pega na hora — e a cor é `--color-text`, que já é
+    // o branco quente da paleta e é exatamente a cor de um refletor de pátio.
+    flood: keep(
+      new THREE.MeshStandardMaterial({
+        color: palette.text,
+        emissive: palette.text,
+        emissiveIntensity: 2.4,
+        roughness: 0.4,
+      }),
+    ),
     floor: keep(
       new THREE.MeshStandardMaterial({
         map: floor.map,
@@ -581,8 +705,13 @@ const UP = new THREE.Vector3(0, 1, 0)
 
 function Yard({ systems }: { systems: readonly SceneSystem[] }) {
   const gl = useThree((state) => state.gl)
+  const camera = useThree((state) => state.camera)
+  const scene = useThree((state) => state.scene)
   const anisotropy = useMemo(() => Math.min(8, gl.capabilities.getMaxAnisotropy()), [gl])
   const palette = useMemo(readPalette, [])
+  const still = useStill()
+  const lens = useRef<Lens | null>(null)
+  const { tier, watch } = useQuality()
 
   // A rotação sai do conteúdo, a disposição de cada sistema sai do tamanho da
   // stack dele, o inventário do pátio sai da frequência das marcas na rotação
@@ -608,6 +737,9 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
   /** Onde a lâmpada de estado mora, na testeira da casa de máquinas do carro. */
   const lampAt = useMemo((): [number, number, number] => [0, rig.trolleyY + 0.75, 1.6], [rig])
 
+  /** As luminárias de trabalho — a fonte da poça de luz no concreto. */
+  const floods = useMemo(() => floodsFor(rig), [rig])
+
   /** A área que a máquina de fato trabalha — a maior montagem da rotação. */
   const work = useMemo(
     () => ({
@@ -619,43 +751,13 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
 
   // O enquadramento fecha na montagem, na ponte por cima dela e na primeira
   // fileira de baias. O resto do pátio fica de fora de propósito, dissolvido
-  // na névoa, porque ele é escala e não assunto.
-  //
-  // `top` para no carro, não acima dele. A folga que existia aqui punha a
-  // instalação flutuando no meio do quadro com um vão morto em cima, e os
-  // tirantes do trilho apareciam inteiros — dezesseis hastes em fila, que lê
-  // como CERCA. Cortando a fita no carro, o tirante sai do quadro pelo topo, e
-  // é o corte que diz "isto continua preso lá em cima".
-  const bounds = useMemo(() => {
-    const top = rig.trolleyY + 0.35
-    // A borda de trás do que precisa caber é a PRIMEIRA fileira de baias, não
-    // a montagem: é ela que fecha a composição por cima do corredor vazio. O
-    // resto do pátio recua para dentro da névoa e pode ser cortado pela borda.
-    const firstBay = yard.footprints.reduce((near, spot) => Math.max(near, spot.z), -work.z)
-    const cargoX =
-      yard.footprints.reduce((far, spot) => Math.max(far, Math.abs(spot.x)), work.x) + CONTAINER.length / 2
-    return {
-      x: rig.railX,
-      top,
-      near: work.z + CONTAINER.width,
-      far: firstBay - CONTAINER.width,
-      // Só as caixas: é por elas que a composição se centra.
-      mass: {
-        x: cargoX,
-        top: Math.max(...assemblies.map((build) => build.height), CONTAINER.height),
-        near: work.z + CONTAINER.width / 2,
-        far: firstBay - CONTAINER.width / 2,
-      },
-      // A mira fica pouco acima do MEIO da instalação, e a conta é geométrica,
-      // não de gosto: `Framing` resolve a distância projetando os oito cantos
-      // da caixa, então uma mira alta obriga a câmera a recuar o quanto for
-      // preciso para o canto de BAIXO ainda caber — e a sobra toda vai parar
-      // em cima da ponte. Centrada, a mesma caixa cabe uns vinte por cento
-      // mais perto; o viés devolve o pouco de sobra para BAIXO, onde há chão e
-      // sombra de contato para ela pousar, em vez de céu vazio.
-      targetY: top * 0.62,
-    }
-  }, [rig, work, yard, assemblies])
+  // na névoa, porque ele é escala e não assunto. A conta mora em
+  // `portico-camera.ts`, sem three.js, porque é lá que ela é testada contra o
+  // percurso inteiro da câmera.
+  const bounds = useMemo(
+    () => boundsFor(rig, work, yard.footprints, assemblies),
+    [rig, work, yard, assemblies],
+  )
 
   /**
    * O chão cobre o pátio inteiro, com folga de uma baia. Sai das plantas reais
@@ -724,6 +826,20 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
   const spreaderRef = useRef<THREE.Group>(null)
   const lampRef = useRef<THREE.PointLight>(null)
   const cableRefs = useRef<(THREE.Mesh | null)[]>([])
+  const sunRef = useRef<THREE.DirectionalLight>(null)
+
+  // Trocar `shadow.mapSize` sozinho não faz nada: o alvo de render já existe no
+  // tamanho antigo e o three só o recria quando encontra `map` nulo. Descartar
+  // e zerar é o que efetivamente devolve a memória e refaz o mapa no tamanho
+  // novo — sem isto, o degrau de sombra da qualidade adaptativa não cortaria
+  // custo nenhum e ainda pareceria ter funcionado.
+  useEffect(() => {
+    const sun = sunRef.current
+    if (!sun) return
+    sun.shadow.mapSize.set(tier.shadow, tier.shadow)
+    sun.shadow.map?.dispose()
+    sun.shadow.map = null
+  }, [tier.shadow])
 
   /** As três malhas instanciadas andam juntas: mesma matriz, materiais diferentes. */
   const containers = (): (THREE.InstancedMesh | null)[] => [plateRef.current, frameRef.current, castingsRef.current]
@@ -777,6 +893,11 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
     const own = motion.current
     const { pose, sway } = own
 
+    // Antes de qualquer coisa, e inclusive nos quadros em que o passo fixo não
+    // avança: quem está medindo os quadros não pode perder justamente os
+    // quadros ruins.
+    watch(delta)
+
     // Passo fixo: a cena é a mesma num notebook de 30 Hz e num monitor de
     // 144 Hz, e o pêndulo do cabo continua determinístico. `delta` é limitado
     // para que voltar de uma aba em segundo plano não teleporte o ciclo.
@@ -791,6 +912,14 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
     }
     if (steps === 0) return
     if (steps === 16) own.spare = 0
+
+    // A câmera anda no MESMO relógio do ciclo, e é isso que faz o movimento
+    // fechar onde a rotação fecha em vez de bater contra ela. `own.clock` é
+    // acumulado em passo fixo, então a pose da câmera é função pura do tempo:
+    // determinística, igual em 30 Hz e em 144 Hz, como o resto da cena.
+    if (!still && lens.current && camera instanceof THREE.PerspectiveCamera) {
+      aim(camera, scene, lens.current, shotAt(own.clock, show.cycle))
+    }
 
     const sinX = Math.sin(sway.thetaX)
     const sinZ = Math.sin(sway.thetaZ)
@@ -861,7 +990,7 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
 
   return (
     <>
-      <Framing bounds={bounds} />
+      <Framing bounds={bounds} lens={lens} still={still} />
 
       {/*
         A névoa. É ela que faz o pátio recuar: as baias de trás perdem
@@ -901,10 +1030,11 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
         cena inteira, e o que separa os degraus da montagem.
       */}
       <directionalLight
+        ref={sunRef}
         castShadow
         position={[15, 27, 16]}
         intensity={2.6}
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[tier.shadow, tier.shadow]}
         shadow-camera-left={-26}
         shadow-camera-right={26}
         shadow-camera-top={26}
@@ -965,6 +1095,36 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
 
       {/* Os trilhos: entram por cima, saem pelas laterais, dissolvem na névoa. */}
       <mesh castShadow geometry={assets.runway} material={assets.steel} />
+      <mesh geometry={assets.runwayLens} material={assets.flood} />
+      {/*
+        Os refletores de pátio: fixos no trilho, rasantes, e SEM sombra de
+        propósito.
+
+        Fixos é o que eles trazem. A primeira tentativa pendurou as duas
+        luminárias na VIGA, e elas viajavam junto com a ponte: metade do ciclo
+        a máquina estava lá no fundo e o primeiro plano voltava a ser um piso
+        de cinza uniforme, que é exatamente o defeito que a luz prática existe
+        para corrigir. Presas ao trilho, o pátio tem estrutura de luz o tempo
+        todo e é a MÁQUINA que passa por ela.
+
+        Sombra daqui não acrescentaria nada e custaria dois passos: o que estes
+        fachos alcançam é chão e a lateral das pilhas, e a leitura de volume já
+        vem do sol.
+      */}
+      {tier.practicals &&
+        floods.runway.map((flood) => (
+          <spotLight
+            key={flood.at[2]}
+            position={flood.at}
+            target-position={flood.aim}
+            color={palette.text}
+            intensity={PRACTICAL.runway}
+            angle={0.42}
+            penumbra={0.72}
+            distance={rig.railY + 14}
+            decay={2}
+          />
+        ))}
 
       <group ref={bridgeRef}>
         <mesh castShadow geometry={assets.bridge} material={assets.steel} />
@@ -975,10 +1135,42 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
 
       <group ref={trolleyRef}>
         <mesh castShadow geometry={assets.trolley} material={assets.steel} />
+        <mesh geometry={assets.trolleyLens} material={assets.flood} />
         <mesh position={lampAt} material={assets.lamp}>
           <sphereGeometry args={[0.11, 12, 10]} />
         </mesh>
         <pointLight ref={lampRef} position={lampAt} color={palette.data} distance={6} decay={2} />
+        {/*
+          O refletor de trabalho — a única luz da cena, além do sol, que projeta
+          sombra, e a que paga o próprio custo.
+
+          Ela viaja com o carro, então a carga suspensa está SEMPRE dentro do
+          facho e a sombra dela cai sempre dentro da própria poça. É a leitura
+          que o piso não tinha: a carga deixa de pairar sobre um cinza uniforme
+          e passa a ter um lugar no chão, que se aproxima dela conforme desce.
+
+          O mapa é pequeno porque o facho é pequeno: 1024 sobre um cone de 0,55
+          rad dá mais resolução angular do que os 2048 do sol espalhados por
+          cinquenta metros de pátio.
+        */}
+        {tier.practicals && (
+          <spotLight
+            position={floods.trolley.at}
+            target-position={floods.trolley.aim}
+            color={palette.text}
+            intensity={PRACTICAL.trolley}
+            angle={0.55}
+            penumbra={0.72}
+            distance={rig.trolleyY + 10}
+            decay={2}
+            castShadow
+            shadow-mapSize={[1024, 1024]}
+            shadow-camera-near={2}
+            shadow-camera-far={rig.trolleyY + 10}
+            shadow-bias={-0.0012}
+            shadow-normalBias={0.05}
+          />
+        )}
       </group>
 
       {/* Material próprio, mais claro que a estrutura, e não o `steel`.
@@ -1035,11 +1227,20 @@ export function Portico({ systems }: { systems: readonly SceneSystem[] }) {
         // que gritando no console de quem abre o site.
         shadows="percentage"
         frameloop={inView ? 'always' : 'demand'}
-        dpr={[1, 1.6]}
+        // O teto desce de 1,6 para 1,25 mesmo no caminho bom, e é o corte mais
+        // barato desta tarefa: o custo de fragmento cai uns 40 % e, numa cena
+        // escura com pouca borda de alto contraste, a perda visual não se acha
+        // sem comparar lado a lado. `useQuality` desce mais a partir daqui.
+        dpr={[1, 1.25]}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         // A paleta é escura de ponta a ponta e o tone mapping ACES (padrão do
         // r3f) fecha ainda mais a sombra. Um pouco de exposição extra é o que
         // devolve a leitura do material sem clarear tinta nenhuma.
+        //
+        // Fica no renderer, e não num passe de compositor, porque a cena
+        // continua sendo desenhada direto na tela: ver o relatório da tarefa 23,
+        // onde o pós-processamento foi medido e cortado. É o mesmo motivo pelo
+        // qual `antialias: true` continua sendo o antisserrilhado desta cena.
         onCreated={({ gl }) => {
           gl.toneMappingExposure = 1.72
         }}
