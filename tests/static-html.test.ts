@@ -168,18 +168,27 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
       expect(person.hasCredential.some((c) => c.name.includes('CS50x'))).toBe(true)
 
       // `alumniOf` é o "é ex-aluno de" do schema.org — uma afirmação de
-      // conclusão que a graduação pausada da Estácio nunca pode carregar em
+      // conclusão que a graduação, pausada, nunca pode carregar em
       // superfície nenhuma, JSON-LD incluído (ver lib/jsonld.ts, A044). O
-      // campo não deve existir nem apontar pra ela por nenhum outro caminho
-      // — nunca reintroduzir `alumniOf` com a instituição da graduação
-      // dentro dele.
+      // campo não deve existir nem apontar para uma instituição por nenhum
+      // outro caminho.
       expect(
         person.alumniOf,
         'alumniOf não deveria existir: nenhuma instituição aqui tem status de conclusão verificado',
       ).toBeUndefined()
-      const degreeInstitution = d.about.education.degree.items[0]?.split('—').at(-1)?.trim() ?? ''
-      expect(degreeInstitution.length, 'about.education.degree.items[0] sem instituição extraível').toBeGreaterThan(0)
-      expect(JSON.stringify(person)).not.toContain(degreeInstitution)
+
+      // A graduação deixou de nomear instituição (ver content/pt.ts), e
+      // isso muda o que dá para travar aqui. Esta trava EXTRAÍA a
+      // instituição do próprio item, partindo no travessão — sem
+      // travessão ela passaria a extrair "Análise de Dados" e a asserção
+      // seguinte viraria verde por acidente, comparando o JSON-LD contra o
+      // nome do curso em vez do nome da instituição. Trocada por duas que
+      // continuam tendo o que provar: que a graduação não volte a nomear
+      // instituição, e que nenhuma vaze para o JSON-LD por caminho lateral.
+      for (const item of d.about.education.degree.items) {
+        expect(item, `a graduação voltou a nomear instituição em "${item}"`).not.toContain('—')
+      }
+      expect(JSON.stringify(person), 'instituição de graduação vazou para o JSON-LD').not.toMatch(/Est[áa]cio/i)
 
       // Nenhuma afirmação de status do curso da Estácio (pausado) dentro do
       // próprio JSON-LD — escopado só a este objeto, nunca à página inteira:

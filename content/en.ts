@@ -138,7 +138,8 @@ export const en: Dictionary = {
       // Ver content/pt.ts: autodescritivo, porque o rótulo do grupo não
       // aparece mais na tela.
       technical: { label: 'Technical', items: ['Telecommunications Technician'] },
-      degree: { label: 'Degree', items: ['Data Analysis — Estácio'] },
+      // Sem instituição — ver content/pt.ts.
+      degree: { label: 'Degree', items: ['Data Analysis'] },
       certifications: {
         label: 'Certifications',
         institution: 'HarvardX · Harvard University',

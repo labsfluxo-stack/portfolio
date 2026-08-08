@@ -55,6 +55,20 @@ describe('dicionários', () => {
     }
   })
 
+  // A graduação não nomeia instituição (decisão do dono, ver content/pt.ts),
+  // e sem instituição declarada não existe vínculo a afirmar — some a
+  // classe inteira de risco que o teste acima cobre por outro ângulo. Esta
+  // trava existe para que ela não volte por descuido, junto com o problema.
+  it('a graduação não nomeia instituição em nenhum idioma', () => {
+    for (const dict of [pt, en]) {
+      for (const item of dict.about.education.degree.items) {
+        expect(item, `"${item}" voltou a nomear instituição`).not.toContain('—')
+      }
+    }
+    const texto = [pt, en].flatMap((dict) => leaves(dict)).map(([, v]) => String(v)).join(' ')
+    expect(texto, 'a instituição da graduação voltou ao dicionário').not.toMatch(/Est[áa]cio/i)
+  })
+
   it('cobre exatamente os 3 sistemas do spec', () => {
     expect(systems.map((s) => s.slug)).toEqual([...SYSTEM_SLUGS])
     for (const dict of [pt, en]) {

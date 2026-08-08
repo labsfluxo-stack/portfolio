@@ -161,7 +161,12 @@ export const pt: Dictionary = {
       // `label` continua aqui porque tests/content.test.ts o usa como
       // guarda de que os CS50 nunca sejam rotulados como graduação.
       technical: { label: 'Técnico', items: ['Técnico em Telecomunicações'] },
-      degree: { label: 'Graduação', items: ['Análise de Dados — Estácio'] },
+      // Sem instituição, por decisão do dono. Simplifica a regra em vez de
+      // complicá-la: o curso está pausado, e sem instituição declarada não
+      // existe vínculo nenhum a afirmar nem status a omitir. Não
+      // reintroduzir o nome de uma — há trava em tests/content.test.ts e em
+      // tests/static-html.test.ts.
+      degree: { label: 'Graduação', items: ['Análise de Dados'] },
       certifications: {
         label: 'Certificações',
         institution: 'HarvardX · Harvard University',
