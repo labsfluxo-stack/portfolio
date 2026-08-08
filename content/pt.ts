@@ -25,23 +25,24 @@ export const pt: Dictionary = {
   hero: {
     name: 'Neto Alves',
     role: 'Arquiteto de software',
-    // Sem número, de propósito. Os números vivem na Telemetria, a uma
-    // rolagem daqui — repeti-los aqui gastava a linha mais visível do site
-    // com informação duplicada, e o trabalho desta linha é outro: fazer
-    // continuar lendo.
+    // Escrita pelo dono. Três verbos com ELE como agente — projetando,
+    // escalando, mantendo — e é isso que a frase precisa fazer.
     //
-    // Ela carrega a década de infraestrutura sem dizer "infraestrutura",
-    // "switch" nem "camada 2": o recrutador técnico e o empresário leem a
-    // mesma coisa, com exatamente as mesmas palavras.
+    // Duas versões anteriores erraram exatamente aqui, e o registro fica
+    // para não se repetir. A primeira, "9 construídos, 5 em produção",
+    // gastava a linha mais visível do site repetindo número que a
+    // Telemetria mostra uma rolagem abaixo. A segunda, "Software escrito
+    // por quem já foi acordado por ele", tinha um defeito que só aparece
+    // na leitura: "acordado POR ELE" afirma que o software DELE caiu —
+    // pintava o dono como vítima de incidente em vez de quem impede o
+    // incidente. Nunca reintroduzir nenhuma variação de
+    // "acordado / madrugada / caiu" nesta linha: o papel é ativo e o
+    // resultado é uptime.
     //
-    // Esta linha já foi "Software escrito por quem já foi acordado por
-    // ele", e estava errada por um motivo que só aparece na leitura:
-    // "acordado POR ELE" afirma que o software DELE caiu. A frase pintava
-    // o dono como vítima de incidente em vez de quem impede o incidente —
-    // exatamente o contrário de uma década segurando sistema no ar. Nunca
-    // reintroduzir nenhuma variação de "acordado/madrugada/caiu" aqui: o
-    // papel do dono nesta frase é ativo, e o resultado é uptime.
-    tagline: 'Software de quem passou uma década mantendo sistemas no ar',
+    // "Uma década" em vez de "10 anos" mantém a linha sem dígito — o
+    // número vive na Telemetria, com procedência, que é onde ele pode ser
+    // conferido.
+    tagline: 'Mais de uma década projetando, escalando e mantendo sistemas críticos em produção contínua',
     availability: 'Disponível para vaga ou projeto',
     scrollHint: 'role para operar',
   },
@@ -135,7 +136,7 @@ export const pt: Dictionary = {
     lead: 'A mesma pessoa modela o banco, escreve a API, sobe o front e faz o deploy — e responde pelos quatro.',
     body: [
       'Construo sistemas completos, do zero até produção: modelagem de dados, API, interface, fila, deploy e a instrumentação que diz se aquilo continua de pé. Nove sistemas até aqui, cinco rodando hoje — os três maiores estão abertos nesta página, com os números que dá para conferir um por um.',
-      'Antes do código vieram dez anos de infraestrutura: redes, switches e servidores. Não é o serviço que eu vendo hoje, é a razão de o que eu entrego aguentar — quem passou uma década respondendo pelo uptime de sistema dos outros projeta software pensando em como ele se sustenta, não só em como ele funciona.',
+      'Antes do código veio a infraestrutura: redes, switches e servidores. Não é o serviço que eu vendo hoje, é a razão de o que eu entrego aguentar — quem passou esses anos respondendo pelo uptime de sistema dos outros projeta software pensando em como ele se sustenta, não só em como ele funciona.',
       'A camada mais recente é medir o que quase ninguém mede: KPIs próprias, SEO técnico e GEO — a disciplina de aparecer nas respostas do ChatGPT, do Gemini e do Perplexity, não só na primeira página do Google. Este portfólio é a demonstração: HTML estático de verdade, porque crawler de IA não executa JavaScript.',
     ],
     photoAlt: 'Retrato de Neto Alves',

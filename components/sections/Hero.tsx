@@ -73,7 +73,14 @@ export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
           </h1>
           <p className="font-mono text-sm uppercase tracking-[0.2em] text-muted sm:text-base">{hero.role}</p>
         </div>
-        <p className="max-w-2xl text-lg leading-relaxed text-muted sm:text-xl">{hero.tagline}</p>
+        {/* `text-balance` porque a tagline passou a ocupar mais de uma
+         * linha: sem ele o navegador enche a primeira linha até o limite e
+         * joga o resto para a segunda, o que deixava "em produção contínua"
+         * sozinho no desktop e a palavra "contínua" órfã no celular.
+         * `text-wrap: balance` distribui as linhas em comprimentos
+         * parecidos, que é o tratamento certo para título curto — e o
+         * navegador que não suporta simplesmente quebra como antes. */}
+        <p className="max-w-2xl text-balance text-lg leading-relaxed text-muted sm:text-xl">{hero.tagline}</p>
         <p aria-hidden="true" className="mt-16 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
           {hero.scrollHint}
         </p>
