@@ -26,9 +26,10 @@ export const en: Dictionary = {
     name: 'Neto Alves',
     role: 'Software architect',
     // Sem número, de propósito — ver o comentário equivalente em
-    // content/pt.ts. As duas linhas têm de carregar o mesmo argumento, ou o
-    // visitante em inglês recebe um posicionamento mais fraco.
-    tagline: 'Software written by someone who has been woken up by it',
+    // content/pt.ts, inclusive o registro de por que a versão anterior
+    // ("...who has been woken up by it") estava errada: ela afirmava que o
+    // software do dono caiu. Papel ativo, resultado uptime.
+    tagline: 'Software built by someone who spent a decade keeping systems up',
     availability: 'Available for a role or a project',
     scrollHint: 'scroll to operate',
   },
@@ -118,7 +119,7 @@ export const en: Dictionary = {
     lead: 'The same person models the database, writes the API, ships the front end and runs the deploy — and answers for all four.',
     body: [
       'I build complete systems, from zero to production: data modelling, API, interface, queues, deploy, and the instrumentation that tells you whether it is still standing. Nine systems so far, five running today — the three largest are open on this page, with numbers you can check one by one.',
-      'Ten years of infrastructure came before the code: networks, switches and servers. It is not the service I sell today, it is the reason what I ship holds up. Someone who spent a decade being woken by systems going down designs software around how it fails, not only around how it works.',
+      "Ten years of infrastructure came before the code: networks, switches and servers. It is not the service I sell today, it is the reason what I ship holds up — someone who spent a decade accountable for other people's uptime designs software around how it stays standing, not only around how it works.",
       "The newest layer is measuring what almost nobody measures: custom KPIs, technical SEO and GEO — the discipline of showing up in answers from ChatGPT, Gemini and Perplexity, not just on Google's first page. This portfolio is the demonstration: real static HTML, because AI crawlers don't execute JavaScript.",
     ],
     photoAlt: 'Portrait of Neto Alves',
