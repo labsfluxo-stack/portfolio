@@ -241,6 +241,39 @@ function ridgeFor(from: Slot, to: Slot, obstacles: readonly Slot[], travel: numb
     }
     ridge[i] = top
   }
+
+  // O CASCO UNIMODAL: sobe, segura, desce. Uma vez só.
+  //
+  // O cone acima resolve cada obstáculo isoladamente e está certo assim, mas
+  // num VÃO entre dois deles os dois cones decaem e o perfil cai de volta para
+  // a folga da laje vazia. A máquina segue o perfil e mergulha no meio do
+  // caminho, onde não há nada — foi o que o dono viu e reportou: "o guincho
+  // baixa no meio onde não tem contêiner".
+  //
+  // Fisicamente o mergulho era legítimo (ali cabia), mas nenhum operador faz
+  // isso: iça uma vez para a altura de translado, atravessa, e só desce no
+  // destino. Descer e subir de novo gasta ciclo e balança a carga à toa.
+  //
+  // `min(máximo-à-esquerda, máximo-à-direita)` é exatamente esse casco, e as
+  // duas garantias sobrevivem por construção:
+  //
+  // - **Segurança:** o casco é sempre >= o perfil, que é >= a exigência. Subir
+  //   nunca faz a carga raspar em nada.
+  // - **Limite do acionamento:** máximo-acumulado de uma função que respeita a
+  //   inclinação também a respeita (ele só sobe quando a função sobe, e nunca
+  //   mais rápido), e o mínimo entre duas funções assim é uma delas em cada
+  //   ponto. A velocidade vertical continua dentro do limite do guincho.
+  const rising = new Float64Array(RIDGE + 1)
+  let run = -Infinity
+  for (let i = 0; i <= RIDGE; i++) {
+    run = Math.max(run, ridge[i] ?? 0)
+    rising[i] = run
+  }
+  run = -Infinity
+  for (let i = RIDGE; i >= 0; i--) {
+    run = Math.max(run, ridge[i] ?? 0)
+    ridge[i] = Math.min(rising[i] ?? 0, run)
+  }
   return ridge
 }
 

@@ -291,6 +291,47 @@ describe('a rotação sem fim', () => {
     expect(scrapes.slice(0, 5)).toEqual([])
   }, 60_000)
 
+  it('a garra nunca mergulha no meio do caminho — sobe, segura, desce', () => {
+    // O defeito que este teste existe para pegar, e que o dono viu antes de
+    // qualquer teste: "o guincho baixa no meio onde não tem contêiner".
+    //
+    // A dilatação cônica de `ridgeFor` resolvia cada obstáculo isoladamente e,
+    // num vão entre dois deles, os dois cones decaíam e o perfil caía de volta
+    // para a folga da laje vazia. Cabia — mas nenhum operador desce e sobe de
+    // novo no meio de um translado: gasta ciclo e balança a carga à toa.
+    //
+    // A propriedade é a UNIMODALIDADE: dentro de um mesmo movimento, depois que
+    // a garra começa a descer ela não volta a subir. Uma subida após uma
+    // descida é, por definição, um mergulho no meio.
+    const dips: string[] = []
+    let previous = Infinity
+    let falling = false
+    let move = -1
+    sweep(1 / 60, (t, pose) => {
+      // Cada troca de peça carregada reinicia a análise: um movimento novo tem
+      // todo o direito de subir de novo.
+      if (pose.carried !== move) {
+        move = pose.carried
+        // A altura de partida, não `Infinity`: comparar o primeiro quadro
+        // contra infinito marcaria "descida" sempre, e o içamento seguinte
+        // viraria um mergulho falso.
+        previous = pose.spreaderY
+        falling = false
+        return
+      }
+      if (move < 0) return
+      const y = pose.spreaderY
+      // Folga de 1 cm: o balanço do cabo e o assentamento amortecido mexem a
+      // garra alguns milímetros, e isso não é mergulho.
+      if (y < previous - 0.01) falling = true
+      else if (falling && y > previous + 0.01) {
+        dips.push(`peça ${move} em t=${t.toFixed(2)}: subiu para ${y.toFixed(2)} depois de descer`)
+      }
+      previous = y
+    })
+    expect(dips.slice(0, 5)).toEqual([])
+  }, 60_000)
+
   it('a máquina nunca escava: o contêiner que ela pega nunca tem outro em cima', () => {
     for (const plan of show.plans) {
       const check = (moves: typeof plan.load, before: (k: number) => readonly { x: number; y: number; z: number }[]) => {
