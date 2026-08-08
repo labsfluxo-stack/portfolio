@@ -57,11 +57,16 @@ function LayerCard({ layer, dict }: { layer: StackLayer; dict: Dictionary }) {
 }
 
 /**
- * Grade por camada, redes primeiro (é a ordem em que `dict.stack.layers`
- * chega, e a ordem do posicionamento — nunca reordenada aqui). Cada camada
- * declara sua própria proveniência (`repo` ou `experience`) como texto
- * visível, não como metadado escondido: é o que separa este stack de uma
- * lista inflada de tecnologias.
+ * Grade por camada, software primeiro e redes por último — é a ordem em que
+ * `dict.stack.layers` chega, e é a ordem do POSICIONAMENTO, nunca
+ * reordenada aqui. "Redes & Infraestrutura" já abriu esta lista e, por ser
+ * a camada com mais itens em nível de domínio, respondia sozinha à pergunta
+ * "o que essa pessoa faz?" pela área errada (ver content/pt.ts,
+ * stack.layers).
+ *
+ * Cada camada declara sua própria proveniência (`repo` ou `experience`)
+ * como texto visível, não como metadado escondido: é o que separa este
+ * stack de uma lista inflada de tecnologias.
  */
 export function Stack({ dict }: { dict: Dictionary; locale: Locale }) {
   const { stack } = dict

@@ -46,7 +46,7 @@ export type CaseStudy = {
 
 export type Dictionary = {
   meta: { title: string; description: string; ogAlt: string }
-  nav: { about: string; systems: string; stack: string; terminal: string; contact: string; cv: string }
+  nav: { about: string; systems: string; stack: string; contact: string; cv: string }
   a11y: { skipToContent: string; localeSwitch: string; openMenu: string; mainNav: string }
   boot: { lines: string[] }
   hero: {
@@ -111,24 +111,6 @@ export type Dictionary = {
     levels: Record<'dominio' | 'producao' | 'contato', string>
     sourceNote: Record<'repo' | 'experience', string>
     layers: StackLayer[]
-  }
-  terminal: {
-    label: string
-    lead: string
-    prompt: string
-    welcome: string[]
-    hint: string
-    /** Contém o placeholder literal `{command}`, substituído pelo comando digitado. */
-    unknown: string
-    /** `projects --stack <tecnologia>` sem nenhum sistema correspondente. Nunca
-     * silêncio — é o mesmo princípio de `unknown`, para um caso diferente. */
-    noMatch: string
-    ariaLabel: string
-    ariaOutput: string
-    /** `responses.langSwitching` contém o placeholder literal `{lang}`,
-     * substituído pelo código do idioma de destino (`pt`/`en`) — impresso
-     * antes de `lang <pt|en>` navegar de verdade. */
-    responses: Record<string, string[]>
   }
   contact: {
     label: string

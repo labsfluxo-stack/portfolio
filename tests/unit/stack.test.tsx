@@ -4,16 +4,34 @@ import { Stack } from '@/components/sections/Stack'
 import { pt } from '@/content/pt'
 
 describe('Stack', () => {
-  it('a camada de redes vem primeiro', () => {
+  // Este teste já travou o OPOSTO ("a camada de redes vem primeiro") e
+  // estava certo em existir: a ordem das camadas é uma decisão de
+  // posicionamento, não estética, e merece uma trava. O que mudou foi a
+  // decisão — o dono constrói software, e a década de infraestrutura é a
+  // base que explica a confiabilidade disso, não a oferta. Com redes
+  // abrindo a lista (e sendo a camada com mais itens em nível de domínio),
+  // ela respondia sozinha "o que essa pessoa faz?" pela área errada.
+  it('a camada de redes vem por último, e o software abre a lista', () => {
     const { container } = render(<Stack dict={pt} locale="pt" />)
     const text = container.textContent ?? ''
-    const networking = pt.stack.layers[0]
-    expect(networking?.label).toBe('Redes & Infraestrutura')
-    // Um item da primeira camada (Cisco) precisa aparecer antes de um item
-    // de qualquer outra camada (TypeScript, presente em Backend) na ordem
-    // do documento — não só na ordem do array de dados.
-    expect(text.indexOf('Cisco')).toBeGreaterThanOrEqual(0)
-    expect(text.indexOf('Cisco')).toBeLessThan(text.indexOf('TypeScript'))
+    expect(pt.stack.layers[0]?.label).toBe('Backend')
+    expect(pt.stack.layers.at(-1)?.label).toBe('Redes & Infraestrutura')
+    // Ordem do DOCUMENTO, não só a do array de dados: um item exclusivo do
+    // Backend (TypeScript) precisa aparecer antes de um exclusivo de redes
+    // (Cisco). Sem isto, um `reverse()` no componente passaria batido.
+    expect(text.indexOf('TypeScript')).toBeGreaterThanOrEqual(0)
+    expect(text.indexOf('TypeScript')).toBeLessThan(text.indexOf('Cisco'))
+  })
+
+  // A competência que fala com os dois públicos ao mesmo tempo — recrutador
+  // técnico e empresário — e a única camada cuja prova é a própria página.
+  it('a camada de SEO/GEO existe e vem antes de redes', () => {
+    const { container } = render(<Stack dict={pt} locale="pt" />)
+    const text = container.textContent ?? ''
+    const geo = pt.stack.layers.find((layer) => layer.label === 'SEO, GEO & Medição')
+    expect(geo, 'a camada "SEO, GEO & Medição" sumiu do dicionário').toBeDefined()
+    expect(text.indexOf('GEO (respostas de IA)')).toBeGreaterThanOrEqual(0)
+    expect(text.indexOf('GEO (respostas de IA)')).toBeLessThan(text.indexOf('Cisco'))
   })
 
   it('as três marcas de rede aparecem', () => {

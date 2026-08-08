@@ -12,7 +12,7 @@ export function Telemetry({ dict, locale }: { dict: Dictionary; locale: Locale }
   const { telemetry } = dict
 
   return (
-    <Section id="telemetria" label={telemetry.label} index="01">
+    <Section id="telemetria" label={telemetry.label} index="03">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {telemetry.metrics.map((metric, i) => (
           <Reveal key={metric.key} delayMs={i * 80} className="grid">

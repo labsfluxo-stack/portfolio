@@ -9,7 +9,6 @@ const LINKS = [
   { label: 'Sobre', id: 'sobre' },
   { label: 'Sistemas', id: 'sistemas' },
   { label: 'Stack', id: 'stack' },
-  { label: 'Terminal', id: 'terminal' },
   { label: 'Contato', id: 'contato' },
 ]
 

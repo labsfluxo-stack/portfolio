@@ -32,7 +32,7 @@ export function Contact({ dict, locale }: { dict: Dictionary; locale: Locale }) 
   const githubHandle = contact.github.replace(/^https?:\/\/(www\.)?github\.com\//, '')
 
   return (
-    <Section id="contato" label={contact.label} index="06">
+    <Section id="contato" label={contact.label} index="05">
       <Reveal>
         <p className="max-w-2xl text-muted">{contact.lead}</p>
       </Reveal>

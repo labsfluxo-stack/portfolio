@@ -77,10 +77,15 @@ export function Counter({
     }
   }, [to, durationMs, reduced])
 
-  return (
-    <span ref={ref}>
-      {formatNumber(value, locale)}
-      {suffix}
-    </span>
-  )
+  // Uma única expressão interpolada, não `{formatNumber(...)}{suffix}`
+  // lado a lado: dois nós de texto irmãos fazem o React inserir um
+  // comentário de hidratação (`<!-- -->`) entre eles no HTML de verdade do
+  // Next (esse comentário não existe em `renderToStaticMarkup`, só no SSR
+  // com hidratação — por isso o teste unitário de Counter nunca pegou
+  // isto). "250.000+" acabava sem ser uma string contígua no HTML
+  // publicado, só no snapshot do teste. O texto visível e o `textContent`
+  // do DOM sempre foram corretos; o problema era só a busca literal de
+  // substring no HTML bruto — mas era exatamente essa busca que dava à
+  // única fonte informativa deste número em prosa contínua fora de JS.
+  return <span ref={ref}>{`${formatNumber(value, locale)}${suffix}`}</span>
 }

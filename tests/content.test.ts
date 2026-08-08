@@ -93,31 +93,6 @@ describe('dicionários', () => {
     }
   })
 
-  // O teste acima só prova que cada número canônico aparece EM ALGUM LUGAR
-  // do dicionário — a própria `terminal.responses.stats` já satisfaz isso
-  // sozinha, então nada aqui acusava se ela divergisse de
-  // `telemetry.metrics`/`telemetry.secondary`. Trocar um valor de um lado e
-  // deixar o outro parado ficava verde: a página mostraria dois totais
-  // diferentes a uma tela de distância sem o build reclamar. Este teste
-  // fecha essa classe de bug: toda restatação em prosa precisa citar os
-  // mesmos números que a fonte de verdade estruturada.
-  it('a resposta "stats" do terminal cita todos os números canônicos da telemetria', () => {
-    for (const dict of [pt, en]) {
-      const statsText = (dict.terminal.responses.stats ?? []).join(' ')
-      for (const metric of dict.telemetry.metrics) {
-        expect(statsText, `métrica "${metric.key}" (${metric.value}) ausente de terminal.responses.stats`).toContain(
-          metric.value,
-        )
-      }
-      for (const metric of dict.telemetry.secondary) {
-        expect(
-          statsText,
-          `métrica secundária "${metric.key}" (${metric.value}) ausente de terminal.responses.stats`,
-        ).toContain(metric.value)
-      }
-    }
-  })
-
   it('a arquitetura de cada case study cita os números de content/systems.ts', () => {
     for (const locale of locales) {
       const dict = locale === 'pt' ? pt : en

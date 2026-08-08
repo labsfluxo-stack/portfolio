@@ -24,7 +24,6 @@ export function Header({ locale, dict }: { locale: Locale; dict: Dictionary }) {
     { href: `${basePath}/${locale}/#sobre`, label: dict.nav.about },
     { href: `${basePath}/${locale}/#sistemas`, label: dict.nav.systems },
     { href: `${basePath}/${locale}/#stack`, label: dict.nav.stack },
-    { href: `${basePath}/${locale}/#terminal`, label: dict.nav.terminal },
     { href: `${basePath}/${locale}/#contato`, label: dict.nav.contact },
   ]
 

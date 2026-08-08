@@ -8,7 +8,7 @@ import { SystemCard } from './SystemCard'
  * neutros de idioma, badges e rótulos vêm todos de `dict.systems`. */
 export function Systems({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   return (
-    <Section id="sistemas" label={dict.systems.label} index="03">
+    <Section id="sistemas" label={dict.systems.label} index="02">
       <div className="grid gap-6 lg:grid-cols-3">
         {systems.map((system, i) => (
           // `className="grid"` repassa a largura e a altura esticadas pela

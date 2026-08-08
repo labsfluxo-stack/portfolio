@@ -60,22 +60,6 @@ export default async function CvPage({ params }: { params: Promise<{ locale: Loc
           <p className={`mt-2.5 ${BODY_TEXT}`}>{about.lead}</p>
         </section>
 
-        {/* Experiência de infraestrutura com os três vendors — o ativo mais
-         * forte do currículo, logo depois do posicionamento (spec da Task
-         * 15: "experiência de infraestrutura com os três vendors"). */}
-        <section className="mt-4 break-inside-avoid-page">
-          <h2 className={SECTION_TITLE}>{about.experience.label}</h2>
-          <p className="mt-2.5 text-[15px] font-bold text-black">{about.experience.years}</p>
-          <p className={`mt-1.5 ${BODY_TEXT}`}>{about.experience.body}</p>
-          <ul className="mt-2.5 flex flex-wrap gap-x-6 gap-y-1">
-            {about.experience.vendors.map((vendor) => (
-              <li key={vendor} className="font-mono text-[12.5px] font-bold uppercase tracking-widest text-black">
-                {vendor}
-              </li>
-            ))}
-          </ul>
-        </section>
-
         {/* Os 3 sistemas com seus números — nome, tagline e as métricas de
          * `content/systems.ts` (números crus, `formatNumber(valor, locale)`
          * aqui, nunca `String(valor)`, ou o separador de milhar sai errado
@@ -117,11 +101,11 @@ export default async function CvPage({ params }: { params: Promise<{ locale: Loc
           </div>
         </section>
 
-        {/* Stack por camada — mesma ordem de `dict.stack.layers` (redes
-         * primeiro), só nomes por camada, sem o detalhe de nível/origem do
-         * site: aqui o espaço é escasso e o nível de domínio já fica
-         * implícito na ordem (redes → backend → dados → IA → front →
-         * qualidade) e na experiência declarada acima. */}
+        {/* Stack por camada — mesma ordem de `dict.stack.layers` (software
+         * primeiro, redes por último), só nomes por camada, sem o detalhe de
+         * nível/origem do site: aqui o espaço é escasso e a ordem já carrega
+         * a hierarquia (backend → dados → IA → SEO/GEO → front → qualidade →
+         * redes). */}
         <section className="mt-4 break-inside-avoid-page">
           <h2 className={SECTION_TITLE}>{stack.label}</h2>
           <div className="mt-2 flex flex-col gap-1">
@@ -132,6 +116,26 @@ export default async function CvPage({ params }: { params: Promise<{ locale: Loc
               </p>
             ))}
           </div>
+        </section>
+
+        {/* A base de infraestrutura com os três vendors. Vem DEPOIS dos
+         * sistemas e do stack, nunca antes: num currículo de software, o que
+         * responde "o que essa pessoa entrega?" são os sistemas construídos,
+         * e a década de rede é o que explica por que eles se sustentam. Este
+         * bloco já foi a segunda seção do CV, logo abaixo do posicionamento,
+         * e nessa posição o documento inteiro se lia como currículo de
+         * infraestrutura (ver content/pt.ts, about.experience). */}
+        <section className="mt-4 break-inside-avoid-page">
+          <h2 className={SECTION_TITLE}>{about.experience.label}</h2>
+          <p className="mt-2.5 text-[15px] font-bold text-black">{about.experience.years}</p>
+          <p className={`mt-1.5 ${BODY_TEXT}`}>{about.experience.body}</p>
+          <ul className="mt-2.5 flex flex-wrap gap-x-6 gap-y-1">
+            {about.experience.vendors.map((vendor) => (
+              <li key={vendor} className="font-mono text-[12.5px] font-bold uppercase tracking-widest text-black">
+                {vendor}
+              </li>
+            ))}
+          </ul>
         </section>
 
         {/* Formação em três blocos com rótulos não intercambiáveis: os CS50

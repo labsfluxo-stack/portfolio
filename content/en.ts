@@ -2,12 +2,12 @@ import type { Dictionary } from './types'
 
 export const en: Dictionary = {
   meta: {
-    title: 'Neto Alves — Systems Architect',
+    title: 'Neto Alves — Software Architect',
     description:
-      'Systems architect with 10+ years in infrastructure and networking. From layer 2 to the LLM: 265 thousand lines across 9 systems, 5 in production.',
-    ogAlt: 'Neto Alves — Systems Architect',
+      'Software architect: complete systems from database to deploy. 9 built, 5 in production, 265,562 audited lines. Applied AI, SEO and GEO with measured numbers.',
+    ogAlt: 'Neto Alves — Software Architect',
   },
-  nav: { about: 'About', systems: 'Systems', stack: 'Stack', terminal: 'Terminal', contact: 'Contact', cv: 'CV' },
+  nav: { about: 'About', systems: 'Systems', stack: 'Stack', contact: 'Contact', cv: 'CV' },
   a11y: {
     skipToContent: 'Skip to content',
     localeSwitch: 'Switch language',
@@ -24,23 +24,19 @@ export const en: Dictionary = {
   },
   hero: {
     name: 'Neto Alves',
-    role: 'Systems architect',
-    tagline: 'From layer 2 to the LLM — 10+ years between the network and the code',
-    availability: 'Available for new projects',
+    role: 'Software architect',
+    tagline: 'The whole system, from data model to deploy — 9 built, 5 in production',
+    availability: 'Available for a role or a project',
     scrollHint: 'scroll to operate',
   },
   telemetry: {
     label: 'Telemetry',
+    // Mesma ordem deliberada de content/pt.ts: os três números de SOFTWARE
+    // primeiro, os anos de infraestrutura por último. Ver o comentário lá
+    // para o porquê — as duas listas têm de contar a mesma história, ou o
+    // visitante em inglês lê um posicionamento diferente do visitante em
+    // português.
     metrics: [
-      {
-        key: 'years',
-        label: 'Years in infrastructure',
-        value: '10+',
-        numeric: 10,
-        suffix: '+',
-        provenance:
-          'Years of continuous professional work with networks, switches and servers, from the first job to today. Measured on 2026-08-02.',
-      },
       {
         key: 'lines',
         label: 'Lines of code',
@@ -52,7 +48,7 @@ export const en: Dictionary = {
       },
       {
         key: 'systems',
-        label: 'Systems',
+        label: 'Systems built',
         value: '9',
         numeric: 9,
         provenance: 'Distinct software projects with their own repository, counted on this machine. Measured on 2026-08-02.',
@@ -64,6 +60,15 @@ export const en: Dictionary = {
         numeric: 5,
         provenance:
           'Systems with evidence of active deployment in the repository itself — script, pipeline or production runbook. Measured on 2026-08-02.',
+      },
+      {
+        key: 'years',
+        label: 'Years of infra underneath',
+        value: '10+',
+        numeric: 10,
+        suffix: '+',
+        provenance:
+          'Years of continuous professional work with networks, switches and servers, from the first job to today. Measured on 2026-08-02.',
       },
     ],
     secondaryLabel: 'Breakdown',
@@ -105,17 +110,21 @@ export const en: Dictionary = {
   },
   about: {
     label: 'About',
-    lead: 'The same person who configured the switch later wrote the system that runs on it, and now measures how much it costs in AI tokens.',
+    lead: 'The same person models the database, writes the API, ships the front end and runs the deploy — and picks up the phone when something breaks at three in the morning.',
     body: [
-      "I started with infrastructure. Ten years configuring networks, switches and servers taught me something you don't learn writing application code: what breaks in production is almost never what you tested.",
-      'Today I design and deliver whole systems — database, API, queues, front-end, deploy, and the network underneath all of it. The most recent specialty is applied AI done rigorously: LLMs in production with guardrails, measured cost and an audit trail, not a toy demo.',
+      'I build complete systems, from zero to production: data modelling, API, interface, queues, deploy, and the instrumentation that tells you whether it is still standing. Nine systems so far, five running today — the three largest are open on this page, with numbers you can check one by one.',
+      'Ten years of infrastructure came before the code: networks, switches and servers. It is not the service I sell today, it is the reason what I ship holds up. Someone who spent a decade being woken by systems going down designs software around how it fails, not only around how it works.',
+      "The newest layer is measuring what almost nobody measures: custom KPIs, technical SEO and GEO — the discipline of showing up in answers from ChatGPT, Gemini and Perplexity, not just on Google's first page. This portfolio is the demonstration: real static HTML, because AI crawlers don't execute JavaScript.",
     ],
     photoAlt: 'Portrait of Neto Alves',
     photoPending: 'Photo to be added',
+    // Ver o comentário equivalente em content/pt.ts: rotulado como BASE, não
+    // como "Experience". Os vendors continuam — credencial real — mas
+    // deixaram de ser a manchete do currículo.
     experience: {
-      label: 'Experience',
+      label: 'Technical foundation',
       years: '10+ years in infrastructure and networking',
-      body: 'Configuration and operation of networks, switches and servers. VPS, DNS, Nginx, Docker, blue-green deploy with rollback and messaging integration.',
+      body: 'Networks, switches and servers before the first system in production. VPS, DNS, Nginx, Docker, blue-green deploys with rollback and messaging integration — the foundation that makes the software I write survive what nobody tested.',
       vendors: ['Cisco', 'MikroTik', 'Furukawa'],
     },
     education: {
@@ -261,24 +270,10 @@ export const en: Dictionary = {
       repo: 'Verified in audited code.',
       experience: 'Declared professional experience, not repository.',
     },
+    // Mesma ordem deliberada de content/pt.ts: software primeiro,
+    // infraestrutura por último. Nunca reordenar sem reordenar o outro
+    // idioma junto.
     layers: [
-      {
-        label: 'Networking & Infrastructure',
-        source: 'experience',
-        items: [
-          { name: 'Cisco', level: 'dominio' },
-          { name: 'MikroTik', level: 'dominio' },
-          { name: 'Furukawa', level: 'producao' },
-          { name: 'Switching', level: 'dominio' },
-          { name: 'VPS', level: 'dominio' },
-          { name: 'DNS', level: 'dominio' },
-          { name: 'Nginx', level: 'dominio' },
-          { name: 'Docker', level: 'dominio' },
-          { name: 'Blue-green deploy', level: 'dominio' },
-          { name: 'PM2', level: 'producao' },
-          { name: 'Heartbeat/uptime', level: 'producao' },
-        ],
-      },
       {
         label: 'Backend',
         source: 'repo',
@@ -320,6 +315,20 @@ export const en: Dictionary = {
         ],
       },
       {
+        label: 'SEO, GEO & Measurement',
+        source: 'repo',
+        items: [
+          { name: 'Technical SEO', level: 'dominio' },
+          { name: 'GEO (AI answers)', level: 'dominio' },
+          { name: 'JSON-LD / Schema.org', level: 'dominio' },
+          { name: 'Custom KPIs', level: 'dominio' },
+          { name: 'Share of Voice in AI', level: 'producao' },
+          { name: 'Core Web Vitals', level: 'producao' },
+          { name: 'IndexNow', level: 'producao' },
+          { name: 'Blog & RSS feed', level: 'producao' },
+        ],
+      },
+      {
         label: 'Front-end',
         source: 'repo',
         items: [
@@ -342,55 +351,28 @@ export const en: Dictionary = {
           { name: 'pnpm', level: 'producao' },
         ],
       },
+      {
+        label: 'Networking & Infrastructure',
+        source: 'experience',
+        items: [
+          { name: 'Cisco', level: 'dominio' },
+          { name: 'MikroTik', level: 'dominio' },
+          { name: 'Furukawa', level: 'producao' },
+          { name: 'Switching', level: 'dominio' },
+          { name: 'VPS', level: 'dominio' },
+          { name: 'DNS', level: 'dominio' },
+          { name: 'Nginx', level: 'dominio' },
+          { name: 'Docker', level: 'dominio' },
+          { name: 'Blue-green deploy', level: 'dominio' },
+          { name: 'PM2', level: 'producao' },
+          { name: 'Heartbeat/uptime', level: 'producao' },
+        ],
+      },
     ],
-  },
-  terminal: {
-    label: 'Terminal',
-    lead: 'A real terminal. Everything it answers is also in HTML on this page — ignoring the terminal costs you nothing.',
-    prompt: 'neto@control-room:~$',
-    welcome: [
-      'Control Room v1.0 — type "help" to see the commands.',
-      'Keyboard, arrow-key history and Tab completion all work as expected.',
-    ],
-    hint: 'Type "help" to see the available commands.',
-    unknown: 'Unknown command: {command}. Type "help" to see the available commands.',
-    noMatch: 'No system uses that technology. Try: stack',
-    ariaLabel: 'Interactive terminal',
-    ariaOutput: 'Terminal output',
-    responses: {
-      whoami: [
-        'Neto Alves — systems architect.',
-        '10+ years configuring networks, switches and servers before moving on to building what runs on them.',
-      ],
-      stats: [
-        '10+ years in infrastructure',
-        '250,000+ lines of code across 9 systems',
-        '5 systems in production',
-        '1,675 commits · 214 tables · 459 endpoints · 130 migrations · 1,270 tests',
-      ],
-      projects: [
-        '3 featured systems: OSCapstack CRM, Saturno Labs, Moveis.pro.',
-        'Use "projects --stack <technology>" to filter by stack.',
-      ],
-      stack: [
-        'Networking & Infrastructure, Backend, Data, Applied AI, Front-end, Quality & Delivery.',
-        'See the Stack section for the layer-by-layer detail, with declared level and source.',
-      ],
-      contact: ['Email: netoguild@gmail.com', 'WhatsApp and GitHub in the Contact section.'],
-      cv: ['PDF resume available for download in the Contact section.'],
-      lang: ['Usage: lang pt | lang en'],
-      langSwitching: ['Switching to {lang}...'],
-      theme: ['Only dark exists. The control room does not operate with the lights on.'],
-      sudo: ["Permission denied: you already have access to everything this terminal exposes."],
-      matrix: ['Just network, server and code. No spoon, no Matrix.'],
-      help: [
-        'Available commands: whoami, stats, projects [--stack <technology>], stack, contact, cv, lang <pt|en>, clear, theme, sudo, matrix.',
-      ],
-    },
   },
   contact: {
     label: 'Contact',
-    lead: 'Reach out directly, no middleman: form, WhatsApp or email.',
+    lead: 'A role, a defined project, or an idea that has not become a scope yet — reach out directly, no middleman.',
     form: {
       name: 'Name',
       email: 'Email',

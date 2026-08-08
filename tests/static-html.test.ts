@@ -4,7 +4,6 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { pt } from '../content/pt'
 import { en } from '../content/en'
 import { SYSTEM_SLUGS, locales } from '../content/types'
-import { COMMAND_NAMES } from '../components/terminal/commands'
 
 // Portão de GEO (Task 14, spec §7): GPTBot, ClaudeBot e PerplexityBot não
 // executam JavaScript — pedem a URL, leem o HTML bruto da resposta e vão
@@ -55,17 +54,6 @@ beforeAll(() => {
 
 const dicts = { pt, en } as const
 
-// Os comandos de fato listados na `<dl>` estática do Terminal (Task 10) —
-// `clear` fica fora porque não tem resposta textual para duplicar em HTML
-// (ver components/sections/Terminal.tsx). `langSwitching` não é um comando
-// e nunca aparece como palavra visível em lugar nenhum — só existe como
-// chave de `dict.terminal.responses`, usada em runtime pelo terminal
-// interativo; testar a presença literal dessa palavra no HTML estático
-// daria FALSO NEGATIVO correto (ela de fato não está lá) se testada contra
-// o HTML limpo, ou falso positivo se testada contra o HTML bruto (ela
-// aparece dentro do payload de hidratação, como toda chave do dicionário).
-const DL_COMMANDS = COMMAND_NAMES.filter((name) => name !== 'clear')
-
 describe('portão de GEO — sanidade da limpeza de <script>', () => {
   it('o HTML despido de <script> ainda contém "Neto Alves"', () => {
     // Esta é a asserção que impede o resto do arquivo de virar comparação de
@@ -94,16 +82,14 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
       expect(clean).toContain(escapeHtmlText(d.hero.tagline))
     })
 
-    it(`/${locale} traz os 4 números canônicos de telemetria com o separador certo (não sobrevive só pela redundância do terminal)`, () => {
+    it(`/${locale} traz os 4 números canônicos de telemetria com o separador certo`, () => {
       const clean = semScripts(html(locale))
       for (const metric of d.telemetry.metrics) {
-        // O valor sozinho ('10+', '9', '5'...) também aparece dentro da <dl>
-        // de redundância do Terminal (a resposta "stats" restata os mesmos
-        // números) e '9'/'5' são dígitos soltos que casam dezenas de vezes
-        // no resto da página — nenhum dos dois provaria que <Telemetry>
-        // renderizou. A procedência (`metric.provenance`) é uma frase longa
-        // exclusiva de Metric.tsx: só sobrevive se a seção de verdade
-        // renderizou.
+        // O valor sozinho ('10+', '9', '5'...) por si só não provaria que
+        // <Telemetry> renderizou ('9'/'5' são dígitos soltos que casam
+        // dezenas de vezes no resto da página). A procedência
+        // (`metric.provenance`) é uma frase longa exclusiva de Metric.tsx: só
+        // sobrevive se a seção de verdade renderizou.
         expect(clean, `procedência da métrica "${metric.key}" ausente`).toContain(escapeHtmlText(metric.provenance))
         expect(clean, `métrica "${metric.key}" (${metric.value}) ausente`).toContain(escapeHtmlText(metric.value))
       }
@@ -124,14 +110,12 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
       expect(clean).toContain('CS50x')
     })
 
-    it(`/${locale} traz os três nomes de sistema com link pro case study (não sobrevive só pela redundância do terminal)`, () => {
+    it(`/${locale} traz os três nomes de sistema com link pro case study`, () => {
       const clean = semScripts(html(locale))
       for (const slug of SYSTEM_SLUGS) {
-        // O nome sozinho também aparece na resposta "projects" do Terminal
-        // ("3 sistemas em destaque: OSCapstack CRM, Saturno Labs,
-        // Moveis.pro.") — apagar a seção <Systems> inteira não faria esta
-        // asserção falhar. O `href` de "Ver case study" só existe em
-        // SystemCard.tsx.
+        // O `href` de "Ver case study" só existe em SystemCard.tsx — prova
+        // que <Systems> renderizou de verdade, não só que o nome aparece em
+        // algum outro lugar da página.
         expect(clean, `sistema "${slug}" ausente`).toContain(escapeHtmlText(d.systems.detail[slug].name))
         expect(clean, `link do case study de "${slug}" ausente`).toContain(`sistemas/${slug}/`)
       }
@@ -155,16 +139,6 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
       expect(clean, 'link de e-mail (mailto:) ausente').toContain(`mailto:${d.contact.email}`)
       expect(clean, 'link do GitHub ausente').toContain(d.contact.github)
       expect(clean, `link do PDF do currículo (${locale}) ausente`).toContain(`cv/neto-alves-${locale}.pdf`)
-    })
-
-    it(`/${locale} traz todos os comandos do terminal com a resposta completa (a <dl> de redundância)`, () => {
-      const clean = semScripts(html(locale))
-      for (const command of DL_COMMANDS) {
-        expect(clean, `comando "${command}" ausente`).toContain(command)
-        const response = (d.terminal.responses[command] ?? []).join(' ')
-        expect(response.length, `resposta de "${command}" vazia no dicionário`).toBeGreaterThan(0)
-        expect(clean, `resposta de "${command}" ausente`).toContain(escapeHtmlText(response))
-      }
     })
 
     it(`/${locale} tem Open Graph e Twitter Card completos`, () => {

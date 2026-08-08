@@ -4,16 +4,22 @@ import { PhotoFrame } from '@/components/ui/PhotoFrame'
 import { Reveal } from '@/components/ui/Reveal'
 
 /**
- * Experiência acima da formação — é o ativo mais forte (dez anos de rede
- * antes do código). Os três blocos de formação (técnico, graduação,
- * certificações) usam rótulos distintos e não intercambiáveis: os CS50
- * vivem só sob certificações, e a graduação não carrega rótulo de status.
+ * A prosa primeiro (`lead` + `body`), depois a base técnica, depois a
+ * formação. A ordem importa e não é estética: a base é a experiência de
+ * infraestrutura, e ela vem DEPOIS do texto que diz o que o dono constrói
+ * hoje — o bloco já se chamou "Experiência" e abria a seção, e com isso a
+ * página inteira se apresentava como currículo de rede em vez de currículo
+ * de software (ver o comentário em content/pt.ts, about.experience).
+ *
+ * Os três blocos de formação (técnico, graduação, certificações) usam
+ * rótulos distintos e não intercambiáveis: os CS50 vivem só sob
+ * certificações, e a graduação não carrega rótulo de status.
  */
 export function About({ dict }: { dict: Dictionary; locale: Locale }) {
   const { about } = dict
 
   return (
-    <Section id="sobre" label={about.label} index="02">
+    <Section id="sobre" label={about.label} index="01">
       <div className="grid gap-12 lg:grid-cols-[minmax(0,280px)_1fr] lg:gap-16">
         <Reveal>
           <PhotoFrame alt={about.photoAlt} pendingLabel={about.photoPending} />
