@@ -1,13 +1,49 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" fill="#08090C"/>
-  <g stroke="#38BDF8" stroke-width="1.1" opacity="0.85">
-    <line x1="8" y1="9" x2="23" y2="16"/>
-    <line x1="8" y1="9" x2="11" y2="24"/>
-    <line x1="23" y1="16" x2="11" y2="24"/>
-  </g>
+  <!--
+    Um contêiner com o N no meio — a mesma linguagem do pátio da hero
+    (components/three/Portico.tsx), reduzida ao tamanho de uma aba.
+    Substituiu a constelação de nós, que era o conceito rejeitado da
+    primeira versão da cena e tinha ficado órfã aqui.
+
+    O CONTÊINER É FEITO DE TRAVESSAS, NÃO DE CANTONEIRAS. A primeira versão
+    marcava os quatro cantos com blocos, como o pátio faz — e renderizada de
+    verdade não funcionou: com a moldura em traço de 2, os blocos FUNDIRAM
+    com ela e viraram entalhes no meio das arestas, lendo como moldura de
+    quadro recortada em vez de contêiner. As travessas de cima e de baixo
+    resolvem melhor: são a estrutura que o olho reconhece num contêiner e,
+    por serem faixas cheias, sobrevivem à redução muito melhor que qualquer
+    detalhe de canto, que sempre vira sujeira abaixo de 32px.
+
+    DESENHADO PARA 16px, que é o tamanho em que uma aba mostra o ícone:
+      - travessas de 2,6 viram 1,3px — continuam sólidas e visíveis;
+      - o N tem 12 de 32 de altura e sobra ~3 de folga para cada travessa,
+        então nunca encosta nelas nem quando tudo encolhe pela metade;
+      - a linha lateral fica em `--color-faint`, e é a única coisa aqui que
+        pode desaparecer a 16px sem prejuízo — é detalhe de 32px para cima.
+
+    O N é PATH, nunca <text>. Um <text> dependeria de fonte presente no
+    sistema — a Geist não está disponível neste contexto — e cairia num
+    fallback diferente por plataforma, cada um com métrica própria: o
+    desenho sairia descentralizado em algum lugar, sem aviso. Como
+    geometria, é idêntico em todo lugar.
+  -->
+  <rect width="32" height="32" rx="7" fill="#08090C"/>
+
+  <!-- Chapa do contêiner. Tokens de app/globals.css, nunca cinza avulso:
+       `--color-faint` na lateral (é linha, não texto — o único uso legítimo
+       dele) e `--color-muted` nas travessas, que precisam de presença. -->
+  <rect x="4.5" y="4.5" width="23" height="23" fill="#13161B" stroke="#4A505A" stroke-width="1"/>
+  <rect x="4.5" y="4.5" width="23" height="2.6" fill="#878C96"/>
+  <rect x="4.5" y="24.9" width="23" height="2.6" fill="#878C96"/>
+
+  <!-- O N: duas hastes e a diagonal como paralelogramo. A diagonal nasce com
+       os mesmos 3 de largura horizontal das hastes e cai para ~2,4 de
+       espessura perpendicular por causa da inclinação — que é como um N bem
+       desenhado se comporta: a diagonal é sempre um pouco mais fina que as
+       verticais. -->
   <g fill="#F5F3EF">
-    <circle cx="23" cy="16" r="5"/>
-    <circle cx="8" cy="9" r="3"/>
-    <circle cx="11" cy="24" r="2.2"/>
+    <rect x="10" y="10" width="3" height="12"/>
+    <rect x="19" y="10" width="3" height="12"/>
+    <path d="M10 10h3l9 12h-3z"/>
   </g>
 </svg>
