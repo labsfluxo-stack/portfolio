@@ -11,9 +11,12 @@ import { Reveal } from '@/components/ui/Reveal'
  * página inteira se apresentava como currículo de rede em vez de currículo
  * de software (ver o comentário em content/pt.ts, about.experience).
  *
- * Os três blocos de formação (técnico, graduação, certificações) usam
- * rótulos distintos e não intercambiáveis: os CS50 vivem só sob
- * certificações, e a graduação não carrega rótulo de status.
+ * A formação é uma fileira única de etiquetas, sem rótulo de grupo — já
+ * foram três colunas rotuladas (Técnico / Graduação / Certificações). A
+ * regra que os rótulos garantiam continua valendo e passou a ser garantida
+ * de outro jeito: cada etiqueta se descreve sozinha e a atribuição da
+ * HarvardX nomeia os CS50, para que nenhum deles possa ser lido como
+ * diploma e para que a graduação não carregue rótulo de status.
  */
 export function About({ dict }: { dict: Dictionary; locale: Locale }) {
   const { about } = dict
@@ -58,39 +61,47 @@ export function About({ dict }: { dict: Dictionary; locale: Locale }) {
               <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
                 {about.education.label}
               </h3>
-              <div className="mt-4 grid gap-6 sm:grid-cols-3">
-                <div>
-                  <p className="font-mono text-[11px] uppercase tracking-widest text-muted">
-                    {about.education.technical.label}
-                  </p>
-                  <ul className="mt-2 flex flex-col gap-1 text-sm text-muted">
-                    {about.education.technical.items.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-mono text-[11px] uppercase tracking-widest text-muted">
-                    {about.education.degree.label}
-                  </p>
-                  <ul className="mt-2 flex flex-col gap-1 text-sm text-muted">
-                    {about.education.degree.items.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-mono text-[11px] uppercase tracking-widest text-muted">
-                    {about.education.certifications.label}
-                    <span className="text-muted"> · {about.education.certifications.institution}</span>
-                  </p>
-                  <ul className="mt-2 flex flex-col gap-1 text-sm text-muted">
-                    {about.education.certifications.items.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+              {/* Uma fileira só de etiquetas, no mesmo tratamento das marcas
+               * de rede logo acima — sem as três colunas rotuladas
+               * (Técnico / Graduação / Certificações) que existiam aqui.
+               *
+               * Cada item se descreve sozinho, e isso é requisito, não
+               * estilo: sem o rótulo do grupo, uma etiqueta solta escrita
+               * "Telecomunicações" não diz que é curso técnico, e um "CS50x"
+               * ao lado de uma graduação poderia ser lido como diploma. Daí
+               * `technical.items` já vir como "Técnico em Telecomunicações"
+               * (content/pt.ts) e a atribuição da HarvardX aparecer logo
+               * abaixo, presa aos CS50 pelo nome. */}
+              <ul className="mt-4 flex flex-wrap gap-2">
+                {[
+                  ...about.education.technical.items,
+                  ...about.education.degree.items,
+                  // Só o código do curso na etiqueta. O nome oficial inteiro
+                  // ("CS50 AI — Introduction to Artificial Intelligence with
+                  // Python") passa de 50 caracteres e, em caixa alta, cada
+                  // etiqueta ocuparia quase a largura da coluna — deixaria de
+                  // parecer com as marcas de rede, que é justamente o que se
+                  // pede aqui. O nome completo continua inteiro no dicionário,
+                  // e é ele que sai no CV e no JSON-LD (`hasCredential`), onde
+                  // há espaço e é onde a leitura é atenta.
+                  ...about.education.certifications.items.map((item) => item.split(' — ')[0] ?? item),
+                ].map((item) => (
+                  <li
+                    key={item}
+                    className="border border-border bg-surface px-3 py-1 font-mono text-[11px] uppercase tracking-widest text-text"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              {/* Atribuição da HarvardX. Nomeia "CS50" de propósito: sem isso
+               * a linha ficaria solta embaixo da fileira inteira e pareceria
+               * atribuir também o técnico e a graduação, que não são da
+               * Harvard. 10px, um degrau abaixo do rótulo da seção — mesma
+               * disciplina de tamanho, nunca de cor, do resto do site. */}
+              <p className="mt-3 font-mono text-[10px] leading-relaxed text-muted">
+                CS50 · {about.education.certifications.institution}
+              </p>
             </div>
           </div>
         </Reveal>

@@ -143,46 +143,37 @@ export default async function CvPage({ params }: { params: Promise<{ locale: Loc
          * rótulo nem palavra de status — o curso está pausado e nenhuma
          * afirmação de status pode aparecer em superfície nenhuma (mesma
          * regra de `components/sections/About.tsx` e `lib/jsonld.ts`). */}
+        {/* Lista corrida, sem os três sub-rótulos (Técnico / Graduação /
+         * Certificações) — mesma decisão de components/sections/About.tsx,
+         * onde está o comentário longo: cada item se descreve sozinho e a
+         * atribuição da HarvardX nomeia "CS50" para não parecer que cobre o
+         * técnico e a graduação também.
+         *
+         * A diferença para o site é deliberada e é a mesma de sempre entre
+         * os dois meios: aqui vai o NOME OFICIAL INTEIRO de cada CS50, não o
+         * código curto. No site o nome completo estouraria a etiqueta; num
+         * currículo em PDF há espaço e a leitura é atenta, e "Introduction
+         * to Artificial Intelligence with Python" é justamente o que prova a
+         * formação em IA. */}
         <section className="mt-4 break-inside-avoid-page">
           <h2 className={SECTION_TITLE}>{about.education.label}</h2>
-          <div className="mt-2 grid grid-cols-[0.8fr_0.9fr_1.3fr] gap-5">
-            <div>
-              <p className={SUB_LABEL}>{about.education.technical.label}</p>
-              <ul className="mt-1 flex flex-col gap-0.5">
-                {about.education.technical.items.map((item) => (
-                  <li key={item} className={BODY_TEXT}>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <p className={SUB_LABEL}>{about.education.degree.label}</p>
-              <ul className="mt-1 flex flex-col gap-0.5">
-                {about.education.degree.items.map((item) => (
-                  <li key={item} className={BODY_TEXT}>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <p className={SUB_LABEL}>
-                {about.education.certifications.label}
-                <span className="normal-case tracking-normal text-gray-500">
-                  {' '}
-                  · {about.education.certifications.institution}
-                </span>
-              </p>
-              <ul className="mt-1 flex flex-col gap-0.5">
-                {about.education.certifications.items.map((item) => (
-                  <li key={item} className={BODY_TEXT}>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          <ul className="mt-2 flex flex-col gap-0.5">
+            {[
+              ...about.education.technical.items,
+              ...about.education.degree.items,
+              ...about.education.certifications.items,
+            ].map((item) => (
+              <li key={item} className={BODY_TEXT}>
+                {item}
+              </li>
+            ))}
+          </ul>
+          {/* `SUB_LABEL` puro: um `normal-case` acrescentado aqui não venceria
+           * o `uppercase` que ele já traz — mesma especificidade, e quem
+           * decide é a ordem no CSS gerado, não a ordem na string. Em caixa
+           * alta a linha fica igual aos outros rótulos pequenos do CV, que é
+           * o resultado desejado de qualquer forma. */}
+          <p className={`mt-1.5 ${SUB_LABEL}`}>CS50 · {about.education.certifications.institution}</p>
         </section>
 
         {/* Contatos — sem LinkedIn: a chave não existe em `Dictionary` (o

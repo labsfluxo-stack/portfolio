@@ -4,28 +4,58 @@ import { About } from '@/components/sections/About'
 import { pt } from '@/content/pt'
 
 describe('About', () => {
-  it('renderiza os três blocos de formação com rótulos distintos', () => {
+  // Estes três testes travavam a formação em três blocos rotulados
+  // (Técnico / Graduação / Certificações) e estavam certos em existir. O
+  // dono pediu uma fileira única de etiquetas, no tratamento das marcas de
+  // rede — mudou a ESTRUTURA. A regra que os testes protegem não mudou, e
+  // é ela que continua travada aqui: um CS50 nunca pode ser lido como
+  // diploma, e a HarvardX tem de aparecer atribuída a eles.
+  it('a formação é uma fileira única de etiquetas, sem os rótulos de grupo', () => {
     render(<About dict={pt} locale="pt" />)
-    expect(screen.getByText(pt.about.education.technical.label)).toBeInTheDocument()
-    expect(screen.getByText(pt.about.education.degree.label)).toBeInTheDocument()
-    expect(screen.getByText(pt.about.education.certifications.label, { exact: false })).toBeInTheDocument()
-  })
+    for (const label of [
+      pt.about.education.technical.label,
+      pt.about.education.degree.label,
+      pt.about.education.certifications.label,
+    ]) {
+      expect(screen.queryByText(label), `o rótulo de grupo "${label}" voltou para a tela`).not.toBeInTheDocument()
+    }
 
-  it('os CS50 aparecem no bloco de certificações, nunca no de graduação', () => {
-    render(<About dict={pt} locale="pt" />)
-    for (const item of pt.about.education.certifications.items) {
+    // Sem rótulo de grupo, cada etiqueta precisa se explicar sozinha: uma
+    // que diga só "Telecomunicações" não informa que é curso técnico.
+    for (const item of pt.about.education.technical.items) {
+      expect(item.toLowerCase(), `"${item}" não se descreve sem o rótulo "Técnico"`).toContain('técnico')
       expect(screen.getByText(item)).toBeInTheDocument()
     }
-    // Escopa a checagem ao próprio bloco de graduação — não ao texto inteiro
-    // da seção, onde "CS50" apareceria de qualquer forma (em outro bloco).
-    const degreeBlock = screen.getByText(pt.about.education.degree.label).closest('div')
-    expect(degreeBlock?.textContent ?? '').not.toMatch(/CS50/)
+    for (const item of pt.about.education.degree.items) {
+      expect(screen.getByText(item)).toBeInTheDocument()
+    }
   })
 
-  it('mostra a instituição das certificações', () => {
+  it('cada CS50 aparece como etiqueta pelo código, e nenhum encosta na graduação', () => {
     render(<About dict={pt} locale="pt" />)
-    const certLabel = screen.getByText(pt.about.education.certifications.label, { exact: false })
-    expect(certLabel.textContent).toContain(pt.about.education.certifications.institution)
+    const codes = pt.about.education.certifications.items.map((item) => item.split(' — ')[0] ?? item)
+    expect(codes, 'a lista de certificações mudou de formato').toContain('CS50x')
+    for (const code of codes) {
+      expect(screen.getByText(code)).toBeInTheDocument()
+    }
+    // Escopado à etiqueta da graduação, nunca ao texto da seção — ali
+    // "CS50" existe de propósito, em outra etiqueta.
+    for (const item of pt.about.education.degree.items) {
+      expect(screen.getByText(item).textContent ?? '').not.toMatch(/CS50/)
+    }
+  })
+
+  it('a atribuição da HarvardX aparece e nomeia os CS50', () => {
+    const { container } = render(<About dict={pt} locale="pt" />)
+    const institution = pt.about.education.certifications.institution
+    const line = Array.from(container.querySelectorAll('p')).find((p) =>
+      (p.textContent ?? '').includes(institution),
+    )
+    expect(line, `"${institution}" sumiu da seção`).toBeDefined()
+    // Sem citar "CS50" na mesma linha, a atribuição fica solta embaixo da
+    // fileira inteira e passa a parecer que cobre também o curso técnico e
+    // a graduação — que não são da Harvard.
+    expect(line?.textContent ?? '', 'a atribuição não diz a que cursos se refere').toMatch(/CS50/)
   })
 
   it('mostra os três vendors de rede no bloco de experiência', () => {

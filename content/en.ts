@@ -135,7 +135,9 @@ export const en: Dictionary = {
     },
     education: {
       label: 'Education',
-      technical: { label: 'Technical', items: ['Telecommunications'] },
+      // Ver content/pt.ts: autodescritivo, porque o rótulo do grupo não
+      // aparece mais na tela.
+      technical: { label: 'Technical', items: ['Telecommunications Technician'] },
       degree: { label: 'Degree', items: ['Data Analysis — Estácio'] },
       certifications: {
         label: 'Certifications',

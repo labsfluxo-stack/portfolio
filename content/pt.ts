@@ -156,7 +156,11 @@ export const pt: Dictionary = {
     },
     education: {
       label: 'Formação',
-      technical: { label: 'Técnico', items: ['Telecomunicações'] },
+      // Autodescritivo: "Telecomunicações" sozinho vira uma etiqueta sem
+      // sentido quando o rótulo "Técnico" some da tela (ver About.tsx). O
+      // `label` continua aqui porque tests/content.test.ts o usa como
+      // guarda de que os CS50 nunca sejam rotulados como graduação.
+      technical: { label: 'Técnico', items: ['Técnico em Telecomunicações'] },
       degree: { label: 'Graduação', items: ['Análise de Dados — Estácio'] },
       certifications: {
         label: 'Certificações',
