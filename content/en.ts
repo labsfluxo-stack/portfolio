@@ -214,7 +214,9 @@ export const en: Dictionary = {
         problem:
           "A real-estate credit operation needs a commercial system a brokerage can run on its own: customer records, lead distribution across consultants, proposal tracking, and a WhatsApp channel that cannot go down without anyone noticing. The product had to work as the operation's own operating system, not a spreadsheet with a coat of paint.",
         architecture:
-          'TypeScript monorepo with Fastify 5 on the API and Supabase/PostgreSQL as the database. Three isolated frontends: an admin panel in React, an external consultant panel (restricted access, scoped to their own data), and an Astro landing page for lead capture. 78,900 lines of code, 73 migrations, 56 tables with 146 RLS policies, 219 endpoints and 42 screens, built in 444 commits over 26 days. In production at os.capstack.capital.',
+          // Ver content/pt.ts: fica o que descreve a forma do sistema, sai o
+          // que mede esforço (linhas, migrations, commits, dias).
+          'TypeScript monorepo with Fastify 5 on the API and Supabase/PostgreSQL as the database. Three isolated frontends: an admin panel in React, an external consultant panel (restricted access, scoped to their own data), and an Astro landing page for lead capture. It runs on 56 tables with 146 RLS policies, 219 endpoints and 42 screens. In production at os.capstack.capital.',
         decisions: [
           {
             title: '146 RLS policies across 56 tables',
@@ -241,7 +243,7 @@ export const en: Dictionary = {
         problem:
           'B2B brands are already being cited — or ignored — by ChatGPT, Gemini, Claude and Perplexity whenever someone asks about a category, and there was no metric for it, no process, and no one approving a piece of content before it went out. What was missing was a platform that measured Share of Voice inside AI answers and automated the response without releasing media budget unsupervised.',
         architecture:
-          "A monorepo with 14 packages and 3 apps. Fastify 5 API with Zod validating input, documenting the OpenAPI spec, and structuring the LLM output from the same schema. PostgreSQL 16 with pgvector for embeddings, Drizzle as the ORM, BullMQ over Redis for queues and 13 cron jobs, React front-end with three.js for the constellation scene. 37,672 lines of code (23,580 production, 14,092 test), 57 migrations, 60 tables, 240 endpoints, 1,102 test cases and 798 commits.",
+          "A monorepo with 14 packages and 3 apps. Fastify 5 API with Zod validating input, documenting the OpenAPI spec, and structuring the LLM output from the same schema. PostgreSQL 16 with pgvector for embeddings, Drizzle as the ORM, BullMQ over Redis for queues and 13 cron jobs, React front-end with three.js for the constellation scene. It runs on 60 tables, 240 endpoints and 1,102 test cases.",
         decisions: [
           {
             title: 'Executable documentation gate in CI',
@@ -268,7 +270,9 @@ export const en: Dictionary = {
         problem:
           "Furniture stores sell over WhatsApp and Instagram with no CRM: conversations get lost, salespeople don't know who has already been helped, and each store is a separate customer that should never see another store's data. What was missing was a SaaS that handled the commercial side for real inside each store, without mixing tenants.",
         architecture:
-          'Three applications: a Fastify API, a Next.js management panel, and a PWA for salespeople to use on the shop floor. The data model has 40 Prisma models, 56,500 lines of code and 231 commits. Deployed on a VPS with Nginx, with a CI pipeline that enforces a test coverage threshold before allowing a merge. Public code at github.com/netoguild-rgb/Moveis.pro.',
+          // "3 applications" com dígito — ver content/pt.ts. E o fecho com a
+          // URL saiu: repetia o botão "View repository" logo abaixo.
+          'There are 3 applications: a Fastify API, a Next.js management panel, and a PWA for salespeople to use on the shop floor. The data model has 40 Prisma models. Deployed on a VPS with Nginx, with a CI pipeline that enforces a test coverage threshold before allowing a merge.',
         decisions: [
           {
             title: 'Multi-tenant isolation',

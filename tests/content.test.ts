@@ -142,6 +142,11 @@ describe('dicionários', () => {
     }
   })
 
+  // `toContain` era fraco demais para número de um dígito: a métrica `apps`
+  // (3) do Moveis.pro passava casando o "3" do meio de "231 commits",
+  // enquanto a prosa escrevia "Três aplicações" por extenso. Verde sem
+  // corroborar nada. A fronteira de dígito exige o número INTEIRO — foi ela
+  // que obrigou a prosa a passar a escrever "3 aplicações".
   it('a arquitetura de cada case study cita os números de content/systems.ts', () => {
     for (const locale of locales) {
       const dict = locale === 'pt' ? pt : en
@@ -149,10 +154,11 @@ describe('dicionários', () => {
         const architecture = dict.systems.detail[system.slug].architecture
         for (const metric of system.metrics) {
           const formatted = formatNumber(metric.value, locale)
+          const inteiro = new RegExp(`(^|[^\\d.,])${formatted.replace(/[.]/g, '\\.')}([^\\d.,]|$)`)
           expect(
-            architecture,
-            `"systems.detail.${system.slug}.architecture" (${locale}) não cita a métrica "${metric.key}" (${formatted})`,
-          ).toContain(formatted)
+            inteiro.test(architecture),
+            `"systems.detail.${system.slug}.architecture" (${locale}) não cita a métrica "${metric.key}" (${formatted}) como número inteiro`,
+          ).toBe(true)
         }
       }
     }

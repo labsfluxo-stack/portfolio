@@ -255,7 +255,17 @@ export const pt: Dictionary = {
         problem:
           'Uma operação de crédito imobiliário precisa de um sistema comercial que uma corretora consiga operar sozinha: cadastro de clientes, distribuição de leads entre consultores, acompanhamento de propostas e um canal de WhatsApp que não pode cair sem ninguém perceber. O produto tinha que rodar como sistema operacional da operação, não como planilha com verniz.',
         architecture:
-          'Monorepo TypeScript com Fastify 5 na API e Supabase/PostgreSQL como banco. Três frontends isolados: painel administrativo em React, painel do consultor externo (acesso restrito, dados só do que é dele) e uma landing em Astro para captação. 78.900 linhas de código, 73 migrations, 56 tabelas com 146 RLS policies, 219 endpoints e 42 telas, construídos em 444 commits ao longo de 26 dias. Em produção em os.capstack.capital.',
+          // REGRA DESTES PARÁGRAFOS: fica o que descreve a FORMA do sistema
+          // (tabelas, policies, endpoints, telas); sai o que mede ESFORÇO —
+          // linhas, migrations, commits, dias.
+          //
+          // Eram sete números numa frase só, e o parágrafo misturava "o que o
+          // sistema é" com "quanto custou para existir": quem tentava
+          // entender a arquitetura tinha de atravessar uma contagem. Linhas e
+          // commits já vivem na Telemetria, somados. "26 dias" saiu por outro
+          // motivo ainda: sem o escopo à mão, lê-se tão facilmente como
+          // "apressado" quanto como "rápido".
+          'Monorepo TypeScript com Fastify 5 na API e Supabase/PostgreSQL como banco. Três frontends isolados: painel administrativo em React, painel do consultor externo (acesso restrito, dados só do que é dele) e uma landing em Astro para captação. São 56 tabelas com 146 RLS policies, 219 endpoints e 42 telas. Em produção em os.capstack.capital.',
         decisions: [
           {
             title: '146 RLS policies em 56 tabelas',
@@ -282,7 +292,10 @@ export const pt: Dictionary = {
         problem:
           'Marcas B2B já são citadas — ou ignoradas — por ChatGPT, Gemini, Claude e Perplexity quando alguém pergunta por uma categoria, e isso não tinha métrica, não tinha processo e não tinha quem aprovasse a peça antes de ela sair. Faltava uma plataforma que medisse Share of Voice dentro das IAs e automatizasse a resposta sem soltar orçamento de mídia sem supervisão.',
         architecture:
-          'Monorepo com 14 packages e 3 apps. API em Fastify 5 com Zod validando entrada, documentando o OpenAPI e estruturando a saída do LLM a partir do mesmo schema. PostgreSQL 16 com pgvector para embeddings, Drizzle como ORM, BullMQ sobre Redis para filas e 13 jobs cron, front em React com three.js para a cena da constelação. 37.672 linhas de código (23.580 de produção, 14.092 de teste), 57 migrations, 60 tabelas, 240 endpoints, 1.102 casos de teste e 798 commits.',
+          // Mesma regra. Os casos de teste ficam: 1.102 não mede esforço, diz
+          // que tipo de sistema é este — combina com a barreira fail-closed e
+          // com o portão de documentação no CI, que são as decisões da página.
+          'Monorepo com 14 packages e 3 apps. API em Fastify 5 com Zod validando entrada, documentando o OpenAPI e estruturando a saída do LLM a partir do mesmo schema. PostgreSQL 16 com pgvector para embeddings, Drizzle como ORM, BullMQ sobre Redis para filas e 13 jobs cron, front em React com three.js para a cena da constelação. São 60 tabelas, 240 endpoints e 1.102 casos de teste.',
         decisions: [
           {
             title: 'Portão de documentação executável no CI',
@@ -309,7 +322,15 @@ export const pt: Dictionary = {
         problem:
           'Lojas de móveis vendem por WhatsApp e Instagram sem CRM: conversa se perde, vendedor não sabe quem já foi atendido, e cada loja é um cliente isolado que não pode ver dado de outra. Faltava um SaaS que desse conta comercial de verdade dentro de cada loja, sem misturar tenant.',
         architecture:
-          'Três aplicações: API em Fastify, painel de gestão em Next.js e PWA para o vendedor usar no chão de loja. Banco modelado com 40 models Prisma, 56.500 linhas de código e 231 commits. Deploy em VPS com Nginx, com pipeline de CI que aplica threshold de cobertura de teste antes de liberar merge. Código público em github.com/netoguild-rgb/Moveis.pro.',
+          // Mesma regra, mais uma remoção própria daqui: o fecho era "Código
+          // público em github.com/netoguild-rgb/Moveis.pro.", que repete o
+          // botão "Ver repositório" logo abaixo, na mesma página.
+          //
+          // "3 aplicações" com dígito, não "Três": a métrica do card é 3, e
+          // tests/content.test.ts exige que a arquitetura corrobore cada
+          // número do card. Escrito por extenso, o dígito não aparecia — e o
+          // teste só passava porque "231 commits" continha um "3" no meio.
+          'São 3 aplicações: API em Fastify, painel de gestão em Next.js e PWA para o vendedor usar no chão de loja. Banco modelado com 40 models Prisma. Deploy em VPS com Nginx, com pipeline de CI que aplica threshold de cobertura de teste antes de liberar merge.',
         decisions: [
           {
             title: 'Isolamento multi-tenant',
