@@ -186,14 +186,15 @@ export const pt: Dictionary = {
     proprietaryNote: 'Código proprietário — sem repositório público.',
     viewRepo: 'Ver repositório',
     metricLabels: {
-      lines: 'linhas',
-      tables: 'tabelas',
+      // Só categorias que a Telemetria NÃO usa — ver o comentário no topo
+      // de content/systems.ts. `lines`, `tables`, `endpoints`, `commits` e
+      // `tests` saíram junto com as métricas que os usavam: rótulo órfão
+      // aqui é convite para recolocar a métrica e reabrir a repetição.
       policies: 'RLS policies',
-      endpoints: 'endpoints',
+      screens: 'telas',
       packages: 'packages',
-      tests: 'testes',
+      jobs: 'jobs cron',
       models: 'models',
-      commits: 'commits',
       apps: 'aplicações',
     },
     caseLabels: {

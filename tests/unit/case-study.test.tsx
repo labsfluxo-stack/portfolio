@@ -121,11 +121,24 @@ describe('CaseStudy', () => {
     expect(screen.queryByText('policies')).not.toBeInTheDocument()
   })
 
-  it('com locale en, os números do topo saem com vírgula como separador de milhar', () => {
+  // Fixava '78,900' — a contagem de linhas do OSCapstack — e quebrou quando
+  // os cards deixaram de repetir as categorias da Telemetria (ver
+  // content/systems.ts). Nenhuma métrica real chega a mil hoje, então o
+  // separador de milhar não é observável nos dados: um `String(valor)` no
+  // lugar de `formatNumber(valor, locale)` passaria despercebido para
+  // sempre. Um sistema sintético prova o comportamento do componente sem
+  // depender do conteúdo — mesma correção de tests/unit/systems.test.tsx.
+  it('formata número pelo locale, não com String()', () => {
     setReducedMotion(true)
-    render(<CaseStudy system={systemFor('oscapstack')} dict={en} locale="en" />)
+    const grande = { ...systemFor('oscapstack'), metrics: [{ key: 'policies', value: 78900 }] }
+
+    const { rerender } = render(<CaseStudy system={grande} dict={en} locale="en" />)
     expect(screen.getByText('78,900')).toBeInTheDocument()
     expect(screen.queryByText('78.900')).not.toBeInTheDocument()
+
+    rerender(<CaseStudy system={grande} dict={pt} locale="pt" />)
+    expect(screen.getByText('78.900')).toBeInTheDocument()
+    expect(screen.queryByText('78,900')).not.toBeInTheDocument()
   })
 
   it('tem um único link de volta para a home, com o rótulo do dicionário', () => {

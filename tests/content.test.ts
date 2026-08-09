@@ -107,6 +107,41 @@ describe('dicionários', () => {
     }
   })
 
+  // O card de um sistema e a Telemetria falavam das MESMAS categorias:
+  // linhas, tabelas, endpoints, commits e testes apareciam nos dois, e o
+  // case study repetia tudo uma terceira vez na prosa da arquitetura.
+  // "Linhas de código" era dita três vezes no mesmo caminho de leitura.
+  //
+  // A divisão é de responsabilidade: a Telemetria conta o volume somado da
+  // carreira, o card conta o que é específico daquele sistema. Esta trava
+  // quebra se as duas listas voltarem a se cruzar.
+  it('nenhuma métrica de sistema repete uma categoria da telemetria', () => {
+    const telemetria = new Set(
+      [...pt.telemetry.metrics, ...pt.telemetry.secondary].map((metric) => metric.key),
+    )
+    // Sanidade: sem isto, um `telemetry` vazio (ou uma troca de nome de
+    // campo) deixaria a interseção vazia e o teste verde sem checar nada.
+    expect(telemetria.size, 'a telemetria não tem chave nenhuma — o teste virou decoração').toBeGreaterThan(5)
+
+    const cruzadas = systems
+      .flatMap((system) => system.metrics.map((metric) => metric.key))
+      .filter((key) => telemetria.has(key))
+    expect(
+      [...new Set(cruzadas)],
+      'estas categorias aparecem no card E na telemetria — escolha uma das duas superfícies',
+    ).toEqual([])
+  })
+
+  // Rótulo sem métrica que o use é convite para alguém recolocar a métrica
+  // e reabrir a repetição acima; métrica sem rótulo renderiza `undefined`
+  // na tela. Os dois lados têm de bater exatamente.
+  it('metricLabels cobre exatamente as chaves usadas pelos sistemas, sem sobra', () => {
+    const usadas = [...new Set(systems.flatMap((system) => system.metrics.map((metric) => metric.key)))].sort()
+    for (const dict of [pt, en]) {
+      expect(Object.keys(dict.systems.metricLabels).sort()).toEqual(usadas)
+    }
+  })
+
   it('a arquitetura de cada case study cita os números de content/systems.ts', () => {
     for (const locale of locales) {
       const dict = locale === 'pt' ? pt : en

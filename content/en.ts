@@ -159,14 +159,12 @@ export const en: Dictionary = {
     proprietaryNote: 'Proprietary code — no public repository.',
     viewRepo: 'View repository',
     metricLabels: {
-      lines: 'lines',
-      tables: 'tables',
+      // Ver content/pt.ts: só categorias que a Telemetria não usa.
       policies: 'RLS policies',
-      endpoints: 'endpoints',
+      screens: 'screens',
       packages: 'packages',
-      tests: 'tests',
+      jobs: 'cron jobs',
       models: 'models',
-      commits: 'commits',
       apps: 'apps',
     },
     caseLabels: {

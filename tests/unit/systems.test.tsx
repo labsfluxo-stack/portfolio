@@ -1,9 +1,10 @@
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { Systems } from '@/components/sections/Systems'
+import { SystemCard } from '@/components/sections/SystemCard'
 import { pt } from '@/content/pt'
 import { en } from '@/content/en'
-import { systems } from '@/content/systems'
+import { systems, type System } from '@/content/systems'
 
 function setReducedMotion(reduced: boolean) {
   vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
@@ -78,18 +79,66 @@ describe('Systems', () => {
     expect(repoLink.closest('a')).toHaveAttribute('href', 'https://github.com/netoguild-rgb/Moveis.pro')
   })
 
-  it('com locale en, os números dos cards saem com vírgula como separador de milhar', () => {
+  // Este teste fixava '78,900' — a contagem de linhas do OSCapstack — e
+  // quebrou quando os cards deixaram de repetir as categorias da Telemetria
+  // (ver content/systems.ts). O defeito não era o valor estar desatualizado,
+  // era depender de um dado que pode legitimamente mudar.
+  //
+  // E hoje NENHUMA métrica de card chega a mil, então o separador de milhar
+  // não é observável nos dados reais: um `String(valor)` no lugar de
+  // `formatNumber(valor, locale)` passaria despercebido para sempre. Por
+  // isso o teste passou a montar um sistema sintético com um número grande
+  // — prova o comportamento do componente sem depender do conteúdo.
+  it('o card formata número pelo locale, não com String()', () => {
     setReducedMotion(true)
-    render(<Systems dict={en} locale="en" />)
+    const grande = {
+      ...(systems[0] as System),
+      name: 'Sistema de Teste',
+      metrics: [{ key: 'policies', value: 78900 }],
+    }
+
+    const { rerender } = render(<SystemCard system={grande} dict={en} locale="en" />)
     expect(screen.getByText('78,900')).toBeInTheDocument()
     expect(screen.queryByText('78.900')).not.toBeInTheDocument()
+
+    rerender(<SystemCard system={grande} dict={pt} locale="pt" />)
+    expect(screen.getByText('78.900')).toBeInTheDocument()
+    expect(screen.queryByText('78,900')).not.toBeInTheDocument()
   })
 
+  // Idem: era só o OSCapstack e só a chave `tables`, que nem existe mais.
+  // Agora percorre tudo — qualquer métrica nova de qualquer sistema entra
+  // nesta verificação sozinha, sem ninguém lembrar de atualizar o teste.
   it('o rótulo de cada métrica vem do dicionário, nunca da chave crua', () => {
     setReducedMotion(true)
     render(<Systems dict={pt} locale="pt" />)
-    const oscapstack = cardFor('OSCapstack CRM')
-    expect(oscapstack.getByText(metricLabel('tables'))).toBeInTheDocument()
-    expect(oscapstack.queryByText('tables')).not.toBeInTheDocument()
+
+    for (const system of systems) {
+      const card = cardFor(system.name)
+      for (const metric of system.metrics) {
+        expect(card.getByText(metricLabel(metric.key))).toBeInTheDocument()
+        // Só acusa se o rótulo do dicionário FOR diferente da chave; em
+        // `packages` e `models` os dois coincidem de propósito, e ali não há
+        // o que distinguir.
+        if (metricLabel(metric.key) !== metric.key) {
+          expect(card.queryByText(metric.key)).not.toBeInTheDocument()
+        }
+      }
+    }
+  })
+
+  // A descrição de cada sistema no card. Sem ela, o card mostra nome, selos
+  // e números — e quem não conhece "OSCapstack CRM" sai sem saber do que se
+  // trata. É a única linha do card que fala com quem lê para contratar.
+  it('cada card diz o que o sistema é', () => {
+    setReducedMotion(true)
+    render(<Systems dict={pt} locale="pt" />)
+
+    for (const system of systems) {
+      const card = cardFor(system.name)
+      const tagline = pt.systems.detail[system.slug].tagline
+      expect(tagline.length, `tagline vazia para ${system.slug}`).toBeGreaterThan(20)
+      expect(card.getByText(tagline)).toBeInTheDocument()
+    }
   })
 })

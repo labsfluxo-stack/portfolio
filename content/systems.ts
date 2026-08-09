@@ -18,6 +18,22 @@ export type System = {
   liveUrl?: string
 }
 
+// NENHUMA MÉTRICA AQUI PODE SER DE UMA CATEGORIA QUE A TELEMETRIA JÁ USA.
+// Os cards mostravam linhas, tabelas, endpoints, commits e testes — as
+// mesmas cinco categorias que `telemetry.metrics` e `telemetry.secondary`
+// exibem uma rolagem abaixo, e que o case study repete uma terceira vez na
+// prosa da arquitetura. "Linhas de código" aparecia três vezes no mesmo
+// caminho de leitura.
+//
+// A divisão agora é de responsabilidade: a Telemetria conta o VOLUME
+// somado da carreira, e o card conta o que é ESPECÍFICO daquele sistema —
+// o número que só faz sentido falando dele. Há uma trava em
+// tests/content.test.ts que quebra se as duas listas voltarem a se cruzar.
+//
+// Duas métricas por card, não quatro: fora das categorias da Telemetria, o
+// Moveis.pro só tem dois números próprios, e três cards com contagens
+// diferentes de célula ficariam desalinhados na fileira. O que carrega o
+// card hoje é o `tagline` (ver SystemCard.tsx), não a quantidade de número.
 export const systems: readonly System[] = [
   {
     slug: 'oscapstack',
@@ -25,10 +41,8 @@ export const systems: readonly System[] = [
     production: true,
     proprietary: true,
     metrics: [
-      { key: 'lines', value: 78900 },
-      { key: 'tables', value: 56 },
       { key: 'policies', value: 146 },
-      { key: 'endpoints', value: 219 },
+      { key: 'screens', value: 42 },
     ],
     stack: ['TypeScript', 'Fastify 5', 'Supabase', 'PostgreSQL', 'React', 'Astro', 'Playwright', 'pgTAP', 'Docker'],
     liveUrl: 'https://os.capstack.capital',
@@ -39,10 +53,8 @@ export const systems: readonly System[] = [
     production: false,
     proprietary: true,
     metrics: [
-      { key: 'lines', value: 37672 },
       { key: 'packages', value: 14 },
-      { key: 'tables', value: 60 },
-      { key: 'tests', value: 1102 },
+      { key: 'jobs', value: 13 },
     ],
     stack: ['TypeScript', 'Fastify 5', 'Zod', 'PostgreSQL', 'pgvector', 'Drizzle', 'BullMQ', 'Redis', 'React', 'three.js'],
   },
@@ -52,9 +64,7 @@ export const systems: readonly System[] = [
     production: true,
     proprietary: false,
     metrics: [
-      { key: 'lines', value: 56500 },
       { key: 'models', value: 40 },
-      { key: 'commits', value: 231 },
       { key: 'apps', value: 3 },
     ],
     stack: ['TypeScript', 'Next.js', 'Fastify', 'Prisma', 'PostgreSQL', 'PWA', 'Docker', 'Nginx'],

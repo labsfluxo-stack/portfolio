@@ -39,17 +39,24 @@ export function SystemCard({
         </div>
       </div>
 
-      {/* Duas colunas fixas em qualquer largura, não quatro: com três cards
-       * lado a lado no desktop, uma célula de métrica raramente tem mais de
-       * ~150px de largura, e um número de 6 dígitos com separador de milhar
-       * (78.900) mais o rótulo "RLS POLICIES" não cabem em quatro colunas
-       * dessa largura sem transbordar por cima do vizinho (`min-width: auto`
-       * é o padrão em item de grid — por isso `min-w-0` aqui). `gap-x-6` é
-       * deliberadamente maior que o `gap` padrão para garantir separação
-       * visível mesmo com o maior número da seção. `min-h-8` no rótulo
-       * reserva a altura de duas linhas sempre, então um rótulo de duas
-       * palavras que quebra (como "RLS policies") nunca empurra só aquele
-       * valor para baixo e desalinha a grade. */}
+      {/* O que o sistema É, em uma frase. O card não trazia isto: mostrava
+       * nome, selos e quatro números, e um visitante que não conhecesse
+       * "OSCapstack CRM" saía sem saber do que se tratava. É a linha que
+       * atende quem lê a página para decidir contratar, enquanto os números
+       * logo abaixo atendem quem lê para avaliar profundidade técnica —
+       * mesmo card, dois públicos.
+       *
+       * O texto já existia em `systems.detail[slug].tagline` e era usado só
+       * no CV e no topo do case study. */}
+      <p className="text-sm leading-relaxed text-muted">{systems.detail[system.slug].tagline}</p>
+
+      {/* Duas colunas fixas em qualquer largura: com três cards lado a lado
+       * no desktop, uma célula de métrica raramente tem mais de ~150px, e um
+       * rótulo de duas palavras como "RLS POLICIES" não cabe em mais colunas
+       * sem transbordar por cima do vizinho (`min-width: auto` é o padrão em
+       * item de grid — por isso `min-w-0` aqui). `min-h-8` no rótulo reserva
+       * a altura de duas linhas sempre, então um rótulo que quebra nunca
+       * empurra só aquele valor para baixo e desalinha a grade. */}
       <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-5">
         {system.metrics.map((metric) => (
           <div key={metric.key} className="min-w-0">
