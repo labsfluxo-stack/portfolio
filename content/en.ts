@@ -302,6 +302,10 @@ export const en: Dictionary = {
           },
         ],
         stack: ['TypeScript', 'Next.js', 'Fastify', 'Prisma', 'PostgreSQL', 'PWA', 'Docker', 'Nginx'],
+        // Ver content/pt.ts: o ganho de tempo aparece amarrado ao mecanismo
+        // que o produz, nunca como afirmação solta e não medida.
+        outcome:
+          "The system answers the customer, closes the order, sends it to the factory and tracks stock — all in the same place where the conversation started. The sale stopped changing tools at every step, which is where the handover used to get lost, and where the salesperson's time went.",
       },
     },
   },

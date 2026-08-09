@@ -372,6 +372,18 @@ export const pt: Dictionary = {
           },
         ],
         stack: ['TypeScript', 'Next.js', 'Fastify', 'Prisma', 'PostgreSQL', 'PWA', 'Docker', 'Nginx'],
+        // O dono descreveu o ganho como "as empresas melhoram seu tempo".
+        // Essa frase NÃO foi escrita: é vaga, ninguém mediu, e não dá para
+        // conferir — exatamente o tipo de afirmação que o resto do site foi
+        // construído para não fazer. E é mais fraca que os fatos que ele
+        // deu.
+        //
+        // O tempo aparece amarrado ao MECANISMO que o produz: a venda parava
+        // de trocar de ferramenta a cada etapa. Assim o leitor conclui o
+        // ganho sozinho, e conclusão que o leitor tira vale mais do que
+        // afirmação que ele lê.
+        outcome:
+          'O sistema responde o cliente, fecha o pedido, manda o pedido para a fábrica e acompanha o estoque — tudo no mesmo lugar em que a conversa começou. A venda deixou de trocar de ferramenta a cada etapa, que era onde o atendimento se perdia e para onde ia o tempo do vendedor.',
       },
     },
   },
