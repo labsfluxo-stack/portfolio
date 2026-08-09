@@ -68,14 +68,17 @@ export function CaseStudy({
                 {system.production ? <StatusBadge status="ok" label={systems.statusLabels.production} /> : null}
                 {system.proprietary ? <StatusBadge status="warn" label={systems.statusLabels.proprietary} /> : null}
               </div>
-              {/* O tamanho do time, junto dos selos e antes dos números.
-               * Era a informação mais ausente da página: nada dizia se o
-               * sistema foi feito por uma pessoa ou por dez, e essa é a
-               * primeira pergunta de quem lê 78.900 linhas. Sem resposta o
-               * leitor resolve sozinho — e resolve pelo lado pessimista.
-               * Vem ANTES das métricas de propósito: é o denominador delas. */}
+              {/* Time e prazo, juntos, antes dos números — os dois são o
+               * denominador das métricas que vêm logo abaixo.
+               *
+               * Nada dizia se o sistema foi feito por uma pessoa ou por dez,
+               * e essa é a primeira pergunta de quem lê 78.900 linhas: sem
+               * resposta, o leitor resolve sozinho e resolve pelo lado
+               * pessimista. O prazo só entra ACOMPANHADO do time: sozinho ele
+               * se lê tão facilmente como "apressado" quanto como "rápido",
+               * e foi por isso que saiu do parágrafo de arquitetura. */}
               <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-muted">
-                {caseStudy.team}
+                {caseStudy.team} · {caseStudy.duration}
               </p>
             </div>
             <SystemArt slug={system.slug} />

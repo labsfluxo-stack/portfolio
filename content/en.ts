@@ -212,7 +212,8 @@ export const en: Dictionary = {
       oscapstack: {
         name: 'OSCapstack CRM',
         tagline: "Commercial operating system for real-estate credit origination, in production.",
-        team: 'Team of 2 full-stack developers',
+        team: '2 full-stack developers',
+        duration: 'built in 26 days',
         problem:
           // Ver content/pt.ts: o ANTES faltava, e sem ele o depois não tem
           // contra o quê ser medido.
@@ -248,7 +249,8 @@ export const en: Dictionary = {
       'saturno-labs': {
         name: 'Saturno Labs',
         tagline: "Autonomous B2B marketing platform that measures a brand's authority inside AI answers.",
-        team: 'Team of 2 full-stack developers',
+        team: '2 full-stack developers',
+        duration: 'built in under 45 days',
         problem:
           'B2B brands are already being cited — or ignored — by ChatGPT, Gemini, Claude and Perplexity whenever someone asks about a category, and there was no metric for it, no process, and no one approving a piece of content before it went out. What was missing was a platform that measured Share of Voice inside AI answers and automated the response without releasing media budget unsupervised.',
         architecture:
@@ -279,7 +281,8 @@ export const en: Dictionary = {
       'moveis-pro': {
         name: 'Moveis.pro',
         tagline: 'Multi-tenant SaaS for furniture stores, with CRM and WhatsApp/Instagram operations.',
-        team: 'Team of 2 full-stack developers',
+        team: '2 full-stack developers',
+        duration: 'built in under 45 days',
         problem:
           "Furniture stores sell over WhatsApp and Instagram with no CRM: conversations get lost, salespeople don't know who has already been helped, and each store is a separate customer that should never see another store's data. What was missing was a SaaS that handled the commercial side for real inside each store, without mixing tenants.",
         architecture:

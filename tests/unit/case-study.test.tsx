@@ -93,13 +93,34 @@ describe('CaseStudy', () => {
   // ambiguidade sozinho, e resolve pelo lado pessimista — "sei lá quantos
   // eram". Declarar o time de dois fortalece os números em vez de
   // diminui-los.
-  it('o cabeçalho declara o tamanho do time em todos os cases', () => {
+  it('o cabeçalho declara time e prazo em todos os cases', () => {
     setReducedMotion(true)
     for (const slug of SYSTEM_SLUGS) {
       const view = render(<CaseStudy system={systemFor(slug)} dict={pt} locale="pt" />)
-      const time = pt.systems.detail[slug].team
-      expect(time.length, `case "${slug}" sem time declarado`).toBeGreaterThan(5)
-      expect(within(view.container.querySelector('header') as HTMLElement).getByText(time)).toBeInTheDocument()
+      const { team, duration } = pt.systems.detail[slug]
+      expect(team.length, `case "${slug}" sem time declarado`).toBeGreaterThan(5)
+      expect(duration.length, `case "${slug}" sem prazo declarado`).toBeGreaterThan(5)
+
+      const cabecalho = view.container.querySelector('header')?.textContent ?? ''
+      expect(cabecalho, `time de "${slug}" ausente do cabeçalho`).toContain(team)
+      expect(cabecalho, `prazo de "${slug}" ausente do cabeçalho`).toContain(duration)
+      view.unmount()
+    }
+  })
+
+  // O prazo só é honesto ACOMPANHADO do time — sozinho, ele afirma velocidade
+  // sem dar o denominador para julgá-la. Se um dia o time sair da tela, o
+  // prazo tem de sair junto.
+  it('o prazo nunca aparece sem o time ao lado', () => {
+    setReducedMotion(true)
+    for (const slug of SYSTEM_SLUGS) {
+      const view = render(<CaseStudy system={systemFor(slug)} dict={pt} locale="pt" />)
+      const { team, duration } = pt.systems.detail[slug]
+      const linha = Array.from(view.container.querySelectorAll('p')).find((p) =>
+        (p.textContent ?? '').includes(duration),
+      )
+      expect(linha, `prazo de "${slug}" não renderizou`).toBeDefined()
+      expect(linha?.textContent ?? '', `prazo de "${slug}" está sozinho, sem o time`).toContain(team)
       view.unmount()
     }
   })

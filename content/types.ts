@@ -57,6 +57,21 @@ export type CaseStudy = {
    */
   team: string
   /**
+   * Tempo de construção. Fica colado no `team`, e a ordem importa: o time é
+   * o denominador do prazo.
+   *
+   * O prazo do OSCapstack já esteve no parágrafo de arquitetura ("26 dias") e
+   * foi removido de lá por um motivo que valia enquanto o time era
+   * desconhecido — velocidade sem denominador se lê tão facilmente como
+   * "apressado" quanto como "rápido". Com o time de dois declarado ao lado, a
+   * conta fecha na cabeça do leitor e o prazo deixa de ser ambíguo.
+   *
+   * Precisão variável de propósito: onde o histórico do repositório dá o
+   * número exato, vai o exato; onde só existe o limite que o dono afirma, vai
+   * o limite. Arredondar para baixo o que não foi medido seria inventar.
+   */
+  duration: string
+  /**
    * O que mudou para o cliente. Fecha a página.
    *
    * Opcional porque depende de fato que só o dono tem: o estado ANTES do
