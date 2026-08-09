@@ -374,14 +374,19 @@ export const pt: Dictionary = {
         label: 'IA aplicada',
         source: 'repo',
         items: [
+          // Domínio nos três que têm a evidência mais funda no Saturno Labs:
+          // barreira fail-closed com IA-juíza e aprovação humana, saída do
+          // LLM estruturada pelo mesmo schema Zod que documenta o OpenAPI, e
+          // pgvector com embeddings em produção. Os provedores ficam em
+          // Produção — usar quatro é amplitude, não profundidade.
+          { name: 'Guardrails', level: 'dominio' },
+          { name: 'Tool-calling', level: 'dominio' },
+          { name: 'Embeddings/RAG', level: 'dominio' },
           { name: 'Anthropic', level: 'producao' },
           { name: 'OpenAI', level: 'producao' },
           { name: 'Google', level: 'producao' },
           { name: 'Groq', level: 'producao' },
           { name: 'Vercel AI SDK', level: 'contato' },
-          { name: 'Embeddings/RAG', level: 'producao' },
-          { name: 'Tool-calling', level: 'producao' },
-          { name: 'Guardrails', level: 'producao' },
         ],
       },
       {
@@ -392,10 +397,11 @@ export const pt: Dictionary = {
           { name: 'GEO (respostas de IA)', level: 'dominio' },
           { name: 'JSON-LD / Schema.org', level: 'dominio' },
           { name: 'KPIs customizadas', level: 'dominio' },
-          { name: 'Share of Voice em IA', level: 'producao' },
-          { name: 'Core Web Vitals', level: 'producao' },
-          { name: 'IndexNow', level: 'producao' },
-          { name: 'Blog & feed RSS', level: 'producao' },
+          { name: 'Rastreamento de eventos', level: 'dominio' },
+          { name: 'Share of Voice em IA', level: 'dominio' },
+          { name: 'Core Web Vitals', level: 'dominio' },
+          { name: 'IndexNow', level: 'dominio' },
+          { name: 'Blog & feed RSS', level: 'dominio' },
         ],
       },
       {
@@ -403,39 +409,51 @@ export const pt: Dictionary = {
         source: 'repo',
         items: [
           { name: 'React', level: 'dominio' },
-          { name: 'Vite', level: 'producao' },
+          { name: 'Vite', level: 'dominio' },
           { name: 'Tailwind', level: 'dominio' },
-          { name: 'PWA', level: 'producao' },
-          { name: 'three.js', level: 'producao' },
+          { name: 'PWA', level: 'dominio' },
+          { name: 'three.js', level: 'dominio' },
         ],
       },
       {
-        label: 'Qualidade & Entrega',
+        // Docker, Nginx, VPS e blue-green vieram da camada de redes. Lá a
+        // etiqueta da camada é "Experiência" — declarada, sem repositório —
+        // e isso rebaixava quatro itens que têm código auditável: os três
+        // sistemas usam Docker, o Moveis.pro roda atrás de Nginx e o
+        // blue-green do OSCapstack está implementado, com health-check de 15
+        // tentativas e remoção do container novo quando falha. A origem é
+        // por camada, então o jeito de a etiqueta ficar honesta é o item
+        // morar na camada certa.
+        label: 'Entrega & Infraestrutura',
         source: 'repo',
         items: [
           { name: 'Vitest', level: 'dominio' },
-          { name: 'Playwright', level: 'producao' },
-          { name: 'pgTAP', level: 'producao' },
+          { name: 'Playwright', level: 'dominio' },
           { name: 'GitHub Actions', level: 'dominio' },
-          { name: 'Turborepo', level: 'producao' },
+          { name: 'Turborepo', level: 'dominio' },
+          { name: 'Docker', level: 'dominio' },
+          { name: 'Nginx', level: 'dominio' },
+          { name: 'VPS', level: 'dominio' },
+          { name: 'Deploy blue-green', level: 'dominio' },
+          { name: 'pgTAP', level: 'producao' },
           { name: 'pnpm', level: 'producao' },
+          { name: 'PM2', level: 'producao' },
+          { name: 'Heartbeat/uptime', level: 'producao' },
         ],
       },
       {
-        label: 'Redes & Infraestrutura',
+        // Só "Redes" agora: o que sobrou aqui é o que de fato não tem
+        // repositório para mostrar, e por isso a etiqueta "Experiência"
+        // passou a valer para todos os itens da camada em vez de rebaixar
+        // metade deles (ver o comentário na camada de Entrega).
+        label: 'Redes',
         source: 'experience',
         items: [
           { name: 'Cisco', level: 'dominio' },
           { name: 'MikroTik', level: 'dominio' },
-          { name: 'Furukawa', level: 'producao' },
           { name: 'Switching', level: 'dominio' },
-          { name: 'VPS', level: 'dominio' },
           { name: 'DNS', level: 'dominio' },
-          { name: 'Nginx', level: 'dominio' },
-          { name: 'Docker', level: 'dominio' },
-          { name: 'Deploy blue-green', level: 'dominio' },
-          { name: 'PM2', level: 'producao' },
-          { name: 'Heartbeat/uptime', level: 'producao' },
+          { name: 'Furukawa', level: 'producao' },
         ],
       },
     ],

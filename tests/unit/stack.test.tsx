@@ -11,11 +11,19 @@ describe('Stack', () => {
   // base que explica a confiabilidade disso, não a oferta. Com redes
   // abrindo a lista (e sendo a camada com mais itens em nível de domínio),
   // ela respondia sozinha "o que essa pessoa faz?" pela área errada.
-  it('a camada de redes vem por último, e o software abre a lista', () => {
+  // A camada é identificada pela ORIGEM, não pelo rótulo: ela já se chamou
+  // "Redes & Infraestrutura" e hoje é só "Redes" (os itens com código
+  // auditável saíram para a camada de Entrega). Um teste preso ao texto do
+  // rótulo quebra a cada renome sem que nada de real tenha mudado.
+  it('a camada de experiência declarada vem por último, e o software abre a lista', () => {
     const { container } = render(<Stack dict={pt} locale="pt" />)
     const text = container.textContent ?? ''
     expect(pt.stack.layers[0]?.label).toBe('Backend')
-    expect(pt.stack.layers.at(-1)?.label).toBe('Redes & Infraestrutura')
+    expect(pt.stack.layers.at(-1)?.source, 'a última camada deixou de ser a de experiência').toBe('experience')
+    expect(
+      pt.stack.layers.filter((layer) => layer.source === 'experience'),
+      'passou a existir mais de uma camada de experiência — a trava assume que é uma só',
+    ).toHaveLength(1)
     // Ordem do DOCUMENTO, não só a do array de dados: um item exclusivo do
     // Backend (TypeScript) precisa aparecer antes de um exclusivo de redes
     // (Cisco). Sem isto, um `reverse()` no componente passaria batido.
@@ -41,11 +49,15 @@ describe('Stack', () => {
     }
   })
 
-  it('a nota de experiência aparece na camada de redes, e a de repo nas demais', () => {
+  it('a etiqueta de experiência aparece só na camada de experiência, e a de código nas demais', () => {
     const { container } = render(<Stack dict={pt} locale="pt" />)
+    // Localizada pela origem no dicionário, não pelo texto do rótulo — ver o
+    // comentário do primeiro teste.
+    const experiencia = pt.stack.layers.find((layer) => layer.source === 'experience')
+    expect(experiencia, 'nenhuma camada de experiência no dicionário').toBeDefined()
     const headings = screen.getAllByRole('heading', { level: 3 })
-    const networkingHeading = headings.find((h) => h.textContent === 'Redes & Infraestrutura')
-    expect(networkingHeading).toBeDefined()
+    const networkingHeading = headings.find((h) => h.textContent === experiencia?.label)
+    expect(networkingHeading, `a camada "${experiencia?.label}" não renderizou`).toBeDefined()
     const networkingCard = networkingHeading?.closest('div')
     expect(networkingCard?.textContent ?? '').toContain(pt.stack.sourceNote.experience)
     expect(networkingCard?.textContent ?? '').not.toContain(pt.stack.sourceNote.repo)
