@@ -218,6 +218,7 @@ export const pt: Dictionary = {
       architecture: 'Arquitetura',
       decisions: 'Decisões difíceis',
       stack: 'Stack',
+      outcome: 'O que mudou',
       backToHome: 'Voltar',
     },
     // Só prosa aqui — nome de tecnologia é escrito direto no componente do
@@ -253,7 +254,10 @@ export const pt: Dictionary = {
         name: 'OSCapstack CRM',
         tagline: 'Sistema operacional comercial para originação de crédito imobiliário, em produção.',
         problem:
-          'Uma operação de crédito imobiliário precisa de um sistema comercial que uma corretora consiga operar sozinha: cadastro de clientes, distribuição de leads entre consultores, acompanhamento de propostas e um canal de WhatsApp que não pode cair sem ninguém perceber. O produto tinha que rodar como sistema operacional da operação, não como planilha com verniz.',
+          // O ANTES estava faltando, e sem ele o "depois" não tem contra o quê
+          // ser medido. A operação inteira rodava em planilha — é esse o ponto
+          // de partida que faz o resto da página significar alguma coisa.
+          'A operação inteira rodava em planilha. Lead chegava por três canais — Instagram, LinkedIn e WhatsApp — e era copiado à mão; ninguém sabia de cabeça quem já tinha sido atendido, e agenda, proposta e documento viviam cada um num lugar diferente. O produto tinha que virar o sistema operacional da corretora, não uma planilha com verniz.',
         architecture:
           // REGRA DESTES PARÁGRAFOS: fica o que descreve a FORMA do sistema
           // (tabelas, policies, endpoints, telas); sai o que mede ESFORÇO —
@@ -285,6 +289,17 @@ export const pt: Dictionary = {
           },
         ],
         stack: ['TypeScript', 'Fastify 5', 'Supabase', 'PostgreSQL', 'React', 'Astro', 'Playwright', 'pgTAP', 'Docker'],
+        // Fecha a página no ganho do cliente. O último parágrafo é o mais
+        // importante dos dois públicos: descreve capacidade que não existia,
+        // sem nenhum número de resultado — não houve medição, e inventar uma
+        // seria a única mentira que este site não sobrevive.
+        //
+        // A última frase é o argumento mais forte do case e por isso fica por
+        // último: quase todo desenvolvedor entrega dependência, e este
+        // entregou o contrário. Vale mais do que qualquer detalhe técnico
+        // acima dela.
+        outcome:
+          'Os três canais passaram a cair num lugar só, e o lead é distribuído na hora — por roleta ponderada ou direcionado a um consultor. A agenda sincroniza com o Google Calendar, documento de cliente é lido por IA em vez de conferido à mão, a mensageria responde sozinha o que é repetitivo, e o relatório de performance chega com o que a IA achou fora do padrão. Admin e vendedor têm cada um o seu app. E o dono monta o próprio funil e as próprias automações: mudar uma regra do processo deixou de depender de mim.',
       },
       'saturno-labs': {
         name: 'Saturno Labs',
@@ -315,6 +330,13 @@ export const pt: Dictionary = {
           },
         ],
         stack: ['TypeScript', 'Fastify 5', 'Zod', 'PostgreSQL', 'pgvector', 'Drizzle', 'BullMQ', 'Redis', 'React', 'three.js'],
+        // O ciclo fechado é o argumento: pesquisa alimenta peça, peça vira
+        // publicação, publicação volta indexada para a memória, e a rodada
+        // seguinte já sabe o que a anterior fez. Sem o retorno à memória isso
+        // seria só um gerador de texto; com ele, é um sistema que aprende com
+        // o próprio histórico.
+        outcome:
+          'A pesquisa passou a vir antes da peça: o sistema olha o que já rankeia, onde o concorrente chegou e qual pergunta ninguém respondeu — e é dessa lacuna que sai o artigo, o carrossel e o post de Instagram e de LinkedIn. O artigo é publicado no blog e volta indexado para a memória do sistema, então a rodada seguinte começa sabendo o que a anterior fez. O CRM é omnichannel: a conversa que a peça gera não se perde do outro lado.',
       },
       'moveis-pro': {
         name: 'Moveis.pro',

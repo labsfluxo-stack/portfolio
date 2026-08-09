@@ -165,12 +165,22 @@ export function CaseStudy({
         </div>
       </Section>
 
-      {/* Havia uma seção 05, "O que eu faria diferente", com a retrospectiva
-       * de cada sistema. Saiu por decisão do dono, e a razão é de
-       * posicionamento: num portfólio, a última coisa que o leitor vê antes
-       * de sair da página passava a ser o erro do autor. Retrospectiva é
-       * ótima numa conversa de engenharia e cara numa página que existe para
-       * ser avaliada — quem lê está decidindo, não orientando. */}
+      {/* A posição 05 já foi "O que eu faria diferente", a retrospectiva de
+       * cada sistema. Saiu, e a troca é proposital: mesmo lugar de fecho,
+       * valência oposta. A última coisa que o leitor vê antes de sair passa
+       * a ser o ganho do cliente, não o erro do autor — numa página que
+       * existe para ser avaliada, quem lê está decidindo, não orientando.
+       *
+       * Renderiza só quando o case tem o dado. `outcome` é opcional porque
+       * depende de saber o estado ANTES do sistema, e isso é fato do dono:
+       * sem ele não se escreve, e inventar resultado é a única mentira que
+       * um portfólio não sobrevive (ver content/types.ts). O case que não
+       * tiver termina no stack. */}
+      {caseStudy.outcome ? (
+        <Section id="mudou" label={systems.caseLabels.outcome} index="05">
+          <p className="max-w-3xl text-lg leading-relaxed text-muted">{caseStudy.outcome}</p>
+        </Section>
+      ) : null}
     </article>
   )
 }

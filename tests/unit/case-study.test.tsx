@@ -4,7 +4,7 @@ import { CaseStudy } from '@/components/sections/CaseStudy'
 import { pt } from '@/content/pt'
 import { en } from '@/content/en'
 import { systems } from '@/content/systems'
-import type { SystemSlug } from '@/content/types'
+import { SYSTEM_SLUGS, type SystemSlug } from '@/content/types'
 
 function setReducedMotion(reduced: boolean) {
   vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
@@ -53,15 +53,61 @@ describe('CaseStudy', () => {
     }
   })
 
-  // A página termina nas decisões e no stack, não numa retrospectiva. Sem
-  // esta trava, a seção volta na primeira vez que alguém achar que "mostra
-  // maturidade" — mostra, mas no lugar errado.
+  // A página não termina em retrospectiva. Sem esta trava, a seção volta na
+  // primeira vez que alguém achar que "mostra maturidade" — mostra, mas no
+  // lugar errado: era a última coisa antes de o leitor sair.
   it('não existe seção de retrospectiva no fim da página', () => {
     setReducedMotion(true)
     const { container } = render(<CaseStudy system={systemFor('oscapstack')} dict={pt} locale="pt" />)
     expect(container.querySelector('#retro'), 'a seção de retrospectiva voltou').toBeNull()
-    const texto = container.textContent ?? ''
-    expect(texto).not.toMatch(/faria diferente/i)
+    expect(container.textContent ?? '').not.toMatch(/faria diferente/i)
+  })
+
+  // Guiado pelos dados, não por slug fixo: o dono está preenchendo os
+  // outcomes um a um conforme lembra o estado ANTES de cada cliente, e um
+  // teste que fixasse "saturno não tem" quebraria no dia em que ele tiver —
+  // sem nada de errado ter acontecido. Já quebrou uma vez assim.
+  it('o case com outcome fecha em "O que mudou"; o sem outcome termina no stack', () => {
+    setReducedMotion(true)
+    const com = SYSTEM_SLUGS.filter((slug) => pt.systems.detail[slug].outcome)
+    const sem = SYSTEM_SLUGS.filter((slug) => !pt.systems.detail[slug].outcome)
+    expect(com.length, 'nenhum case tem outcome — a seção virou código morto').toBeGreaterThan(0)
+
+    for (const slug of com) {
+      const view = render(<CaseStudy system={systemFor(slug)} dict={pt} locale="pt" />)
+      expect(view.container.querySelector('#mudou'), `${slug} tem outcome e não renderizou a seção`).toBeTruthy()
+      expect(view.container.textContent ?? '').toContain(pt.systems.detail[slug].outcome as string)
+      view.unmount()
+    }
+
+    // Sem o dado do cliente, a seção some inteira — nunca um bloco vazio nem
+    // um texto de preenchimento.
+    for (const slug of sem) {
+      const view = render(<CaseStudy system={systemFor(slug)} dict={pt} locale="pt" />)
+      expect(view.container.querySelector('#mudou'), `${slug} não tem outcome e renderizou a seção`).toBeNull()
+      view.unmount()
+    }
+  })
+
+  // A TRAVA QUE MAIS IMPORTA NESTA SEÇÃO. "O que mudou" é a superfície onde
+  // mais dá vontade de escrever um resultado redondo — "reduziu 40% do
+  // tempo", "triplicou a conversão" — e nenhum desses números foi medido. O
+  // site inteiro foi construído sobre afirmação conferível; um percentual
+  // inventado aqui derrubaria a credibilidade das outras quatro seções
+  // junto.
+  it('nenhum outcome afirma resultado percentual ou multiplicador não medido', () => {
+    for (const dict of [pt, en]) {
+      for (const slug of SYSTEM_SLUGS) {
+        const outcome = dict.systems.detail[slug].outcome
+        if (!outcome) continue
+        for (const inventado of [/\d\s*%/, /\bx\s*\d/i, /\d+\s*vezes/i, /\d+\s*times\b/i, /dobr|tripl|double|tripl/i]) {
+          expect(
+            outcome,
+            `outcome de "${slug}" afirma um resultado que ninguém mediu (${inventado})`,
+          ).not.toMatch(inventado)
+        }
+      }
+    }
   })
 
   it('OSCapstack mostra os dois badges de status', () => {

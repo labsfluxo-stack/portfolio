@@ -41,6 +41,23 @@ export type CaseStudy = {
   architecture: string
   decisions: { title: string; body: string }[]
   stack: string[]
+  /**
+   * O que mudou para o cliente. Fecha a página.
+   *
+   * Opcional porque depende de fato que só o dono tem: o estado ANTES do
+   * sistema e o que passou a ser possível depois. Sem esse fato não se
+   * escreve — inventar resultado é a única mentira que um portfólio não
+   * sobrevive. O case que não tiver termina no stack, e pronto.
+   *
+   * Ocupa a posição onde ficava "O que eu faria diferente", e a troca é
+   * proposital: mesmo lugar de fecho, valência oposta. A última coisa que o
+   * leitor vê passa a ser o ganho do cliente, não o erro do autor.
+   *
+   * NUNCA colocar aqui número de resultado que não tenha sido medido.
+   * "Reduziu 40% do tempo" sem medição é exatamente a afirmação que o resto
+   * do site foi construído para não fazer.
+   */
+  outcome?: string
 }
 
 export type Dictionary = {
@@ -128,6 +145,7 @@ export type Dictionary = {
       architecture: string
       decisions: string
       stack: string
+      outcome: string
       backToHome: string
     }
     /**

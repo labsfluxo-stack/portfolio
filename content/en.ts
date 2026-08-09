@@ -178,6 +178,7 @@ export const en: Dictionary = {
       architecture: 'Architecture',
       decisions: 'Hard decisions',
       stack: 'Stack',
+      outcome: 'What changed',
       backToHome: 'Back',
     },
     // Ver content/pt.ts: só prosa aqui, nome de tecnologia vive no componente.
@@ -212,7 +213,9 @@ export const en: Dictionary = {
         name: 'OSCapstack CRM',
         tagline: "Commercial operating system for real-estate credit origination, in production.",
         problem:
-          "A real-estate credit operation needs a commercial system a brokerage can run on its own: customer records, lead distribution across consultants, proposal tracking, and a WhatsApp channel that cannot go down without anyone noticing. The product had to work as the operation's own operating system, not a spreadsheet with a coat of paint.",
+          // Ver content/pt.ts: o ANTES faltava, e sem ele o depois não tem
+          // contra o quê ser medido.
+          "The whole operation ran on spreadsheets. Leads arrived through three channels — Instagram, LinkedIn and WhatsApp — and were copied over by hand; nobody knew off the top of their head who had already been contacted, and the calendar, the proposal and the documents each lived somewhere else. The product had to become the brokerage's operating system, not a spreadsheet with a coat of paint.",
         architecture:
           // Ver content/pt.ts: fica o que descreve a forma do sistema, sai o
           // que mede esforço (linhas, migrations, commits, dias).
@@ -236,6 +239,10 @@ export const en: Dictionary = {
           },
         ],
         stack: ['TypeScript', 'Fastify 5', 'Supabase', 'PostgreSQL', 'React', 'Astro', 'Playwright', 'pgTAP', 'Docker'],
+        // Ver content/pt.ts: fecha no ganho do cliente, sem número de
+        // resultado, e a última frase é o argumento mais forte do case.
+        outcome:
+          'The three channels now land in one place, and the lead is routed the moment it arrives — weighted round-robin or assigned to a specific consultant. The calendar syncs with Google Calendar, client documents are read by AI instead of checked by hand, the messaging layer answers the repetitive part on its own, and the performance report arrives with whatever the AI found out of pattern. Admin and salesperson each have their own app. And the owner builds his own funnel and his own automations: changing a rule of the process stopped depending on me.',
       },
       'saturno-labs': {
         name: 'Saturno Labs',
@@ -263,6 +270,9 @@ export const en: Dictionary = {
           },
         ],
         stack: ['TypeScript', 'Fastify 5', 'Zod', 'PostgreSQL', 'pgvector', 'Drizzle', 'BullMQ', 'Redis', 'React', 'three.js'],
+        // Ver content/pt.ts: o ciclo fechado é o argumento.
+        outcome:
+          'Research now comes before the piece: the system looks at what already ranks, where the competitor got to, and which question nobody has answered — and it is out of that gap that the article, the carousel and the Instagram and LinkedIn posts come. The article is published to the blog and returns to the system memory, indexed, so the next round starts knowing what the previous one did. The CRM is omnichannel: the conversation a piece starts does not get lost on the other side.',
       },
       'moveis-pro': {
         name: 'Moveis.pro',
