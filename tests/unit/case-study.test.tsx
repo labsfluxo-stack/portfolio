@@ -89,6 +89,48 @@ describe('CaseStudy', () => {
     }
   })
 
+  // Era a informação mais ausente da página. Sem ela o leitor resolve a
+  // ambiguidade sozinho, e resolve pelo lado pessimista — "sei lá quantos
+  // eram". Declarar o time de dois fortalece os números em vez de
+  // diminui-los.
+  it('o cabeçalho declara o tamanho do time em todos os cases', () => {
+    setReducedMotion(true)
+    for (const slug of SYSTEM_SLUGS) {
+      const view = render(<CaseStudy system={systemFor(slug)} dict={pt} locale="pt" />)
+      const time = pt.systems.detail[slug].team
+      expect(time.length, `case "${slug}" sem time declarado`).toBeGreaterThan(5)
+      expect(within(view.container.querySelector('header') as HTMLElement).getByText(time)).toBeInTheDocument()
+      view.unmount()
+    }
+  })
+
+  // Nada em nenhum idioma pode sugerir trabalho solo: os três foram feitos a
+  // dois. Uma frase errada aqui não é exagero de marketing, é afirmação falsa
+  // sobre a história profissional do dono.
+  //
+  // A primeira versão desta trava usava /sozinh/i e reprovou "a mensageria
+  // responde SOZINHA o que é repetitivo" — que descreve o sistema, não o
+  // autor. O feminino em português descreve a coisa ("a operação roda
+  // sozinha"); o masculino é como o dono se referiria a si mesmo. Uma trava
+  // ampla demais que acusa texto correto é pior que trava nenhuma: ensina a
+  // ignorar o vermelho.
+  const SUGERE_SOLO: Record<'pt' | 'en', RegExp[]> = {
+    pt: [/\bsozinho\b/i, /por conta pr[óo]pria/i, /eu mesmo constru/i],
+    en: [/\bsolo\b/i, /single-handed/i, /on my own\b/i, /by myself\b/i],
+  }
+
+  it('nenhum texto de case sugere trabalho solo', () => {
+    for (const [locale, dict] of [['pt', pt], ['en', en]] as const) {
+      for (const slug of SYSTEM_SLUGS) {
+        const caso = dict.systems.detail[slug]
+        const texto = [caso.tagline, caso.problem, caso.architecture, caso.outcome ?? ''].join(' ')
+        for (const solo of SUGERE_SOLO[locale]) {
+          expect(texto, `case "${slug}" (${locale}) sugere trabalho solo`).not.toMatch(solo)
+        }
+      }
+    }
+  })
+
   // A TRAVA QUE MAIS IMPORTA NESTA SEÇÃO. "O que mudou" é a superfície onde
   // mais dá vontade de escrever um resultado redondo — "reduziu 40% do
   // tempo", "triplicou a conversão" — e nenhum desses números foi medido. O

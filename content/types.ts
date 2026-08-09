@@ -42,6 +42,21 @@ export type CaseStudy = {
   decisions: { title: string; body: string }[]
   stack: string[]
   /**
+   * Tamanho e composição do time. Aparece no cabeçalho, junto dos selos.
+   *
+   * Era a informação MAIS ausente dos cases: nada dizia se o sistema foi
+   * feito por uma pessoa ou por dez, e essa é a primeira pergunta que um
+   * recrutador faz diante de 78.900 linhas. Sem resposta, ele resolve a
+   * ambiguidade sozinho — e resolve pelo lado pessimista.
+   *
+   * Declarar o time de dois FORTALECE os números em vez de diminuí-los: essa
+   * escala feita por duas pessoas é crível e rara; por uma só, força a
+   * credulidade de quem já entregou software e sabe o que custa.
+   *
+   * Nunca escrever nada aqui que sugira trabalho solo — não foi.
+   */
+  team: string
+  /**
    * O que mudou para o cliente. Fecha a página.
    *
    * Opcional porque depende de fato que só o dono tem: o estado ANTES do
