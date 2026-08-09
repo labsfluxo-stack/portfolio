@@ -26,8 +26,10 @@ function formatBrazilianMobile(waUrl: string): string {
  * formulário que aceita a mensagem do visitante e não a envia a lugar
  * nenhum é pior do que não ter formulário: a pessoa acredita que a
  * mensagem chegou e fica esperando uma resposta que nunca vem. No lugar
- * dele ficam os três canais diretos e `contact.brief` — o que ajuda mandar
- * junto —, nunca um aviso de que o formulário está fora do ar.
+ * dele ficam os três canais diretos — nunca um aviso de que o formulário
+ * está fora do ar, e nunca um bloco de instruções para tapar o espaço que
+ * ele deixou (ver o comentário em content/pt.ts, acima de
+ * `contact.channels`).
  *
  * LinkedIn não existe em `dict.contact` de propósito (ver comentário em
  * content/types.ts) — o dono ainda não forneceu a URL. Não é inventado
@@ -57,73 +59,69 @@ export function Contact({ dict, locale }: { dict: Dictionary; locale: Locale }) 
         <p className="max-w-2xl text-muted">{contact.lead}</p>
       </Reveal>
 
-      <div className="mt-12 grid gap-12 lg:grid-cols-[1fr_minmax(0,400px)] lg:gap-16">
+      {/* O formulário, quando existe, empilha ACIMA dos canais em vez de
+       * dividir a seção em duas colunas. O layout de duas colunas exigia
+       * conteúdo para a coluna da esquerda quando não há formulário — e foi
+       * essa exigência que produziu, uma vez, um bloco de "o que mandar
+       * junto" que instruía o visitante e pré-anunciava recusa (ver o
+       * comentário em content/pt.ts). Empilhado, o estado sem formulário não
+       * deixa buraco nenhum e não pede texto para tapar. */}
+      {accessKey ? (
         <Reveal delayMs={100}>
-          {/* Sem chave configurada não existe formulário — e é aqui que
-           * antes ficava um aviso dizendo que ele estava indisponível.
-           * Ninguém chega nesta página esperando um formulário: anunciar a
-           * ausência transformava a escolha declarada no lead ("escreva
-           * direto, sem intermediário") numa limitação. No lugar da desculpa
-           * entra o que de fato tira atrito — o que mandar junto. */}
-          {accessKey ? (
+          <div className="mt-10 max-w-xl">
             <ContactForm dict={dict} web3formsKey={accessKey} />
-          ) : (
-            <div>
-              <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
-                {contact.brief.label}
-              </h3>
-              <p className="mt-4 max-w-md text-lg leading-relaxed text-muted">{contact.brief.body}</p>
-            </div>
-          )}
+          </div>
         </Reveal>
+      ) : null}
 
-        <Reveal delayMs={200}>
-          {/* Cada canal num cartão que diz PARA QUE ELE SERVE. Antes eram
-           * três links soltos numa lista, e "netoguild-rgb" sozinho não
-           * dizia sequer que era GitHub. O cartão inteiro é a área de
-           * clique, não só o texto.
-           *
-           * "WhatsApp" e "GitHub" são nomes de marca, grafados igual nos
-           * dois idiomas em todo o dicionário — ficam no componente, como
-           * identificador, nunca como cópia de interface a traduzir. O que é
-           * prosa (para que serve cada um) vem de `contact.channels`. */}
-          <ul className="flex flex-col gap-3">
-            {(
-              [
-                { key: 'whatsapp', brand: 'WhatsApp', value: whatsappNumber, href: whatsappHref, external: true },
-                { key: 'email', brand: 'E-mail', value: contact.email, href: emailHref, external: false },
-                { key: 'github', brand: 'GitHub', value: githubHandle, href: contact.github, external: true },
-              ] as const
-            ).map((channel) => (
-              <li key={channel.key}>
-                <a
-                  href={channel.href}
-                  {...(channel.external ? { target: '_blank', rel: 'noreferrer' } : {})}
-                  className="group flex flex-col gap-1 border border-border bg-surface px-5 py-4 transition-colors duration-300 hover:border-faint hover:bg-surface-2"
-                >
-                  <span className="font-mono text-[11px] uppercase tracking-widest text-muted">
-                    {channel.brand}
-                  </span>
-                  <span className="font-mono text-sm text-text underline decoration-border underline-offset-4 group-hover:decoration-text">
-                    {channel.value}
-                  </span>
-                  <span className="font-mono text-[10px] leading-relaxed text-muted">
-                    {contact.channels[channel.key]}
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ul>
+      <Reveal delayMs={accessKey ? 200 : 100}>
+        {/* Cada canal num cartão que diz PARA QUE ELE SERVE. Antes eram três
+         * links soltos numa lista, e "netoguild-rgb" sozinho não dizia
+         * sequer que era GitHub. O cartão inteiro é a área de clique, não só
+         * o texto — alvo generoso no celular.
+         *
+         * "WhatsApp" e "GitHub" são nomes de marca, grafados igual nos dois
+         * idiomas em todo o dicionário: ficam no componente, como
+         * identificador, nunca como cópia de interface a traduzir. O que é
+         * prosa (para que serve cada um) vem de `contact.channels`. */}
+        <ul className="mt-10 grid gap-4 sm:grid-cols-3">
+          {(
+            [
+              { key: 'whatsapp', brand: 'WhatsApp', value: whatsappNumber, href: whatsappHref, external: true },
+              { key: 'email', brand: 'E-mail', value: contact.email, href: emailHref, external: false },
+              { key: 'github', brand: 'GitHub', value: githubHandle, href: contact.github, external: true },
+            ] as const
+          ).map((channel) => (
+            <li key={channel.key} className="grid">
+              <a
+                href={channel.href}
+                {...(channel.external ? { target: '_blank', rel: 'noreferrer' } : {})}
+                className="group flex flex-col gap-1 border border-border bg-surface px-5 py-5 transition-colors duration-300 hover:border-faint hover:bg-surface-2"
+              >
+                <span className="font-mono text-[11px] uppercase tracking-widest text-muted">
+                  {channel.brand}
+                </span>
+                <span className="break-all font-mono text-sm text-text underline decoration-border underline-offset-4 group-hover:decoration-text">
+                  {channel.value}
+                </span>
+                <span className="mt-auto pt-2 font-mono text-[10px] leading-relaxed text-muted">
+                  {contact.channels[channel.key]}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </Reveal>
 
-          <a
-            href={cvHref}
-            download
-            className="mt-6 inline-block border border-border px-5 py-3 font-mono text-sm uppercase tracking-widest text-text transition-colors duration-300 hover:bg-surface"
-          >
-            {contact.cvDownload}
-          </a>
-        </Reveal>
-      </div>
+      <Reveal delayMs={accessKey ? 300 : 200}>
+        <a
+          href={cvHref}
+          download
+          className="mt-8 inline-block border border-border px-5 py-3 font-mono text-sm uppercase tracking-widest text-text transition-colors duration-300 hover:bg-surface"
+        >
+          {contact.cvDownload}
+        </a>
+      </Reveal>
     </Section>
   )
 }

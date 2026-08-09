@@ -471,10 +471,16 @@ export const pt: Dictionary = {
       error: 'Não deu para enviar agora. Tente pelo WhatsApp ou e-mail.',
       honeypotLabel: 'Deixe este campo em branco',
     },
-    brief: {
-      label: 'O que ajuda vir junto',
-      body: 'Se for projeto: o que precisa existir e para quando. Se for vaga: o stack, o formato e o tamanho do time. Respondo dizendo o que dá para fazer e o que não dá.',
-    },
+    // NÃO ACRESCENTAR AQUI UM BLOCO DE "o que mandar junto". Já existiu, e
+    // era um portão: instruía o visitante sobre o que ele devia enviar e
+    // terminava em "respondo dizendo o que dá para fazer e o que não dá",
+    // pré-anunciando recusa antes de a pessoa escrever uma linha. Quem
+    // procura vaga não impõe requisito a quem contrata — a relação de poder
+    // fica invertida e o texto sai arrogante.
+    //
+    // O bloco só existia para preencher uma coluna vazia, e encher espaço foi
+    // o que produziu o tom. O `lead` já convida, cada canal já diz para que
+    // serve, e o layout de três cartões não deixa buraco nenhum.
     channels: {
       whatsapp: 'Para conversa rápida',
       email: 'Para escopo, anexo e proposta',

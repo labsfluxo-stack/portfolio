@@ -195,18 +195,6 @@ export type Dictionary = {
       honeypotLabel: string
     }
     /**
-     * O que ajuda o visitante a mandar junto. Ocupa o lugar do formulário
-     * quando ele não está configurado.
-     *
-     * Substituiu `disabledNote`, que dizia "Formulário indisponível no
-     * momento". Aquela frase pedia desculpa por algo que o visitante nem
-     * sabia que existia: ninguém chega aqui esperando um formulário, e
-     * anunciar a ausência transformava uma escolha declarada no lead
-     * ("escreva direto, sem intermediário") numa limitação. No lugar da
-     * desculpa entra conteúdo que tira atrito de verdade.
-     */
-    brief: { label: string; body: string }
-    /**
      * Para que serve cada canal. Sem isso os três viram uma lista de
      * endereços sem hierarquia — e "netoguild-rgb" sozinho não diz nem que
      * é GitHub.

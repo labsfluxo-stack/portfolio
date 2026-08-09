@@ -20,22 +20,28 @@ describe('Contact — degradação sem chave (falha fechada)', () => {
     )
   })
 
-  // Este teste exigia uma nota dizendo que o formulário estava indisponível.
-  // Ela saiu: ninguém chega nesta página esperando um formulário, e anunciar
-  // a ausência transformava a escolha declarada no lead ("escreva direto,
-  // sem intermediário") numa limitação. No lugar entra o que tira atrito de
-  // verdade — o que mandar junto.
-  it('sem chave, o lugar do formulário traz o que ajuda mandar junto, nunca um pedido de desculpa', () => {
+  // A seção já teve DOIS textos errados no lugar do formulário, e esta trava
+  // cobre os dois:
+  //
+  //   1. um aviso de "formulário indisponível no momento" — desculpa por
+  //      algo que o visitante nem sabia que existia;
+  //   2. um bloco de "o que ajuda vir junto" que instruía a pessoa sobre o
+  //      que enviar e terminava em "respondo dizendo o que dá para fazer e o
+  //      que não dá" — um portão, e quem procura vaga não impõe requisito a
+  //      quem contrata.
+  //
+  // Os dois nasceram da mesma causa: uma coluna vazia pedindo texto para
+  // tapar. Hoje o layout empilha e não deixa buraco.
+  it('sem chave, o lugar do formulário fica vazio — sem desculpa e sem portão', () => {
     vi.stubEnv('NEXT_PUBLIC_WEB3FORMS_KEY', '')
     const { container } = render(<Contact dict={pt} locale="pt" />)
-    expect(screen.getByText(pt.contact.brief.label)).toBeInTheDocument()
-    expect(screen.getByText(pt.contact.brief.body)).toBeInTheDocument()
-
-    // Nenhuma variação de "indisponível / fora do ar / no momento" pode
-    // voltar: a seção não se desculpa por algo que o visitante não pediu.
     const texto = container.textContent ?? ''
+
     for (const desculpa of [/indispon/i, /fora do ar/i, /no momento/i]) {
       expect(texto, `a seção voltou a se desculpar (${desculpa})`).not.toMatch(desculpa)
+    }
+    for (const portao of [/o que ajuda/i, /o que n[ãa]o d[áa]/i, /precisa existir/i]) {
+      expect(texto, `a seção voltou a instruir o visitante (${portao})`).not.toMatch(portao)
     }
   })
 
@@ -85,11 +91,10 @@ describe('Contact — com chave configurada', () => {
     vi.unstubAllEnvs()
   })
 
-  it('com chave, renderiza o formulário no lugar do bloco de orientação', () => {
+  it('com chave, renderiza o formulário', () => {
     vi.stubEnv('NEXT_PUBLIC_WEB3FORMS_KEY', 'chave-de-teste')
     render(<Contact dict={pt} locale="pt" />)
     expect(screen.getByRole('button', { name: pt.contact.form.submit })).toBeInTheDocument()
-    expect(screen.queryByText(pt.contact.brief.body)).not.toBeInTheDocument()
   })
 
   // Os canais não dependem do formulário: com ou sem chave, eles continuam

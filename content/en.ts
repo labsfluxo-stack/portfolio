@@ -427,10 +427,7 @@ export const en: Dictionary = {
       error: 'Could not send right now. Try WhatsApp or email instead.',
       honeypotLabel: 'Leave this field blank',
     },
-    brief: {
-      label: 'What helps to include',
-      body: 'For a project: what needs to exist, and by when. For a role: the stack, the format and the size of the team. I answer saying what can be done and what cannot.',
-    },
+    // Ver content/pt.ts: não reintroduzir um bloco de "o que mandar junto".
     channels: {
       whatsapp: 'For a quick conversation',
       email: 'For scope, attachments and proposals',
