@@ -104,6 +104,47 @@ export type Dictionary = {
       retro: string
       backToHome: string
     }
+    /**
+     * Rótulos dos diagramas de arquitetura (components/diagrams/). Um bag
+     * único e compartilhado, não um por sistema: `api`, `database` e `store`
+     * aparecem em mais de um desenho, e duplicar a tradução por slug abriria
+     * a porta para os três divergirem entre si.
+     *
+     * Só entra aqui o que É PROSA. Nome de tecnologia — Fastify, PostgreSQL,
+     * pgvector, BullMQ, Redis, React, Astro, Next.js, Prisma, WhatsApp,
+     * healthchecks.io — é escrito direto no componente do diagrama: não é
+     * conteúdo traduzível, e passar pelo dicionário só criaria a chance de
+     * alguém "traduzir" um nome próprio.
+     */
+    diagram: {
+      /** Legenda visível sob cada desenho, curta o bastante para não competir
+       * com a prosa da arquitetura, que é a descrição completa. */
+      caption: string
+      admin: string
+      consultant: string
+      landing: string
+      api: string
+      database: string
+      policies: string
+      screens: string
+      watchdog: string
+      alarm: string
+      providers: string
+      queue: string
+      jobs: string
+      blocklist: string
+      judge: string
+      humanApproval: string
+      locks: string
+      budget: string
+      store: string
+      tenantScope: string
+      salesApp: string
+      offline: string
+      sync: string
+      models: string
+      packages: string
+    }
   }
   stack: {
     label: string

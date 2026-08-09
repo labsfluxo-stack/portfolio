@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { CaseStudy } from '@/components/sections/CaseStudy'
 import { pt } from '@/content/pt'
@@ -106,11 +106,18 @@ describe('CaseStudy', () => {
     }
   })
 
-  it('lista cada tecnologia da stack do case study', () => {
+  // Escopado à seção Stack, não à página inteira: o diagrama da Arquitetura
+  // (components/diagrams/) também escreve "Fastify 5", "PostgreSQL" e
+  // "React" dentro do SVG, e um `getByText` de documento inteiro passou a
+  // achar dois elementos e quebrar. A ambiguidade era do teste, não do
+  // componente — o que ele quer provar é que a seção Stack lista tudo.
+  it('a seção Stack lista cada tecnologia do case study', () => {
     setReducedMotion(true)
-    render(<CaseStudy system={systemFor('oscapstack')} dict={pt} locale="pt" />)
+    const { container } = render(<CaseStudy system={systemFor('oscapstack')} dict={pt} locale="pt" />)
+    const stack = container.querySelector('#stack')
+    expect(stack, 'seção #stack não encontrada').toBeTruthy()
     for (const tech of pt.systems.detail.oscapstack.stack) {
-      expect(screen.getByText(tech)).toBeInTheDocument()
+      expect(within(stack as HTMLElement).getByText(tech)).toBeInTheDocument()
     }
   })
 
@@ -128,17 +135,29 @@ describe('CaseStudy', () => {
   // lugar de `formatNumber(valor, locale)` passaria despercebido para
   // sempre. Um sistema sintético prova o comportamento do componente sem
   // depender do conteúdo — mesma correção de tests/unit/systems.test.tsx.
+  //
+  // O sistema sintético mantém TODAS as chaves de métrica do original e só
+  // infla um valor: o diagrama da Arquitetura lê `screens` por chave e lança
+  // de propósito se ela faltar (ver components/diagrams/SystemDiagram.tsx),
+  // então trocar o array inteiro por uma métrica só derrubava a página.
+  // E a asserção é escopada ao <header>, porque o número inflado também
+  // aparece dentro do SVG do diagrama.
   it('formata número pelo locale, não com String()', () => {
     setReducedMotion(true)
-    const grande = { ...systemFor('oscapstack'), metrics: [{ key: 'policies', value: 78900 }] }
+    const original = systemFor('oscapstack')
+    const grande = {
+      ...original,
+      metrics: original.metrics.map((m) => (m.key === 'policies' ? { ...m, value: 78900 } : m)),
+    }
 
-    const { rerender } = render(<CaseStudy system={grande} dict={en} locale="en" />)
-    expect(screen.getByText('78,900')).toBeInTheDocument()
-    expect(screen.queryByText('78.900')).not.toBeInTheDocument()
+    const { container, rerender } = render(<CaseStudy system={grande} dict={en} locale="en" />)
+    const header = () => within(container.querySelector('header') as HTMLElement)
+    expect(header().getByText('78,900')).toBeInTheDocument()
+    expect(header().queryByText('78.900')).not.toBeInTheDocument()
 
     rerender(<CaseStudy system={grande} dict={pt} locale="pt" />)
-    expect(screen.getByText('78.900')).toBeInTheDocument()
-    expect(screen.queryByText('78,900')).not.toBeInTheDocument()
+    expect(header().getByText('78.900')).toBeInTheDocument()
+    expect(header().queryByText('78,900')).not.toBeInTheDocument()
   })
 
   it('tem um único link de volta para a home, com o rótulo do dicionário', () => {

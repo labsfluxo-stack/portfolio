@@ -4,6 +4,8 @@ import type { Dictionary, Locale } from '@/content/types'
 import { Section } from '@/components/ui/Section'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Counter } from '@/components/ui/Counter'
+import { SystemDiagram } from '@/components/diagrams/SystemDiagram'
+import { SystemArt } from '@/components/art/SystemArt'
 
 /**
  * Corpo inteiro da rota `app/[locale]/sistemas/[slug]/page.tsx` — não é uma
@@ -41,21 +43,33 @@ export function CaseStudy({
             {systems.caseLabels.backToHome}
           </Link>
 
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div className="max-w-2xl">
+          {/* Duas colunas a partir de `lg`: texto à esquerda, arte de capa à
+           * direita. O cabeçalho era uma linha só e deixava um vazio grande
+           * do lado direito, abaixo dos selos — que é justamente onde um
+           * print do produto entraria, se existisse. Dois dos três sistemas
+           * são proprietários e não têm captura, então ali vai a arte
+           * abstrata (ver components/art/SystemArt.tsx, que explica por que
+           * arte e não uma interface plausível).
+           *
+           * Abaixo de `lg` a arte vem depois do texto, no fluxo normal: numa
+           * tela estreita ela empurraria o nome do sistema para fora da
+           * primeira dobra se viesse antes. */}
+          <div className="grid items-start gap-10 lg:grid-cols-[1fr_minmax(0,380px)] lg:gap-16">
+            <div>
               <h1 className="font-sans text-5xl font-bold leading-[1.05] tracking-tight text-text sm:text-6xl">
                 {system.name}
               </h1>
-              <p className="mt-5 text-lg leading-relaxed text-muted sm:text-xl">{caseStudy.tagline}</p>
+              <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted sm:text-xl">{caseStudy.tagline}</p>
+              {/* Os mesmos dois eixos independentes do card na home
+               * (SystemCard.tsx): `production` e `proprietary` nunca formam
+               * um único campo de status, e um sistema pode exibir os dois,
+               * um só, ou nenhum. */}
+              <div className="mt-6 flex flex-wrap gap-2">
+                {system.production ? <StatusBadge status="ok" label={systems.statusLabels.production} /> : null}
+                {system.proprietary ? <StatusBadge status="warn" label={systems.statusLabels.proprietary} /> : null}
+              </div>
             </div>
-            {/* Os mesmos dois eixos independentes do card na home
-             * (SystemCard.tsx): `production` e `proprietary` nunca formam um
-             * único campo de status, e um sistema pode exibir os dois, um
-             * só, ou nenhum. */}
-            <div className="flex flex-wrap gap-2">
-              {system.production ? <StatusBadge status="ok" label={systems.statusLabels.production} /> : null}
-              {system.proprietary ? <StatusBadge status="warn" label={systems.statusLabels.proprietary} /> : null}
-            </div>
+            <SystemArt slug={system.slug} />
           </div>
 
           {/* Mesma disciplina de grid do SystemCard: `min-w-0` em cada célula
@@ -86,7 +100,15 @@ export function CaseStudy({
         <p className="max-w-3xl text-lg leading-relaxed text-muted">{caseStudy.problem}</p>
       </Section>
 
+      {/* O diagrama vive AQUI, na Arquitetura, e não no cabeçalho da página.
+       * Como hero ele apareceria antes de "Problema", mostrando a solução
+       * antes da pergunta que ela responde — e é a segunda seção, então
+       * continua sendo a primeira coisa que se vê ao abrir o case, que era o
+       * pedido. Vem acima da prosa porque o desenho dá a forma e o parágrafo
+       * dá o detalhe; na ordem inversa, o leitor monta a imagem mental
+       * sozinho e depois descobre que estava errada. */}
       <Section id="arquitetura" label={systems.caseLabels.architecture} index="02">
+        <SystemDiagram system={system} dict={dict} />
         <p className="max-w-3xl text-lg leading-relaxed text-muted">{caseStudy.architecture}</p>
       </Section>
 
