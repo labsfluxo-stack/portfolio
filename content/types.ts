@@ -41,7 +41,6 @@ export type CaseStudy = {
   architecture: string
   decisions: { title: string; body: string }[]
   stack: string[]
-  retro: string
 }
 
 export type Dictionary = {
@@ -129,7 +128,6 @@ export type Dictionary = {
       architecture: string
       decisions: string
       stack: string
-      retro: string
       backToHome: string
     }
     /**

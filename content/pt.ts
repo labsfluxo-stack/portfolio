@@ -218,7 +218,6 @@ export const pt: Dictionary = {
       architecture: 'Arquitetura',
       decisions: 'Decisões difíceis',
       stack: 'Stack',
-      retro: 'O que eu faria diferente',
       backToHome: 'Voltar',
     },
     // Só prosa aqui — nome de tecnologia é escrito direto no componente do
@@ -276,8 +275,6 @@ export const pt: Dictionary = {
           },
         ],
         stack: ['TypeScript', 'Fastify 5', 'Supabase', 'PostgreSQL', 'React', 'Astro', 'Playwright', 'pgTAP', 'Docker'],
-        retro:
-          'Hoje eu introduziria a otimização de InitPlan nas policies desde a primeira migration, não depois de sentir o custo em produção — voltar em 56 tabelas já povoadas para reescrever o helper de RLS é um trabalho que dá para evitar simplesmente sabendo do padrão antes de escrever a primeira policy.',
       },
       'saturno-labs': {
         name: 'Saturno Labs',
@@ -305,8 +302,6 @@ export const pt: Dictionary = {
           },
         ],
         stack: ['TypeScript', 'Fastify 5', 'Zod', 'PostgreSQL', 'pgvector', 'Drizzle', 'BullMQ', 'Redis', 'React', 'three.js'],
-        retro:
-          'O portão de documentação eu escreveria bem antes: implementei depois de já ter prosa desalinhada do código em produção, e destravar isso exigiu uma auditoria inteira em vez de um verificador rodando desde o commit zero.',
       },
       'moveis-pro': {
         name: 'Moveis.pro',
@@ -334,8 +329,6 @@ export const pt: Dictionary = {
           },
         ],
         stack: ['TypeScript', 'Next.js', 'Fastify', 'Prisma', 'PostgreSQL', 'PWA', 'Docker', 'Nginx'],
-        retro:
-          'A atribuição de conversas por instância eu desenharia com um teste de concorrência desde o início — hoje ela depende de disciplina no código de atribuição, e um teste que simule duas mensagens chegando ao mesmo tempo teria pego cedo qualquer corrida que eu não vi na hora de escrever.',
       },
     },
   },

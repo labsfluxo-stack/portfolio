@@ -178,7 +178,6 @@ export const en: Dictionary = {
       architecture: 'Architecture',
       decisions: 'Hard decisions',
       stack: 'Stack',
-      retro: 'What I would do differently',
       backToHome: 'Back',
     },
     // Ver content/pt.ts: só prosa aqui, nome de tecnologia vive no componente.
@@ -235,8 +234,6 @@ export const en: Dictionary = {
           },
         ],
         stack: ['TypeScript', 'Fastify 5', 'Supabase', 'PostgreSQL', 'React', 'Astro', 'Playwright', 'pgTAP', 'Docker'],
-        retro:
-          'Today I would introduce the InitPlan optimization on policies from the very first migration, not after feeling the cost in production — going back to rewrite the RLS helper across 56 already-populated tables is work you can skip just by knowing the pattern before writing the first policy.',
       },
       'saturno-labs': {
         name: 'Saturno Labs',
@@ -264,8 +261,6 @@ export const en: Dictionary = {
           },
         ],
         stack: ['TypeScript', 'Fastify 5', 'Zod', 'PostgreSQL', 'pgvector', 'Drizzle', 'BullMQ', 'Redis', 'React', 'three.js'],
-        retro:
-          'I would write the documentation gate much earlier: I built it only after the prose had already drifted from the production code, and fixing that took a full audit instead of a verifier running since commit zero.',
       },
       'moveis-pro': {
         name: 'Moveis.pro',
@@ -293,8 +288,6 @@ export const en: Dictionary = {
           },
         ],
         stack: ['TypeScript', 'Next.js', 'Fastify', 'Prisma', 'PostgreSQL', 'PWA', 'Docker', 'Nginx'],
-        retro:
-          'I would design the per-instance conversation assignment with a concurrency test from day one — today it depends on discipline in the assignment code, and a test simulating two messages arriving at the same time would have caught early any race I did not see while writing it.',
       },
     },
   },

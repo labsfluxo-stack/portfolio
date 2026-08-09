@@ -165,9 +165,12 @@ export function CaseStudy({
         </div>
       </Section>
 
-      <Section id="retro" label={systems.caseLabels.retro} index="05">
-        <p className="max-w-3xl text-lg leading-relaxed text-muted">{caseStudy.retro}</p>
-      </Section>
+      {/* Havia uma seção 05, "O que eu faria diferente", com a retrospectiva
+       * de cada sistema. Saiu por decisão do dono, e a razão é de
+       * posicionamento: num portfólio, a última coisa que o leitor vê antes
+       * de sair da página passava a ser o erro do autor. Retrospectiva é
+       * ótima numa conversa de engenharia e cara numa página que existe para
+       * ser avaliada — quem lê está decidindo, não orientando. */}
     </article>
   )
 }

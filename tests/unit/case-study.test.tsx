@@ -40,20 +40,28 @@ describe('CaseStudy', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'OSCapstack CRM' })).toBeInTheDocument()
   })
 
-  it('as cinco seções internas viram h2 com os rótulos de caseLabels', () => {
+  // Eram cinco seções. A quinta era "O que eu faria diferente", e saiu: num
+  // portfólio, a última coisa antes de o leitor deixar a página passava a
+  // ser o erro do autor.
+  it('as quatro seções internas viram h2 com os rótulos de caseLabels', () => {
     setReducedMotion(true)
     render(<CaseStudy system={systemFor('oscapstack')} dict={pt} locale="pt" />)
     const { caseLabels } = pt.systems
-    for (const label of [
-      caseLabels.problem,
-      caseLabels.architecture,
-      caseLabels.decisions,
-      caseLabels.stack,
-      caseLabels.retro,
-    ]) {
+    for (const label of [caseLabels.problem, caseLabels.architecture, caseLabels.decisions, caseLabels.stack]) {
       const heading = screen.getAllByRole('heading', { level: 2 }).find((h) => h.textContent?.includes(label))
       expect(heading, `h2 com "${label}" não encontrado`).toBeDefined()
     }
+  })
+
+  // A página termina nas decisões e no stack, não numa retrospectiva. Sem
+  // esta trava, a seção volta na primeira vez que alguém achar que "mostra
+  // maturidade" — mostra, mas no lugar errado.
+  it('não existe seção de retrospectiva no fim da página', () => {
+    setReducedMotion(true)
+    const { container } = render(<CaseStudy system={systemFor('oscapstack')} dict={pt} locale="pt" />)
+    expect(container.querySelector('#retro'), 'a seção de retrospectiva voltou').toBeNull()
+    const texto = container.textContent ?? ''
+    expect(texto).not.toMatch(/faria diferente/i)
   })
 
   it('OSCapstack mostra os dois badges de status', () => {
@@ -88,13 +96,12 @@ describe('CaseStudy', () => {
     expect(screen.queryByText('https://github.com/netoguild-rgb/Moveis.pro')).not.toBeInTheDocument()
   })
 
-  it('renderiza problem, architecture e retro do dicionário', () => {
+  it('renderiza problem e architecture do dicionário', () => {
     setReducedMotion(true)
     render(<CaseStudy system={systemFor('oscapstack')} dict={pt} locale="pt" />)
     const detail = pt.systems.detail.oscapstack
     expect(screen.getByText(detail.problem)).toBeInTheDocument()
     expect(screen.getByText(detail.architecture)).toBeInTheDocument()
-    expect(screen.getByText(detail.retro)).toBeInTheDocument()
   })
 
   it('renderiza as 4 decisões como blocos autônomos, cada um com título (h3) e corpo', () => {

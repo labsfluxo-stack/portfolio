@@ -45,7 +45,6 @@ describe('SystemDiagram', () => {
           ...Object.values(pt.systems.diagram),
           caso.problem,
           caso.architecture,
-          caso.retro,
           ...caso.decisions.flatMap((d) => [d.title, d.body]),
         ].join(' ')
 
