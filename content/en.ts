@@ -75,6 +75,7 @@ export const en: Dictionary = {
           'Years of continuous professional work with networks, switches and servers, from the first job to today. Measured on 2026-08-02.',
       },
     ],
+    provenanceNote: 'Counted in the repository code on 2026-08-02.',
     secondaryLabel: 'Breakdown',
     secondary: [
       {
@@ -297,13 +298,14 @@ export const en: Dictionary = {
     label: 'Stack',
     lead: 'Not an icon cloud: every item carries a declared level and a source — audited code or professional experience.',
     levels: {
-      dominio: "Mastery — used in production, I can debug it",
-      producao: "Production — I've shipped with it",
-      contato: 'Exposure — used it, no claim of depth',
+      dominio: 'Mastery',
+      producao: 'Production',
+      contato: 'Exposure',
     },
+    legend: "Mastery: used in production and I can debug it. Production: I've shipped with it. Exposure: used it, with no claim of depth.",
     sourceNote: {
-      repo: 'Verified in audited code.',
-      experience: 'Declared professional experience, not repository.',
+      repo: 'Code',
+      experience: 'Experience',
     },
     // Mesma ordem deliberada de content/pt.ts: software primeiro,
     // infraestrutura por último. Nunca reordenar sem reordenar o outro

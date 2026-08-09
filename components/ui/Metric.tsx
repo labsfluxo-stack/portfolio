@@ -24,11 +24,16 @@ export function Metric({
       <div className="mt-2 font-mono text-[11px] uppercase tracking-widest text-muted">
         {label}
       </div>
-      {/* Um degrau abaixo do rótulo (11px) em tamanho, nunca em cor — `text-muted`
-       * é o piso legível deste fundo (`--color-faint` reprova AA, ver
-       * app/globals.css). A procedência continua secundária ao rótulo por
-       * ser menor e minúscula, não por ficar quase invisível. */}
-      <p className="mt-3 font-mono text-[10px] leading-relaxed text-muted">{provenance}</p>
+      {/* A procedência VIVIA AQUI, como parágrafo debaixo de cada número, e
+       * saiu. Não por ser irrelevante — ela continua inteira no `title` logo
+       * acima, e a seção declara de uma vez só de onde os números vêm (ver
+       * `telemetry.provenanceNote`). Saiu porque nove justificativas na mesma
+       * tela não leem como rigor: leem como quem precisa provar que sabe. Um
+       * profissional afirma o número; quem explica cada um deles parece se
+       * defender de uma acusação que ninguém fez.
+       *
+       * Ter a prova e exibi-la o tempo todo são coisas diferentes, e é a
+       * primeira que importa. */}
     </div>
   )
 }

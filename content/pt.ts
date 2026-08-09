@@ -90,6 +90,7 @@ export const pt: Dictionary = {
           'Anos de atuação profissional contínua com redes, switches e servidores, do primeiro emprego até hoje. Medido em 2026-08-02.',
       },
     ],
+    provenanceNote: 'Contados no código dos repositórios em 2026-08-02.',
     secondaryLabel: 'Detalhamento',
     secondary: [
       {
@@ -328,13 +329,14 @@ export const pt: Dictionary = {
     label: 'Stack',
     lead: 'Não é nuvem de ícones: cada item tem um nível declarado e uma origem — código auditado ou experiência profissional.',
     levels: {
-      dominio: 'Domínio — usado em produção, sei depurar',
-      producao: 'Produção — já entreguei com isso',
-      contato: 'Contato — usei, não reivindico profundidade',
+      dominio: 'Domínio',
+      producao: 'Produção',
+      contato: 'Contato',
     },
+    legend: 'Domínio: uso em produção e sei depurar. Produção: já entreguei com isso. Contato: usei, sem reivindicar profundidade.',
     sourceNote: {
-      repo: 'Comprovado em código auditado.',
-      experience: 'Experiência profissional declarada, não repositório.',
+      repo: 'Código',
+      experience: 'Experiência',
     },
     // A ordem das camadas É a ordem do posicionamento, e nunca deve ser
     // reordenada por acidente: software primeiro, infraestrutura por

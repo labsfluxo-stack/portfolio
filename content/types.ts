@@ -61,6 +61,20 @@ export type Dictionary = {
     metrics: MetricValue[]
     secondaryLabel: string
     secondary: MetricValue[]
+    /**
+     * UMA linha de procedência para a seção inteira, no rodapé dela.
+     *
+     * A procedência de cada métrica continua existindo em `MetricValue`, e
+     * continua no HTML — só saiu de baixo de cada número, onde aparecia como
+     * um parágrafo. Nove parágrafos de "medido em tal data, contado assim"
+     * na mesma tela não leem como rigor, leem como quem precisa provar que
+     * sabe. Um profissional afirma o número; quem justifica cada um deles
+     * parece estar se defendendo de uma acusação que ninguém fez.
+     *
+     * O detalhe completo sobrevive no `title` de cada número, para quem de
+     * fato quiser conferir — que é a diferença entre ter a prova e exibi-la.
+     */
+    provenanceNote: string
   }
   about: {
     label: string
@@ -149,7 +163,21 @@ export type Dictionary = {
   stack: {
     label: string
     lead: string
+    /**
+     * Rótulos CURTOS — uma palavra. Eles se repetem em toda camada (seis
+     * cards), e a versão longa ("Domínio — usado em produção, sei depurar")
+     * enchia a seção com a mesma explicação treze vezes. O que cada nível
+     * significa é dito uma vez só, em `legend`.
+     */
     levels: Record<'dominio' | 'producao' | 'contato', string>
+    /** As três definições, juntas, uma única vez abaixo do lead. */
+    legend: string
+    /**
+     * Etiqueta de origem por camada, também curta. Era uma frase
+     * ("Comprovado em código auditado.") que aparecia em toda camada e fazia
+     * a seção soar como um laudo. A distinção entre código e experiência
+     * importa e fica — o que saiu foi o tom de defesa.
+     */
     sourceNote: Record<'repo' | 'experience', string>
     layers: StackLayer[]
   }

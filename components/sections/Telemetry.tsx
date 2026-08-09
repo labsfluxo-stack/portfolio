@@ -37,21 +37,22 @@ export function Telemetry({ dict, locale }: { dict: Dictionary; locale: Locale }
             {telemetry.secondary.map((item) => (
               <div key={item.key}>
                 <dt className="font-mono text-[11px] uppercase tracking-widest text-muted">{item.label}</dt>
-                {/* A procedência vive DENTRO do <dd>, não como <p> irmão: um
-                 * <div> filho de <dl> só pode conter <dt> e <dd>, e o <p> solto
-                 * tornava a lista de definição inválida (Lighthouse a11y). Ela
-                 * também é, semanticamente, parte da descrição do número.
-                 * 10px, um degrau abaixo do rótulo de 11px — a mesma disciplina
-                 * de tamanho de Metric.tsx, não de cor (ver app/globals.css). */}
-                <dd className="mt-2 font-sans text-2xl font-bold tabular-nums text-text">
+                {/* A procedência saiu daqui pelo mesmo motivo que saiu de
+                 * Metric.tsx — ver o comentário longo lá. Continua no
+                 * `title`, disponível para quem quiser conferir, sem cobrar
+                 * a leitura de todo mundo. */}
+                <dd className="mt-2 font-sans text-2xl font-bold tabular-nums text-text" title={item.provenance}>
                   {item.value}
-                  <span className="mt-2 block font-mono text-[10px] font-normal leading-relaxed text-muted">
-                    {item.provenance}
-                  </span>
                 </dd>
               </div>
             ))}
           </dl>
+
+          {/* UMA linha para os nove números da seção, no rodapé dela. Diz de
+           * onde vieram sem transformar cada card num laudo. */}
+          <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+            {telemetry.provenanceNote}
+          </p>
         </div>
       </Reveal>
     </Section>

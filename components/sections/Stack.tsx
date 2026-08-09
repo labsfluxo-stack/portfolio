@@ -23,9 +23,20 @@ function LayerCard({ layer, dict }: { layer: StackLayer; dict: Dictionary }) {
 
   return (
     <div className="border border-border bg-surface p-6">
-      <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted">{layer.label}</h3>
-      {/* 10px, um degrau abaixo do título da camada (11px) — não cor. */}
-      <p className="mt-2 font-mono text-[10px] leading-relaxed text-muted">{stack.sourceNote[layer.source]}</p>
+      {/* Origem como etiqueta ao lado do título, não como frase abaixo dele.
+       * Era "Comprovado em código auditado." em toda camada, e seis laudos
+       * empilhados fazem a seção soar defensiva. A distinção entre código e
+       * experiência importa e por isso fica — o que saiu foi o tom. */}
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted">{layer.label}</h3>
+        {/* `text-muted`, nunca `text-faint`: faint reprova AA para texto
+         * (≈2.45:1 contra o fundo) e só pode ser usado em linha, não em
+         * palavra — ver app/globals.css. A hierarquia contra o título da
+         * camada vem do tamanho, 10px contra 11px, como no resto do site. */}
+        <span className="shrink-0 font-mono text-[10px] uppercase tracking-widest text-muted">
+          {stack.sourceNote[layer.source]}
+        </span>
+      </div>
 
       <div className="mt-5 flex flex-col gap-4">
         {LEVEL_ORDER.map((level) => {
@@ -75,6 +86,12 @@ export function Stack({ dict }: { dict: Dictionary; locale: Locale }) {
     <Section id="stack" label={stack.label} index="04">
       <Reveal>
         <p className="max-w-2xl text-muted">{stack.lead}</p>
+        {/* As três definições de nível, uma vez só. Elas moravam no rótulo de
+         * cada nível dentro de cada card ("Domínio — usado em produção, sei
+         * depurar") e, com seis camadas, a seção repetia a mesma explicação
+         * treze vezes. Explicar o próprio critério a cada item não passa
+         * rigor, passa insegurança. */}
+        <p className="mt-3 max-w-2xl font-mono text-[10px] leading-relaxed text-muted">{stack.legend}</p>
       </Reveal>
       <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {stack.layers.map((layer, i) => (
