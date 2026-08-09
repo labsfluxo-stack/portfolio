@@ -18,22 +18,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # NODE 24, E O NÚMERO IMPORTA — não trocar sem ler isto.
+      # Node 24 para o CI rodar a mesma major do desenvolvimento, e porque o
+      # jsdom 30 pede ^22.22.2 || ^24.15.0 || >=26.0.0.
       #
-      # Estava em 22, e o deploy falhava em `npm ci` com "Missing:
-      # @emnapi/runtime@1.11.3 from lock file". Não era lockfile
-      # dessincronizado nem binário de plataforma faltando: era diferença de
-      # npm. O runner com Node 22 traz npm 10.9.8; o lockfile foi gerado com
-      # npm 11.6.2, e o npm 11 PODA essa dependência transitiva do
-      # `@tailwindcss/oxide-wasm32-wasi` que o npm 10 exige. O CI validava um
-      # mundo diferente daquele em que o lockfile nasceu.
+      # ATENÇÃO AO LOCKFILE, que é o que já quebrou este deploy duas vezes
+      # com "Missing: @emnapi/runtime@1.11.3 from lock file":
       #
-      # Node 24 traz npm 11, o mesmo do desenvolvimento — e é essa a regra:
-      # o CI roda o que o desenvolvimento roda. Também satisfaz o engine do
-      # jsdom 30 (^22.22.2 || ^24.15.0 || >=26.0.0).
+      # `package-lock.json` PRECISA SER GERADO NO LINUX. O npm no Windows
+      # poda `@emnapi/runtime` — dependência transitiva do
+      # `@tailwindcss/oxide-wasm32-wasi` — e o lockfile sai incompleto para
+      # qualquer runner Linux, que exige a entrada na validação do `npm ci`.
+      # Não é versão de npm: já falhou com npm 10.9.8 e com 11.16.0, e passa
+      # local com 11.6.2. É plataforma, e nenhum `npm install` rodado no
+      # Windows conserta, nem com --os=linux --cpu=x64.
       #
-      # Se um dia o lockfile passar a ser gerado por outra major do npm, esta
-      # linha muda junto.
+      # Para regenerar, use o mesmo Linux do runner:
+      #
+      #   docker run --rm -v "$PWD:/w" -w /w node:24 \
+      #     sh -c "rm -f package-lock.json && npm install --package-lock-only"
+      #
+      # O lockfile resultante continua servindo Windows e macOS: as 13
+      # entradas win32 e 14 darwin sobrevivem, e nenhuma versão muda.
       - uses: actions/setup-node@v4
         with:
           node-version: 24
