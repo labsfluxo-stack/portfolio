@@ -20,19 +20,56 @@ describe('Contact — degradação sem chave (falha fechada)', () => {
     )
   })
 
-  it('sem chave, mostra a nota explicando por que o formulário está indisponível', () => {
+  // Este teste exigia uma nota dizendo que o formulário estava indisponível.
+  // Ela saiu: ninguém chega nesta página esperando um formulário, e anunciar
+  // a ausência transformava a escolha declarada no lead ("escreva direto,
+  // sem intermediário") numa limitação. No lugar entra o que tira atrito de
+  // verdade — o que mandar junto.
+  it('sem chave, o lugar do formulário traz o que ajuda mandar junto, nunca um pedido de desculpa', () => {
     vi.stubEnv('NEXT_PUBLIC_WEB3FORMS_KEY', '')
-    render(<Contact dict={pt} locale="pt" />)
-    expect(screen.getByText(pt.contact.disabledNote)).toBeInTheDocument()
+    const { container } = render(<Contact dict={pt} locale="pt" />)
+    expect(screen.getByText(pt.contact.brief.label)).toBeInTheDocument()
+    expect(screen.getByText(pt.contact.brief.body)).toBeInTheDocument()
+
+    // Nenhuma variação de "indisponível / fora do ar / no momento" pode
+    // voltar: a seção não se desculpa por algo que o visitante não pediu.
+    const texto = container.textContent ?? ''
+    for (const desculpa of [/indispon/i, /fora do ar/i, /no momento/i]) {
+      expect(texto, `a seção voltou a se desculpar (${desculpa})`).not.toMatch(desculpa)
+    }
   })
 
   it('sem chave, o link de e-mail usa mailto: com o endereço do dicionário, nunca escrito à mão', () => {
     vi.stubEnv('NEXT_PUBLIC_WEB3FORMS_KEY', '')
     render(<Contact dict={pt} locale="pt" />)
-    expect(screen.getByRole('link', { name: pt.contact.email })).toHaveAttribute(
+    // Regex, não nome exato: o cartão do canal agora carrega marca, endereço
+    // e para que serve, então o nome acessível do link é a soma dos três.
+    expect(screen.getByRole('link', { name: new RegExp(pt.contact.email) })).toHaveAttribute(
       'href',
       `mailto:${pt.contact.email}`,
     )
+  })
+
+  it('cada canal diz para que serve, senão viram três endereços sem hierarquia', () => {
+    vi.stubEnv('NEXT_PUBLIC_WEB3FORMS_KEY', '')
+    render(<Contact dict={pt} locale="pt" />)
+    for (const hint of Object.values(pt.contact.channels)) {
+      expect(screen.getByText(hint)).toBeInTheDocument()
+    }
+  })
+
+  // O número aparece formatado e é DERIVADO da URL do wa.me. Um segundo campo
+  // com o número escrito à parte poderia divergir do link sem nada acusar, e
+  // o visitante ligaria para um número e escreveria para outro.
+  it('mostra o telefone formatado, derivado da mesma URL do link', () => {
+    vi.stubEnv('NEXT_PUBLIC_WEB3FORMS_KEY', '')
+    render(<Contact dict={pt} locale="pt" />)
+    const exibido = screen.getByText('+55 83 98622-6441')
+    expect(exibido).toBeInTheDocument()
+
+    const digitosNaTela = (exibido.textContent ?? '').replace(/\D/g, '')
+    const digitosNoLink = pt.contact.whatsapp.replace(/\D/g, '')
+    expect(digitosNaTela, 'o número exibido não bate com o do link').toBe(digitosNoLink)
   })
 
   it('sem chave, o link do GitHub aponta para dict.contact.github', () => {
@@ -48,11 +85,21 @@ describe('Contact — com chave configurada', () => {
     vi.unstubAllEnvs()
   })
 
-  it('com chave, renderiza o formulário e não mostra a nota de indisponibilidade', () => {
+  it('com chave, renderiza o formulário no lugar do bloco de orientação', () => {
     vi.stubEnv('NEXT_PUBLIC_WEB3FORMS_KEY', 'chave-de-teste')
     render(<Contact dict={pt} locale="pt" />)
     expect(screen.getByRole('button', { name: pt.contact.form.submit })).toBeInTheDocument()
-    expect(screen.queryByText(pt.contact.disabledNote)).not.toBeInTheDocument()
+    expect(screen.queryByText(pt.contact.brief.body)).not.toBeInTheDocument()
+  })
+
+  // Os canais não dependem do formulário: com ou sem chave, eles continuam
+  // sendo o caminho principal declarado no lead.
+  it('com chave, os três canais continuam na tela', () => {
+    vi.stubEnv('NEXT_PUBLIC_WEB3FORMS_KEY', 'chave-de-teste')
+    render(<Contact dict={pt} locale="pt" />)
+    expect(screen.getByRole('link', { name: /whatsapp/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: new RegExp(pt.contact.email) })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /netoguild-rgb/i })).toBeInTheDocument()
   })
 })
 

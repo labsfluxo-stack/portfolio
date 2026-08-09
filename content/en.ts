@@ -427,7 +427,15 @@ export const en: Dictionary = {
       error: 'Could not send right now. Try WhatsApp or email instead.',
       honeypotLabel: 'Leave this field blank',
     },
-    disabledNote: 'Form unavailable right now — reach out directly via WhatsApp or email.',
+    brief: {
+      label: 'What helps to include',
+      body: 'For a project: what needs to exist, and by when. For a role: the stack, the format and the size of the team. I answer saying what can be done and what cannot.',
+    },
+    channels: {
+      whatsapp: 'For a quick conversation',
+      email: 'For scope, attachments and proposals',
+      github: 'Public code, to check for yourself',
+    },
     whatsapp: 'https://wa.me/5583986226441',
     whatsappMessage: 'Hi, Neto! I saw your portfolio and would like to talk about a project.',
     email: 'netoguild@gmail.com',

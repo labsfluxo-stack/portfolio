@@ -471,7 +471,15 @@ export const pt: Dictionary = {
       error: 'Não deu para enviar agora. Tente pelo WhatsApp ou e-mail.',
       honeypotLabel: 'Deixe este campo em branco',
     },
-    disabledNote: 'Formulário indisponível no momento — fale direto por WhatsApp ou e-mail.',
+    brief: {
+      label: 'O que ajuda vir junto',
+      body: 'Se for projeto: o que precisa existir e para quando. Se for vaga: o stack, o formato e o tamanho do time. Respondo dizendo o que dá para fazer e o que não dá.',
+    },
+    channels: {
+      whatsapp: 'Para conversa rápida',
+      email: 'Para escopo, anexo e proposta',
+      github: 'Código público, para conferir por conta própria',
+    },
     whatsapp: 'https://wa.me/5583986226441',
     whatsappMessage: 'Olá, Neto! Vi seu portfólio e quero conversar sobre um projeto.',
     email: 'netoguild@gmail.com',
