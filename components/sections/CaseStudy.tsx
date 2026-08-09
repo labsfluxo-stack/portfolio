@@ -148,10 +148,10 @@ export function CaseStudy({
             ))}
           </ul>
 
-          {/* Sistema proprietário: sem screenshot, sem trecho de código, sem
-           * link de repositório — mostra `proprietaryNote` no lugar. Um
-           * sistema não proprietário sem `repoUrl` (nenhum hoje) não mostra
-           * nada aqui, igual ao SystemCard. */}
+          {/* Sem repositório público, nada aqui — mesma decisão do
+           * SystemCard. A nota "Código proprietário — sem repositório
+           * público." repetia o selo PROPRIETÁRIO que o cabeçalho desta
+           * mesma página já exibe. */}
           {system.repoUrl ? (
             <a
               href={system.repoUrl}
@@ -161,8 +161,6 @@ export function CaseStudy({
             >
               {systems.viewRepo}
             </a>
-          ) : system.proprietary ? (
-            <p className="font-mono text-[11px] text-muted">{systems.proprietaryNote}</p>
           ) : null}
         </div>
       </Section>

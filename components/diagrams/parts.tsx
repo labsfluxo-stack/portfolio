@@ -212,31 +212,22 @@ export function Tag({
  * pedaços soltos e fora de ordem. O texto dentro do SVG continua sendo texto
  * de verdade no HTML, então crawler de IA lê normalmente.
  */
-export function DiagramFrame({
-  viewBox,
-  caption,
-  children,
-}: {
-  viewBox: string
-  caption: string
-  children: React.ReactNode
-}) {
+export function DiagramFrame({ viewBox, children }: { viewBox: string; children: React.ReactNode }) {
+  // Sem legenda. Havia uma — "Em destaque, a decisão que sustenta o resto" —
+  // e ela explicava a própria convenção visual do desenho. Quem repara no
+  // ciano repara sozinho; anunciar o recurso é ensinar o leitor a ler uma
+  // imagem que ele já sabe ler.
   return (
-    <figure className="mt-2 mb-10">
-      <div className="overflow-x-auto border border-border bg-bg">
-        <svg
-          aria-hidden="true"
-          viewBox={viewBox}
-          className="h-auto w-full min-w-[680px]"
-          preserveAspectRatio="xMidYMid meet"
-          fill="none"
-        >
-          {children}
-        </svg>
-      </div>
-      <figcaption className="mt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
-        {caption}
-      </figcaption>
-    </figure>
+    <div className="mt-2 mb-10 overflow-x-auto border border-border bg-bg">
+      <svg
+        aria-hidden="true"
+        viewBox={viewBox}
+        className="h-auto w-full min-w-[680px]"
+        preserveAspectRatio="xMidYMid meet"
+        fill="none"
+      >
+        {children}
+      </svg>
+    </div>
   )
 }

@@ -70,11 +70,14 @@ describe('CaseStudy', () => {
     expect(screen.queryByText(pt.systems.statusLabels.proprietary)).not.toBeInTheDocument()
   })
 
-  it('sistema proprietário mostra a nota, nunca um link de repositório', () => {
+  // Exigia uma nota ("Código proprietário — sem repositório público.") que
+  // repetia o selo PROPRIETÁRIO do cabeçalho desta mesma página. A nota saiu;
+  // o invariante fica: sistema fechado nunca ganha link morto.
+  it('sistema proprietário não mostra link de repositório, e o selo continua informando', () => {
     setReducedMotion(true)
     render(<CaseStudy system={systemFor('saturno-labs')} dict={pt} locale="pt" />)
-    expect(screen.getByText(pt.systems.proprietaryNote)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: pt.systems.viewRepo })).not.toBeInTheDocument()
+    expect(screen.getByText(pt.systems.statusLabels.proprietary)).toBeInTheDocument()
   })
 
   it('sistema não proprietário com repoUrl mostra o link com o rótulo do dicionário, nunca a URL crua como texto', () => {
@@ -82,7 +85,6 @@ describe('CaseStudy', () => {
     render(<CaseStudy system={systemFor('moveis-pro')} dict={pt} locale="pt" />)
     const link = screen.getByRole('link', { name: pt.systems.viewRepo })
     expect(link).toHaveAttribute('href', 'https://github.com/netoguild-rgb/Moveis.pro')
-    expect(screen.queryByText(pt.systems.proprietaryNote)).not.toBeInTheDocument()
     expect(screen.queryByText('https://github.com/netoguild-rgb/Moveis.pro')).not.toBeInTheDocument()
   })
 

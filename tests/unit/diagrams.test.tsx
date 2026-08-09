@@ -19,10 +19,13 @@ function textsOf(container: HTMLElement): string[] {
 describe('SystemDiagram', () => {
   for (const system of systems) {
     describe(system.slug, () => {
-      it('renderiza um SVG com moldura e legenda', () => {
+      it('renderiza um SVG, sem legenda explicando a própria convenção', () => {
         const { container } = render(<SystemDiagram system={system} dict={pt} />)
         expect(container.querySelector('svg')).toBeTruthy()
-        expect(container.querySelector('figcaption')?.textContent).toBe(pt.systems.diagram.caption)
+        // Havia uma legenda — "Em destaque, a decisão que sustenta o resto" —
+        // e ela ensinava o leitor a ler uma imagem que ele já sabe ler. Quem
+        // repara no ciano repara sozinho.
+        expect(container.querySelector('figcaption'), 'a legenda voltou').toBeNull()
       })
 
       // AS DUAS TRAVAS QUE MAIS IMPORTAM. Um diagrama é a superfície mais

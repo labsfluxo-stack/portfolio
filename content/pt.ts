@@ -44,7 +44,9 @@ export const pt: Dictionary = {
     // conferido.
     tagline: 'Mais de uma década projetando, escalando e mantendo sistemas críticos em produção contínua',
     availability: 'Disponível para vaga ou projeto',
-    scrollHint: 'role para operar',
+    // Era "role para operar", resíduo do conceito de sala de controle que
+    // morreu junto com o terminal. Não há mais nada para operar.
+    scrollHint: 'role',
   },
   telemetry: {
     label: 'Telemetria',
@@ -136,9 +138,19 @@ export const pt: Dictionary = {
     // Aqui o argumento é outro: os quatro papéis numa pessoa só.
     lead: 'A mesma pessoa modela o banco, escreve a API, sobe o front e faz o deploy — e responde pelos quatro.',
     body: [
-      'Construo sistemas completos, do zero até produção: modelagem de dados, API, interface, fila, deploy e a instrumentação que diz se aquilo continua de pé. Nove sistemas até aqui, cinco rodando hoje — os três maiores estão abertos nesta página, com os números que dá para conferir um por um.',
+      // Terminava em "com os números que dá para conferir um por um". Saiu:
+      // convidar auditoria é o mesmo reflexo que tirou a procedência de baixo
+      // de cada número na Telemetria. Os números estão lá; quem quiser
+      // conferir, confere.
+      'Construo sistemas completos, do zero até produção: modelagem de dados, API, interface, fila, deploy e a instrumentação que diz se aquilo continua de pé. Nove sistemas até aqui, cinco rodando hoje — os três maiores estão abertos nesta página.',
       'Antes do código veio a infraestrutura: redes, switches e servidores. Não é o serviço que eu vendo hoje, é a razão de o que eu entrego aguentar — quem passou esses anos respondendo pelo uptime de sistema dos outros projeta software pensando em como ele se sustenta, não só em como ele funciona.',
-      'A camada mais recente é medir o que quase ninguém mede: KPIs próprias, SEO técnico e GEO — a disciplina de aparecer nas respostas do ChatGPT, do Gemini e do Perplexity, não só na primeira página do Google. Este portfólio é a demonstração: HTML estático de verdade, porque crawler de IA não executa JavaScript.',
+      // Abria em "medir o que quase ninguém mede" — afirmar que os outros são
+      // piores é comparação, não afirmação. E fechava explicando a própria
+      // técnica ("HTML estático de verdade, porque crawler de IA não executa
+      // JavaScript"), que é mostrar o dever de casa: o recrutador técnico
+      // gosta, o cliente não entende, e o sênior acha que você está se
+      // explicando. O fato fica, a explicação sai.
+      'A camada mais recente é medição: KPIs próprias, SEO técnico e GEO — a disciplina de aparecer nas respostas do ChatGPT, do Gemini e do Perplexity, não só na primeira página do Google. Este site é feito assim de propósito: as IAs conseguem lê-lo.',
     ],
     photoAlt: 'Retrato de Neto Alves',
     photoPending: 'Foto a ser adicionada',
@@ -152,7 +164,10 @@ export const pt: Dictionary = {
     experience: {
       label: 'Base técnica',
       years: '10+ anos em infraestrutura e redes',
-      body: 'Redes, switches e servidores antes do primeiro sistema em produção. VPS, DNS, Nginx, Docker, deploy blue-green com rollback e integração de mensageria — a base que faz o software que eu escrevo sobreviver ao que ninguém testou.',
+      // Terminava repetindo o argumento que o corpo do Sobre já faz cem
+      // palavras acima ("é a razão de o que eu entrego aguentar"). Repetir o
+      // melhor argumento gasta os dois. Aqui fica só o fato.
+      body: 'Redes, switches e servidores antes do primeiro sistema em produção. VPS, DNS, Nginx, Docker, deploy blue-green com rollback e integração de mensageria.',
       vendors: ['Cisco', 'MikroTik', 'Furukawa'],
     },
     education: {
@@ -182,9 +197,9 @@ export const pt: Dictionary = {
   },
   systems: {
     label: 'Sistemas',
+    lead: 'Cada um nasceu de um problema de operação diferente — distribuir lead, atribuir atendimento, avisar quando algo cai. O próximo é o que o cliente trouxer.',
     statusLabels: { production: 'Operacional', proprietary: 'Proprietário' },
     readCase: 'Ver case study',
-    proprietaryNote: 'Código proprietário — sem repositório público.',
     viewRepo: 'Ver repositório',
     metricLabels: {
       // Só categorias que a Telemetria NÃO usa — ver o comentário no topo
@@ -209,7 +224,6 @@ export const pt: Dictionary = {
     // Só prosa aqui — nome de tecnologia é escrito direto no componente do
     // diagrama (ver content/types.ts, systems.diagram).
     diagram: {
-      caption: 'Em destaque, a decisão que sustenta o resto.',
       admin: 'Painel admin',
       consultant: 'Painel do consultor',
       landing: 'Landing de captação',
@@ -327,13 +341,19 @@ export const pt: Dictionary = {
   },
   stack: {
     label: 'Stack',
-    lead: 'Não é nuvem de ícones: cada item tem um nível declarado e uma origem — código auditado ou experiência profissional.',
+    // Abria em "Não é nuvem de ícones", que se defende de uma crítica que
+    // ninguém fez. A lista se defende sozinha por ter nível e origem em cada
+    // item; anunciar isso antes é explicar o próprio critério.
+    lead: 'Cada item tem um nível declarado e uma origem — código ou experiência.',
     levels: {
       dominio: 'Domínio',
       producao: 'Produção',
       contato: 'Contato',
     },
-    legend: 'Domínio: uso em produção e sei depurar. Produção: já entreguei com isso. Contato: usei, sem reivindicar profundidade.',
+    // "sem reivindicar profundidade" saiu: era hedge, pedindo desculpa por
+    // saber pouco de algo que o próprio dono escolheu listar. Critério é
+    // fato, não ressalva.
+    legend: 'Domínio: uso em produção e sei depurar. Produção: já entreguei com isso. Contato: usei em algo pontual.',
     sourceNote: {
       repo: 'Código',
       experience: 'Experiência',

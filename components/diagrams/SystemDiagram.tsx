@@ -46,7 +46,7 @@ function Oscapstack({ system, dict }: Props) {
   const centre = 320
 
   return (
-    <DiagramFrame viewBox="0 0 680 268" caption={d.caption}>
+    <DiagramFrame viewBox="0 0 680 268">
       <DiagramDefs id={id} />
 
       <Tag x={20} y={18}>{`${metric(system, 'screens')} ${d.screens}`}</Tag>
@@ -106,7 +106,7 @@ function SaturnoLabs({ system, dict }: Props) {
   const gateXs = [21, 151, 281, 411, 541]
 
   return (
-    <DiagramFrame viewBox="0 0 680 180" caption={d.caption}>
+    <DiagramFrame viewBox="0 0 680 180">
       <DiagramDefs id={id} />
 
       <Tag x={20} y={18}>{`${metric(system, 'packages')} ${d.packages}`}</Tag>
@@ -153,7 +153,7 @@ function MoveisPro({ system, dict }: Props) {
   const centre = 340
 
   return (
-    <DiagramFrame viewBox="0 0 680 232" caption={d.caption}>
+    <DiagramFrame viewBox="0 0 680 232">
       <DiagramDefs id={id} />
 
       <Tag x={20} y={18}>{`${metric(system, 'apps')} apps`}</Tag>

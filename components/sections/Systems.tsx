@@ -9,6 +9,13 @@ import { SystemCard } from './SystemCard'
 export function Systems({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   return (
     <Section id="sistemas" label={dict.systems.label} index="02">
+      {/* Era a única seção sem abertura — ia do rótulo direto para os cards.
+       * O que ela diz também faltava no site inteiro: o que os sistemas
+       * fazem por uma empresa, e não só como foram construídos (ver o
+       * comentário em content/types.ts, systems.lead). */}
+      <Reveal>
+        <p className="mb-10 max-w-2xl text-muted">{dict.systems.lead}</p>
+      </Reveal>
       <div className="grid gap-6 lg:grid-cols-3">
         {systems.map((system, i) => (
           // `className="grid"` repassa a largura e a altura esticadas pela

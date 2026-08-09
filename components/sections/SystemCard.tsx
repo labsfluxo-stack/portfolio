@@ -11,8 +11,8 @@ import { Counter } from '@/components/ui/Counter'
  *
  * O link de repositório só aparece quando `repoUrl` existe. Um sistema
  * `proprietary` sem `repoUrl` não fica com link morto nem botão desabilitado
- * — no lugar entra `dict.systems.proprietaryNote`, a explicação de por que
- * não há código para mostrar.
+ * — o slot fica vazio, porque o selo "Proprietário" no topo do card já
+ * diz isso, e repetir em prosa vira justificativa.
  */
 export function SystemCard({
   system,
@@ -82,6 +82,11 @@ export function SystemCard({
           {systems.readCase}
         </Link>
 
+        {/* Sem repositório público, o slot fica VAZIO. Antes ele trazia
+         * "Código proprietário — sem repositório público.", que repetia o
+         * selo PROPRIETÁRIO exibido no topo do mesmo card: a mesma
+         * informação duas vezes, e a segunda em tom de justificativa. O selo
+         * já diz, e não precisa de nota explicando. */}
         {system.repoUrl ? (
           <a
             href={system.repoUrl}
@@ -91,12 +96,6 @@ export function SystemCard({
           >
             {systems.viewRepo}
           </a>
-        ) : system.proprietary ? (
-          // Um degrau menor que `viewRepo` (10px vs 11px) em vez de uma cor mais
-          // fraca: os dois nunca aparecem juntos (são alternativas no mesmo
-          // slot), mas a nota é só um aviso inerte, não um link, e o tamanho
-          // menor já sinaliza isso sem recorrer a `text-faint` (reprova AA).
-          <p className="font-mono text-[10px] text-muted">{systems.proprietaryNote}</p>
         ) : null}
       </div>
     </article>

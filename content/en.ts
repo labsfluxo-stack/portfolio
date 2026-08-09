@@ -31,7 +31,9 @@ export const en: Dictionary = {
     // português, e traduzir ao pé da letra devolveria inglês torto.
     tagline: 'Over a decade designing, scaling and keeping critical systems running in production',
     availability: 'Available for a role or a project',
-    scrollHint: 'scroll to operate',
+    // Ver content/pt.ts: resíduo do conceito de sala de controle, que morreu
+    // junto com o terminal.
+    scrollHint: 'scroll',
   },
   telemetry: {
     label: 'Telemetry',
@@ -119,9 +121,11 @@ export const en: Dictionary = {
     // esta linha fica só com os quatro papéis numa pessoa só.
     lead: 'The same person models the database, writes the API, ships the front end and runs the deploy — and answers for all four.',
     body: [
-      'I build complete systems, from zero to production: data modelling, API, interface, queues, deploy, and the instrumentation that tells you whether it is still standing. Nine systems so far, five running today — the three largest are open on this page, with numbers you can check one by one.',
+      'I build complete systems, from zero to production: data modelling, API, interface, queues, deploy, and the instrumentation that tells you whether it is still standing. Nine systems so far, five running today — the three largest are open on this page.',
       "Infrastructure came before the code: networks, switches and servers. It is not the service I sell today, it is the reason what I ship holds up — someone who spent those years accountable for other people's uptime designs software around how it stays standing, not only around how it works.",
-      "The newest layer is measuring what almost nobody measures: custom KPIs, technical SEO and GEO — the discipline of showing up in answers from ChatGPT, Gemini and Perplexity, not just on Google's first page. This portfolio is the demonstration: real static HTML, because AI crawlers don't execute JavaScript.",
+      // Ver content/pt.ts: abria em comparação e fechava explicando a própria
+      // técnica.
+      "The newest layer is measurement: custom KPIs, technical SEO and GEO — the discipline of showing up in answers from ChatGPT, Gemini and Perplexity, not just on Google's first page. This site is built that way on purpose: the AIs can read it.",
     ],
     photoAlt: 'Portrait of Neto Alves',
     photoPending: 'Photo to be added',
@@ -131,7 +135,8 @@ export const en: Dictionary = {
     experience: {
       label: 'Technical foundation',
       years: '10+ years in infrastructure and networking',
-      body: 'Networks, switches and servers before the first system in production. VPS, DNS, Nginx, Docker, blue-green deploys with rollback and messaging integration — the foundation that makes the software I write survive what nobody tested.',
+      // Ver content/pt.ts: repetia o argumento que o corpo do Sobre já faz.
+      body: 'Networks, switches and servers before the first system in production. VPS, DNS, Nginx, Docker, blue-green deploys with rollback and messaging integration.',
       vendors: ['Cisco', 'MikroTik', 'Furukawa'],
     },
     education: {
@@ -155,9 +160,9 @@ export const en: Dictionary = {
   },
   systems: {
     label: 'Systems',
+    lead: 'Each one came from a different operations problem — routing leads, assigning conversations, raising the alarm when something goes down. The next one is whatever the client brings.',
     statusLabels: { production: 'Operational', proprietary: 'Proprietary' },
     readCase: 'Read case study',
-    proprietaryNote: 'Proprietary code — no public repository.',
     viewRepo: 'View repository',
     metricLabels: {
       // Ver content/pt.ts: só categorias que a Telemetria não usa.
@@ -178,7 +183,6 @@ export const en: Dictionary = {
     },
     // Ver content/pt.ts: só prosa aqui, nome de tecnologia vive no componente.
     diagram: {
-      caption: 'Highlighted, the decision that holds up the rest.',
       admin: 'Admin panel',
       consultant: 'Consultant panel',
       landing: 'Lead capture landing',
@@ -296,13 +300,15 @@ export const en: Dictionary = {
   },
   stack: {
     label: 'Stack',
-    lead: 'Not an icon cloud: every item carries a declared level and a source — audited code or professional experience.',
+    // Ver content/pt.ts: a frase se defendia de uma crítica que ninguém fez.
+    lead: 'Every item carries a declared level and a source — code or experience.',
     levels: {
       dominio: 'Mastery',
       producao: 'Production',
       contato: 'Exposure',
     },
-    legend: "Mastery: used in production and I can debug it. Production: I've shipped with it. Exposure: used it, with no claim of depth.",
+    // Ver content/pt.ts: "with no claim of depth" era hedge.
+    legend: "Mastery: used in production and I can debug it. Production: I've shipped with it. Exposure: used it on something specific.",
     sourceNote: {
       repo: 'Code',
       experience: 'Experience',

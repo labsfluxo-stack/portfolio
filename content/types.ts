@@ -93,13 +93,27 @@ export type Dictionary = {
   systems: {
     label: string
     /**
+     * Era a única seção do site sem parágrafo de abertura — ia do rótulo
+     * direto para os três cards.
+     *
+     * E o buraco não era só estrutural: o site inteiro descrevia COMO o dono
+     * constrói (modela o banco, escreve a API, sobe o deploy) e nenhuma
+     * linha dizia o que aquilo faz por uma empresa. Um recrutador técnico se
+     * satisfaz com o "como"; um dono de negócio saía sabendo que ele é
+     * competente e sem saber o que ganharia.
+     *
+     * Os exemplos citados aqui são EXEMPLOS, não o cardápio — a frase
+     * termina em aberto de propósito, porque o problema é o que o cliente
+     * traz, e a forma de resolver vem depois dele.
+     */
+    lead: string
+    /**
      * Dois eixos independentes de badge por sistema (ver `System.production` e
      * `System.proprietary` em `content/systems.ts`): um sistema pode exibir
      * os dois badges, um só, ou nenhum. Não é um enum de status único.
      */
     statusLabels: Record<'production' | 'proprietary', string>
     readCase: string
-    proprietaryNote: string
     /** Rótulo do link de repositório (quando `System.repoUrl` existe) — nunca
      * a URL crua como texto de link, que é ruído visual e péssimo para
      * leitor de tela. */
@@ -131,9 +145,6 @@ export type Dictionary = {
      * alguém "traduzir" um nome próprio.
      */
     diagram: {
-      /** Legenda visível sob cada desenho, curta o bastante para não competir
-       * com a prosa da arquitetura, que é a descrição completa. */
-      caption: string
       admin: string
       consultant: string
       landing: string

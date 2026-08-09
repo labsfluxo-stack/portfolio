@@ -60,22 +60,27 @@ describe('Systems', () => {
     expect(moveisPro.queryByText(pt.systems.statusLabels.proprietary)).not.toBeInTheDocument()
   })
 
-  it('a nota de proprietário aparece no lugar do link nos dois sistemas fechados', () => {
+  // O teste exigia uma nota ("Código proprietário — sem repositório
+  // público.") no lugar do link. Ela saiu: repetia o selo PROPRIETÁRIO que o
+  // mesmo card exibe no topo, e a segunda vez soava como justificativa. O
+  // invariante que importa não mudou — sistema fechado não pode ganhar link
+  // morto nem botão desabilitado.
+  it('sistema fechado não mostra link de repositório; o aberto mostra', () => {
     setReducedMotion(true)
     render(<Systems dict={pt} locale="pt" />)
 
     for (const name of ['OSCapstack CRM', 'Saturno Labs']) {
       const card = cardFor(name)
-      expect(card.getByText(pt.systems.proprietaryNote)).toBeInTheDocument()
       expect(card.queryByRole('link', { name: /github/i })).not.toBeInTheDocument()
+      expect(card.queryByText(pt.systems.viewRepo)).not.toBeInTheDocument()
+      // O selo continua sendo quem informa que o código é fechado.
+      expect(card.getByText(pt.systems.statusLabels.proprietary)).toBeInTheDocument()
     }
 
-    // Moveis.pro não é proprietário e tem repoUrl: mostra o link, não a nota.
-    // O texto do link é o rótulo do dicionário, nunca a URL crua (ruído
-    // visual e péssimo para leitor de tela).
-    const moveisPro = cardFor('Moveis.pro')
-    expect(moveisPro.queryByText(pt.systems.proprietaryNote)).not.toBeInTheDocument()
-    const repoLink = moveisPro.getByText(pt.systems.viewRepo)
+    // Moveis.pro não é proprietário e tem repoUrl: mostra o link. O texto é o
+    // rótulo do dicionário, nunca a URL crua (ruído visual e péssimo para
+    // leitor de tela).
+    const repoLink = cardFor('Moveis.pro').getByText(pt.systems.viewRepo)
     expect(repoLink.closest('a')).toHaveAttribute('href', 'https://github.com/netoguild-rgb/Moveis.pro')
   })
 
