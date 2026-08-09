@@ -18,10 +18,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # NODE 24, E O NÚMERO IMPORTA — não trocar sem ler isto.
+      #
+      # Estava em 22, e o deploy falhava em `npm ci` com "Missing:
+      # @emnapi/runtime@1.11.3 from lock file". Não era lockfile
+      # dessincronizado nem binário de plataforma faltando: era diferença de
+      # npm. O runner com Node 22 traz npm 10.9.8; o lockfile foi gerado com
+      # npm 11.6.2, e o npm 11 PODA essa dependência transitiva do
+      # `@tailwindcss/oxide-wasm32-wasi` que o npm 10 exige. O CI validava um
+      # mundo diferente daquele em que o lockfile nasceu.
+      #
+      # Node 24 traz npm 11, o mesmo do desenvolvimento — e é essa a regra:
+      # o CI roda o que o desenvolvimento roda. Também satisfaz o engine do
+      # jsdom 30 (^22.22.2 || ^24.15.0 || >=26.0.0).
+      #
+      # Se um dia o lockfile passar a ser gerado por outra major do npm, esta
+      # linha muda junto.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
+      - run: node -v && npm -v
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
