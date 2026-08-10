@@ -31,38 +31,7 @@ export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
       // margem de rolagem para qualquer link de âncora que aponte para cá.
       className="relative scroll-mt-24 overflow-hidden"
     >
-      {/* Confinada à metade direita a partir de `md`. Ocupando a largura
-          inteira, a máquina cruzava o badge de disponibilidade e o bloco do
-          nome — lia como acidente, não como composição. Abaixo de `md` a cena
-          vira a elevação em SVG e fica bem apagada, para não competir com o
-          texto na largura onde não há espaço para os dois.
-
-          A borda do canvas NÃO é resolvida aqui. Ela foi, e estava errada: uma
-          máscara de gradiente de 26 % à esquerda e 14 % embaixo apagava o
-          retângulo e, junto com ele, a geometria — a viga da ponte dissolvia no
-          meio do vão, e o hero lia como "a imagem está sendo apagada" em vez de
-          "o espaço continua no escuro". Quem acaba num pátio é o CHÃO, e é o
-          chão que passou a acabar: ver `SLAB`, em `portico-textures.ts`, o
-          recorte da laje de concreto.
-
-          O que sobrou de máscara é um véu de 7 % só na esquerda, e ele existe
-          por um motivo medido: é ali que a cena encosta na coluna do texto, e
-          mesmo com a laje recortada sobra o brilho rasante do refletor no
-          concreto junto à borda. Sete por cento são 50 px num painel de 720 —
-          curto demais para alcançar a viga, que hoje chega inteira até o corte.
-          Embaixo não há mais máscara nenhuma. */}
-      <div
-        data-portico-slot
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 right-0 -z-10 w-full opacity-40 md:left-1/2 md:w-1/2 md:opacity-100"
-        style={{
-          maskImage: 'linear-gradient(to right, transparent 0%, black 7%)',
-          WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 7%)',
-        }}
-      >
-        <PorticoSlot systems={systems} />
-      </div>
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-24 sm:py-32">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-20 sm:py-28 md:py-32">
         <StatusBadge status="ok" label={hero.availability} />
         <div className="flex flex-col gap-4">
           <h1
@@ -81,7 +50,41 @@ export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
          * parecidos, que é o tratamento certo para título curto — e o
          * navegador que não suporta simplesmente quebra como antes. */}
         <p className="max-w-2xl text-balance text-lg leading-relaxed text-muted sm:text-xl">{hero.tagline}</p>
-        <p aria-hidden="true" className="mt-16 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
+
+        {/* A CENA MUDA DE PAPEL NO BREAKPOINT, e é isso que conserta o
+         * celular.
+         *
+         * A partir de `md` ela é FUNDO: absoluta, na metade direita, atrás
+         * do texto. Ocupando a largura inteira, a máquina cruzava o badge e
+         * o nome e lia como acidente em vez de composição.
+         *
+         * Abaixo de `md` ela é BLOCO, em fluxo, depois do texto e com
+         * moldura própria. Era fundo também ali, a 40% de opacidade e atrás
+         * das palavras — e um desenho técnico detalhado nessa condição não é
+         * arte legível nem textura discreta: é ruído. Sem largura para os
+         * dois lado a lado, a saída não é sobrepor com menos opacidade, é
+         * empilhar e dar espaço próprio a cada um.
+         *
+         * Por isso ela vem DEPOIS do texto no DOM: no celular a ordem visual
+         * é a ordem do documento, e a partir de `md` o `absolute` a tira do
+         * fluxo e a posição no HTML deixa de importar.
+         *
+         * A máscara também é só de `md` para cima, como variante e não como
+         * `style` embutido: ela existe para apagar o brilho rasante do
+         * refletor onde a cena encosta na coluna de texto, e num bloco com
+         * moldura ela só comeria a borda esquerda. Sete por cento são ~50px
+         * num painel de 720, curto demais para alcançar a viga. */}
+        <div
+          data-portico-slot
+          aria-hidden="true"
+          className="relative -mx-6 aspect-[300/230] border-y border-border bg-bg px-5 py-6
+            md:pointer-events-none md:absolute md:inset-y-0 md:left-1/2 md:right-0 md:-z-10 md:m-0 md:aspect-auto md:w-1/2 md:border-0 md:p-0
+            md:[-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_7%)] md:[mask-image:linear-gradient(to_right,transparent_0%,black_7%)]"
+        >
+          <PorticoSlot systems={systems} />
+        </div>
+
+        <p aria-hidden="true" className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted md:mt-16">
           {hero.scrollHint}
         </p>
       </div>

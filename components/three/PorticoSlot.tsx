@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { PorticoFallback } from './PorticoFallback'
 import type { SceneSystem } from './portico-systems'
 
-const MIN_WIDTH_QUERY = '(min-width: 768px)'
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 
 // `ssr: false` só é permitido a partir de um Client Component -- por isso
@@ -39,9 +38,23 @@ export function hasWebGL(): boolean {
  * visível a partir de uma API só-de-navegador).
  *
  * A cena só substitui o fallback depois que um efeito no cliente confirma
- * as três condições do spec ao mesmo tempo: WebGL disponível,
- * `prefers-reduced-motion` desligado, e largura >= 768px. Falhando
- * qualquer uma, o fallback permanece -- "sem exceção", como pede o brief.
+ * duas condições: WebGL disponível e `prefers-reduced-motion` desligado.
+ * Falhando qualquer uma, o fallback permanece.
+ *
+ * ERA TRÊS CONDIÇÕES, e a terceira -- largura >= 768px -- foi removida. Ela
+ * entregava ao celular uma experiência de qualidade visivelmente inferior: a
+ * elevação em SVG é plana, sem profundidade, sem luz e sem os ícones em cor
+ * de marca, e como desenho técnico ainda carrega um vão vertical enorme
+ * entre o trilho e a pilha. Ao lado da cena do desktop, não é o mesmo site.
+ *
+ * O que tornava a regra defensável era o custo, e ele caiu: a cena é
+ * carregada por `dynamic` e não entra no HTML inicial, o degrau de qualidade
+ * começa no nível SEGURO e só sobe quando o quadro prova folga (ver TIERS em
+ * Portico.tsx), e no celular ela ocupa um bloco 4:3 contido em vez de meia
+ * tela. `hasWebGL()` continua barrando aparelho sem suporte, e o teste de
+ * movimento reduzido continua respeitado.
+ *
+ * O efeito no Lighthouse mobile foi medido antes e depois, não estimado.
  */
 export function PorticoSlot({ systems }: { systems: readonly SceneSystem[] }) {
   const [showScene, setShowScene] = useState(false)
@@ -50,17 +63,11 @@ export function PorticoSlot({ systems }: { systems: readonly SceneSystem[] }) {
     if (!hasWebGL()) return
 
     const motionQuery = window.matchMedia(REDUCED_MOTION_QUERY)
-    const widthQuery = window.matchMedia(MIN_WIDTH_QUERY)
-
-    const evaluate = () => setShowScene(!motionQuery.matches && widthQuery.matches)
+    const evaluate = () => setShowScene(!motionQuery.matches)
     evaluate()
 
     motionQuery.addEventListener('change', evaluate)
-    widthQuery.addEventListener('change', evaluate)
-    return () => {
-      motionQuery.removeEventListener('change', evaluate)
-      widthQuery.removeEventListener('change', evaluate)
-    }
+    return () => motionQuery.removeEventListener('change', evaluate)
   }, [])
 
   return (
