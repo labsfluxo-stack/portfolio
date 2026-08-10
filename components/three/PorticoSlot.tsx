@@ -63,11 +63,46 @@ export function PorticoSlot({ systems }: { systems: readonly SceneSystem[] }) {
     if (!hasWebGL()) return
 
     const motionQuery = window.matchMedia(REDUCED_MOTION_QUERY)
-    const evaluate = () => setShowScene(!motionQuery.matches)
+    let idle: number | undefined
+    let timer: number | undefined
+
+    // A MONTAGEM ESPERA O NAVEGADOR FICAR OCIOSO, e não é preciosismo.
+    //
+    // Subir a cena custa uma tarefa longa e síncrona na thread principal:
+    // gerar as texturas procedurais em canvas 2D e compilar os shaders no
+    // primeiro quadro. Medido com PerformanceObserver, essa tarefa apareceu
+    // no perfil como um bloco único de vários segundos — inflado pelo
+    // rasterizador de software, mas real em qualquer máquina.
+    //
+    // Disparada junto com o carregamento, ela cai exatamente sobre o momento
+    // em que a página está pintando e o visitante tentando rolar. Foi o
+    // engasgo que o dono relatou. Adiada para a ociosidade, o custo é o mesmo
+    // e o momento é outro: quem chega vê o fallback em SVG na hora — que já
+    // tem moldura e composição próprias — e a cena entra quando não atrapalha.
+    //
+    // O `timeout` do `requestIdleCallback` é a garantia de que ela entra mesmo
+    // numa página que nunca fica ociosa. Safari não implementa a API até hoje,
+    // daí o `setTimeout` como caminho alternativo.
+    const evaluate = () => {
+      if (motionQuery.matches) {
+        setShowScene(false)
+        return
+      }
+      const montar = () => setShowScene(true)
+      if (typeof window.requestIdleCallback === 'function') {
+        idle = window.requestIdleCallback(montar, { timeout: 2500 })
+      } else {
+        timer = window.setTimeout(montar, 900)
+      }
+    }
     evaluate()
 
     motionQuery.addEventListener('change', evaluate)
-    return () => motionQuery.removeEventListener('change', evaluate)
+    return () => {
+      motionQuery.removeEventListener('change', evaluate)
+      if (idle !== undefined) window.cancelIdleCallback?.(idle)
+      if (timer !== undefined) window.clearTimeout(timer)
+    }
   }, [])
 
   return (

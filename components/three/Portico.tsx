@@ -346,6 +346,31 @@ const SETTLE = 1.5
  * pior de assistir do que ficar no degrau de baixo. Uma decisão que se toma uma
  * vez por carregamento e não se desfaz é a que menos chama atenção para si.
  */
+/**
+ * Em que degrau a escada COMEÇA, decidido antes do primeiro quadro.
+ *
+ * A escada mede e corrige sozinha, mas leva `WARMUP` segundos para a primeira
+ * decisão — e num telefone esses segundos são exatamente a janela em que o
+ * visitante está rolando a página. O dono relatou o sintoma direto: "a
+ * animação está travando a navegação no mobile". Medir antes de agir é certo
+ * quando não se sabe nada da máquina; quando o aparelho já se anuncia, esperar
+ * é escolher pagar o custo.
+ *
+ * O sinal é `pointer: coarse` — dedo, não mouse. Não é user-agent (mentira
+ * fácil) nem largura de janela (uma janela estreita num desktop não é um
+ * telefone). Um aparelho de toque começa no degrau sem sombra grande e sem luz
+ * prática; se tiver folga, a escada sobe sozinha e ele ganha o resto.
+ *
+ * `hardwareConcurrency` baixo entra pelo mesmo motivo: dois núcleos não
+ * sustentam a geração de textura competindo com a rolagem.
+ */
+function startingStep(): number {
+  if (typeof window === 'undefined') return 1
+  const toque = window.matchMedia?.('(pointer: coarse)').matches ?? false
+  const poucosNucleos = (navigator.hardwareConcurrency ?? 8) <= 4
+  return toque || poucosNucleos ? 3 : 1
+}
+
 function useQuality(): { tier: Tier; watch: (delta: number) => void } {
   const setDpr = useThree((state) => state.setDpr)
   // Começa no degrau SEGURO, não no de estúdio — e sobe se a máquina provar
@@ -360,7 +385,11 @@ function useQuality(): { tier: Tier; watch: (delta: number) => void } {
   //
   // Provar antes de gastar custa um segundo de imagem mais macia em quem tem
   // GPU, e poupa o engasgo inteiro em quem não tem. É a troca certa.
-  const [step, setStep] = useState(1)
+  //
+  // O ponto de partida não é mais fixo: num aparelho de toque a escada começa
+  // mais embaixo, porque esperar a medição significava travar a rolagem
+  // durante o aquecimento inteiro (ver `startingStep`).
+  const [step, setStep] = useState(startingStep)
   const meter = useRef({
     age: 0,
     since: 0,
