@@ -1,21 +1,28 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import type { Metadata } from 'next'
 import { getDictionary, systems, type Locale } from '@/content'
 import { formatNumber } from '@/lib/format'
 
-// Layout de impressão (Task 15): esta rota não tem conteúdo próprio — lê os
-// mesmos `content/pt.ts`, `content/en.ts` e `content/systems.ts` do site, só
+// Layout de impressão: esta rota não tem conteúdo próprio — lê os mesmos
+// `content/pt.ts`, `content/en.ts` e `content/systems.ts` do site, só
 // recombinados numa ordem e densidade de currículo. Mudar um número no
-// dicionário muda no site e aqui ao mesmo tempo, sem chance de divergirem
-// (ver "Estado real" do brief da Task 14, que criou o esqueleto mínimo).
+// dicionário muda no site e aqui ao mesmo tempo, sem chance de divergirem.
 //
-// Fundo branco / texto preto o tempo todo — NUNCA atrás de `@media print`
-// só: a rota inteira só existe para virar PDF (`scripts/generate-cv-pdf.mts`),
-// então o estilo de impressão é o único estilo, também na tela. Por isso o
-// wrapper mais externo já nasce `bg-white text-black` cobrindo `min-h-dvh`
-// inteiro, para nenhuma borda do fundo escuro do resto do site (herdado de
-// `body` em app/globals.css) aparecer ao redor do conteúdo em nenhuma
-// largura de tela. Vive fora do route group `(site)`, sem Header/Footer/
-// grid técnico/cena three.js, pelo mesmo motivo de `app/[locale]/og/[slug]`.
+// FUNDO CLARO, MAS A MESMA LINGUAGEM DO SITE. O dono disse que o CV "não
+// parece o design do site", e estava certo: era preto sobre branco sem
+// nenhum traço do sistema visual. O que ele NÃO pode virar é um PDF de fundo
+// escuro — o arquivo existe para ser impresso e encaminhado, e recrutador
+// que imprime um PDF preto gasta cartucho e recebe uma folha suja.
+//
+// A saída é trazer o SISTEMA, não a cor: numeração de seção (01, 02...) como
+// no site, o mesmo par tipográfico (mono para rótulo, sans para conteúdo), a
+// mesma disciplina de hierarquia por tamanho e não por cor, e o azul de dado
+// num tom que sobrevive à impressão. Fundo branco o tempo todo, nunca atrás
+// de `@media print`: o estilo de impressão é o único estilo, também na tela.
+//
+// Vive fora do route group `(site)`, sem Header/Footer/grid/cena, pelo mesmo
+// motivo de `app/[locale]/og/[slug]`.
 export async function generateMetadata({
   params,
 }: {
@@ -26,93 +33,178 @@ export async function generateMetadata({
   return { title: `${dict.nav.cv} — ${dict.hero.name}`, robots: { index: false, follow: false } }
 }
 
-const SECTION_TITLE =
-  'break-inside-avoid-page border-b border-black pb-1.5 font-mono text-[13px] font-bold uppercase tracking-[0.16em] text-black'
-const BODY_TEXT = 'text-[13px] leading-[1.32] text-black'
-const SUB_LABEL = 'font-mono text-[11px] font-bold uppercase tracking-widest text-gray-600'
+/** O azul de dado do site (`--color-data`, #38BDF8) tem contraste baixo
+ *  demais sobre branco — em papel ele quase some. Este é o mesmo matiz,
+ *  escurecido até passar em texto pequeno impresso. */
+const ACCENT = '#0369A1'
+
+const RULE = 'border-b border-black/85'
+const LABEL = 'font-mono text-[10px] font-bold uppercase tracking-[0.18em]'
+const BODY = 'text-[12.5px] leading-[1.45] text-neutral-800'
+const MICRO = 'font-mono text-[9.5px] uppercase tracking-[0.14em] text-neutral-500'
+
+/** Cabeçalho de seção com o numeral do site. O numeral é decorativo e
+ *  `aria-hidden`, igual ao primitivo `Section` — nunca vira texto lido. */
+function SectionTitle({ index, children }: { index: string; children: string }) {
+  return (
+    <h2 className={`break-inside-avoid-page ${RULE} flex items-baseline gap-2.5 pb-1 ${LABEL} text-black`}>
+      <span aria-hidden="true" style={{ color: ACCENT }}>
+        {index}
+      </span>
+      {children}
+    </h2>
+  )
+}
 
 export default async function CvPage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params
   const dict = getDictionary(locale)
-  const { hero, about, systems: systemsDict, stack, contact } = dict
+  const { hero, about, telemetry, systems: systemsDict, stack, contact } = dict
 
-  // Mesma construção de `components/sections/Contact.tsx` — nunca duas
-  // fontes de verdade para o link do WhatsApp ou para o handle do GitHub.
+  // Mesma construção de `components/sections/Contact.tsx` — nunca duas fontes
+  // de verdade para o link do WhatsApp ou para o handle do GitHub.
   const whatsappHref = `${contact.whatsapp}?text=${encodeURIComponent(contact.whatsappMessage)}`
-  const emailHref = `mailto:${contact.email}`
   const githubHandle = contact.github.replace(/^https?:\/\/(www\.)?github\.com\//, '')
+  const phone = contact.whatsapp.replace(/\D/g, '').replace(/^(\d{2})(\d{2})(\d+)(\d{4})$/, '+$1 $2 $3-$4')
+
+  // A FOTO ENTRA SOZINHA QUANDO O ARQUIVO EXISTIR. Rota estática, então esta
+  // checagem roda no build: basta o dono largar `public/foto/neto.jpg` e o
+  // próximo `npm run generate:cv` sai com retrato, sem tocar em código.
+  //
+  // E ela é condicional de propósito: o site pode exibir "foto a ser
+  // adicionada" porque é uma página viva e o aviso é honesto ali. Num PDF
+  // enviado para recrutador, um placeholder dizendo que falta algo é pior do
+  // que retrato nenhum — parece descuido, não obra em andamento.
+  const photo = ['neto.jpg', 'neto.jpeg', 'neto.png', 'neto.webp']
+    .map((file) => ({ file, path: join(process.cwd(), 'public', 'foto', file) }))
+    .find(({ path }) => existsSync(path))
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '/portfolio'
 
   return (
     <div className="min-h-dvh w-full bg-white text-black">
-      <main className="mx-auto w-full max-w-[210mm] px-12 py-6 font-sans">
-        <header className="border-b-2 border-black pb-3">
-          <h1 className="text-[34px] font-bold leading-tight text-black">{hero.name}</h1>
-          <p className="mt-1 font-mono text-[13px] uppercase tracking-[0.16em] text-gray-700">{hero.role}</p>
-          <p className="mt-2 text-[15px] leading-snug text-gray-800">{hero.tagline}</p>
-          <p className="mt-1 text-[12px] text-gray-500">{hero.availability}</p>
+      <main className="mx-auto w-full max-w-[210mm] px-11 py-8 font-sans">
+        {/* CONTATO NO TOPO, junto do nome. Estava no rodapé, e num currículo
+         * isso é atrito: quem decide chamar já leu o suficiente no primeiro
+         * terço e não deveria caçar o e-mail no fim da segunda página. */}
+        <header className={`${RULE} flex items-start justify-between gap-8 pb-4`}>
+          <div className="min-w-0">
+            <h1 className="text-[36px] font-bold leading-[1.05] tracking-tight text-black">{hero.name}</h1>
+            <p className="mt-1.5 font-mono text-[12px] uppercase tracking-[0.18em]" style={{ color: ACCENT }}>
+              {hero.role}
+            </p>
+            <p className="mt-3 max-w-[125mm] text-[14px] leading-snug text-neutral-800">{hero.tagline}</p>
+
+            <p className="mt-3.5 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-neutral-700">
+              <a href={`mailto:${contact.email}`}>{contact.email}</a>
+              <a href={whatsappHref}>{phone}</a>
+              <a href={contact.github}>github.com/{githubHandle}</a>
+            </p>
+            <p className={`mt-2 ${MICRO}`}>{hero.availability}</p>
+          </div>
+
+          {photo ? (
+            <img
+              src={`${basePath}/foto/${photo.file}`}
+              alt={about.photoAlt}
+              className="h-[34mm] w-[27mm] shrink-0 border border-black/20 object-cover"
+            />
+          ) : null}
         </header>
 
-        {/* Posicionamento — reaproveita o mesmo rótulo e a mesma frase de
-         * abertura da seção Sobre do site (`about.label`, `about.lead`),
-         * nunca um título inventado para o CV. */}
-        <section className="mt-4 break-inside-avoid-page">
-          <h2 className={SECTION_TITLE}>{about.label}</h2>
-          <p className={`mt-2.5 ${BODY_TEXT}`}>{about.lead}</p>
+        {/* SOBRE — antes trazia SÓ o `lead`, uma frase, e era a maior causa do
+         * "mal fala sobre" que o dono apontou. Os três parágrafos do site
+         * entram inteiros: é neles que estão o alcance full-stack, a origem em
+         * infraestrutura e a camada de medição. */}
+        <section className="mt-5 break-inside-avoid-page">
+          <SectionTitle index="01">{about.label}</SectionTitle>
+          <p className="mt-2.5 text-[14px] font-semibold leading-snug text-black">{about.lead}</p>
+          <div className="mt-2 flex flex-col gap-1.5">
+            {about.body.map((paragraph, i) => (
+              <p key={i} className={BODY}>
+                {paragraph}
+              </p>
+            ))}
+          </div>
         </section>
 
-        {/* Os 3 sistemas com seus números — nome, tagline e as métricas de
-         * `content/systems.ts` (números crus, `formatNumber(valor, locale)`
-         * aqui, nunca `String(valor)`, ou o separador de milhar sai errado
-         * em `en`). Sem a prosa de problema/arquitetura/decisões/retro do
-         * case study completo — "se estourar, corte a prosa, nunca os
-         * números" (brief da Task 15), e aqui é a prosa que sobra. */}
-        <section className="mt-4 break-inside-avoid-page">
-          <h2 className={SECTION_TITLE}>{systemsDict.label}</h2>
-          <div className="mt-2 flex flex-col gap-2">
+        {/* NÚMEROS — a Telemetria inteira NÃO EXISTIA no currículo. Um CV de
+         * arquiteto sem os números somados perde justamente o que separa a
+         * afirmação da prova, e é a seção mais rápida de ler que existe. */}
+        <section className="mt-5 break-inside-avoid-page">
+          <SectionTitle index="02">{telemetry.label}</SectionTitle>
+          <div className="mt-2.5 grid grid-cols-4 gap-x-5">
+            {telemetry.metrics.map((metric) => (
+              <div key={metric.key}>
+                <p className="font-sans text-[21px] font-bold leading-none tabular-nums text-black">{metric.value}</p>
+                <p className={`mt-1 ${MICRO}`}>{metric.label}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 font-mono text-[10.5px] text-neutral-700">
+            {telemetry.secondary.map((item) => `${item.value} ${item.label.toLowerCase()}`).join('  ·  ')}
+          </p>
+          <p className={`mt-1.5 ${MICRO}`}>{telemetry.provenanceNote}</p>
+        </section>
+
+        {/* SISTEMAS — ganhou o que o site ganhou e o CV não tinha: time,
+         * prazo e as três melhorias que cada um trouxe. Números crus passam
+         * por `formatNumber(valor, locale)`, nunca `String(valor)`, ou o
+         * separador de milhar sai errado em `en`. */}
+        <section className="mt-5">
+          <SectionTitle index="03">{systemsDict.label}</SectionTitle>
+          <div className="mt-2.5 flex flex-col gap-3.5">
             {systems.map((system) => {
               const detail = systemsDict.detail[system.slug]
-              // Mesmos dois eixos independentes de `SystemCard.tsx`: nunca
-              // um único campo de status, um sistema pode não ter nenhum,
-              // um, ou os dois rótulos.
-              const statusParts = [
+              // Mesmos dois eixos independentes de `SystemCard.tsx`: nunca um
+              // único campo de status, um sistema pode não ter nenhum, um, ou
+              // os dois rótulos.
+              const status = [
                 system.production ? systemsDict.statusLabels.production : null,
                 system.proprietary ? systemsDict.statusLabels.proprietary : null,
               ].filter((part): part is string => part !== null)
 
+              const facts = [
+                detail.team,
+                detail.duration,
+                ...system.metrics.map(
+                  (m) => `${formatNumber(m.value, locale)} ${systemsDict.metricLabels[m.key] ?? m.key}`,
+                ),
+              ]
+
               return (
                 <div key={system.slug} className="break-inside-avoid-page">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                    <p className="text-[14.5px] font-bold text-black">{detail.name}</p>
-                    {statusParts.length > 0 ? (
-                      <p className="font-mono text-[10.5px] uppercase tracking-widest text-gray-500">
-                        {statusParts.join(' · ')}
-                      </p>
-                    ) : null}
+                    <p className="text-[14px] font-bold text-black">{detail.name}</p>
+                    {status.length > 0 ? <p className={MICRO}>{status.join(' · ')}</p> : null}
                   </div>
-                  <p className="text-[13px] leading-snug text-gray-700">{detail.tagline}</p>
-                  <p className="mt-1 font-mono text-[12px] text-black">
-                    {system.metrics
-                      .map((metric) => `${formatNumber(metric.value, locale)} ${systemsDict.metricLabels[metric.key]}`)
-                      .join(' · ')}
-                  </p>
+                  <p className="mt-0.5 text-[12.5px] leading-snug text-neutral-700">{detail.tagline}</p>
+                  <p className="mt-1 font-mono text-[10px] text-neutral-600">{facts.join('  ·  ')}</p>
+                  <ul className="mt-1.5 flex flex-col gap-0.5">
+                    {detail.improvements.map((item) => (
+                      <li key={item} className="flex gap-2 text-[12px] leading-snug text-neutral-800">
+                        <span aria-hidden="true" className="mt-[0.42rem] size-[3px] shrink-0" style={{ background: ACCENT }} />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )
             })}
           </div>
         </section>
 
-        {/* Stack por camada — mesma ordem de `dict.stack.layers` (software
-         * primeiro, redes por último), só nomes por camada, sem o detalhe de
-         * nível/origem do site: aqui o espaço é escasso e a ordem já carrega
-         * a hierarquia (backend → dados → IA → SEO/GEO → front → qualidade →
-         * redes). */}
-        <section className="mt-4 break-inside-avoid-page">
-          <h2 className={SECTION_TITLE}>{stack.label}</h2>
+        {/* STACK por camada — mesma ordem de `dict.stack.layers` (software
+         * primeiro, redes por último), só nomes, sem o detalhe de nível do
+         * site: aqui o espaço é escasso e a ordem já carrega a hierarquia. */}
+        <section className="mt-5 break-inside-avoid-page">
+          <SectionTitle index="04">{stack.label}</SectionTitle>
           <div className="mt-2 flex flex-col gap-1">
             {stack.layers.map((layer) => (
-              <p key={layer.label} className={BODY_TEXT}>
-                <span className="font-bold">{layer.label}:</span>{' '}
-                {layer.items.map((item) => item.name).join(', ')}
+              <p key={layer.label} className="text-[12px] leading-snug text-neutral-800">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-black">
+                  {layer.label}
+                </span>{' '}
+                {layer.items.map((item) => item.name).join(' · ')}
               </p>
             ))}
           </div>
@@ -120,81 +212,35 @@ export default async function CvPage({ params }: { params: Promise<{ locale: Loc
 
         {/* A base de infraestrutura com os três vendors. Vem DEPOIS dos
          * sistemas e do stack, nunca antes: num currículo de software, o que
-         * responde "o que essa pessoa entrega?" são os sistemas construídos,
-         * e a década de rede é o que explica por que eles se sustentam. Este
-         * bloco já foi a segunda seção do CV, logo abaixo do posicionamento,
-         * e nessa posição o documento inteiro se lia como currículo de
-         * infraestrutura (ver content/pt.ts, about.experience). */}
-        <section className="mt-4 break-inside-avoid-page">
-          <h2 className={SECTION_TITLE}>{about.experience.label}</h2>
-          <p className="mt-2.5 text-[15px] font-bold text-black">{about.experience.years}</p>
-          <p className={`mt-1.5 ${BODY_TEXT}`}>{about.experience.body}</p>
-          <ul className="mt-2.5 flex flex-wrap gap-x-6 gap-y-1">
-            {about.experience.vendors.map((vendor) => (
-              <li key={vendor} className="font-mono text-[12.5px] font-bold uppercase tracking-widest text-black">
-                {vendor}
-              </li>
-            ))}
-          </ul>
+         * responde "o que essa pessoa entrega?" são os sistemas construídos, e
+         * a década de rede é o que explica por que eles se sustentam. */}
+        <section className="mt-5 break-inside-avoid-page">
+          <SectionTitle index="05">{about.experience.label}</SectionTitle>
+          <p className="mt-2 text-[13px] font-bold text-black">{about.experience.years}</p>
+          <p className={`mt-1 ${BODY}`}>{about.experience.body}</p>
+          <p className="mt-1.5 font-mono text-[10.5px] font-bold uppercase tracking-widest text-black">
+            {about.experience.vendors.join('  ·  ')}
+          </p>
         </section>
 
-        {/* Formação em três blocos com rótulos não intercambiáveis: os CS50
-         * vivem só sob `certifications`, e `degree` não carrega nenhum
-         * rótulo nem palavra de status — o curso está pausado e nenhuma
-         * afirmação de status pode aparecer em superfície nenhuma (mesma
-         * regra de `components/sections/About.tsx` e `lib/jsonld.ts`). */}
-        {/* Lista corrida, sem os três sub-rótulos (Técnico / Graduação /
-         * Certificações) — mesma decisão de components/sections/About.tsx,
-         * onde está o comentário longo: cada item se descreve sozinho e a
-         * atribuição da HarvardX nomeia "CS50" para não parecer que cobre o
-         * técnico e a graduação também.
-         *
-         * A diferença para o site é deliberada e é a mesma de sempre entre
-         * os dois meios: aqui vai o NOME OFICIAL INTEIRO de cada CS50, não o
-         * código curto. No site o nome completo estouraria a etiqueta; num
-         * currículo em PDF há espaço e a leitura é atenta, e "Introduction
-         * to Artificial Intelligence with Python" é justamente o que prova a
-         * formação em IA. */}
-        <section className="mt-4 break-inside-avoid-page">
-          <h2 className={SECTION_TITLE}>{about.education.label}</h2>
+        {/* Lista corrida, sem os sub-rótulos (Técnico / Graduação /
+         * Certificações) — mesma decisão de components/sections/About.tsx.
+         * Aqui vai o NOME OFICIAL INTEIRO de cada CS50: no site ele estouraria
+         * a etiqueta, e num PDF há espaço e a leitura é atenta. */}
+        <section className="mt-5 break-inside-avoid-page">
+          <SectionTitle index="06">{about.education.label}</SectionTitle>
           <ul className="mt-2 flex flex-col gap-0.5">
             {[
               ...about.education.technical.items,
               ...about.education.degree.items,
               ...about.education.certifications.items,
             ].map((item) => (
-              <li key={item} className={BODY_TEXT}>
+              <li key={item} className="text-[12px] leading-snug text-neutral-800">
                 {item}
               </li>
             ))}
           </ul>
-          {/* `SUB_LABEL` puro: um `normal-case` acrescentado aqui não venceria
-           * o `uppercase` que ele já traz — mesma especificidade, e quem
-           * decide é a ordem no CSS gerado, não a ordem na string. Em caixa
-           * alta a linha fica igual aos outros rótulos pequenos do CV, que é
-           * o resultado desejado de qualquer forma. */}
-          <p className={`mt-1.5 ${SUB_LABEL}`}>CS50 · {about.education.certifications.institution}</p>
-        </section>
-
-        {/* Contatos — sem LinkedIn: a chave não existe em `Dictionary` (o
-         * dono ainda não forneceu a URL, ver content/types.ts) e não é
-         * inventada nem deixada como espaço vazio aqui. "WhatsApp" e
-         * "GitHub" são nomes de marca hardcoded, não cópia de UI a
-         * localizar — mesma convenção e mesmo comentário de
-         * `components/sections/Contact.tsx`. */}
-        <section className="mt-4 break-inside-avoid-page">
-          <h2 className={SECTION_TITLE}>{contact.label}</h2>
-          <p className="mt-2 flex flex-wrap gap-x-6 gap-y-1.5 text-[13px] text-black">
-            <a href={emailHref} className="underline">
-              {contact.email}
-            </a>
-            <a href={whatsappHref} target="_blank" rel="noreferrer" className="underline">
-              WhatsApp
-            </a>
-            <a href={contact.github} target="_blank" rel="noreferrer" className="underline">
-              GitHub: {githubHandle}
-            </a>
-          </p>
+          <p className={`mt-1.5 ${MICRO}`}>CS50 · {about.education.certifications.institution}</p>
         </section>
       </main>
     </div>
