@@ -117,9 +117,9 @@ export const en: Dictionary = {
   },
   about: {
     label: 'About',
-    // Ver content/pt.ts: a hero já carrega o argumento do plantão, então
-    // esta linha fica só com os quatro papéis numa pessoa só.
-    lead: 'The same person models the database, writes the API, ships the front end and runs the deploy — and answers for all four.',
+    // Ver content/pt.ts: nomeia as três etapas pelo nome que o mercado usa,
+    // em vez de listar as camadas técnicas.
+    lead: 'Full-stack end to end: I design the architecture, build the application and own the delivery.',
     body: [
       'I build complete systems, from zero to production: data modelling, API, interface, queues, deploy, and the instrumentation that tells you whether it is still standing. Nine systems so far, five running today — the three largest are open on this page.',
       "Infrastructure came before the code: networks, switches and servers. It is not the service I sell today, it is the reason what I ship holds up — someone who spent those years accountable for other people's uptime designs software around how it stays standing, not only around how it works.",
@@ -214,6 +214,11 @@ export const en: Dictionary = {
         tagline: "Commercial operating system for real-estate credit origination, in production.",
         team: '2 full-stack developers',
         duration: 'built in 26 days',
+        improvements: [
+          'Three lead channels in one place',
+          'Client documents read by AI',
+          'The owner edits his own funnel and automations',
+        ],
         problem:
           // Ver content/pt.ts: o ANTES faltava, e sem ele o depois não tem
           // contra o quê ser medido.
@@ -251,6 +256,11 @@ export const en: Dictionary = {
         tagline: "Autonomous B2B marketing platform that measures a brand's authority inside AI answers.",
         team: '2 full-stack developers',
         duration: 'built in under 45 days',
+        improvements: [
+          'Research comes before the piece',
+          'Article, carousel and posts come out of the gap found',
+          'What gets published returns indexed to memory',
+        ],
         problem:
           'B2B brands are already being cited — or ignored — by ChatGPT, Gemini, Claude and Perplexity whenever someone asks about a category, and there was no metric for it, no process, and no one approving a piece of content before it went out. What was missing was a platform that measured Share of Voice inside AI answers and automated the response without releasing media budget unsupervised.',
         architecture:
@@ -283,6 +293,11 @@ export const en: Dictionary = {
         tagline: 'Multi-tenant SaaS for furniture stores, with CRM and WhatsApp/Instagram operations.',
         team: '2 full-stack developers',
         duration: 'built in under 45 days',
+        improvements: [
+          'Service, order and stock in one place',
+          'A closed order goes straight to the factory',
+          'The sale stops changing tools at every step',
+        ],
         problem:
           "Furniture stores sell over WhatsApp and Instagram with no CRM: conversations get lost, salespeople don't know who has already been helped, and each store is a separate customer that should never see another store's data. What was missing was a SaaS that handled the commercial side for real inside each store, without mixing tenants.",
         architecture:

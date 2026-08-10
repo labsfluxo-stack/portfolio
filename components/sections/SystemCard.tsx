@@ -2,7 +2,6 @@ import Link from 'next/link'
 import type { System } from '@/content/systems'
 import type { Dictionary, Locale } from '@/content/types'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import { Counter } from '@/components/ui/Counter'
 
 /**
  * `production` e `proprietary` são dois eixos independentes — um sistema
@@ -50,29 +49,25 @@ export function SystemCard({
        * no CV e no topo do case study. */}
       <p className="text-sm leading-relaxed text-muted">{systems.detail[system.slug].tagline}</p>
 
-      {/* Duas colunas fixas em qualquer largura: com três cards lado a lado
-       * no desktop, uma célula de métrica raramente tem mais de ~150px, e um
-       * rótulo de duas palavras como "RLS POLICIES" não cabe em mais colunas
-       * sem transbordar por cima do vizinho (`min-width: auto` é o padrão em
-       * item de grid — por isso `min-w-0` aqui). `min-h-8` no rótulo reserva
-       * a altura de duas linhas sempre, então um rótulo que quebra nunca
-       * empurra só aquele valor para baixo e desalinha a grade. */}
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-border pt-5">
-        {system.metrics.map((metric) => (
-          <div key={metric.key} className="min-w-0">
-            <dt className="min-h-8 font-mono text-[10px] uppercase leading-4 tracking-widest text-muted">
-              {systems.metricLabels[metric.key]}
-            </dt>
-            {/* `metric.value` é número de propósito — nunca `String(metric.value)`
-             * aqui, ou o separador de milhar sai errado em `en`. Tamanho
-             * menor que o dos números da Telemetria de propósito: aqui o
-             * protagonista é o nome do sistema, não o número. */}
-            <dd className="mt-1 font-sans text-lg font-bold tabular-nums text-text">
-              <Counter to={metric.value} locale={locale} />
-            </dd>
-          </div>
+      {/* O QUE O SISTEMA MUDOU PARA A EMPRESA — no lugar onde ficavam as
+       * métricas técnicas (146 RLS policies, 14 packages, 40 models).
+       *
+       * A troca é de público. Contagem de tabela e de package responde à
+       * pergunta de um recrutador, e a home é onde um dono de negócio decide
+       * se continua lendo. Os números não sumiram: vivem no cabeçalho do
+       * case study e na Telemetria, uma rolagem abaixo. O funil ficou
+       * resultado na home, profundidade técnica para quem clicar atrás dela.
+       *
+       * O quadradinho é decoração (`aria-hidden`), e usa `bg-faint` porque
+       * aí `--color-faint` é legítimo: forma, não palavra. */}
+      <ul className="flex flex-col gap-2.5 border-t border-border pt-5">
+        {systems.detail[system.slug].improvements.map((melhoria) => (
+          <li key={melhoria} className="flex gap-3 text-sm leading-relaxed text-muted">
+            <span aria-hidden="true" className="mt-[0.5rem] size-1 shrink-0 bg-faint" />
+            {melhoria}
+          </li>
         ))}
-      </dl>
+      </ul>
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5">
         <Link prefetch={false}

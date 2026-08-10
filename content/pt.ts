@@ -132,11 +132,13 @@ export const pt: Dictionary = {
   },
   about: {
     label: 'Sobre',
-    // A hero já carrega o argumento do plantão ("acordado por ele"). Esta
-    // linha ficava com "atende quando quebra às três da manhã" e repetia a
-    // mesma jogada a uma rolagem de distância — repetição gasta as duas.
-    // Aqui o argumento é outro: os quatro papéis numa pessoa só.
-    lead: 'A mesma pessoa modela o banco, escreve a API, sobe o front e faz o deploy — e responde pelos quatro.',
+    // Escrita pelo dono. Nomeia as três etapas pelo nome que o mercado usa
+    // — arquitetura, desenvolvimento, entrega — em vez da versão anterior,
+    // que listava as camadas técnicas ("modela o banco, escreve a API, sobe
+    // o front e faz o deploy"). Diz a mesma coisa e atravessa os dois
+    // públicos: "arquitetura" e "entrega" um empresário entende; "modela o
+    // banco" ele não.
+    lead: 'Full-stack de ponta a ponta: crio a arquitetura, desenvolvo a aplicação e garanto a entrega.',
     body: [
       // Terminava em "com os números que dá para conferir um por um". Saiu:
       // convidar auditoria é o mesmo reflexo que tirou a procedência de baixo
@@ -255,6 +257,11 @@ export const pt: Dictionary = {
         tagline: 'Sistema operacional comercial para originação de crédito imobiliário, em produção.',
         team: '2 desenvolvedores full-stack',
         duration: '26 dias de construção',
+        improvements: [
+          'Três canais de lead num lugar só',
+          'Documento de cliente lido por IA',
+          'O dono edita o próprio funil e as automações',
+        ],
         problem:
           // O ANTES estava faltando, e sem ele o "depois" não tem contra o quê
           // ser medido. A operação inteira rodava em planilha — é esse o ponto
@@ -308,6 +315,11 @@ export const pt: Dictionary = {
         tagline: 'Plataforma de marketing autônomo B2B que mede a autoridade de uma marca dentro das IAs.',
         team: '2 desenvolvedores full-stack',
         duration: 'menos de 45 dias de construção',
+        improvements: [
+          'A pesquisa vem antes da peça',
+          'Artigo, carrossel e post saem da lacuna encontrada',
+          'O que publica volta indexado para a memória',
+        ],
         problem:
           'Marcas B2B já são citadas — ou ignoradas — por ChatGPT, Gemini, Claude e Perplexity quando alguém pergunta por uma categoria, e isso não tinha métrica, não tinha processo e não tinha quem aprovasse a peça antes de ela sair. Faltava uma plataforma que medisse Share of Voice dentro das IAs e automatizasse a resposta sem soltar orçamento de mídia sem supervisão.',
         architecture:
@@ -347,6 +359,11 @@ export const pt: Dictionary = {
         tagline: 'SaaS multi-tenant para lojas de móveis, com CRM e operação de WhatsApp e Instagram.',
         team: '2 desenvolvedores full-stack',
         duration: 'menos de 45 dias de construção',
+        improvements: [
+          'Atendimento, pedido e estoque num lugar só',
+          'Pedido fechado vai direto para a fábrica',
+          'A venda não troca de ferramenta a cada etapa',
+        ],
         problem:
           'Lojas de móveis vendem por WhatsApp e Instagram sem CRM: conversa se perde, vendedor não sabe quem já foi atendido, e cada loja é um cliente isolado que não pode ver dado de outra. Faltava um SaaS que desse conta comercial de verdade dentro de cada loja, sem misturar tenant.',
         architecture:

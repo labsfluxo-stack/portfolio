@@ -1,10 +1,9 @@
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { Systems } from '@/components/sections/Systems'
-import { SystemCard } from '@/components/sections/SystemCard'
 import { pt } from '@/content/pt'
 import { en } from '@/content/en'
-import { systems, type System } from '@/content/systems'
+import { systems } from '@/content/systems'
 
 function setReducedMotion(reduced: boolean) {
   vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
@@ -84,49 +83,60 @@ describe('Systems', () => {
     expect(repoLink.closest('a')).toHaveAttribute('href', 'https://github.com/netoguild-rgb/Moveis.pro')
   })
 
-  // Este teste fixava '78,900' — a contagem de linhas do OSCapstack — e
-  // quebrou quando os cards deixaram de repetir as categorias da Telemetria
-  // (ver content/systems.ts). O defeito não era o valor estar desatualizado,
-  // era depender de um dado que pode legitimamente mudar.
+  // O CARD NÃO MOSTRA MAIS MÉTRICA TÉCNICA. Dois testes viviam aqui — o de
+  // separador de milhar por locale e o de rótulo vindo do dicionário — e os
+  // dois saíram porque o card deixou de exibir número.
   //
-  // E hoje NENHUMA métrica de card chega a mil, então o separador de milhar
-  // não é observável nos dados reais: um `String(valor)` no lugar de
-  // `formatNumber(valor, locale)` passaria despercebido para sempre. Por
-  // isso o teste passou a montar um sistema sintético com um número grande
-  // — prova o comportamento do componente sem depender do conteúdo.
-  it('o card formata número pelo locale, não com String()', () => {
-    setReducedMotion(true)
-    const grande = {
-      ...(systems[0] as System),
-      name: 'Sistema de Teste',
-      metrics: [{ key: 'policies', value: 78900 }],
-    }
-
-    const { rerender } = render(<SystemCard system={grande} dict={en} locale="en" />)
-    expect(screen.getByText('78,900')).toBeInTheDocument()
-    expect(screen.queryByText('78.900')).not.toBeInTheDocument()
-
-    rerender(<SystemCard system={grande} dict={pt} locale="pt" />)
-    expect(screen.getByText('78.900')).toBeInTheDocument()
-    expect(screen.queryByText('78,900')).not.toBeInTheDocument()
-  })
-
-  // Idem: era só o OSCapstack e só a chave `tables`, que nem existe mais.
-  // Agora percorre tudo — qualquer métrica nova de qualquer sistema entra
-  // nesta verificação sozinha, sem ninguém lembrar de atualizar o teste.
-  it('o rótulo de cada métrica vem do dicionário, nunca da chave crua', () => {
+  // A COBERTURA NÃO SUMIU, MUDOU DE ARQUIVO: os dois invariantes continuam
+  // valendo no cabeçalho do case study, que é onde as métricas passaram a
+  // viver, e estão travados em tests/unit/case-study.test.tsx ("formata
+  // número pelo locale, não com String()" e "o rótulo de cada métrica do
+  // topo vem do dicionário"). Apagar teste sem conferir para onde foi a
+  // cobertura é como a regressão volta.
+  it('o card não exibe métrica técnica — esse conteúdo é do case study', () => {
     setReducedMotion(true)
     render(<Systems dict={pt} locale="pt" />)
 
     for (const system of systems) {
       const card = cardFor(system.name)
       for (const metric of system.metrics) {
-        expect(card.getByText(metricLabel(metric.key))).toBeInTheDocument()
-        // Só acusa se o rótulo do dicionário FOR diferente da chave; em
-        // `packages` e `models` os dois coincidem de propósito, e ali não há
-        // o que distinguir.
-        if (metricLabel(metric.key) !== metric.key) {
-          expect(card.queryByText(metric.key)).not.toBeInTheDocument()
+        expect(
+          card.queryByText(metricLabel(metric.key)),
+          `o rótulo "${metricLabel(metric.key)}" voltou para o card de ${system.name}`,
+        ).not.toBeInTheDocument()
+      }
+    }
+  })
+
+  // O QUE O CARD MOSTRA AGORA: o que o sistema mudou para a empresa. A home
+  // é onde um dono de negócio decide se continua lendo, e contagem de tabela
+  // não responde a pergunta dele.
+  it('cada card mostra três melhorias que o sistema trouxe', () => {
+    setReducedMotion(true)
+    render(<Systems dict={pt} locale="pt" />)
+
+    for (const system of systems) {
+      const card = cardFor(system.name)
+      const melhorias = pt.systems.detail[system.slug].improvements
+      // Três, sempre: os cards ficam lado a lado e uma lista mais longa que a
+      // vizinha desalinha a fileira.
+      expect(melhorias, `${system.slug} não tem exatamente três melhorias`).toHaveLength(3)
+      for (const m of melhorias) {
+        expect(m.length, `melhoria vazia em ${system.slug}`).toBeGreaterThan(10)
+        expect(card.getByText(m)).toBeInTheDocument()
+      }
+    }
+  })
+
+  // Mesma regra do `outcome`: a melhoria descreve uma mudança, nunca um
+  // resultado medido que ninguém mediu.
+  it('nenhuma melhoria afirma resultado percentual ou multiplicador', () => {
+    for (const dict of [pt, en]) {
+      for (const system of systems) {
+        for (const m of dict.systems.detail[system.slug].improvements) {
+          for (const inventado of [/\d\s*%/, /\d+\s*vezes/i, /\d+\s*times\b/i, /dobr|tripl|double/i]) {
+            expect(m, `melhoria de "${system.slug}" afirma resultado não medido`).not.toMatch(inventado)
+          }
         }
       }
     }

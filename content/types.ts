@@ -42,6 +42,26 @@ export type CaseStudy = {
   decisions: { title: string; body: string }[]
   stack: string[]
   /**
+   * O que o sistema mudou para a empresa, em três frases curtas. É o que o
+   * card da home mostra no lugar onde antes ficavam as métricas técnicas
+   * (146 RLS policies, 14 packages, 40 models).
+   *
+   * A troca é de público: número de tabela e de package responde à pergunta
+   * de um recrutador, e a home é onde um dono de negócio decide se continua
+   * lendo. Os números não sumiram — vivem no cabeçalho do case study e na
+   * Telemetria, a uma rolagem dali. O funil ficou: resultado na home,
+   * profundidade técnica para quem clicar atrás dela.
+   *
+   * SEMPRE TRÊS, e é requisito de layout: os cards ficam lado a lado numa
+   * grade e uma lista mais longa que a vizinha desalinha a fileira inteira.
+   *
+   * Cada frase descreve uma MUDANÇA, não um recurso — "três canais num lugar
+   * só" (antes eram três lugares), nunca "integração com três canais". E
+   * nenhuma pode carregar número de resultado que ninguém mediu; vale aqui a
+   * mesma regra de `outcome`.
+   */
+  improvements: string[]
+  /**
    * Tamanho e composição do time. Aparece no cabeçalho, junto dos selos.
    *
    * Era a informação MAIS ausente dos cases: nada dizia se o sistema foi
