@@ -82,6 +82,19 @@ export default async function CvPage({ params }: { params: Promise<{ locale: Loc
 
   return (
     <div className="min-h-dvh w-full bg-white text-black">
+      {/* O BRANCO PRECISA ALCANÇAR O `body`, e não só esta `div`.
+       *
+       * `body` carrega `background: var(--color-bg)` de app/globals.css — quase
+       * preto — e `page.pdf()` roda com `printBackground: true`. O conteúdo do
+       * currículo dá ~1575px, duas folhas A4 dão ~2246px, e os ~670px de papel
+       * que sobram na última página não são cobertos por esta `div`: eles
+       * mostravam o fundo escuro do site. O PDF saía com uma tarja preta
+       * enorme no fim, e foi assim que o dono a viu.
+       *
+       * `html body` em vez de só `body` para vencer por especificidade
+       * (0,0,2 contra 0,0,1), sem depender da ordem em que o Next resolve
+       * inserir esta regra nem de `!important`. */}
+      <style>{'html body{background:#ffffff}'}</style>
       <main className="mx-auto w-full max-w-[210mm] px-11 py-8 font-sans">
         {/* CONTATO NO TOPO, junto do nome. Estava no rodapé, e num currículo
          * isso é atrito: quem decide chamar já leu o suficiente no primeiro
