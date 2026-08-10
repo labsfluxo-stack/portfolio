@@ -83,23 +83,41 @@ export function PorticoSlot({ systems }: { systems: readonly SceneSystem[] }) {
     // O `timeout` do `requestIdleCallback` é a garantia de que ela entra mesmo
     // numa página que nunca fica ociosa. Safari não implementa a API até hoje,
     // daí o `setTimeout` como caminho alternativo.
+    // A ordem é `load` PRIMEIRO, ociosidade DEPOIS — e a segunda metade
+    // sozinha não bastava.
+    //
+    // Com apenas `requestIdleCallback`, medi o canvas já presente aos 400 ms
+    // no site publicado: o navegador encontra folga entre um recurso e outro
+    // e monta a cena no meio do carregamento, que é justamente o momento que
+    // se quer evitar. Ociosidade não quer dizer "a página terminou", quer
+    // dizer "sobrou um pedaço deste quadro".
+    //
+    // Esperando `load`, a tarefa longa cai depois de fonte, CSS e imagem
+    // resolvidos. A ociosidade continua sendo exigida em seguida, para a cena
+    // não subir em cima de uma rolagem já em curso.
+    const agendar = () => {
+      const montar = () => setShowScene(true)
+      if (typeof window.requestIdleCallback === 'function') {
+        idle = window.requestIdleCallback(montar, { timeout: 2000 })
+      } else {
+        timer = window.setTimeout(montar, 600)
+      }
+    }
+
     const evaluate = () => {
       if (motionQuery.matches) {
         setShowScene(false)
         return
       }
-      const montar = () => setShowScene(true)
-      if (typeof window.requestIdleCallback === 'function') {
-        idle = window.requestIdleCallback(montar, { timeout: 2500 })
-      } else {
-        timer = window.setTimeout(montar, 900)
-      }
+      if (document.readyState === 'complete') agendar()
+      else window.addEventListener('load', agendar, { once: true })
     }
     evaluate()
 
     motionQuery.addEventListener('change', evaluate)
     return () => {
       motionQuery.removeEventListener('change', evaluate)
+      window.removeEventListener('load', agendar)
       if (idle !== undefined) window.cancelIdleCallback?.(idle)
       if (timer !== undefined) window.clearTimeout(timer)
     }
