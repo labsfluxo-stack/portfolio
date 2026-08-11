@@ -13,6 +13,26 @@
   --color-off: #6B7280;
   --color-data: #38BDF8;
 
+  /* POLARIDADE CLARA — conjunto próprio, não inversão do de cima.
+     A landing (/[locale]/projetos) fala com dono de empresa no celular sob luz
+     variável, não com recrutador técnico no desktop: o NN/g mede vantagem da
+     polaridade positiva em todas as faixas etárias, e a vantagem CRESCE
+     conforme a fonte diminui.
+
+     Não dá para reaproveitar os tokens acima. Medido com lib/contraste.ts,
+     sobre --color-paper: --color-data dá 1,93:1 e --color-muted dá 3,05:1, os
+     dois reprovam. E --color-faint, que aqui em cima é "só linha, nunca
+     palavra", vira 7,33:1 (AAA) em fundo claro — o mesmo hex troca de função
+     conforme a polaridade.
+
+     --color-accent (#0369A1, 5,35:1) não é cor nova no projeto: a rota /cv,
+     que já era clara, resolveu esse mesmo problema antes. */
+  --color-paper: #F5F3EF;   /* mesmo hex de --color-text, papel invertido */
+  --color-ink: #08090C;     /* mesmo hex de --color-bg, papel invertido */
+  --color-ink-2: #4A505A;   /* 7,33:1 AAA — texto secundário */
+  --color-accent: #0369A1;  /* 5,35:1 AA — links e destaque */
+  --color-rule: #DDD9D2;    /* borda decorativa; não usar para delimitar controle */
+
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
