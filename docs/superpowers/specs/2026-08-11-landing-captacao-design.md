@@ -366,9 +366,17 @@ o resto:
 
 ### 5.4 CTA de WhatsApp (`D13`)
 
-`NEXT_PUBLIC_WHATSAPP` no formato internacional, com mensagem pré-preenchida via
-`?text=`. Mesmo padrão do `NEXT_PUBLIC_WEB3FORMS_KEY` que o projeto já usa: ausente a
-variável, cai para o e-mail que já existe — a página nunca fica sem saída.
+**O número já existe no projeto e não precisa de variável de ambiente.**
+`content/pt.ts` mantém `contact.whatsapp` (`https://wa.me/55…`) e
+`contact.whatsappMessage`, já usados pela seção Contato e já públicos no portfólio no ar.
+
+A landing consome **o mesmo campo**, com mensagem própria — quem chega por aqui não veio
+pelo portfólio, e a primeira frase deve dizer isso. Uma chave nova
+`landing.whatsappMessage` no dicionário; o número continua tendo uma fonte só, para não
+divergir no dia em que mudar.
+
+Descartada a ideia inicial de `NEXT_PUBLIC_WHATSAPP`: criaria um segundo lugar para o
+mesmo dado, com risco de as duas páginas apontarem para números diferentes.
 
 - **Mobile: barra fixa no rodapé, largura total**, altura mínima 48px, na zona do polegar.
   **Não bolha redonda:** o Baymard documenta que bolha fixa cobre o conteúdo que a pessoa
@@ -447,10 +455,12 @@ em vez de repeti-la, com teste travando a igualdade.
 
 Bloqueiam a publicação, não a implementação.
 
-- **Número do WhatsApp** — `55` + DDD + número.
-- **Piso de preço** — §4.6.
+- **Piso de preço** — §4.6. String opcional: vazia, a seção não renderiza.
 - **Prazo de resposta** — o "X horas" do microtexto de §4.7.
 - **Foto** — pendência herdada; `public/foto/` ainda não existe.
+
+~~Número do WhatsApp~~ — **já existe** em `content/pt.ts` (`contact.whatsapp`), público
+no portfólio desde o lançamento. Ver §5.4.
 
 ## 9. Riscos assumidos
 
@@ -472,7 +482,8 @@ Bloqueiam a publicação, não a implementação.
 2. O corpo é claro; existem exatamente **duas** faixas escuras.
 3. Nenhum par de cor usado em texto reprova AA, com teste travando isso.
 4. `#38BDF8` não aparece fora das faixas escuras.
-5. O CTA tem um único destino, repetido; sem `NEXT_PUBLIC_WHATSAPP` ele cai para e-mail.
+5. O CTA tem um único destino, repetido, e o número vem de `contact.whatsapp` — não há
+   segunda cópia do número no repositório.
 6. No mobile a barra fixa não cobre conteúdo, e foi testada no Safari do iPhone e dentro
    do Instagram.
 7. A linha de piso some quando a string está vazia.
