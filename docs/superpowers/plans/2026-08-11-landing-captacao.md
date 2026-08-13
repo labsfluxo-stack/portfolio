@@ -1685,7 +1685,13 @@ export function LandingCta({ dict }: { dict: Dictionary }) {
           >
             {cta.rotulo}
           </a>
-          <p className="font-mono text-xs uppercase tracking-[0.15em] text-muted">
+          {/* Corpo, não label — "Sem ligação e sem cadastro." tem cinco
+           * palavras. Terceira vez que este mesmo defeito apareceu no plano
+           * (ver Task 5 e Task 7): o padrão de label mono do portfólio foi
+           * copiado sem recontar as palavras. E aqui doeria mais: esta linha
+           * existe justamente para desarmar o medo de ser perseguido por
+           * vendedor, então precisa ser lida, não decorada. */}
+          <p className="text-[17px] leading-relaxed text-muted">
             {cta.tranquilizador}
           </p>
         </div>
