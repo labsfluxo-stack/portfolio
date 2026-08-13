@@ -30,9 +30,20 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
         >
           {cta.rotulo}
         </a>
-        <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink-2">
-          {hero.assinatura}
-        </p>
+        {/* Corpo, não rótulo: onze palavras em duas frases, não 1–3 palavras
+         * de etiqueta — a regra global de 17px mínimo vale aqui (o brief
+         * original botou isto em mono/caixa-alta/12px e passou por cima da
+         * própria regra; decisão do dono: 17px vence).
+         *
+         * A frase carrega o diferencial mais forte que a pesquisa achou: a
+         * dupla é a única configuração que neutraliza as duas objeções do
+         * mercado — agência cobra estrutura que não escreve seu código,
+         * freelancer sozinho é ponto único de falha. A pesquisa mandou pôr
+         * isso na dobra; formatado pequeno e em caixa alta, ficava
+         * enterrado. Caixa alta com tracking é o pior caso de legibilidade,
+         * e 12px no celular sob sol é exatamente o que inverter a polaridade
+         * do tema queria consertar. */}
+        <p className="text-[17px] leading-relaxed text-ink-2">{hero.assinatura}</p>
       </div>
     </section>
   )
