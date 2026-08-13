@@ -318,10 +318,11 @@ export type Dictionary = {
     dupla: { titulo: string; corpo: string[]; numeros: { valor: string; rotulo: string }[] }
     prova: { titulo: string; lead: string; verCase: string }
     /**
-     * Piso de preço. OPCIONAL POR DECISÃO, não por descuido: string vazia faz
-     * a seção não renderizar, o que permite publicar antes de o valor estar
-     * decidido. Ver spec §4.6 — é a única decisão da pesquisa com evidência
-     * direta de que move resultado, então o vazio é estado temporário.
+     * Piso de preço. OPCIONAL POR DECISÃO, não por descuido: `null` ou string
+     * vazia em `valor` fazem a seção não renderizar, o que permite publicar
+     * antes de o valor estar decidido. Ver spec §4.6 — é a única decisão da
+     * pesquisa com evidência direta de que move resultado, então o vazio é
+     * estado temporário.
      */
     piso: { valor: string; nota: string } | null
     fechamento: { titulo: string; corpo: string }
