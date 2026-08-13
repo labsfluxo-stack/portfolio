@@ -32,7 +32,25 @@ Valem para **todas** as tarefas. Cada uma é critério de aceitação do spec.
 - **`#38BDF8` (`--color-data`) não pode aparecer fora das duas faixas escuras** — dá
   1,93:1 sobre `#F5F3EF` e reprova AA. Spec §3.2.
 - **Exatamente duas faixas escuras:** `Dupla` (§4.4) e `LandingCta` (§4.7).
-- **Fonte de corpo mínima 17px** (`text-[17px]` ou maior). Spec §5.6.
+- **Fonte de corpo mínima 17px** (`text-[17px]` ou maior). Vale para texto corrido; label
+  em mono com 1–3 palavras (`text-xs`, `text-[11px]`) segue o padrão do portfólio e está
+  fora da regra. Spec §5.6.
+
+### Sobre os testes que asseveram nome de classe CSS
+
+Alguns testes deste plano checam `className` — `md:hidden`, `inset-x-0`, ausência de
+`text-data`. Isso normalmente é cheiro de teste acoplado à implementação, e um revisor
+tem razão em desconfiar.
+
+Aqui é deliberado, e a razão é que **jsdom não aplica CSS**: não existe forma unitária de
+perguntar "isto está escondido no desktop?" ou "esta cor foi usada?", porque nenhuma
+regra de folha de estilo é resolvida. As alternativas seriam um e2e em dois viewports
+para cada asserção — caro para o que se ganha — ou não testar, e aí as duas regras mais
+frágeis da página ficam sem rede: o ciano que reprova em fundo claro e a barra que não
+pode aparecer no desktop onde já existe CTA inline.
+
+Cada um desses testes carrega o comentário explicando o porquê. O comportamento de
+verdade é coberto por e2e em navegador real na Task 10 e na verificação manual da Task 13.
 - **Sem WebGL nesta rota.** Spec §5.6.
 - **Um único destino de CTA**, repetido. Nunca um segundo destino. Spec §5.4.
 - **O número do WhatsApp vem de `contact.whatsapp`.** Não criar segunda cópia.
@@ -953,7 +971,21 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
         >
           {cta.rotulo}
         </a>
-        <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink-2">
+        {/* A DUPLA EM CORPO DE TEXTO, e não em label.
+         *
+         * Esta linha carrega o diferencial mais forte que a pesquisa achou: dois
+         * sêniores são a única configuração que neutraliza as duas críticas do
+         * mercado ao mesmo tempo — agência cobra estrutura que não escreve o
+         * código, freelancer sozinho é ponto único de falha.
+         *
+         * A primeira versão deste plano a formatava em `font-mono text-xs
+         * uppercase tracking-[0.15em]`, e a revisão da Task 5 derrubou: são onze
+         * palavras e duas frases, não um label de 1–3 palavras, então caía na
+         * regra dos 17px. Pior que a regra: maiúscula com tracking é o pior caso
+         * de legibilidade, e 12px no celular sob sol é exatamente o que inverter
+         * a polaridade tentou consertar. Mandar a frase mais diferenciadora da
+         * página para corpo de rodapé é enterrá-la. */}
+        <p className="max-w-xl text-[17px] leading-relaxed text-ink-2">
           {hero.assinatura}
         </p>
       </div>
@@ -1366,7 +1398,12 @@ export function Prova({ dict, locale }: { dict: Dictionary; locale: Locale }) {
                 >
                   <h3 className="text-[17px] font-semibold text-ink">{caso.name}</h3>
                   <p className="text-[17px] leading-relaxed text-ink-2">{caso.outcome}</p>
-                  <span className="font-mono text-xs uppercase tracking-[0.15em] text-accent">
+                  {/* 17px, não `text-xs`: "Ver o caso completo" tem quatro
+                   * palavras e não cabe na exceção de label de 1–3. Mesma
+                   * classe de defeito que custou uma rodada de correção na
+                   * Task 5 — o padrão de título de cartão do `Oferta` foi
+                   * copiado sem recontar as palavras. */}
+                  <span className="text-[17px] font-semibold text-accent">
                     {prova.verCase}
                   </span>
                 </Link>
