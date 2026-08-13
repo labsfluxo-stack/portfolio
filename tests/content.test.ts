@@ -163,4 +163,50 @@ describe('dicionários', () => {
       }
     }
   })
+
+  describe('landing', () => {
+    // O tsc já garante que as duas existem. O que ele NÃO garante é que
+    // alguém preencheu com string vazia para calar o compilador.
+    it('nenhum texto obrigatório está vazio nos dois idiomas', () => {
+      for (const dict of [pt, en]) {
+        // `piso` sai da varredura de propósito: é o único campo opcional do
+        // dicionário (pode ser null), e a variável destructurada só serve
+        // para excluí-lo de `obrigatorios` — o eslint não enxerga essa
+        // intenção sem o comentário abaixo.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { piso, ...obrigatorios } = dict.landing
+        const vazios: string[] = []
+        const varrer = (valor: unknown, caminho: string) => {
+          if (typeof valor === 'string') {
+            if (valor.trim() === '') vazios.push(caminho)
+          } else if (Array.isArray(valor)) {
+            valor.forEach((item, i) => varrer(item, `${caminho}[${i}]`))
+          } else if (valor && typeof valor === 'object') {
+            for (const [k, v] of Object.entries(valor)) varrer(v, `${caminho}.${k}`)
+          }
+        }
+        varrer(obrigatorios, 'landing')
+        expect(vazios, `campos vazios: ${vazios.join(', ')}`).toEqual([])
+      }
+    })
+
+    // Regra do spec §10.8. Estes três termos foram removidos por pesquisa:
+    // "GEO" significa geolocalização no Brasil; llms.txt não é lido por
+    // ninguém (97% dos arquivos com zero requisição); "AI Overviews" não é
+    // reconhecido pelo público. Se alguém reintroduzir, isto quebra.
+    it('não usa o vocabulário que a pesquisa descartou', () => {
+      for (const dict of [pt, en]) {
+        const texto = JSON.stringify(dict.landing).toLowerCase()
+        expect(texto).not.toContain('llms.txt')
+        expect(texto).not.toContain('ai overview')
+        expect(texto).not.toMatch(/\bgeo\b/)
+      }
+    })
+
+    it('a oferta tem exatamente três cartões', () => {
+      for (const dict of [pt, en]) {
+        expect(dict.landing.oferta.cartoes).toHaveLength(3)
+      }
+    })
+  })
 })

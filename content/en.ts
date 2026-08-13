@@ -477,6 +477,98 @@ export const en: Dictionary = {
     github: 'https://github.com/netoguild-rgb',
     cvDownload: 'Download CV (PDF)',
   },
+  landing: {
+    meta: {
+      title: 'Websites, blogs and custom systems — Neto Alves',
+      description:
+        'Two full-stack developers. Websites, blogs and systems built to load fast, rank on Google and be readable by ChatGPT.',
+    },
+    hero: {
+      titulo: 'Websites, blogs and custom systems.',
+      subtitulo: 'Built to load fast, rank on Google and be readable by ChatGPT.',
+      assinatura: 'Two full-stack developers. You talk straight to whoever writes the code.',
+    },
+    cta: {
+      rotulo: 'Get a quote',
+      mensagem: 'Hi, Neto! I saw your projects page and I would like a quote.',
+      tranquilizador: 'No calls, no sign-up.',
+    },
+    criterio: {
+      titulo: 'How to tell whether the site they deliver is any good',
+      abertura: 'You will get three quotes and they will all look the same. Two tests tell them apart.',
+      testes: [
+        {
+          titulo: 'Open it on a phone, on mobile data.',
+          corpo: 'Over two seconds and you lose people before they see anything at all.',
+        },
+        {
+          titulo: 'Ask to see the site with JavaScript turned off.',
+          corpo: 'If the screen goes blank, that is exactly what ChatGPT sees: nothing.',
+        },
+      ],
+      fecho: [
+        'Almost nobody runs the second test. When someone asks ChatGPT which company to hire in your field, it reads the site straight from the server — it does not open it in a browser the way you do. A site that assembles itself in the browser arrives empty.',
+        'This is not a forecast, it is how it works today. It is also not the emergency you are being sold: that kind of visit is still a small slice of the total in Brazil. It just converts at more than twice the rate of Google traffic.',
+      ],
+    },
+    oferta: {
+      titulo: 'What I build',
+      cartoes: [
+        {
+          nome: 'Website',
+          corpo:
+            'Corporate, product or lead capture. Loads instantly, and the text arrives ready from the server — which is what Google and ChatGPT read.',
+        },
+        {
+          nome: 'Blog',
+          corpo: 'Where authority accumulates. Publish it and search engines know within seconds.',
+        },
+        {
+          nome: 'Custom system',
+          corpo:
+            'When the operation does not fit in a website. CRM, ERP, dashboards, automation — from the database to production.',
+        },
+      ],
+    },
+    dupla: {
+      titulo: 'Two full-stack developers',
+      corpo: [
+        'You talk straight to whoever writes the code. No project manager, no intern, no outsourcing.',
+        'And it does not hang on one person: both of us know the whole codebase.',
+      ],
+      numeros: [{ valor: '2', rotulo: 'developers' }],
+    },
+    prova: {
+      titulo: 'What is already running',
+      lead: 'Three systems in production. Each with the number it moved, and how that number was measured.',
+      verCase: 'Read the full case',
+    },
+    piso: null,
+    fechamento: {
+      titulo: 'Bring me the problem.',
+      corpo: 'Tell me what needs to exist and by when.',
+    },
+    perguntas: {
+      titulo: 'Questions',
+      itens: [
+        {
+          pergunta: 'What if one of you is unavailable?',
+          resposta:
+            'Both of us know the whole codebase and the repository is shared from day one. The project does not stop because one person did.',
+        },
+        {
+          pergunta: 'Does this replace SEO work?',
+          resposta:
+            'No. SEO still matters for traditional search, which brings most of the visits. What I guarantee is the technical foundation: without it, no amount of content work pays off.',
+        },
+        {
+          pergunta: 'How long does it take?',
+          resposta:
+            'It depends on scope. The three systems in the portfolio took 26 to 45 days each, with two people. A corporate site is much faster — but I only quote a deadline after understanding what needs to exist.',
+        },
+      ],
+    },
+  },
   footer: {
     rights: '© 2026 Neto Alves. All rights reserved.',
     builtWith: 'Built with Next.js, Tailwind CSS and Motion.',

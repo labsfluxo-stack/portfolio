@@ -583,6 +583,105 @@ export const pt: Dictionary = {
     github: 'https://github.com/netoguild-rgb',
     cvDownload: 'Baixar CV (PDF)',
   },
+  landing: {
+    meta: {
+      title: 'Sites, blogs e sistemas sob medida — Neto Alves',
+      description:
+        'Dois desenvolvedores full-stack. Sites, blogs e sistemas construídos para carregar rápido, aparecer no Google e ser lidos pelo ChatGPT.',
+    },
+    hero: {
+      titulo: 'Sites, blogs e sistemas sob medida.',
+      subtitulo:
+        'Construídos para carregar rápido, aparecer no Google e ser lidos pelo ChatGPT.',
+      assinatura:
+        'Dois desenvolvedores full-stack. Você fala direto com quem escreve o código.',
+    },
+    cta: {
+      rotulo: 'Quero um orçamento',
+      mensagem: 'Olá, Neto! Vi a página de projetos e quero um orçamento.',
+      tranquilizador: 'Sem ligação e sem cadastro.',
+    },
+    criterio: {
+      titulo: 'Como saber se o site que te entregarem presta',
+      abertura: 'Você vai receber três orçamentos e todos vão parecer iguais. Dois testes separam.',
+      testes: [
+        {
+          titulo: 'Abra num celular, no 4G.',
+          corpo: 'Passou de dois segundos, você perde gente antes de ela ver qualquer coisa.',
+        },
+        {
+          titulo: 'Peça para ver o site com o JavaScript desligado.',
+          corpo: 'Se a tela ficar em branco, é exatamente isso que o ChatGPT enxerga: nada.',
+        },
+      ],
+      fecho: [
+        'O segundo teste quase ninguém faz. Quando perguntam ao ChatGPT qual empresa contratar no seu ramo, ele lê o site direto do servidor — não abre no navegador como você. Site que se monta no navegador chega vazio.',
+        'Não é previsão, é como funciona hoje. E também não é a emergência que te vendem: esse tipo de visita ainda é uma fatia pequena do total no Brasil. Só que converte mais que o dobro do que vem do Google.',
+      ],
+    },
+    oferta: {
+      titulo: 'O que eu construo',
+      cartoes: [
+        {
+          nome: 'Site',
+          corpo:
+            'Institucional, de produto ou de captação. Abre instantâneo e o texto já vem pronto do servidor — que é o que o Google e o ChatGPT leem.',
+        },
+        {
+          nome: 'Blog',
+          corpo:
+            'Onde a autoridade se acumula. Publicou, os buscadores sabem em segundos.',
+        },
+        {
+          nome: 'Sistema sob medida',
+          corpo:
+            'Quando a operação não cabe em site. CRM, ERP, painel, automação — do banco ao ar.',
+        },
+      ],
+    },
+    dupla: {
+      titulo: 'Dois desenvolvedores full-stack',
+      corpo: [
+        'Você fala direto com quem escreve o código. Sem gerente de projeto, sem estagiário, sem terceirização.',
+        'E não depende de uma pessoa só: os dois conhecem o código inteiro.',
+      ],
+      // Os valores NÃO ficam aqui: vêm de `telemetry`, que já carrega o campo
+      // `provenance` dizendo como cada um foi medido. Só os rótulos moram
+      // neste dicionário. Ver Task 6.
+      numeros: [{ valor: '2', rotulo: 'desenvolvedores' }],
+    },
+    prova: {
+      titulo: 'O que já está no ar',
+      lead: 'Três sistemas em operação. Cada um com o número que ele moveu e como esse número foi medido.',
+      verCase: 'Ver o caso completo',
+    },
+    // Vazio até o dono decidir o valor. A seção some sozinha — ver Task 8.
+    piso: null,
+    fechamento: {
+      titulo: 'Traz o problema.',
+      corpo: 'Me conta o que precisa existir e para quando.',
+    },
+    perguntas: {
+      titulo: 'Perguntas',
+      itens: [
+        {
+          pergunta: 'E se um de vocês ficar indisponível?',
+          resposta:
+            'Os dois conhecem o código inteiro e o repositório é compartilhado desde o primeiro dia. O projeto não para porque uma pessoa parou.',
+        },
+        {
+          pergunta: 'Isso substitui o trabalho de SEO?',
+          resposta:
+            'Não. O SEO continua valendo para a busca tradicional, que ainda traz a maior parte das visitas. O que eu garanto é a base técnica: sem ela, nenhum trabalho de conteúdo rende o que deveria.',
+        },
+        {
+          pergunta: 'Quanto tempo leva?',
+          resposta:
+            'Depende do escopo. Os três sistemas do portfólio levaram de 26 a 45 dias cada, com duas pessoas. Um site institucional é bem mais rápido que isso — mas eu só dou prazo depois de entender o que precisa existir.',
+        },
+      ],
+    },
+  },
   footer: {
     rights: '© 2026 Neto Alves. Todos os direitos reservados.',
     builtWith: 'Construído com Next.js, Tailwind CSS e Motion.',

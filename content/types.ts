@@ -286,5 +286,46 @@ export type Dictionary = {
     // como string vazia, o teste de paridade recusa valor vazio.
     cvDownload: string
   }
+  /**
+   * Landing de captação (/[locale]/projetos). Separada de `contact` porque
+   * fala com outro leitor: `contact` responde a recrutador que já leu o
+   * portfólio; isto aborda dono de empresa que caiu aqui por um link.
+   */
+  landing: {
+    meta: { title: string; description: string }
+    hero: {
+      titulo: string
+      subtitulo: string
+      /** Aparece sob o CTA, na dobra. É onde a dupla entra pela primeira vez. */
+      assinatura: string
+    }
+    cta: {
+      /** Texto do botão. Primeira pessoa e específico — ver pesquisa §3.4. */
+      rotulo: string
+      /**
+       * Mensagem que já vai escrita no WhatsApp. Diferente de
+       * `contact.whatsappMessage`: quem chega aqui não veio pelo portfólio.
+       */
+      mensagem: string
+      /**
+       * Microtexto sob o botão. Existe porque o medo de quem clica não é o
+       * preço, é ser perseguido por vendedor.
+       */
+      tranquilizador: string
+    }
+    criterio: { titulo: string; abertura: string; testes: { titulo: string; corpo: string }[]; fecho: string[] }
+    oferta: { titulo: string; cartoes: { nome: string; corpo: string }[] }
+    dupla: { titulo: string; corpo: string[]; numeros: { valor: string; rotulo: string }[] }
+    prova: { titulo: string; lead: string; verCase: string }
+    /**
+     * Piso de preço. OPCIONAL POR DECISÃO, não por descuido: string vazia faz
+     * a seção não renderizar, o que permite publicar antes de o valor estar
+     * decidido. Ver spec §4.6 — é a única decisão da pesquisa com evidência
+     * direta de que move resultado, então o vazio é estado temporário.
+     */
+    piso: { valor: string; nota: string } | null
+    fechamento: { titulo: string; corpo: string }
+    perguntas: { titulo: string; itens: { pergunta: string; resposta: string }[] }
+  }
   footer: { rights: string; builtWith: string; sourceCode: string; sourceCodeUrl: string }
 }
