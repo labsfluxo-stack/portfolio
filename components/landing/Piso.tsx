@@ -25,11 +25,15 @@ export function Piso({ dict }: { dict: Dictionary }) {
   if (!piso || piso.valor.trim() === '') return null
 
   return (
-    <section className="border-t border-rule">
+    // `div` e não `section`: não tem título de seção, e não é um bloco
+    // isolado do documento — é uma declaração de duas linhas entre a prova e o
+    // CTA final. Usar `section` sem heading criaria um buraco no outline da
+    // página e é sinalizado por ferramentas de acessibilidade.
+    <div className="border-t border-rule">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-2 px-6 py-12">
         <p className="font-sans text-2xl font-bold tracking-tight text-ink">{piso.valor}</p>
         <p className="text-[17px] leading-relaxed text-ink-2">{piso.nota}</p>
       </div>
-    </section>
+    </div>
   )
 }
