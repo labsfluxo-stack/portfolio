@@ -582,6 +582,7 @@ export const pt: Dictionary = {
     email: 'netoguild@gmail.com',
     github: 'https://github.com/netoguild-rgb',
     cvDownload: 'Baixar CV (PDF)',
+    landingLink: 'Procurando alguém para construir? Veja como eu trabalho com projeto.',
   },
   landing: {
     meta: {

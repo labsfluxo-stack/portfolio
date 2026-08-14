@@ -476,6 +476,7 @@ export const en: Dictionary = {
     email: 'netoguild@gmail.com',
     github: 'https://github.com/netoguild-rgb',
     cvDownload: 'Download CV (PDF)',
+    landingLink: 'Looking for someone to build it? See how I work on projects.',
   },
   landing: {
     meta: {

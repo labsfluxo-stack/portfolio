@@ -285,6 +285,13 @@ export type Dictionary = {
     // vier, adicionar `linkedin: string` aqui e nos dois dicionários — nunca
     // como string vazia, o teste de paridade recusa valor vazio.
     cvDownload: string
+    /**
+     * Link para a landing de captação. UM lugar só, e não no menu: "Projetos"
+     * ao lado de "Sistemas" confunde, e o menu é justamente onde as duas
+     * mensagens se atrapalhariam — o portfólio fala com recrutador, a landing
+     * com dono de empresa.
+     */
+    landingLink: string
   }
   /**
    * Landing de captação (/[locale]/projetos). Separada de `contact` porque

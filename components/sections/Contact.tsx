@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { Dictionary, Locale } from '@/content/types'
 import { Section } from '@/components/ui/Section'
 import { Reveal } from '@/components/ui/Reveal'
@@ -121,6 +122,25 @@ export function Contact({ dict, locale }: { dict: Dictionary; locale: Locale }) 
         >
           {contact.cvDownload}
         </a>
+      </Reveal>
+
+      <Reveal delayMs={accessKey ? 400 : 300}>
+        {/* Única ponte do portfólio para a landing de captação
+         * (/${locale}/projetos) — de propósito fora do menu (ver o
+         * comentário em `contact.landingLink`, content/types.ts): o menu é
+         * onde as duas audiências se cruzariam, recrutador e dono de
+         * empresa. `Link` do Next, não `<a>` com `basePath` escrito à mão —
+         * `Link` já prefixa `basePath` sozinho, um prefixo manual aqui
+         * dobraria o caminho. Mesma decoração de sublinhado que o resto do
+         * site usa para link discreto (ver Footer.tsx e o "voltar" em
+         * CaseStudy.tsx), não o cartão nem o botão que já existem acima. */}
+        <Link
+          prefetch={false}
+          href={`/${locale}/projetos`}
+          className="mt-8 inline-block max-w-xl text-sm text-muted underline decoration-border underline-offset-4 hover:text-text hover:decoration-text"
+        >
+          {contact.landingLink}
+        </Link>
       </Reveal>
     </Section>
   )
