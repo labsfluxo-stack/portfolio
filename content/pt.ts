@@ -621,7 +621,14 @@ export const pt: Dictionary = {
       ],
     },
     oferta: {
-      titulo: 'O que eu construo',
+      // "O que EU construo" convivia na mesma rolagem com "os dois conhecem
+      // o código inteiro" (Dupla, ver comentário lá) — primeira pessoa do
+      // singular devolvendo a objeção de ponto único de falha que a faixa
+      // anterior acabou de desarmar. A dupla é o diferencial da página, e
+      // fica plural em todo `dict.landing` (achado I5 da revisão final de
+      // branch). O resto do site continua na voz de uma pessoa só, e não é
+      // tocado aqui.
+      titulo: 'O que construímos',
       cartoes: [
         {
           nome: 'Site',
@@ -652,15 +659,33 @@ export const pt: Dictionary = {
       numeros: [{ valor: '2', rotulo: 'desenvolvedores' }],
     },
     prova: {
-      titulo: 'O que já está no ar',
-      lead: 'Três sistemas em operação. Cada um com o número que ele moveu e como esse número foi medido.',
-      verCase: 'Ver o caso completo',
+      // Era "Três sistemas em operação" — FALSO (saturno-labs tem
+      // `production: false` em content/systems.ts, são 2 de 3) e colidia com
+      // o "5 em produção" que a faixa da Dupla renderiza ~200px acima, na
+      // mesma rolagem. E prometia "o número que ele moveu e como foi medido"
+      // numa seção que não renderizava nenhum dígito — Prova.tsx só mostrava
+      // nome, resultado e um link (achado C1 CRÍTICO da revisão final de
+      // branch). Nenhuma contagem de sistema fica escrita aqui: o título e o
+      // lead abaixo não citam quantos sistemas existem nem quantos estão em
+      // produção de propósito — esse número só é seguro computado no render
+      // (`systems.filter((s) => s.production).length`, ver Prova.tsx), nunca
+      // como palavra ou dígito hard-coded neste dicionário.
+      titulo: 'O que já foi construído',
+      lead: 'Cada sistema com os números que mostram a escala dele — e o que mudou para quem contratou.',
+      // Link único no fim da seção, não mais um por card (ver Prova.tsx,
+      // achado I6 da revisão final de branch: três saídas grandes numa
+      // página que apagou o menu para não ter saída nenhuma). O destino
+      // passou a ser o portfólio inteiro, não um case específico — por isso
+      // o plural.
+      verCase: 'Ver os casos completos',
     },
     // Vazio até o dono decidir o valor. A seção some sozinha — ver Task 8.
     piso: null,
     fechamento: {
       titulo: 'Traz o problema.',
-      corpo: 'Me conta o que precisa existir e para quando.',
+      // Era "Me conta" — primeira pessoa do singular, mesma inconsistência
+      // de voz da Oferta (ver comentário lá).
+      corpo: 'Conta pra gente o que precisa existir e para quando.',
     },
     perguntas: {
       titulo: 'Perguntas',
@@ -673,12 +698,16 @@ export const pt: Dictionary = {
         {
           pergunta: 'Isso substitui o trabalho de SEO?',
           resposta:
-            'Não. O SEO continua valendo para a busca tradicional, que ainda traz a maior parte das visitas. O que eu garanto é a base técnica: sem ela, nenhum trabalho de conteúdo rende o que deveria.',
+            'Não. O SEO continua valendo para a busca tradicional, que ainda traz a maior parte das visitas. O que garantimos é a base técnica: sem ela, nenhum trabalho de conteúdo rende o que deveria.',
         },
         {
           pergunta: 'Quanto tempo leva?',
+          // Era "de 26 a 45 dias" — as duas fontes (`content/systems.ts`,
+          // via `duration` de cada case) são '26 dias' e 'menos de 45 dias'
+          // (duas vezes); "45" sozinho afirma um teto que nenhum dos três
+          // sistemas bateu de verdade.
           resposta:
-            'Depende do escopo. Os três sistemas do portfólio levaram de 26 a 45 dias cada, com duas pessoas. Um site institucional é bem mais rápido que isso — mas eu só dou prazo depois de entender o que precisa existir.',
+            'Depende do escopo. Os três sistemas do portfólio levaram de 26 a menos de 45 dias cada, com duas pessoas. Um site institucional é bem mais rápido que isso — mas só damos prazo depois de entender o que precisa existir.',
         },
       ],
     },

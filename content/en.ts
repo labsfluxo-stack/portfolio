@@ -481,12 +481,19 @@ export const en: Dictionary = {
   landing: {
     meta: {
       title: 'Websites, blogs and custom systems — Neto Alves',
+      // "rank on Google" era mais forte do que "aparecer no Google" do PT:
+      // posição no ranking não é mais controlável do que menção em resposta
+      // de IA, e a página inteira existe para não prometer o que não
+      // controla. Ver content/pt.ts.
       description:
-        'Two full-stack developers. Websites, blogs and systems built to load fast, rank on Google and be readable by ChatGPT.',
+        'Two full-stack developers. Websites, blogs and systems built to load fast, show up on Google and be readable by ChatGPT.',
     },
     hero: {
       titulo: 'Websites, blogs and custom systems.',
-      subtitulo: 'Built to load fast, rank on Google and be readable by ChatGPT.',
+      // Ver content/pt.ts (meta.description): "rank on Google" claims more
+      // than the PT "aparecer no Google" — ranking position is no more
+      // controllable than an AI mention.
+      subtitulo: 'Built to load fast, show up on Google and be readable by ChatGPT.',
       assinatura: 'Two full-stack developers. You talk straight to whoever writes the code.',
     },
     cta: {
@@ -513,7 +520,12 @@ export const en: Dictionary = {
       ],
     },
     oferta: {
-      titulo: 'What I build',
+      // Ver content/pt.ts: "What I build" sat in the same scroll as "both of
+      // us know the whole codebase" (Dupla) — singular voice handing back
+      // the single-point-of-failure objection the section above just
+      // disarmed. Kept plural across dict.landing (final branch review,
+      // finding I5); the rest of the site keeps its one-person voice.
+      titulo: 'What we build',
       cartoes: [
         {
           nome: 'Website',
@@ -540,14 +552,27 @@ export const en: Dictionary = {
       numeros: [{ valor: '2', rotulo: 'developers' }],
     },
     prova: {
-      titulo: 'What is already running',
-      lead: 'Three systems in production. Each with the number it moved, and how that number was measured.',
-      verCase: 'Read the full case',
+      // Ver content/pt.ts: "Three systems in production" was FALSE
+      // (saturno-labs has `production: false`, it is 2 of 3), collided with
+      // the "5 in production" the Dupla band renders one scroll above, and
+      // promised a number this section rendered zero of. No system count is
+      // hard-coded here on purpose — the safe number only exists computed at
+      // render time (`systems.filter((s) => s.production).length`, see
+      // Prova.tsx), never as a word or digit in this dictionary.
+      titulo: 'What has been built',
+      lead: 'Each system with the numbers that show its scale — and what changed for the client who hired it.',
+      // Single link at the end of the section now, not one per card (see
+      // Prova.tsx, final branch review finding I6: three large exits on a
+      // page that deleted its own menu to avoid exits). Points at the whole
+      // portfolio, not one specific case — hence the plural.
+      verCase: 'Read the full case studies',
     },
     piso: null,
     fechamento: {
-      titulo: 'Bring me the problem.',
-      corpo: 'Tell me what needs to exist and by when.',
+      // Ver content/pt.ts: "Bring me / Tell me" era primeira pessoa do
+      // singular, mesma inconsistência de voz da Oferta.
+      titulo: 'Bring us the problem.',
+      corpo: 'Tell us what needs to exist and by when.',
     },
     perguntas: {
       titulo: 'Questions',
@@ -560,12 +585,15 @@ export const en: Dictionary = {
         {
           pergunta: 'Does this replace SEO work?',
           resposta:
-            'No. SEO still matters for traditional search, which brings most of the visits. What I guarantee is the technical foundation: without it, no amount of content work pays off.',
+            'No. SEO still matters for traditional search, which brings most of the visits. What we guarantee is the technical foundation: without it, no amount of content work pays off.',
         },
         {
           pergunta: 'How long does it take?',
+          // Ver content/pt.ts: era "26 to 45 days" — as fontes reais são
+          // '26 dias' e 'menos de 45 dias' (duas vezes); "45" sozinho afirma
+          // um teto que nenhum dos três sistemas bateu de verdade.
           resposta:
-            'It depends on scope. The three systems in the portfolio took 26 to 45 days each, with two people. A corporate site is much faster — but I only quote a deadline after understanding what needs to exist.',
+            'It depends on scope. The three systems in the portfolio took 26 to under 45 days each, with two people. A corporate site is much faster — but we only quote a deadline after understanding what needs to exist.',
         },
       ],
     },
