@@ -29,6 +29,25 @@ test('a landing não herda o tema escuro do portfólio', async ({ page }) => {
   expect(esquema).toBe('light')
 })
 
+// Achado I2 (Important) da revisão final de branch: `app/globals.css` define
+// `:focus-visible { outline: 2px solid var(--color-text) }`, e `--color-text`
+// (`#F5F3EF`) é exatamente o FUNDO desta rota -- contraste 1:1, foco de
+// teclado invisível na página inteira. `app/[locale]/projetos/layout.tsx`
+// corrige com um seletor mais específico (`html body :focus-visible`).
+test('o foco de teclado é visível no CTA do hero, não a cor do fundo', async ({ page }) => {
+  await page.goto('/pt/projetos/')
+  // Tab a partir do topo do documento: sem Header nem SkipLink nesta rota
+  // (ver o comentário do próprio layout -- todo item de menu é uma saída), o
+  // primeiro elemento focável é o CTA do hero.
+  await page.keyboard.press('Tab')
+  const foco = await page.evaluate(() => {
+    const el = document.activeElement as HTMLElement | null
+    return { href: el?.getAttribute('href'), outlineColor: el ? getComputedStyle(el).outlineColor : null }
+  })
+  expect(foco.href, 'Tab não chegou no CTA do hero -- o primeiro elemento focável mudou').toContain('wa.me')
+  expect(foco.outlineColor, 'o anel de foco usa a cor do fundo da própria página').not.toBe('rgb(245, 243, 239)')
+})
+
 test('a landing não leva o cromo de navegação do portfólio', () => {
   const bruto = readFileSync(join(OUT, 'pt', 'projetos', 'index.html'), 'utf8')
   expect(bruto).not.toContain('<header')
