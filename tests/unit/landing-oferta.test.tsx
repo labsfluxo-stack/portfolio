@@ -38,6 +38,26 @@ describe('Dupla', () => {
     expect(screen.getByText(producao!.value)).toBeInTheDocument()
   })
 
+  // Achado C-a da revisão final de branch: o teste acima só pega um valor
+  // ERRADO hard-coded -- se alguém escrevesse '5' (o valor certo de hoje) à
+  // mão no componente, em vez de lê-lo de `dict.telemetry`, este teste
+  // passaria em silêncio. Sentinela: troca o valor real por um que não
+  // poderia existir por acaso, e confere que ELE aparece -- só passa se
+  // `Dupla` de fato ler o dado do `dict` recebido, nunca de uma cópia local.
+  it('lê o valor de produção do dict recebido, não de uma cópia hard-coded', () => {
+    const dictFake = {
+      ...pt,
+      telemetry: {
+        ...pt.telemetry,
+        metrics: pt.telemetry.metrics.map((m) =>
+          m.key === 'production' ? { ...m, value: 'SENTINELA-42' } : m,
+        ),
+      },
+    }
+    render(<Dupla dict={dictFake} />)
+    expect(screen.getByText('SENTINELA-42')).toBeInTheDocument()
+  })
+
   it('exibe o tamanho do time como número, não como desculpa', () => {
     render(<Dupla dict={pt} />)
     expect(screen.getByText('2')).toBeInTheDocument()

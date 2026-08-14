@@ -45,11 +45,24 @@ export function Dupla({ dict }: { dict: Dictionary }) {
         <dl className="flex flex-wrap gap-x-10 gap-y-5 border-t border-border pt-7">
           {numeros.map((n) => (
             <div key={n.rotulo} className="flex flex-col gap-1">
-              <dt className="sr-only">{n.rotulo}</dt>
-              <dd className="font-mono text-3xl font-bold text-data">{n.valor}</dd>
-              <p aria-hidden="true" className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted">
+              {/* Antes o <dt> ficava `sr-only` e um <p aria-hidden> repetia o
+               * MESMO texto só para aparecer na tela — duplicava o rótulo no
+               * HTML estático (o crawler lia "desenvolvedores / 2 /
+               * desenvolvedores"), na única página cuja tese é que o que o
+               * crawler lê é o que importa. E um <p> solto dentro de <dl>,
+               * fora de qualquer <dt>/<dd>, foge do content model do HTML5.
+               *
+               * A classe visível vai direto no <dt> (que já é o elemento
+               * semanticamente correto para um rótulo dentro de <dl>) e
+               * `order-2` resolve a ORDEM VISUAL sem mexer na ordem do DOM:
+               * o <dt> continua vindo antes do <dd> no documento (dt-antes-dd
+               * é o que o content model de <dl> exige), só que aparece depois
+               * dele na tela -- o número em destaque, o rótulo abaixo, como
+               * antes. */}
+              <dt className="order-2 font-mono text-[11px] uppercase tracking-[0.15em] text-muted">
                 {n.rotulo}
-              </p>
+              </dt>
+              <dd className="order-1 font-mono text-3xl font-bold text-data">{n.valor}</dd>
             </div>
           ))}
         </dl>
