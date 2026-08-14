@@ -25,8 +25,28 @@ export function Perguntas({ dict }: { dict: Dictionary }) {
         <div className="flex flex-col">
           {perguntas.itens.map((item) => (
             <details key={item.pergunta} className="group border-b border-rule py-4">
-              <summary className="cursor-pointer list-none text-[17px] font-semibold text-ink marker:content-none">
+              {/* `marker:content-none` tira o triângulo NATIVO do <summary>
+               * sem pôr nada no lugar (achado C-d da revisão final de
+               * branch): o item de FAQ não dava sinal nenhum de que abria.
+               * O `group` na `<details>` já existia sem consumidor -- o
+               * chevron abaixo é o consumidor, girando 180° via
+               * `group-open:` quando o navegador marca o atributo `[open]`. */}
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-[17px] font-semibold text-ink marker:content-none">
                 {item.pergunta}
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 20 20"
+                  className="mt-1 size-4 shrink-0 text-ink-2 transition-transform duration-200 group-open:rotate-180"
+                >
+                  <path
+                    d="M5 7.5 10 12.5 15 7.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </summary>
               <p className="pt-3 text-[17px] leading-relaxed text-ink-2">{item.resposta}</p>
             </details>
