@@ -236,6 +236,38 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
         expect(raw).toMatch(/name="robots"[^>]*noindex/)
       })
     }
+
+    describe(`/${locale}/projetos (landing de captação)`, () => {
+      // A página inteira promete que a IA consegue ler o site. Se o
+      // argumento dela só existir depois do JavaScript rodar, a promessa é
+      // falsa sobre a própria página — e um crawler de IA leria exatamente
+      // nada.
+      it('o argumento está no HTML estático, fora de <script>', () => {
+        const visivel = semScripts(html(`${locale}/projetos`))
+        expect(visivel).toContain(escapeHtmlText(d.landing.hero.titulo))
+        expect(visivel).toContain(escapeHtmlText(d.landing.criterio.titulo))
+        for (const teste of d.landing.criterio.testes) {
+          expect(visivel, `critério "${teste.titulo}" ausente`).toContain(escapeHtmlText(teste.titulo))
+        }
+      })
+
+      it('o CTA existe no HTML estático e aponta para o WhatsApp', () => {
+        const visivel = semScripts(html(`${locale}/projetos`))
+        expect(visivel).toContain(escapeHtmlText(d.landing.cta.rotulo))
+        expect(visivel).toContain(d.contact.whatsapp)
+      })
+
+      // Regra do spec §10.8, verificada no HTML entregue e não só no
+      // dicionário: um componente poderia escrever o termo à mão.
+      it('não usa o vocabulário descartado pela pesquisa', () => {
+        const visivel = semScripts(html(`${locale}/projetos`)).toLowerCase()
+        expect(visivel).not.toContain('llms.txt')
+        expect(visivel).not.toContain('ai overview')
+        // "GEO" só como palavra isolada — "geografia"/"geometria" etc. não
+        // devem disparar o portão.
+        expect(visivel).not.toMatch(/\bgeo\b/)
+      })
+    })
   }
 
   it('as rotas de CV são noindex nos dois idiomas', () => {
