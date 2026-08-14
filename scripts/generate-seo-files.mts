@@ -34,10 +34,10 @@ function routeUrl(locale: Locale, path: string): string {
   return `${SITE_URL}/${locale}${path}/`
 }
 
-// Rotas públicas: home + os 3 case studies, nos dois idiomas. `/cv` e `/og`
-// são artefato de build (noindex, sem link de navegação, spec §5.2) e nunca
-// entram aqui.
-const PATHS: string[] = ['', ...SYSTEM_SLUGS.map((slug) => `/sistemas/${slug}`)]
+// Rotas públicas: home, os 3 case studies e a landing de captação, nos dois
+// idiomas. `/cv` e `/og` são artefato de build (noindex, sem link de
+// navegação, spec §5.2) e nunca entram aqui.
+const PATHS: string[] = ['', '/projetos', ...SYSTEM_SLUGS.map((slug) => `/sistemas/${slug}`)]
 
 function buildSitemap(): string {
   const entries = locales.flatMap((locale) =>

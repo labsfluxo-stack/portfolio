@@ -26,12 +26,26 @@ export function generateStaticParams() {
  *
  * Fica na rota, e não em globals.css, porque o escuro está certo em todo o
  * resto do site.
+ *
+ * `pb-20 md:pb-0` (Task 10) É DESTE `<main>`, não de um `<div>` dentro da
+ * página — de propósito. `BarraCta` é `position: fixed`, então não ocupa
+ * espaço no fluxo do documento: um padding aplicado a qualquer elemento QUE
+ * SEJA o último filho de `main` (ou que o contenha) sempre termina coincidindo
+ * com o fim real do documento, e depois de `scrollTo(0, document.body.
+ * scrollHeight)` o fim do documento sempre cai exatamente na borda inferior
+ * da viewport — ou seja, o padding "some" matematicamente, não importa o
+ * quanto se aumente. Só um padding no PRÓPRIO `main` (fora do que seus
+ * filhos medem) cria a folga real entre o fim do conteúdo e o fim do
+ * documento. Confirmado isolando o problema com um script à parte antes de
+ * mover o padding para cá — ver tests/e2e/landing.spec.ts.
  */
 export default function LandingLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <style>{'html{color-scheme:light}html body{background:#F5F3EF;color:#08090C}'}</style>
-      <main id="conteudo">{children}</main>
+      <main id="conteudo" className="pb-20 md:pb-0">
+        {children}
+      </main>
     </>
   )
 }
