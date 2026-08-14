@@ -18,6 +18,18 @@ describe('LandingHero', () => {
     expect(link).toHaveAttribute('href', expect.stringContaining('?text='))
   })
 
+  // Achado I3 (Important) da revisão final de branch: sem isto, no desktop o
+  // clique navega a aba inteira para fora e a landing some; no navegador do
+  // Instagram, sem stack de "voltar" confiável, a troca pode encerrar a
+  // sessão. Mesmo tratamento que components/sections/Contact.tsx já dá à
+  // MESMA URL de wa.me.
+  it('o CTA abre em aba nova', () => {
+    render(<LandingHero dict={pt} />)
+    const link = screen.getByRole('link', { name: new RegExp(pt.landing.cta.rotulo, 'i') })
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noreferrer')
+  })
+
   // Spec §4.1: o piso NÃO aparece na dobra. O padrão brasileiro é publicá-lo
   // depois da prova — antes disso ele filtra sem ter convencido.
   it('não mostra preço na dobra', () => {

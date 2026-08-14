@@ -37,8 +37,13 @@ export function BarraCta({ dict }: { dict: Dictionary }) {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t border-rule bg-paper/95 p-3 backdrop-blur md:hidden">
+      {/* Ver LandingHero.tsx: mesmo `target="_blank" rel="noreferrer"`,
+       * mesmo motivo. Esta é a barra que fica no celular -- exatamente onde
+       * o navegador embutido do Instagram entra em jogo. */}
       <a
         href={urlWhatsapp(dict.contact.whatsapp, cta.mensagem)}
+        target="_blank"
+        rel="noreferrer"
         className="flex min-h-12 w-full items-center justify-center rounded-md bg-ink px-5 text-[17px] font-semibold text-paper"
       >
         {cta.rotulo}

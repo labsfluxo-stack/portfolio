@@ -13,6 +13,15 @@ describe('LandingCta', () => {
     expect(link).toHaveAttribute('href', expect.stringContaining(pt.contact.whatsapp))
   })
 
+  // Ver tests/unit/landing-topo.test.tsx (achado I3) -- mesma URL de wa.me,
+  // mesma exigência.
+  it('o CTA abre em aba nova', () => {
+    render(<LandingCta dict={pt} />)
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noreferrer')
+  })
+
   // O medo de quem clica não é o preço, é ser perseguido por vendedor.
   it('diz o que acontece do outro lado', () => {
     render(<LandingCta dict={pt} />)
@@ -55,5 +64,14 @@ describe('BarraCta', () => {
     const { container } = render(<BarraCta dict={pt} />)
     expect(container.innerHTML).not.toContain('#25D366')
     expect(container.innerHTML).not.toContain('25d366')
+  })
+
+  // Ver tests/unit/landing-topo.test.tsx (achado I3) -- é a barra do
+  // celular, onde o navegador embutido do Instagram entra em jogo.
+  it('o CTA abre em aba nova', () => {
+    render(<BarraCta dict={pt} />)
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noreferrer')
   })
 })

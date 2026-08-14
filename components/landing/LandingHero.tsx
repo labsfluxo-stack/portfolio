@@ -24,8 +24,16 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
       </div>
 
       <div className="flex flex-col gap-3">
+        {/* `target="_blank" rel="noreferrer"`, igual a Contact.tsx para a
+         * MESMA URL de wa.me — sem isso, no desktop o clique navega a aba
+         * inteira para fora e a landing desaparece; no navegador embutido do
+         * Instagram (fonte de tráfego que o spec cita), sem stack de "voltar"
+         * confiável, a troca de aba pode encerrar a sessão de vez (achado I3
+         * Important da revisão final de branch). */}
         <a
           href={urlWhatsapp(dict.contact.whatsapp, cta.mensagem)}
+          target="_blank"
+          rel="noreferrer"
           className="inline-flex w-fit items-center gap-2 rounded-md bg-ink px-6 py-3.5 text-[17px] font-semibold text-paper transition-opacity hover:opacity-90"
         >
           {cta.rotulo}
