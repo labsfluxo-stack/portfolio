@@ -2031,7 +2031,13 @@ já resolvem a armadilha do payload de hidratação e do escape de HTML do React
 
 - [ ] **Step 2: Rodar e ver falhar (ou passar por acidente)**
 
-Run: `npm run build && npx vitest run tests/static-html.test.ts`
+Run: `npm run build && npm run test:html`
+
+> **Não use `npx vitest run tests/static-html.test.ts`.** O `vitest.config.ts`
+> exclui este arquivo de propósito — ele precisa de `out/` construído, e roda por
+> `vitest.html.config.ts`. O comando direto **não roda teste nenhum e sai com
+> sucesso**, que é o pior resultado possível num passo cujo objetivo é justamente
+> ver o teste falhar.
 
 Se passar de primeira, **verifique que o teste realmente fecha**: comente o
 `<Criterio />` em `page.tsx`, rode de novo e confirme que quebra. Descomente. Um teste que
