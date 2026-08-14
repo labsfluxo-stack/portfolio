@@ -10,3 +10,4 @@ export function getDictionary(locale: Locale): Dictionary {
 
 export * from './types'
 export { systems } from './systems'
+export { OG_SLUGS, type OgSlug } from './og'

@@ -1,16 +1,25 @@
 import type { Metadata } from 'next'
-import { getDictionary, locales, systems, SYSTEM_SLUGS, type Dictionary, type Locale, type SystemSlug } from '@/content'
+import {
+  getDictionary,
+  locales,
+  systems,
+  SYSTEM_SLUGS,
+  OG_SLUGS,
+  type Dictionary,
+  type Locale,
+  type SystemSlug,
+  type OgSlug,
+} from '@/content'
 import type { System } from '@/content/systems'
 import { formatNumber } from '@/lib/format'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 
-// `home` + os 3 sistemas — os "4 alvos" da Task 14 (spec §7.2). Vive fora do
-// route group `(site)`: esta página não leva Header/Footer, só o que
-// app/[locale]/layout.tsx garante (html/body/fontes), porque o Playwright
-// (scripts/generate-og.mts) fotografa exatamente 1200×630 e cromo de
-// navegação não cabe — nem faz sentido — num card de Open Graph.
-const OG_SLUGS = ['home', ...SYSTEM_SLUGS] as const
-type OgSlug = (typeof OG_SLUGS)[number]
+// A lista de slugs (`home`, os 3 sistemas, a landing) mora em
+// `content/og.ts`, não aqui: `scripts/generate-og.mts` roda com
+// `node --experimental-strip-types`, que não sabe carregar `.tsx` (falha
+// antes mesmo de chegar nos colchetes do caminho desta rota). Um módulo
+// `.ts` neutro é o único jeito dos dois lados importarem a MESMA lista em
+// vez de cada um manter a própria cópia. Ver tests/unit/og-slugs.test.ts.
 
 export const dynamicParams = false
 

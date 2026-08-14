@@ -2,6 +2,7 @@ import { chromium } from '@playwright/test'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { OG_SLUGS } from '../content/og.ts'
 
 // Gera as imagens Open Graph (Task 14, spec §7.2) por SCREENSHOT da rota
 // real `/[locale]/og/[slug]`, em vez de compor com `satori` — evita
@@ -25,7 +26,11 @@ const PORT = Number(process.env.OG_PORT ?? 4174)
 const ORIGIN = `http://localhost:${PORT}`
 
 const LOCALES = ['pt', 'en'] as const
-const SLUGS = ['home', 'oscapstack', 'saturno-labs', 'moveis-pro'] as const
+// Importado de content/og.ts, NÃO repetido aqui: as duas listas precisam ser
+// a mesma coisa, e antes eram duas coisas que coincidiam por sorte. A rota
+// (app/[locale]/og/[slug]/page.tsx) importa do mesmo lugar — nenhum dos dois
+// lados é dono da lista, e é por isso que a movemos para content/.
+const SLUGS = OG_SLUGS
 
 const OUT_DIR = join(process.cwd(), 'out')
 const OG_DIR = join(process.cwd(), 'public', 'og')
