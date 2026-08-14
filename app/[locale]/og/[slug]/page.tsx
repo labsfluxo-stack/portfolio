@@ -52,6 +52,16 @@ export default async function OgImagePage({
   const { locale, slug } = await params
   const dict = getDictionary(locale)
 
+  // ANTES de cair no branch de sistema OU no de home: 'projetos' não é slug
+  // de sistema (`isSystemSlug` devolveria falso) e caía direto em `OgHome`,
+  // que é o card ESCURO do recrutador. Achado I1 (Important) da revisão
+  // final de branch: o preview no WhatsApp — o único canal que esta página
+  // existe para alimentar — mostrava "Neto Alves / Arquiteto de software"
+  // sobre "5 em produção" antes de a visita chegar numa página que fala outra
+  // coisa. Confirmado por md5: pt-projetos.png e pt-home.png eram o MESMO
+  // arquivo.
+  if (slug === 'projetos') return <OgLanding dict={dict} />
+
   if (!isSystemSlug(slug)) return <OgHome dict={dict} />
 
   const system = systems.find((candidate) => candidate.slug === slug)
@@ -93,6 +103,34 @@ function OgHome({ dict }: { dict: Dictionary }) {
           </div>
         ))}
       </dl>
+    </div>
+  )
+}
+
+/**
+ * Card OG da landing de captação (/[locale]/projetos) — POLARIDADE INVERTIDA
+ * (`bg-paper`/`text-ink`, papel claro e tinta escura: `#F5F3EF` sobre
+ * `#08090C`), a mesma virada que `app/[locale]/projetos/layout.tsx` já faz na
+ * própria rota. Sem isto o card cai no branch de `OgHome`, escuro — ver o
+ * comentário acima de `OgImagePage`.
+ *
+ * Mostra a identidade DA LANDING, não a do portfólio: `hero.titulo` e
+ * `hero.assinatura` de `dict.landing`, não `dict.hero`. É também o que faz o
+ * card ficar visualmente distinto numa conversa de WhatsApp, onde todo outro
+ * preview de link deste site é escuro.
+ */
+function OgLanding({ dict }: { dict: Dictionary }) {
+  const { hero, landing } = dict
+
+  return (
+    <div className="relative flex h-[630px] w-[1200px] flex-col justify-between overflow-hidden bg-paper p-16">
+      <div className="flex flex-col gap-6">
+        <p className="font-mono text-lg uppercase tracking-[0.3em] text-ink-2">{hero.name}</p>
+        <h1 className="max-w-4xl font-sans text-7xl font-bold leading-[1.05] tracking-tight text-ink">
+          {landing.hero.titulo}
+        </h1>
+      </div>
+      <p className="max-w-3xl text-2xl leading-snug text-ink-2">{landing.hero.assinatura}</p>
     </div>
   )
 }

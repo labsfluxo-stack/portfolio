@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { pt } from '../content/pt'
@@ -327,18 +328,40 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
     expect(robots).toMatch(/Sitemap:\s*https?:\/\//)
   })
 
-  it('cada og:image apontado na home resolve para um arquivo de verdade em out/', () => {
+  // Achado C-h da revisão final de branch: a guarda cobria só a home. A
+  // landing (/[locale]/projetos) tem seu próprio og:image
+  // (public/og/{locale}-projetos.png, ver app/[locale]/projetos/page.tsx) e
+  // não era conferida por nada aqui.
+  it('cada og:image apontado na home e na landing resolve para um arquivo de verdade em out/', () => {
     for (const locale of locales) {
-      const raw = html(locale)
-      const match = raw.match(/<meta property="og:image" content="([^"]+)"/)
-      const imageUrl = match?.[1]
-      expect(imageUrl, `og:image ausente em /${locale}`).toBeDefined()
-      const url = new URL(imageUrl ?? '')
-      // O primeiro segmento do path é o basePath (ex.: /portfolio); o resto
-      // é o caminho do arquivo dentro de out/.
-      const relative = url.pathname.split('/').slice(2).join('/')
-      const file = join(OUT, relative)
-      expect(existsSync(file), `${url.pathname} -> ${file} não existe`).toBe(true)
+      for (const route of [locale, `${locale}/projetos`]) {
+        const raw = html(route)
+        const match = raw.match(/<meta property="og:image" content="([^"]+)"/)
+        const imageUrl = match?.[1]
+        expect(imageUrl, `og:image ausente em /${route}`).toBeDefined()
+        const url = new URL(imageUrl ?? '')
+        // O primeiro segmento do path é o basePath (ex.: /portfolio); o resto
+        // é o caminho do arquivo dentro de out/.
+        const relative = url.pathname.split('/').slice(2).join('/')
+        const file = join(OUT, relative)
+        expect(existsSync(file), `${url.pathname} -> ${file} não existe`).toBe(true)
+      }
+    }
+  })
+
+  // Achado I1/B2 da revisão final de branch: o card OG da landing caía no
+  // branch de OgHome (`projetos` não é slug de sistema) e saía BYTE-IDÊNTICO
+  // ao card da home -- confirmado por md5. O teste de existência acima (e o
+  // da Task 12) não pegava isso: os dois arquivos EXISTIAM, só que eram a
+  // mesma foto. Só um hash prova que não é duplicata.
+  it('o card OG da landing não é o mesmo arquivo que o da home (md5)', () => {
+    const md5 = (path: string) => createHash('md5').update(readFileSync(path)).digest('hex')
+    for (const locale of locales) {
+      const home = join(OUT, 'og', `${locale}-home.png`)
+      const landing = join(OUT, 'og', `${locale}-projetos.png`)
+      expect(existsSync(home), home).toBe(true)
+      expect(existsSync(landing), landing).toBe(true)
+      expect(md5(landing), `${locale}-projetos.png e ${locale}-home.png são o mesmo arquivo`).not.toBe(md5(home))
     }
   })
 })
