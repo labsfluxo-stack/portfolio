@@ -270,6 +270,26 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
     expect(sitemap).not.toContain('/og/')
   })
 
+  it('toda rota pública do sitemap também aparece no llms.txt, nos dois idiomas', () => {
+    // Achado de revisão da Task 10: `buildLlmsTxt` (scripts/generate-seo-files.mts)
+    // mantinha o próprio laço sobre `SYSTEM_SLUGS` + home, sem passar pela
+    // mesma `PATHS` que `buildSitemap` usa — `/projetos` entrava no sitemap e
+    // ficava fora do llms.txt, e nada acusava, porque o único teste existente
+    // ("sitemap.xml, robots.txt e llms.txt existem em out/") checa presença
+    // do arquivo, não o conteúdo dele. A lista abaixo espelha `PATHS` do
+    // script (home, a landing de captação, os case studies) contra o ARQUIVO
+    // REAL gerado — não importa o script (scripts/*.mts roda fora do grafo de
+    // módulos do Next, ver o próprio comentário do arquivo), então isto é a
+    // forma de testar a saída sem duplicar a lista dentro do módulo do script.
+    const llms = readFileSync(join(OUT, 'llms.txt'), 'utf8')
+    const paths = ['', '/projetos', ...SYSTEM_SLUGS.map((slug) => `/sistemas/${slug}`)]
+    for (const locale of locales) {
+      for (const path of paths) {
+        expect(llms, `llms.txt não lista /${locale}${path}/`).toContain(`/${locale}${path}/`)
+      }
+    }
+  })
+
   it('o robots.txt aponta para o sitemap', () => {
     const robots = readFileSync(join(OUT, 'robots.txt'), 'utf8')
     expect(robots).toMatch(/Sitemap:\s*https?:\/\//)

@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pt } from '../content/pt.ts'
 import { en } from '../content/en.ts'
-import { locales, SYSTEM_SLUGS, type Locale } from '../content/types.ts'
+import { locales, SYSTEM_SLUGS, type Dictionary, type Locale, type SystemSlug } from '../content/types.ts'
 
 // Roda depois de `next build` (ver package.json), escrevendo em `out/` os
 // três arquivos que fecham o portão de GEO (Task 14, spec §7.4-7.5):
@@ -37,6 +37,13 @@ function routeUrl(locale: Locale, path: string): string {
 // Rotas públicas: home, os 3 case studies e a landing de captação, nos dois
 // idiomas. `/cv` e `/og` são artefato de build (noindex, sem link de
 // navegação, spec §5.2) e nunca entram aqui.
+//
+// FONTE ÚNICA para sitemap.xml E llms.txt (fix de revisão, Task 10): antes,
+// `buildLlmsTxt` mantinha o próprio laço sobre `SYSTEM_SLUGS` + home, sem
+// passar por `PATHS` — resultado, `/projetos` entrava no sitemap mas nunca
+// no llms.txt, quebrando a garantia que o comentário do topo deste arquivo
+// promete ("as três coisas juntas... nunca saem de sincronia"). Mesma classe
+// de defeito que a Task 12 existe pra matar (duas listas que deviam ser uma).
 const PATHS: string[] = ['', '/projetos', ...SYSTEM_SLUGS.map((slug) => `/sistemas/${slug}`)]
 
 function buildSitemap(): string {
@@ -63,11 +70,29 @@ function buildRobots(): string {
 }
 
 /**
+ * Par (nome, descrição) de uma rota de `PATHS`, para um `Dictionary` de um
+ * locale. Só existem três formatos de rota em `PATHS` hoje (home, a landing
+ * de captação, um case study) — os dois primeiros são casos fixos, o
+ * terceiro é o único que varia por dado (`SYSTEM_SLUGS`). Nome e descrição
+ * SEMPRE vêm de um campo que já existe no dicionário (mesmo par que
+ * `generateMetadata` de cada rota usa) — nunca um texto novo escrito aqui.
+ */
+function entryFor(d: Dictionary, path: string): { label: string; description: string } {
+  if (path === '') return { label: d.hero.name, description: d.meta.description }
+  if (path === '/projetos') return { label: d.landing.meta.title, description: d.landing.meta.description }
+  const slug = path.replace('/sistemas/', '') as SystemSlug
+  const cs = d.systems.detail[slug]
+  return { label: cs.name, description: cs.tagline }
+}
+
+/**
  * Mapa do site em texto para agentes de IA (spec §7.4): título, resumo e uma
- * lista de links com uma linha de descrição cada, nos dois idiomas. Todo
- * texto vem dos dicionários — os cabeçalhos de seção usam o código
- * `hreflang` (pt-BR/en), não um nome de idioma inventado que não existe em
- * nenhum `Dictionary`.
+ * lista de links com uma linha de descrição cada, nos dois idiomas. Itera
+ * `PATHS` — a MESMA lista que `buildSitemap` usa, não uma lista própria: era
+ * exatamente aí que `/projetos` ficava de fora do llms.txt mesmo já estando
+ * no sitemap (achado da revisão da Task 10). Os cabeçalhos de seção usam o
+ * código `hreflang` (pt-BR/en), não um nome de idioma inventado que não
+ * existe em nenhum `Dictionary`.
  */
 function buildLlmsTxt(): string {
   const lines: string[] = [
@@ -81,10 +106,9 @@ function buildLlmsTxt(): string {
   for (const locale of locales) {
     const d = dicts[locale]
     lines.push(`## ${HREFLANG[locale]}`)
-    lines.push(`- [${d.hero.name}](${routeUrl(locale, '')}): ${d.meta.description}`)
-    for (const slug of SYSTEM_SLUGS) {
-      const cs = d.systems.detail[slug]
-      lines.push(`- [${cs.name}](${routeUrl(locale, `/sistemas/${slug}`)}): ${cs.tagline}`)
+    for (const path of PATHS) {
+      const { label, description } = entryFor(d, path)
+      lines.push(`- [${label}](${routeUrl(locale, path)}): ${description}`)
     }
     lines.push('')
   }

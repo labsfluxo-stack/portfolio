@@ -12,8 +12,14 @@ import { urlWhatsapp } from './whatsapp'
  * está tentando ler; e o NN/g registrou participantes ignorando completamente
  * um botão de chat flutuante que estava em posição inesperada.
  *
- * `pb-[4.5rem]` no conteúdo da página (ver page.tsx, Task 10) existe para a
- * barra não cobrir o último bloco — que é exatamente o defeito documentado.
+ * O respiro que evita a barra cobrir o último bloco é `pb-20 md:pb-0` no
+ * `<main>` de `app/[locale]/projetos/layout.tsx` (Task 10) — não em `page.tsx`,
+ * e não com o valor exato desta barra (~73px): padding em qualquer elemento
+ * que seja (ou contenha) o último filho de `main` coincide matematicamente
+ * com o fim do documento depois de rolar até o fundo, então só um padding no
+ * PRÓPRIO `main` cria a folga de verdade. Ver o comentário lá para a medição
+ * completa. É exatamente o defeito que o Baymard documenta nas bolhas de
+ * chat flutuantes: cobrir o conteúdo que a pessoa está tentando ler.
  *
  * Sem o verde `#25D366`: ele dá 1,79:1 sobre o papel, reprova, e é o marcador
  * visual de widget de construtor de página. Numa página que precisa sustentar
