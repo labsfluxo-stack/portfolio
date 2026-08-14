@@ -2238,10 +2238,20 @@ Um lugar so, na secao Contato que ja fala de 'vaga ou projeto'. Nada no
 menu: 'Projetos' ao lado de 'Sistemas' confunde, e o menu e justamente onde
 as duas mensagens se atrapalhariam.
 
-Suite completa verde. Verificado a mao no Safari do iPhone, no navegador
-embutido do Instagram e no celular sob luz forte -- os tres casos que
-nenhum teste automatizado alcanca."
+Suite completa verde.
+
+Os tres casos que nenhum teste automatizado alcanca -- Safari do iPhone,
+navegador embutido do Instagram, celular sob luz forte -- ficam declarados
+aqui como NAO verificados, se for esse o caso. Escreva o que aconteceu de
+verdade."
 ```
+
+> **Não copie um texto de commit que afirma verificação que você não fez.** A
+> primeira versão deste plano trazia "Verificado a mao no Safari do iPhone…"
+> pronto para colar — e um agente sem iPhone teria gravado essa mentira no
+> histórico para sempre. O implementador da Task 13 recusou o template e
+> escreveu o que de fato ocorreu. Faça o mesmo: se os três não foram feitos,
+> o commit diz que não foram.
 
 ---
 
