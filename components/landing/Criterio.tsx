@@ -1,4 +1,5 @@
 import type { Dictionary } from '@/content/types'
+import { ArteSemJavaScript } from './arte'
 
 /**
  * A seção que carrega a página, e a que mudou mais depois da pesquisa.
@@ -42,6 +43,23 @@ export function Criterio({ dict }: { dict: Dictionary }) {
             </li>
           ))}
         </ol>
+
+        {/* A ÚNICA ARTE DA PÁGINA QUE NÃO É DECORAÇÃO.
+         *
+         * O segundo teste acima diz "peça para ver o site com o JavaScript
+         * desligado; se a tela ficar em branco, é isso que o ChatGPT enxerga".
+         * Isso é abstrato em palavra e instantâneo em desenho: a mesma tela,
+         * cheia e vazia, com uma seta entre as duas.
+         *
+         * Fica ENTRE os testes e o fecho de propósito. O parágrafo seguinte
+         * explica o mecanismo, e chega depois de a imagem já ter feito o ponto.
+         *
+         * `max-w-lg` porque em largura total a comparação se dispersa: os dois
+         * painéis precisam caber no mesmo golpe de vista, senão viram dois
+         * desenhos em vez de um antes-e-depois. */}
+        <div className="max-w-lg py-2">
+          <ArteSemJavaScript />
+        </div>
 
         <div className="flex max-w-2xl flex-col gap-4">
           {criterio.fecho.map((paragrafo) => (

@@ -1,4 +1,5 @@
 import type { Dictionary } from '@/content/types'
+import { ArteDupla } from './arte'
 
 /**
  * PRIMEIRA das duas faixas escuras da página (a outra é LandingCta). É aqui
@@ -32,15 +33,31 @@ export function Dupla({ dict }: { dict: Dictionary }) {
   return (
     <section className="bg-ink text-paper">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-16 sm:py-24">
-        <h2 className="font-sans text-3xl font-bold tracking-tight sm:text-4xl">
-          {dupla.titulo}
-        </h2>
-        <div className="flex max-w-2xl flex-col gap-4">
-          {dupla.corpo.map((paragrafo) => (
-            <p key={paragrafo} className="text-[17px] leading-relaxed text-muted">
-              {paragrafo}
-            </p>
-          ))}
+        <div className="flex flex-col gap-8 md:flex-row md:items-center md:gap-12">
+          <div className="flex flex-col gap-8 md:flex-1">
+            <h2 className="font-sans text-3xl font-bold tracking-tight sm:text-4xl">
+              {dupla.titulo}
+            </h2>
+            <div className="flex max-w-2xl flex-col gap-4">
+              {dupla.corpo.map((paragrafo) => (
+                <p key={paragrafo} className="text-[17px] leading-relaxed text-muted">
+                  {paragrafo}
+                </p>
+              ))}
+            </div>
+          </div>
+
+          {/* Duas formas idênticas e conectadas — o argumento desenhado.
+           *  É a única arte da página que usa `--color-data`: aqui, sobre o
+           *  quase-preto da faixa, ele dá 9,29:1; sobre o papel claro daria
+           *  1,93:1 e reprovaria AA.
+           *
+           *  `hidden md:block` porque no celular ela entraria entre o texto e
+           *  os números, empurrando para baixo a prova numérica que é o que
+           *  essa seção tem de mais forte. */}
+          <div className="hidden md:block md:w-[38%]">
+            <ArteDupla />
+          </div>
         </div>
         <dl className="flex flex-wrap gap-x-10 gap-y-5 border-t border-border pt-7">
           {numeros.map((n) => (

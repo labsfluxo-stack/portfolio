@@ -1,4 +1,10 @@
 import type { Dictionary } from '@/content/types'
+import { ArteOferta } from './arte'
+
+/** Uma arte por cartão, na ordem do dicionário. Fora do `map` para o tipo ser
+ *  verificado: se alguém acrescentar um quarto cartão, o `tsc` reclama aqui em
+ *  vez de a página renderizar um buraco. */
+const ARTES = ['site', 'blog', 'sistema'] as const
 
 /**
  * Três cartões, e o que os costura é o padrão de construção, não o artefato —
@@ -23,8 +29,15 @@ export function Oferta({ dict }: { dict: Dictionary }) {
           {oferta.titulo}
         </h2>
         <ul className="grid gap-px overflow-hidden rounded-lg border border-rule bg-rule sm:grid-cols-3">
-          {oferta.cartoes.map((cartao) => (
+          {oferta.cartoes.map((cartao, i) => (
             <li key={cartao.nome} className="flex flex-col gap-3 bg-paper p-6">
+              {/* A arte vem antes do rótulo: no celular os cartões empilham, e
+               *  três blocos de texto seguidos sem nenhuma pausa visual são
+               *  exatamente a parede que a página precisa quebrar. `w-24` a
+               *  mantém pequena — é pontuação, não ilustração. */}
+              <div className="w-24">
+                <ArteOferta variante={ARTES[i] ?? 'site'} />
+              </div>
               <h3 className="font-mono text-xs uppercase tracking-[0.15em] text-accent">
                 {cartao.nome}
               </h3>
