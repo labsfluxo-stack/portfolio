@@ -11,4 +11,25 @@ export default tseslint.config(
     plugins: { 'jsx-a11y': jsxA11y },
     rules: { ...jsxA11y.configs.recommended.rules },
   },
+  {
+    // O Worker da auditoria (workers/**) roda na Cloudflare, não no Node nem
+    // no bundle do Next. Os globais dele são os da plataforma web — `fetch`,
+    // `Response`, `URL`, `TextDecoder`, `AbortController` — e sem declará-los
+    // o `no-undef` acusa código correto.
+    files: ['workers/**/*.js'],
+    languageOptions: {
+      globals: {
+        fetch: 'readonly',
+        Response: 'readonly',
+        Request: 'readonly',
+        Headers: 'readonly',
+        URL: 'readonly',
+        TextDecoder: 'readonly',
+        AbortController: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        console: 'readonly',
+      },
+    },
+  },
 )

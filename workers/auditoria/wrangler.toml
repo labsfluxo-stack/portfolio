@@ -1,0 +1,18 @@
+name = "auditoria-legibilidade"
+main = "index.js"
+compatibility_date = "2026-08-15"
+
+# Sem KV, sem D1, sem variável de ambiente: a função não guarda nada e não
+# tem segredo. Se um dia precisar de limite de taxa por IP, é aqui que entra
+# um binding de KV — mas o teto de bytes e o tempo limite no código já contêm
+# o abuso barato, e a Cloudflare oferece regra de rate limit no painel sem
+# precisar de código.
+
+# Depois de `npx wrangler deploy`, o endereço sai como
+#   https://auditoria-legibilidade.<seu-subdominio>.workers.dev
+# É esse valor que vai em NEXT_PUBLIC_AUDITORIA_URL no build da landing.
+# Sem a variável, o campo de auditoria simplesmente não renderiza e a página
+# fica exatamente como está hoje — mesmo padrão do piso de preço.
+
+[observability]
+enabled = true
