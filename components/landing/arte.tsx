@@ -38,18 +38,6 @@
  * evitar. São dois retângulos, e o contexto vem do texto.
  */
 export function ArteSemJavaScript() {
-  // Blocos do painel cheio: [x, y, largura, altura]. Lista fixa, e a densidade
-  // decresce de cima para baixo para ler como página de verdade — título,
-  // parágrafo, blocos — sem desenhar nenhum componente de interface.
-  const linhas: [number, number, number][] = [
-    [40, 78, 118],
-    [40, 88, 132],
-    [40, 98, 96],
-    [40, 118, 124],
-    [40, 128, 108],
-    [40, 138, 138],
-  ]
-
   return (
     <svg
       viewBox="0 0 400 180"
@@ -58,21 +46,56 @@ export function ArteSemJavaScript() {
       className="h-auto w-full"
       preserveAspectRatio="xMidYMid meet"
     >
-      {/* PAINEL CHEIO — o que a pessoa vê */}
+      {/* PAINEL CHEIO — o que a pessoa vê.
+       *
+       * A primeira versão era uma barra preta e umas linhas cinza, e o dono
+       * apontou o óbvio: não dava para saber o que era. O que faltava não era
+       * texto, era ANATOMIA — as partes que fazem qualquer pessoa reconhecer
+       * uma página sem ler uma palavra: barra de topo com logo e menu, título
+       * em destaque, linhas de parágrafo, um BOTÃO, e cartões embaixo.
+       *
+       * O botão é o sinal mais forte de todos. Retângulo arredondado em cor de
+       * destaque, na altura certa, é lido como "site" antes de qualquer outra
+       * coisa da composição. */}
       <rect x="14" y="20" width="168" height="140" className="fill-none stroke-ink" strokeWidth="1.5" />
-      {/* Faixa de topo: o único bloco sólido, para dar peso de "conteúdo real" */}
-      <rect x="40" y="44" width="90" height="18" className="fill-ink" />
-      {linhas.map(([x, y, w]) => (
-        <rect key={`${x}-${y}`} x={x} y={y} width={w} height="4" className="fill-rule" />
+
+      {/* Barra de topo: marca à esquerda, três itens de menu à direita */}
+      <rect x="24" y="28" width="12" height="8" className="fill-ink" />
+      {[130, 144, 158].map((x) => (
+        <rect key={x} x={x} y="30" width="10" height="3" className="fill-rule" />
       ))}
-      {/* O único destaque em cor da peça, no painel que tem conteúdo */}
-      <rect x="40" y="118" width="124" height="4" className="fill-accent" />
+      {/* Recuada 1px de cada lado: em `x1=14`/`x2=182` ela nasce no eixo exato
+       *  da moldura e, como o traço é centrado, meio pixel dela aparece do
+       *  lado de fora. */}
+      <line x1="15" y1="44" x2="181" y2="44" className="stroke-rule" strokeWidth="1" />
 
-      {/* A SETA — transformação, não comparação lado a lado passiva */}
-      <line x1="196" y1="90" x2="216" y2="90" className="stroke-ink" strokeWidth="1.5" />
-      <path d="M 216 90 L 209 86 L 209 94 Z" className="fill-ink" />
+      {/* Título e duas linhas de apoio */}
+      <rect x="24" y="58" width="86" height="11" className="fill-ink" />
+      <rect x="24" y="76" width="120" height="3.5" className="fill-rule" />
+      <rect x="24" y="84" width="92" height="3.5" className="fill-rule" />
 
-      {/* PAINEL VAZIO — o que o crawler recebe. Moldura idêntica, nada dentro. */}
+      {/* O botão — único elemento em cor, e o que mais diz "isto é um site" */}
+      <rect x="24" y="96" width="48" height="14" rx="3" className="fill-accent" />
+
+      {/* Três cartões, a fileira que quase toda home tem */}
+      <line x1="24" y1="124" x2="172" y2="124" className="stroke-rule" strokeWidth="1" />
+      {[24, 76, 128].map((x) => (
+        <g key={x}>
+          <rect x={x} y="132" width="44" height="22" className="fill-none stroke-rule" strokeWidth="1" />
+          <rect x={x + 8} y="140" width="22" height="3" className="fill-rule" />
+        </g>
+      ))}
+
+      {/* A SETA — transformação, não comparação passiva lado a lado */}
+      <line x1="194" y1="90" x2="216" y2="90" className="stroke-ink" strokeWidth="1.5" />
+      <path d="M 218 90 L 210 85.5 L 210 94.5 Z" className="fill-ink" />
+
+      {/* PAINEL VAZIO — o que o crawler recebe.
+       *
+       * Moldura idêntica e absolutamente nada dentro, nem uma linha de
+       * cortesia. É a mesma página: só o que sobra quando ninguém executou o
+       * JavaScript. Qualquer coisa aqui enfraqueceria a única ideia que o
+       * desenho precisa passar. */}
       <rect x="230" y="20" width="168" height="140" className="fill-none stroke-ink" strokeWidth="1.5" />
     </svg>
   )
