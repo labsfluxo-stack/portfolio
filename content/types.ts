@@ -334,6 +334,58 @@ export type Dictionary = {
     piso: { valor: string; nota: string } | null
     fechamento: { titulo: string; corpo: string }
     perguntas: { titulo: string; itens: { pergunta: string; resposta: string }[] }
+    /**
+     * A auditoria ao vivo — o único trecho interativo da página.
+     *
+     * A seção do critério manda o visitante fazer dois testes; isto faz o
+     * segundo por ele, no site dele. A pesquisa apontou auditoria do próprio
+     * prospect como a prova mais forte disponível: específica, impossível de
+     * pré-fabricar, e serve de motivo para mandar mensagem.
+     *
+     * TODO VEREDITO MORA AQUI, não no Worker. Um backend que devolvesse
+     * "seu site está ruim" enterraria decisão de produto dentro de
+     * infraestrutura, longe de qualquer revisão de copy.
+     */
+    auditoria: {
+      titulo: string
+      descricao: string
+      rotuloCampo: string
+      exemplo: string
+      botao: string
+      carregando: string
+      /** Quando o endereço digitado não vira URL nenhuma. */
+      erroEndereco: string
+      resultado: {
+        /** Sufixo do número. O número em si vem do Worker, nunca daqui. */
+        palavras: string
+        legivel: string
+        vazio: string
+        permitido: string
+        /** Seguido da lista de robôs que o Worker devolveu. */
+        barrado: string
+        /**
+         * Site que nos barrou NÃO é site vazio. Reportar 403 como "a IA não vê
+         * nada" seria afirmação falsa sobre o site de outra pessoa — numa
+         * página cujo argumento é que suas afirmações se conferem.
+         */
+        bloqueado: string
+        naoHtml: string
+        construidoEm: string
+        amostra: string
+      }
+      /**
+       * O limite do próprio teste, mostrado SEMPRE e IGUAL PARA TODOS —
+       * passou, falhou ou foi bloqueado.
+       *
+       * Condicionar este aviso à plataforma detectada o transformaria de
+       * declaração de escopo em insinuação sobre a plataforma, que é o
+       * movimento que a pesquisa lista entre os sinais de quem foi enganado:
+       * criar dúvida onde a medição não achou problema.
+       */
+      escopo: string
+      /** Só aparece quando a medição achou algo. Sem "mas" quando está tudo certo. */
+      cta: string
+    }
   }
   footer: { rights: string; builtWith: string; sourceCode: string; sourceCodeUrl: string }
 }

@@ -1,5 +1,6 @@
 import type { Dictionary } from '@/content/types'
 import { ArteSemJavaScript } from './arte'
+import { Auditoria } from './Auditoria'
 
 /**
  * A seção que carrega a página, e a que mudou mais depois da pesquisa.
@@ -68,6 +69,15 @@ export function Criterio({ dict }: { dict: Dictionary }) {
             </p>
           ))}
         </div>
+
+        {/* A auditoria fecha a seção fazendo o segundo teste pelo visitante,
+         *  no site dele. Vem DEPOIS do fecho: a pessoa precisa entender o que
+         *  está sendo medido antes de ver o resultado, senão o número chega
+         *  sem significado.
+         *
+         *  Some inteira sem `NEXT_PUBLIC_AUDITORIA_URL` — e a seção continua
+         *  completa, porque o argumento nunca dependeu dela. */}
+        <Auditoria dict={dict} />
       </div>
     </section>
   )

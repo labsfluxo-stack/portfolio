@@ -687,9 +687,43 @@ export const pt: Dictionary = {
       // de voz da Oferta (ver comentário lá).
       corpo: 'Conta pra gente o que precisa existir e para quando.',
     },
+    auditoria: {
+      titulo: 'Faça o segundo teste agora',
+      descricao:
+        'Cole o endereço do seu site. Vamos ler do mesmo jeito que o ChatGPT lê — pedindo a página ao servidor e sem executar nada.',
+      rotuloCampo: 'Endereço do seu site',
+      exemplo: 'suaempresa.com.br',
+      botao: 'Ler meu site',
+      carregando: 'Lendo seu site…',
+      erroEndereco: 'Não reconheci esse endereço. Tente algo como suaempresa.com.br',
+      resultado: {
+        palavras: 'palavras encontradas',
+        legivel: 'A IA consegue ler seu site.',
+        vazio: 'O ChatGPT vê praticamente uma página em branco.',
+        permitido: 'E o seu robots.txt deixa os robôs de IA passarem.',
+        barrado: 'Mas o seu robots.txt barra estes robôs:',
+        // Distinção que a página inteira depende de manter.
+        bloqueado:
+          'Não conseguimos ler seu site — ele recusou nossa leitura. Isso não diz nada sobre o conteúdo dele, só que há uma proteção no caminho.',
+        naoHtml: 'Esse endereço não devolveu uma página de site.',
+        construidoEm: 'Construído em',
+        amostra: 'O começo do que a IA leu:',
+      },
+      escopo:
+        'Este teste mede duas coisas: se dá para ler, e se tem permissão. Ele não mede quanto tempo o site leva para abrir no 4G, nem se o conteúdo responde o que perguntam sobre o seu setor.',
+      cta: 'Falar sobre isso no WhatsApp',
+    },
     perguntas: {
       titulo: 'Perguntas',
       itens: [
+        {
+          pergunta: 'Meu site é WordPress. Isso é problema?',
+          // Veio de um levantamento do dono sobre gargalos por plataforma, e é
+          // a pergunta que o público de fato faz. A resposta honesta contraria
+          // o que o mercado insinua: nenhuma das três impede ser lida por IA.
+          resposta:
+            'Por si só, não. WordPress, Wix e Shopify entregam a página pronta pelo servidor, que é o que a IA precisa. O que atrapalha é o que se acumula em cima: plugin demais, hospedagem barata e — o mais comum — configuração de segurança que barra o robô achando que é raspagem. As três coisas têm conserto sem trocar de plataforma.',
+        },
         {
           pergunta: 'E se um de vocês ficar indisponível?',
           resposta:

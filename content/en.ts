@@ -574,9 +574,39 @@ export const en: Dictionary = {
       titulo: 'Bring us the problem.',
       corpo: 'Tell us what needs to exist and by when.',
     },
+    auditoria: {
+      titulo: 'Run the second test right now',
+      descricao:
+        'Paste your website address. We will read it the same way ChatGPT does — asking the server for the page, running nothing.',
+      rotuloCampo: 'Your website address',
+      exemplo: 'yourcompany.com',
+      botao: 'Read my site',
+      carregando: 'Reading your site…',
+      erroEndereco: 'I could not make sense of that address. Try something like yourcompany.com',
+      resultado: {
+        palavras: 'words found',
+        legivel: 'AI can read your site.',
+        vazio: 'ChatGPT sees what is essentially a blank page.',
+        permitido: 'And your robots.txt lets the AI crawlers through.',
+        barrado: 'But your robots.txt blocks these crawlers:',
+        bloqueado:
+          'We could not read your site — it refused our request. That says nothing about its content, only that something is guarding the door.',
+        naoHtml: 'That address did not return a web page.',
+        construidoEm: 'Built on',
+        amostra: 'The start of what AI read:',
+      },
+      escopo:
+        'This test measures two things: whether it can be read, and whether it is allowed. It does not measure how long the site takes to open on mobile data, nor whether the content answers what people ask about your field.',
+      cta: 'Talk about this on WhatsApp',
+    },
     perguntas: {
       titulo: 'Questions',
       itens: [
+        {
+          pergunta: 'My site is on WordPress. Is that a problem?',
+          resposta:
+            'Not in itself. WordPress, Wix and Shopify all deliver the page ready from the server, which is what AI needs. What hurts is what piles up on top: too many plugins, cheap hosting and — most common of all — a security setting that blocks the crawler thinking it is a scraper. All three are fixable without changing platform.',
+        },
         {
           pergunta: 'What if one of you is unavailable?',
           resposta:
