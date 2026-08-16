@@ -22,6 +22,11 @@ export default async function SiteLayout({
 
   return (
     <>
+      {/* Grão e vinheta. Mora AQUI, no grupo `(site)`, e não em
+          `app/[locale]/layout.tsx`: o escopo certo é home e case studies, que
+          são escuros. A landing tem polaridade de papel e a rota `/cv` é feita
+          para impressão — textura de fundo nas duas seria erro, não estilo. */}
+      <div className="textura-fundo" aria-hidden="true" />
       <SkipLink label={dict.a11y.skipToContent} />
       <Header locale={locale} dict={dict} />
       <main id="conteudo">{children}</main>

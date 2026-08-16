@@ -441,6 +441,29 @@ body {
 
 .brilho-borda:hover::before { opacity: 1; }
 
+/* GRÃO E VINHETA. Fundo preto chapado lê como ausência; com grão fino lê como
+   superfície. É o "Noise" daquele catálogo de referências, e é dos poucos
+   efeitos dele que custa zero: um `feTurbulence` embutido como data URI,
+   pintado uma vez e nunca mais tocado.
+
+   FICA ATRÁS DO CANVAS, e por escolha. A cena é criada com `alpha: true`, então
+   a textura lê através das áreas em que ela não pinta — que é o resultado
+   desejado — e custa uma composição, não uma cadeia de repintura sobre um alvo
+   que muda todo quadro.
+
+   NADA AQUI SE MOVE. Grão animado é ruído de televisão, e o orçamento de
+   movimento infinito da página já foi gasto na aurora. */
+.textura-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(ellipse 100% 100% at 50% 50%, transparent 55%, rgb(0 0 0 / 0.55) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='0.035'/%3E%3C/svg%3E");
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
