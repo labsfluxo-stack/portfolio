@@ -14,6 +14,7 @@ import {
   valueAt,
 } from './portico-model'
 import { buildAssembly, plateShade } from './portico-architecture'
+import { TIERS, type Tier, createMeter, judge, startingStep } from './portico-quality'
 import {
   type Bounds,
   ENVELOPE,
@@ -259,145 +260,10 @@ function Framing({ bounds, lens, still }: { bounds: Bounds; lens: React.RefObjec
 
 // ── Qualidade adaptativa ──────────────────────────────────────────────────
 
-/**
- * Os degraus de qualidade, do cheio ao mínimo.
- *
- * A ordem não é de gosto: é de ganho por unidade de estrago.
- *
- * 1. **`dpr` primeiro**, porque o custo de pixel é QUADRÁTICO e nenhum outro
- *    corte chega perto. De 1,25 para 1,0 são 36 % menos fragmentos por um
- *    contorno pouco mais duro, que numa cena escura quase não se vê.
- * 2. **Sombra depois**: o mapa do sol cai pela metade e as luminárias do
- *    pórtico param de projetar — o que apaga um passe de sombra inteiro. O sol
- *    continua projetando, porque é ele que separa os degraus da montagem: a
- *    leitura de profundidade mais forte da cena.
- * 3. **`dpr` de novo, por último.** O terceiro degrau seria o pós-processamento
- *    se ele existisse; ele foi medido e cortado (ver o relatório da tarefa), e
- *    o que sobrou como último recurso é o mesmo corte que já é o mais eficaz.
- *    Abaixo de 1 a imagem amacia de verdade, mas quem chegou aqui está a menos
- *    da metade da taxa do próprio monitor.
- *
- * Cada degrau mexe em UM eixo. Descer dois de uma vez esconde qual deles pagou,
- * e a cena passa a degradar mais do que precisava.
- */
-const TIERS = [
-  // O degrau de estúdio, e a cena COMEÇA nele.
-  //
-  // Antes o topo era 1,25, e isso estava errado: o teto de proteção virou teto
-  // de todo mundo, então nem uma GPU boa recebia qualidade. O dono viu o
-  // resultado antes de eu ver — "está ficando muito serrilhado" — e a causa era
-  // exatamente essa.
-  //
-  // Esta cena é o pior caso possível para resolução baixa, porque é feita de
-  // geometria FINA: cabo de 9 cm, montante de guarda-corpo, degrau de escada,
-  // trama da grade, mesa da viga. Nenhuma delas cobre um pixel inteiro a 1,25,
-  // e aresta que não cobre um pixel serrilha por definição — MSAA ajuda, não
-  // salva.
-  //
-  // A lógica certa é qualidade por padrão e degradação como SEGURO: quem tem
-  // máquina forte recebe o melhor, e a escada abaixo continua inteira para
-  // socorrer quem não tem. O teto em 2 não é gosto — acima disso o ganho não se
-  // vê e o custo, sendo quadrático, dobra.
-  { dpr: 2, shadow: 4096, practicals: true },
-  { dpr: 1.25, shadow: 2048, practicals: true },
-  { dpr: 1.0, shadow: 2048, practicals: true },
-  { dpr: 1.0, shadow: 1024, practicals: false },
-  { dpr: 0.8, shadow: 1024, practicals: false },
-] as const
-
-type Tier = (typeof TIERS)[number]
-
-/**
- * A janela de avaliação, medida nos DOIS eixos — e é o segundo que importa.
- *
- * Uma janela contada só em quadros parece razoável e falha exatamente onde não
- * pode falhar: numa máquina a dois quadros por segundo, quarenta e oito quadros
- * são vinte e quatro segundos, e o visitante que a qualidade adaptativa existe
- * para socorrer já foi embora antes da primeira decisão. Foi medido, com esses
- * números: no rasterizador de software a cena nunca chegou a rebaixar.
- *
- * Contada só em tempo, o problema se inverte: meio segundo a 144 Hz são setenta
- * quadros de mediana desnecessária, e a 2 Hz é UM quadro — mediana de amostra
- * única, que é o mesmo que reagir a um soluço.
- *
- * Os dois juntos: pelo menos `min` amostras para a mediana significar alguma
- * coisa, pelo menos `span` segundos para ela não ser um pico, e um teto de
- * amostras para a máquina rápida não passar a vida acumulando.
- */
-const WINDOW = { min: 10, span: 0.5, cap: 90 } as const
-/** Segundos ignorados no começo: compilação de shader, cube map e envio de textura. */
-const WARMUP = 3
-/** Segundos de espera depois de cada degrau, para o novo regime assentar. */
-const SETTLE = 1.5
-
-/**
- * Mede os quadros e rebaixa a cena sozinha quando a máquina não aguenta.
- *
- * **O orçamento sai do próprio monitor, não de um número redondo.** É a parte
- * que quase todo medidor de quadros erra: comparar `delta` contra 16,7 ms
- * rebaixa uma cena perfeita num painel de 30 Hz, onde o navegador nunca vai
- * entregar melhor que 33 ms por mais folga que a GPU tenha. O que se mede aqui,
- * durante o aquecimento, é o quadro MAIS RÁPIDO que o navegador entregou — que
- * é o período do vsync — e o orçamento passa a ser "não segurar metade da taxa
- * do monitor". Serve igual em 30, 60 e 144 Hz.
- *
- * **Só desce.** Subir de volta exigiria histerese, e histerese mal calibrada
- * faz a cena oscilar entre dois acabamentos a cada poucos segundos — o que é
- * pior de assistir do que ficar no degrau de baixo. Uma decisão que se toma uma
- * vez por carregamento e não se desfaz é a que menos chama atenção para si.
- */
-/**
- * Em que degrau a escada COMEÇA, decidido antes do primeiro quadro.
- *
- * A escada mede e corrige sozinha, mas leva `WARMUP` segundos para a primeira
- * decisão — e num telefone esses segundos são exatamente a janela em que o
- * visitante está rolando a página. O dono relatou o sintoma direto: "a
- * animação está travando a navegação no mobile". Medir antes de agir é certo
- * quando não se sabe nada da máquina; quando o aparelho já se anuncia, esperar
- * é escolher pagar o custo.
- *
- * O sinal é `pointer: coarse` — dedo, não mouse. Não é user-agent (mentira
- * fácil) nem largura de janela (uma janela estreita num desktop não é um
- * telefone). Um aparelho de toque começa no degrau sem sombra grande e sem luz
- * prática; se tiver folga, a escada sobe sozinha e ele ganha o resto.
- *
- * `hardwareConcurrency` baixo entra pelo mesmo motivo: dois núcleos não
- * sustentam a geração de textura competindo com a rolagem.
- */
-function startingStep(): number {
-  if (typeof window === 'undefined') return 1
-  const toque = window.matchMedia?.('(pointer: coarse)').matches ?? false
-  const poucosNucleos = (navigator.hardwareConcurrency ?? 8) <= 4
-  return toque || poucosNucleos ? 3 : 1
-}
-
 function useQuality(): { tier: Tier; watch: (delta: number) => void } {
   const setDpr = useThree((state) => state.setDpr)
-  // Começa no degrau SEGURO, não no de estúdio — e sobe se a máquina provar
-  // que aguenta.
-  //
-  // A versão anterior começava no topo e caía. A ordem parece equivalente e não
-  // é: numa máquina fraca, os primeiros segundos rodam a resolução dobrada
-  // inteira antes de a escada perceber e descer, e quem a proteção existe para
-  // socorrer paga o custo máximo justamente no pior momento — o carregamento.
-  // Medido: o Lighthouse caiu de 78 para 76 e o LCP subiu de 5,6 s para 6,4 s
-  // só por causa dessa janela.
-  //
-  // Provar antes de gastar custa um segundo de imagem mais macia em quem tem
-  // GPU, e poupa o engasgo inteiro em quem não tem. É a troca certa.
-  //
-  // O ponto de partida não é mais fixo: num aparelho de toque a escada começa
-  // mais embaixo, porque esperar a medição significava travar a rolagem
-  // durante o aquecimento inteiro (ver `startingStep`).
   const [step, setStep] = useState(startingStep)
-  const meter = useRef({
-    age: 0,
-    since: 0,
-    at: 0,
-    span: 0,
-    vsync: Infinity,
-    gaps: new Float64Array(WINDOW.cap),
-  })
+  const meter = useRef(createMeter())
 
   const tier = TIERS[Math.min(step, TIERS.length - 1)] ?? TIERS[0]
 
@@ -427,49 +293,9 @@ function useQuality(): { tier: Tier; watch: (delta: number) => void } {
   }, [tier, setDpr])
 
   const watch = (delta: number): void => {
-    const own = meter.current
-    own.age += delta
-    if (own.age < WARMUP) {
-      // O piso do aquecimento é o período do vsync. Preso entre 240 e 20 Hz
-      // porque dois rAF que se juntam devolvem um delta absurdamente curto, e
-      // uma leitura dessas fixaria um orçamento que nenhuma máquina cumpre.
-      if (delta > 1 / 240 && delta < own.vsync) own.vsync = Math.min(delta, 1 / 20)
-      return
-    }
-    if (own.age - own.since < SETTLE) return
-
-    own.gaps[own.at++] = delta
-    own.span += delta
-    if (own.at < WINDOW.min || (own.span < WINDOW.span && own.at < WINDOW.cap)) return
-
-    const sorted = [...own.gaps.subarray(0, own.at)].sort((a, b) => a - b)
-    const median = sorted[own.at >> 1] ?? 0
-    own.at = 0
-    own.span = 0
-
-    // Metade da taxa do monitor, e nunca mais folgado que 45 quadros por
-    // segundo: num painel de 144 Hz, "metade" ainda seria rápido demais para
-    // valer um rebaixamento.
-    const slow = Math.max(own.vsync * 2.2, 1 / 45)
-    if (median > slow && step < TIERS.length - 1) {
-      own.since = own.age
-      setStep((current) => current + 1)
-      return
-    }
-
-    // A SUBIDA, e o limiar dela é bem mais apertado que o da descida.
-    //
-    // A assimetria é de propósito: subir dobra o custo de fragmento, então só
-    // vale quando sobra folga de verdade — não quando o quadro está apenas
-    // dentro do orçamento. Com os dois limiares iguais, a cena ficaria pingando
-    // entre dois degraus, e trocar de resolução a cada dois segundos incomoda
-    // mais que a resolução menor.
-    //
-    // `SETTLE` já impede a oscilação rápida; a margem impede a lenta.
-    if (median < own.vsync * 1.25 && step > 0) {
-      own.since = own.age
-      setStep((current) => current - 1)
-    }
+    const verdict = judge(meter.current, delta, step, TIERS.length)
+    if (verdict === 'down') setStep((current) => current + 1)
+    else if (verdict === 'up') setStep((current) => current - 1)
   }
 
   return { tier, watch }
