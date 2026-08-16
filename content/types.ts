@@ -446,6 +446,10 @@ export type Dictionary = {
          * dono, e dizendo o que não conseguiu determinar.
          */
         entendeu: string
+        /** Rótulo da segunda metade: a lista de perguntas que o site não responde.
+         *  É a parte que faz o dono entender o custo — ele reconhece nelas as
+         *  mesmas perguntas que responde à mão todo dia. */
+        entendeuFalta: string
         /**
          * A ressalva que precisa estar na tela, não só no código.
          *

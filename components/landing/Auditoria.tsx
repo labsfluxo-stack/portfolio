@@ -446,20 +446,43 @@ function Resultado({ dados, dict }: { dados: Resposta; dict: Dictionary }) {
        *  melhor que nada. */}
       {dados.entendimento ? (
         <div className="border-l-2 border-accent pl-4">
-          <p className="font-mono text-xs uppercase tracking-[0.15em] text-accent">{t.entendeu}</p>
-          {/* O modelo devolve dois blocos separados por linha em branco: a
-           *  resposta simulada, entre aspas, e o que faltou para ela ser útil.
-           *  Sem quebrar em parágrafos os dois colariam num bloco só, e a
-           *  citação — que é a parte que impacta — se perderia no meio. */}
-          {dados.entendimento
-            .split(/\n{2,}/)
-            .map((p) => p.trim())
-            .filter(Boolean)
-            .map((paragrafo) => (
-              <p key={paragrafo} className="mt-2 text-[17px] leading-relaxed text-ink">
-                {paragrafo}
-              </p>
-            ))}
+          {/* DUAS METADES COM RÓTULOS PRÓPRIOS, e a segunda é a que vende.
+           *
+           *  O modelo devolve a resposta simulada e, depois de uma linha em
+           *  branco, as perguntas que o site não responde. Sem separar, a
+           *  segunda parte lia como rodapé da primeira — e ela é justamente o
+           *  que faz o dono entender o custo: são as mesmas perguntas que ele
+           *  responde à mão, no WhatsApp, todo dia.
+           *
+           *  Se o modelo não emitir a linha em branco — acontece, e é a
+           *  não-determinância que a própria nota avisa — tudo cai na primeira
+           *  metade e o bloco continua legível. Degradar assim é melhor que
+           *  cortar por heurística frágil. */}
+          {(() => {
+            const partes = dados.entendimento
+              .split(/\n{2,}/)
+              .map((p) => p.trim())
+              .filter(Boolean)
+            const [resposta, ...falta] = partes
+            return (
+              <>
+                <p className="mt-1 font-mono text-xs uppercase tracking-[0.15em] text-accent">{t.entendeu}</p>
+                <p className="mt-1 text-[17px] leading-relaxed text-ink">{resposta}</p>
+                {falta.length > 0 && (
+                  <>
+                    <p className="mt-4 font-mono text-xs uppercase tracking-[0.15em] text-alerta">
+                      {t.entendeuFalta}
+                    </p>
+                    {falta.map((p) => (
+                      <p key={p} className="mt-1 text-[17px] leading-relaxed text-ink">
+                        {p}
+                      </p>
+                    ))}
+                  </>
+                )}
+              </>
+            )
+          })()}
           {/* A ressalva fica colada na leitura, não num rodapé distante: quem
            *  lê a resposta precisa ler, na mesma respiração, que não foi o
            *  ChatGPT que respondeu e que isto não é medição. */}

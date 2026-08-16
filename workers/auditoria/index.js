@@ -399,14 +399,18 @@ async function lerComIA(texto, env, signal, idioma) {
           'You are given the raw text a crawler extracted from a company website. This is exactly what an AI has to work with.',
           'Do two things, in short plain prose, no headings and no lists.',
           'First: in quotation marks, write the answer an AI would give to someone asking it to recommend a company in this sector and region, using ONLY this text. If the text does not support a recommendation, write the vague answer it would actually give — do not improve it.',
-          'Then, in one or two sentences, say what was missing from this text that would have let that answer be more useful to the person asking.',
+          'Then write one sentence listing 3 to 5 concrete questions a prospective customer would STILL have to ask, because this text does not answer them. Use the questions that actually matter before hiring in THIS sector — price, coverage, deadlines, how it works, whether they serve the customer\'s area. Phrase them as the customer would ask.',
           'Separate the two parts with a blank line. Never invent information that is not in the text. Do not praise and do not editorialise.',
         ].join(' ')
       : [
           'Você recebe o texto bruto que um rastreador extraiu do site de uma empresa. É exatamente o que uma IA tem para trabalhar.',
           'Faça duas coisas, em prosa curta, sem título e sem lista.',
           'Primeiro: escreva entre aspas a resposta que uma IA daria a alguém que pedisse recomendação de empresa desse setor e dessa região, usando SÓ este texto. Se o texto não sustentar uma recomendação, escreva a resposta vaga que ela daria de verdade — não melhore.',
-          'Depois, em uma ou duas frases, diga o que faltou neste texto para que essa resposta pudesse ser mais útil a quem perguntou.',
+          // A parte que faltava, e é ela que faz o dono entender o custo.
+          // "Faltou detalhe sobre os produtos" é abstrato e ele ignora. As
+          // perguntas concretas do cliente ele reconhece na hora, porque são
+          // as mesmas que ele responde à mão no WhatsApp todo dia.
+          'Depois escreva UMA frase listando de 3 a 5 perguntas concretas que um cliente em potencial AINDA precisaria fazer, porque este texto não responde. Use as perguntas que de fato importam antes de contratar NESTE setor — preço, cobertura, prazo, como funciona, se atende a região dele. Escreva do jeito que o cliente perguntaria.',
           'Separe as duas partes com uma linha em branco. Nunca invente informação que não esteja no texto. Não elogie e não opine.',
         ].join(' ')
 
