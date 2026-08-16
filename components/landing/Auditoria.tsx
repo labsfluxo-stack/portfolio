@@ -447,7 +447,19 @@ function Resultado({ dados, dict }: { dados: Resposta; dict: Dictionary }) {
       {dados.entendimento ? (
         <div className="border-l-2 border-accent pl-4">
           <p className="font-mono text-xs uppercase tracking-[0.15em] text-accent">{t.entendeu}</p>
-          <p className="mt-1 text-[17px] leading-relaxed text-ink">{dados.entendimento}</p>
+          {/* O modelo devolve dois blocos separados por linha em branco: a
+           *  resposta simulada, entre aspas, e o que faltou para ela ser útil.
+           *  Sem quebrar em parágrafos os dois colariam num bloco só, e a
+           *  citação — que é a parte que impacta — se perderia no meio. */}
+          {dados.entendimento
+            .split(/\n{2,}/)
+            .map((p) => p.trim())
+            .filter(Boolean)
+            .map((paragrafo) => (
+              <p key={paragrafo} className="mt-2 text-[17px] leading-relaxed text-ink">
+                {paragrafo}
+              </p>
+            ))}
           {/* A ressalva fica colada na leitura, não num rodapé distante: quem
            *  lê a resposta precisa ler, na mesma respiração, que não foi o
            *  ChatGPT que respondeu e que isto não é medição. */}

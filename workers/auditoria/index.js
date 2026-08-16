@@ -372,10 +372,43 @@ async function buscarRobots(alvo, signal) {
 async function lerComIA(texto, env, signal, idioma) {
   if (!env?.GROQ_API_KEY || !texto || texto.length < 40) return null
 
+  /**
+   * A PERGUNTA É O QUE DECIDE, e não o tom pedido.
+   *
+   * A primeira versão perguntava "o que esta empresa faz?" — tarefa de
+   * DESCRIÇÃO. O modelo resumia com boa vontade, porque é o que descrição
+   * pede, e o resultado saía morno mesmo diante de um site vazio.
+   *
+   * Mandar o modelo "ser crítico" resolveria pelo lado errado: ele obedeceria
+   * e acharia defeito em qualquer site, inclusive num bom. Isso é fabricar
+   * achado — crítica inventada sobre o negócio real de outra pessoa, na tela
+   * dela. É o mesmo mecanismo da métrica de vaidade, com o sinal trocado.
+   *
+   * O que muda tudo é fazer a PERGUNTA REAL: alguém pediu à IA uma empresa
+   * deste setor — o que este texto permite dizer que faça escolherem esta?
+   * Para a maioria dos sites a resposta honesta é "nada", e isso é mais
+   * afiado que qualquer crítica pedida.
+   *
+   * A citação literal do que estraga é a outra metade. Erro de digitação no
+   * menu e texto de formulário misturado ao conteúdo não precisam ser
+   * inventados — precisam ser mostrados entre aspas, porque é o que a IA leu.
+   */
   const instrucao =
     idioma === 'en'
-      ? 'You are reading the raw text a crawler extracted from a company website. In at most 3 short sentences, say what the company does, where it operates and what it offers. Be direct about what you CANNOT determine from this text — that is the most useful part. Never invent. Answer in English, plain prose, no lists, no preamble.'
-      : 'Você está lendo o texto bruto que um rastreador extraiu do site de uma empresa. Em no máximo 3 frases curtas, diga o que a empresa faz, onde atua e o que oferece. Seja direto sobre o que NÃO dá para determinar a partir deste texto — essa é a parte mais útil. Nunca invente. Responda em português, em prosa, sem lista e sem preâmbulo.'
+      ? [
+          'You are given the raw text a crawler extracted from a company website. This is exactly what an AI has to work with.',
+          'Do two things, in short plain prose, no headings and no lists.',
+          'First: in quotation marks, write the answer an AI would give to someone asking it to recommend a company in this sector and region, using ONLY this text. If the text does not support a recommendation, write the vague answer it would actually give — do not improve it.',
+          'Then, in one or two sentences, say what was missing from this text that would have let that answer be more useful to the person asking.',
+          'Separate the two parts with a blank line. Never invent information that is not in the text. Do not praise and do not editorialise.',
+        ].join(' ')
+      : [
+          'Você recebe o texto bruto que um rastreador extraiu do site de uma empresa. É exatamente o que uma IA tem para trabalhar.',
+          'Faça duas coisas, em prosa curta, sem título e sem lista.',
+          'Primeiro: escreva entre aspas a resposta que uma IA daria a alguém que pedisse recomendação de empresa desse setor e dessa região, usando SÓ este texto. Se o texto não sustentar uma recomendação, escreva a resposta vaga que ela daria de verdade — não melhore.',
+          'Depois, em uma ou duas frases, diga o que faltou neste texto para que essa resposta pudesse ser mais útil a quem perguntou.',
+          'Separe as duas partes com uma linha em branco. Nunca invente informação que não esteja no texto. Não elogie e não opine.',
+        ].join(' ')
 
   try {
     const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -391,7 +424,9 @@ async function lerComIA(texto, env, signal, idioma) {
         // variação entre execuções — e aqui variação é custo, porque o dono
         // pode rodar duas vezes e comparar.
         temperature: 0.2,
-        max_tokens: 220,
+        // Subiu de 220 para caber de 3 a 5 frases com citação literal. Cortar
+        // a resposta no meio de uma aspa seria pior que não ter a citação.
+        max_tokens: 400,
         messages: [
           { role: 'system', content: instrucao },
           { role: 'user', content: texto.slice(0, 6000) },
