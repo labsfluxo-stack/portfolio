@@ -3,7 +3,10 @@ import tseslint from 'typescript-eslint'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
 
 export default tseslint.config(
-  { ignores: ['.next/**', 'out/**', 'node_modules/**'] },
+  // `.wrangler/**` é o bundle temporário que `wrangler dev` gera ao rodar o
+  // Worker localmente. É código gerado, já ignorado pelo git — mas o ESLint
+  // de config plana não lê o .gitignore, então precisa constar aqui também.
+  { ignores: ['.next/**', 'out/**', 'node_modules/**', 'workers/**/.wrangler/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

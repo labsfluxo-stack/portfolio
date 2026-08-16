@@ -372,6 +372,19 @@ export type Dictionary = {
         naoHtml: string
         construidoEm: string
         amostra: string
+        /**
+         * Tamanho e idade do site, lidos do sitemap.
+         *
+         * Esta é a medição que de fato explica a ausência do público desta
+         * página nas respostas de IA. O teste de legibilidade quase sempre
+         * passa — WordPress, Wix e Shopify entregam HTML pronto. O que falta
+         * não é poder ler: é ter o que ler. Um institucional de cinco páginas
+         * parado há dois anos é impecável e invisível.
+         */
+        paginas: string
+        atualizadoEm: string
+        /** Uma frase, sem alarme. A data já fala sozinha. */
+        parado: string
       }
       /**
        * O limite do próprio teste, mostrado SEMPRE e IGUAL PARA TODOS —

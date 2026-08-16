@@ -28,10 +28,39 @@ import { urlWhatsapp } from './whatsapp'
  *  O número exato aparece na tela de qualquer forma, para a pessoa julgar. */
 const MINIMO_LEGIVEL = 80
 
+/**
+ * A partir de quando um site conta como parado.
+ *
+ * Dezoito meses, e não doze, de propósito: um ano é discutível — muita coisa
+ * legítima não muda em um ano. Um ano e meio sem uma linha nova não é
+ * discutível, e a ferramenta não deve acender alerta em caso de fronteira.
+ */
+const MESES_PARA_PARADO = 18
+
+type Sitemap = { paginas: number | null; maisRecente: string | null }
+
 type Resposta =
-  | { estado: 'ok'; palavras: number; amostra: string; barrados: string[]; plataforma: string | null }
+  | {
+      estado: 'ok'
+      palavras: number
+      amostra: string
+      barrados: string[]
+      plataforma: string | null
+      sitemap: Sitemap | null
+    }
   | { estado: 'bloqueado' }
   | { estado: 'nao-html' }
+
+/** `<lastmod>` é declarado pelo próprio site e nem sempre é honesto — existe
+ *  CMS que carimba a data de hoje em página que ninguém tocou. Por isso a data
+ *  vai para a tela como fato declarado, e só dispara o alerta quando é MUITO
+ *  antiga: nesse sentido o viés do campo joga a favor de não alarmar. */
+function mesesDesde(iso: string | null): number | null {
+  if (!iso) return null
+  const quando = new Date(iso)
+  if (Number.isNaN(quando.getTime())) return null
+  return (Date.now() - quando.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
+}
 
 type Situacao = { fase: 'parado' } | { fase: 'lendo' } | { fase: 'erro' } | { fase: 'pronto'; dados: Resposta }
 
@@ -134,7 +163,54 @@ export function Auditoria({ dict }: { dict: Dictionary }) {
  */
 function precisaDeAjuda(dados: Resposta): boolean {
   if (dados.estado !== 'ok') return false
-  return dados.palavras < MINIMO_LEGIVEL || dados.barrados.length > 0
+  if (dados.palavras < MINIMO_LEGIVEL) return true
+  if (dados.barrados.length > 0) return true
+
+  // O site parado é o caso que de fato explica a ausência do público desta
+  // página. Os outros dois quase nunca disparam — WordPress, Wix e Shopify
+  // entregam HTML pronto e raramente barram robô.
+  const meses = mesesDesde(dados.sitemap?.maisRecente ?? null)
+  return meses !== null && meses > MESES_PARA_PARADO
+}
+
+/**
+ * O TAMANHO DO SITE NÃO VIRA VEREDITO, e isso é deliberado.
+ *
+ * Cinco páginas bem escritas valem mais que cinquenta vazias, e não existe
+ * número defensável a partir do qual um site é "pequeno demais". Escolher um
+ * seria inventar o critério para poder reprovar — que é justamente o
+ * mecanismo por trás da métrica de vaidade que a pesquisa lista entre os
+ * sinais de quem foi enganado: medir o que sobe fácil, não o que importa.
+ *
+ * A contagem aparece como informação. Quem lê tira a própria conclusão.
+ */
+function Sitemap({ dados, dict }: { dados: Sitemap; dict: Dictionary }) {
+  const t = dict.landing.auditoria.resultado
+  const meses = mesesDesde(dados.maisRecente)
+  const parado = meses !== null && meses > MESES_PARA_PARADO
+
+  const quando =
+    dados.maisRecente && !Number.isNaN(new Date(dados.maisRecente).getTime())
+      ? new Date(dados.maisRecente).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+      : null
+
+  if (dados.paginas === null && !quando) return null
+
+  return (
+    <>
+      <p className="text-[17px] leading-relaxed text-ink">
+        {dados.paginas !== null && (
+          <>
+            <strong className="font-semibold">
+              {dados.paginas.toLocaleString('pt-BR')} {t.paginas}
+            </strong>{' '}
+          </>
+        )}
+        {quando && `${t.atualizadoEm} ${quando}.`}
+      </p>
+      {parado && <p className="text-[17px] leading-relaxed text-ink-2">{t.parado}</p>}
+    </>
+  )
 }
 
 function Resultado({ dados, dict }: { dados: Resposta; dict: Dictionary }) {
@@ -172,6 +248,11 @@ function Resultado({ dados, dict }: { dados: Resposta; dict: Dictionary }) {
        *  impede ser lida por IA — todas entregam HTML pronto por padrão — e
        *  apresentá-la como causa seria a mentira que as agências vendem. Por
        *  isso vem em texto secundário, separada das duas medições. */}
+      {/* Tamanho e idade — a medição que de fato explica a ausência deste
+       *  público nas respostas de IA. Os dois testes acima quase sempre
+       *  passam; é aqui que costuma estar o motivo real. */}
+      {dados.sitemap && <Sitemap dados={dados.sitemap} dict={dict} />}
+
       {dados.plataforma && (
         <p className="text-[17px] text-ink-2">
           {t.construidoEm} {dados.plataforma}.

@@ -708,6 +708,10 @@ export const pt: Dictionary = {
         naoHtml: 'Esse endereço não devolveu uma página de site.',
         construidoEm: 'Construído em',
         amostra: 'O começo do que a IA leu:',
+        paginas: 'páginas no site.',
+        atualizadoEm: 'A mais recente foi atualizada em',
+        parado:
+          'Conteúdo parado raramente é citado em resposta sobre o que está acontecendo agora — a IA prefere o que foi escrito recentemente.',
       },
       escopo:
         'Este teste mede duas coisas: se dá para ler, e se tem permissão. Ele não mede quanto tempo o site leva para abrir no 4G, nem se o conteúdo responde o que perguntam sobre o seu setor.',

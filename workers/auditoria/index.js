@@ -197,6 +197,47 @@ export function detectarPlataforma(html, headers) {
 }
 
 /**
+ * Tamanho e idade do site, lidos do sitemap.
+ *
+ * POR QUE ISTO IMPORTA MAIS QUE O TESTE DE LEGIBILIDADE, para o público desta
+ * página: quase todo site de pequena empresa está em WordPress, Wix ou
+ * Shopify, que entregam HTML pronto. Eles PASSAM na legibilidade. O que
+ * explica a ausência deles nas respostas de IA não é "não dá para ler" — é
+ * "não há o que citar". Um institucional de cinco páginas parado desde 2022
+ * é tecnicamente impecável e invisível.
+ *
+ * `<lastmod>` é declarado pelo próprio site e nem sempre é honesto — CMS que
+ * carimba a data de hoje em página que ninguém toca existe. Por isso a data
+ * vai para a tela como fato declarado, não como acusação.
+ *
+ * Índice de sitemaps (`<sitemapindex>`) não é destrinchado: seria uma
+ * requisição por sitemap filho, e o teto de tempo não comporta. Nesse caso a
+ * contagem de páginas volta `null` — desconhecida é a resposta honesta — mas
+ * a data mais recente ainda sai, porque as entradas do índice a carregam.
+ */
+export async function lerSitemap(alvo, signal) {
+  try {
+    const r = await fetch(new URL('/sitemap.xml', alvo.origin).toString(), {
+      signal,
+      redirect: 'follow',
+      headers: { 'User-Agent': UA },
+    })
+    if (!r.ok) return null
+    const xml = (await r.text()).slice(0, 1_500_000)
+
+    const datas = [...xml.matchAll(/<lastmod>\s*([^<\s]+)/gi)].map((m) => m[1])
+    const maisRecente = datas.length ? datas.sort().at(-1) : null
+
+    const ehIndice = /<sitemapindex/i.test(xml)
+    const paginas = ehIndice ? null : (xml.match(/<loc>/gi)?.length ?? 0)
+
+    return { paginas, maisRecente: maisRecente ?? null }
+  } catch {
+    return null
+  }
+}
+
+/**
  * Busca e lê o robots.txt do domínio. Falha em silêncio de propósito: arquivo
  * ausente, 404 ou erro de rede significam "nada proibido", que é o padrão da
  * web. Transformar ausência em alarme seria inventar problema.
@@ -306,11 +347,17 @@ export default {
       // Buscado com tolerância a falha de propósito: robots.txt ausente
       // significa "nada proibido", que é o padrão da web. Não achar o arquivo
       // não é problema e não deve virar alarme.
-      const barrados = await buscarRobots(alvo, abortar.signal)
+      // As duas buscas extras em paralelo: uma requisição a mais no relógio,
+      // não duas.
+      const [barrados, sitemap] = await Promise.all([
+        buscarRobots(alvo, abortar.signal),
+        lerSitemap(alvo, abortar.signal),
+      ])
 
       return json({
         estado: 'ok',
         palavras,
+        sitemap,
         // Um recorte curto para a página poder mostrar o que de fato sobrou.
         // Ver é diferente de ler um número, e a ferramenta existe justamente
         // para tornar visível uma coisa que era abstrata.

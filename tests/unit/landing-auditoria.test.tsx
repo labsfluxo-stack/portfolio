@@ -122,6 +122,95 @@ describe('Auditoria', () => {
     expect(screen.queryByRole('link', { name: pt.landing.auditoria.cta })).not.toBeInTheDocument()
   })
 
+  /**
+   * O CASO QUE DE FATO EXPLICA A AUSÊNCIA DO PÚBLICO DESTA PÁGINA.
+   *
+   * Os dois primeiros testes quase nunca disparam: WordPress, Wix e Shopify
+   * entregam HTML pronto e raramente barram robô. O site institucional some
+   * das respostas de IA porque está parado, não porque é ilegível — e é isso
+   * que o sitemap revela.
+   */
+  it('site legível mas parado há anos abre a conversa', async () => {
+    responderCom({
+      estado: 'ok',
+      palavras: 340,
+      amostra: 'Bem-vindo à nossa empresa',
+      barrados: [],
+      plataforma: 'WordPress',
+      sitemap: { paginas: 7, maisRecente: '2022-03-14T10:00:00Z' },
+    })
+    render(<Auditoria dict={pt} />)
+
+    await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
+    await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
+
+    await waitFor(() => expect(screen.getByText(/7 páginas/)).toBeInTheDocument())
+    expect(screen.getByText(pt.landing.auditoria.resultado.parado)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: pt.landing.auditoria.cta })).toBeInTheDocument()
+  })
+
+  // A fronteira importa: um ano sem publicar é discutível, e a ferramenta não
+  // deve acender alerta em caso discutível. Só a partir de 18 meses.
+  it('site atualizado recentemente não vira alerta nem convite', async () => {
+    const tresMesesAtras = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+    responderCom({
+      estado: 'ok',
+      palavras: 3400,
+      amostra: 'x',
+      barrados: [],
+      plataforma: 'WordPress',
+      sitemap: { paginas: 42, maisRecente: tresMesesAtras },
+    })
+    render(<Auditoria dict={pt} />)
+
+    await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
+    await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
+
+    await waitFor(() => expect(screen.getByText(/42 páginas/)).toBeInTheDocument())
+    expect(screen.queryByText(pt.landing.auditoria.resultado.parado)).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: pt.landing.auditoria.cta })).not.toBeInTheDocument()
+  })
+
+  /**
+   * Cinco páginas bem escritas valem mais que cinquenta vazias, e não existe
+   * número defensável a partir do qual um site é "pequeno demais". Escolher um
+   * seria inventar o critério para poder reprovar — o mesmo mecanismo da
+   * métrica de vaidade que a pesquisa lista entre os sinais de quem foi
+   * enganado.
+   */
+  it('site pequeno mas recente é informação, não reprovação', async () => {
+    const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    responderCom({
+      estado: 'ok',
+      palavras: 900,
+      amostra: 'x',
+      barrados: [],
+      plataforma: null,
+      sitemap: { paginas: 4, maisRecente: ontem },
+    })
+    render(<Auditoria dict={pt} />)
+
+    await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
+    await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
+
+    await waitFor(() => expect(screen.getByText(/4 páginas/)).toBeInTheDocument())
+    expect(
+      screen.queryByRole('link', { name: pt.landing.auditoria.cta }),
+      'quatro páginas viraram motivo para vender',
+    ).not.toBeInTheDocument()
+  })
+
+  it('sitemap ausente não quebra nem vira alarme', async () => {
+    responderCom({ estado: 'ok', palavras: 3400, amostra: 'x', barrados: [], plataforma: null, sitemap: null })
+    render(<Auditoria dict={pt} />)
+
+    await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
+    await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
+
+    await waitFor(() => expect(screen.getByText(pt.landing.auditoria.resultado.legivel)).toBeInTheDocument())
+    expect(screen.queryByRole('link', { name: pt.landing.auditoria.cta })).not.toBeInTheDocument()
+  })
+
   // A plataforma é contexto, nunca causa. Aparece separada das duas medições.
   it('nomeia a plataforma como prova de que leu o site', async () => {
     responderCom({ estado: 'ok', palavras: 3400, amostra: 'x', barrados: [], plataforma: 'WordPress com Elementor' })

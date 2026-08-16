@@ -594,6 +594,10 @@ export const en: Dictionary = {
         naoHtml: 'That address did not return a web page.',
         construidoEm: 'Built on',
         amostra: 'The start of what AI read:',
+        paginas: 'pages on the site.',
+        atualizadoEm: 'The most recent was updated in',
+        parado:
+          'Content that has not moved is rarely cited in answers about what is happening now — AI leans on what was written recently.',
       },
       escopo:
         'This test measures two things: whether it can be read, and whether it is allowed. It does not measure how long the site takes to open on mobile data, nor whether the content answers what people ask about your field.',
