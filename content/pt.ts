@@ -2,10 +2,10 @@ import type { Dictionary } from './types'
 
 export const pt: Dictionary = {
   meta: {
-    title: 'Neto Alves — Arquiteto de Software',
+    title: 'Neto Alves — Desenvolvedor de Software',
     description:
-      'Arquiteto de software: sistemas completos do banco ao deploy. 9 construídos, 5 em produção, 265.562 linhas auditadas. IA aplicada, SEO e GEO medidos.',
-    ogAlt: 'Neto Alves — Arquiteto de Software',
+      'Desenvolvedor de software: sistemas completos do banco ao deploy. 9 construídos, 5 em produção, 265.562 linhas auditadas. IA aplicada, SEO e GEO medidos.',
+    ogAlt: 'Neto Alves — Desenvolvedor de Software',
   },
   nav: { about: 'Sobre', systems: 'Sistemas', stack: 'Stack', contact: 'Contato', cv: 'CV' },
   a11y: {
@@ -24,7 +24,7 @@ export const pt: Dictionary = {
   },
   hero: {
     name: 'Neto Alves',
-    role: 'Arquiteto de software',
+    role: 'Desenvolvedor de software',
     // Escrita pelo dono. Três verbos com ELE como agente — projetando,
     // escalando, mantendo — e é isso que a frase precisa fazer.
     //

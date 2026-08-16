@@ -2,10 +2,10 @@ import type { Dictionary } from './types'
 
 export const en: Dictionary = {
   meta: {
-    title: 'Neto Alves — Software Architect',
+    title: 'Neto Alves — Software Developer',
     description:
-      'Software architect: complete systems from database to deploy. 9 built, 5 in production, 265,562 audited lines. Applied AI, SEO and GEO with measured numbers.',
-    ogAlt: 'Neto Alves — Software Architect',
+      'Software developer: complete systems from database to deploy. 9 built, 5 in production, 265,562 audited lines. Applied AI, SEO and GEO with measured numbers.',
+    ogAlt: 'Neto Alves — Software Developer',
   },
   nav: { about: 'About', systems: 'Systems', stack: 'Stack', contact: 'Contact', cv: 'CV' },
   a11y: {
@@ -24,7 +24,7 @@ export const en: Dictionary = {
   },
   hero: {
     name: 'Neto Alves',
-    role: 'Software architect',
+    role: 'Software developer',
     // Ver o comentário equivalente em content/pt.ts, inclusive o registro
     // das duas versões que erraram antes desta. "running in production" em
     // vez de um decalque de "em produção contínua": a frase do dono é em
