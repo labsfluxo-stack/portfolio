@@ -31,6 +31,10 @@ describe('contraste', () => {
       ['tinta', '#08090C', 4.5],
       ['texto secundário', '#4A505A', 4.5],
       ['acento', '#0369A1', 4.5],
+      // O ✕ da lista de verificação da auditoria. A cor é REFORÇO, nunca o
+      // portador — o símbolo já separa reprovado de aprovado para quem não
+      // distingue vermelho de verde. Mas se ela existe, precisa ser legível.
+      ['alerta', '#B91C1C', 4.5],
     ])('%s passa AA sobre o papel', (_nome, hex, minimo) => {
       expect(contraste(hex, PAPEL)).toBeGreaterThanOrEqual(minimo)
     })

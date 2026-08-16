@@ -446,7 +446,7 @@ function Resultado({ dados, dict }: { dados: Resposta; dict: Dictionary }) {
 function Marca({ passou }: { passou: boolean | null }) {
   if (passou === null) return <span className="w-4 text-center text-ink-2">·</span>
   return (
-    <span aria-hidden="true" className={`w-4 text-center ${passou ? 'text-accent' : 'text-ink'}`}>
+    <span aria-hidden="true" className={`w-4 text-center ${passou ? 'text-accent' : 'text-alerta'}`}>
       {passou ? '✓' : '✕'}
     </span>
   )
