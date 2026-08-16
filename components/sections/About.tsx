@@ -28,7 +28,7 @@ export function About({ dict }: { dict: Dictionary; locale: Locale }) {
           <PhotoFrame alt={about.photoAlt} pendingLabel={about.photoPending} />
         </Reveal>
 
-        <Reveal delayMs={150}>
+        <Reveal ordem={1}>
           <div className="flex flex-col gap-10">
             <div>
               <p className="text-2xl font-semibold leading-snug text-text sm:text-3xl">{about.lead}</p>

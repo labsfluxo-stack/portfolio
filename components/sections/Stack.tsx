@@ -99,7 +99,7 @@ export function Stack({ dict }: { dict: Dictionary; locale: Locale }) {
           // grade para o card da camada (ver comentário em
           // components/ui/Reveal.tsx) — sem isso as camadas perdem a altura
           // uniforme na fileira.
-          <Reveal key={layer.label} delayMs={100 + i * 80} className="grid">
+          <Reveal key={layer.label} ordem={i + 1} className="grid">
             <LayerCard layer={layer} dict={dict} />
           </Reveal>
         ))}

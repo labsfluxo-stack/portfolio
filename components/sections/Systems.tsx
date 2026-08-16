@@ -22,7 +22,7 @@ export function Systems({ dict, locale }: { dict: Dictionary; locale: Locale }) 
           // grade para o <article> do card (ver comentário em
           // components/ui/Reveal.tsx) — sem isso os três cards perdem a
           // altura uniforme na fileira.
-          <Reveal key={system.slug} delayMs={i * 100} className="grid">
+          <Reveal key={system.slug} ordem={i} className="grid">
             <SystemCard system={system} dict={dict} locale={locale} />
           </Reveal>
         ))}

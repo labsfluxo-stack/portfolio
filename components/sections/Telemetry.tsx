@@ -15,7 +15,7 @@ export function Telemetry({ dict, locale }: { dict: Dictionary; locale: Locale }
     <Section id="telemetria" label={telemetry.label} index="03">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {telemetry.metrics.map((metric, i) => (
-          <Reveal key={metric.key} delayMs={i * 80} className="grid">
+          <Reveal key={metric.key} ordem={i} className="grid">
             <Metric
               value={metric.value}
               label={metric.label}
@@ -28,7 +28,7 @@ export function Telemetry({ dict, locale }: { dict: Dictionary; locale: Locale }
         ))}
       </div>
 
-      <Reveal delayMs={telemetry.metrics.length * 80 + 80}>
+      <Reveal ordem={telemetry.metrics.length + 1}>
         <div className="mt-16 border-t border-border pt-10">
           <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
             {telemetry.secondaryLabel}

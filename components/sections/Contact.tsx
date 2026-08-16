@@ -68,14 +68,14 @@ export function Contact({ dict, locale }: { dict: Dictionary; locale: Locale }) 
        * comentário em content/pt.ts). Empilhado, o estado sem formulário não
        * deixa buraco nenhum e não pede texto para tapar. */}
       {accessKey ? (
-        <Reveal delayMs={100}>
+        <Reveal ordem={1}>
           <div className="mt-10 max-w-xl">
             <ContactForm dict={dict} web3formsKey={accessKey} />
           </div>
         </Reveal>
       ) : null}
 
-      <Reveal delayMs={accessKey ? 200 : 100}>
+      <Reveal ordem={accessKey ? 2 : 1}>
         {/* Cada canal num cartão que diz PARA QUE ELE SERVE. Antes eram três
          * links soltos numa lista, e "netoguild-rgb" sozinho não dizia
          * sequer que era GitHub. O cartão inteiro é a área de clique, não só
@@ -114,7 +114,7 @@ export function Contact({ dict, locale }: { dict: Dictionary; locale: Locale }) 
         </ul>
       </Reveal>
 
-      <Reveal delayMs={accessKey ? 300 : 200}>
+      <Reveal ordem={accessKey ? 3 : 2}>
         <a
           href={cvHref}
           download
@@ -124,7 +124,7 @@ export function Contact({ dict, locale }: { dict: Dictionary; locale: Locale }) 
         </a>
       </Reveal>
 
-      <Reveal delayMs={accessKey ? 400 : 300}>
+      <Reveal ordem={accessKey ? 4 : 3}>
         {/* Única ponte do portfólio para a landing de captação
          * (/${locale}/projetos) — de propósito fora do menu (ver o
          * comentário em `contact.landingLink`, content/types.ts): o menu é
