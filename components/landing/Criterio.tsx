@@ -1,4 +1,4 @@
-import type { Dictionary } from '@/content/types'
+import type { Dictionary, Locale } from '@/content/types'
 import { ArteSemJavaScript } from './arte'
 import { Auditoria } from './Auditoria'
 
@@ -20,7 +20,7 @@ import { Auditoria } from './Auditoria'
  * criaria dois produtos numa página só, e a demanda não formada não converte
  * assim.
  */
-export function Criterio({ dict }: { dict: Dictionary }) {
+export function Criterio({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const { criterio } = dict.landing
 
   return (
@@ -77,7 +77,7 @@ export function Criterio({ dict }: { dict: Dictionary }) {
          *
          *  Some inteira sem `NEXT_PUBLIC_AUDITORIA_URL` — e a seção continua
          *  completa, porque o argumento nunca dependeu dela. */}
-        <Auditoria dict={dict} />
+        <Auditoria dict={dict} locale={locale} />
       </div>
     </section>
   )

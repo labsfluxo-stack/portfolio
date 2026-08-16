@@ -45,7 +45,7 @@ describe('LandingHero', () => {
 
 describe('Criterio', () => {
   it('apresenta os dois testes que o cliente pode aplicar sozinho', () => {
-    render(<Criterio dict={pt} />)
+    render(<Criterio dict={pt} locale="pt" />)
     for (const teste of pt.landing.criterio.testes) {
       expect(screen.getByText(teste.titulo)).toBeInTheDocument()
     }
@@ -55,7 +55,7 @@ describe('Criterio', () => {
   // O ciano reprova em fundo claro (1,93:1). Ele só existe nas duas faixas
   // escuras, e nenhuma delas é esta.
   it('não usa o token de destaque do tema escuro', () => {
-    const { container } = render(<Criterio dict={pt} />)
+    const { container } = render(<Criterio dict={pt} locale="pt" />)
     expect(container.innerHTML).not.toContain('text-data')
     expect(container.innerHTML).not.toContain('bg-data')
   })

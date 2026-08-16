@@ -38,12 +38,12 @@ describe('Auditoria', () => {
   // antes de o Worker existir.
   it('não renderiza nada sem o endereço do Worker configurado', () => {
     vi.stubEnv('NEXT_PUBLIC_AUDITORIA_URL', '')
-    const { container } = render(<Auditoria dict={pt} />)
+    const { container } = render(<Auditoria dict={pt} locale="pt" />)
     expect(container).toBeEmptyDOMElement()
   })
 
   it('o aviso de escopo aparece antes de qualquer leitura', () => {
-    render(<Auditoria dict={pt} />)
+    render(<Auditoria dict={pt} locale="pt" />)
     expect(screen.getByText(pt.landing.auditoria.escopo)).toBeInTheDocument()
   })
 
@@ -59,7 +59,7 @@ describe('Auditoria', () => {
    */
   it('site que passa nos dois testes não recebe convite para conversar', async () => {
     responderCom({ estado: 'ok', palavras: 3400, amostra: 'Loja de móveis', barrados: [], plataforma: 'WordPress' })
-    render(<Auditoria dict={pt} />)
+    render(<Auditoria dict={pt} locale="pt" />)
 
     await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
     await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
@@ -80,7 +80,7 @@ describe('Auditoria', () => {
       barrados: ['GPTBot', 'ClaudeBot'],
       plataforma: 'WordPress',
     })
-    render(<Auditoria dict={pt} />)
+    render(<Auditoria dict={pt} locale="pt" />)
 
     await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
     await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
@@ -94,7 +94,7 @@ describe('Auditoria', () => {
 
   it('casca de SPA é reportada como página em branco', async () => {
     responderCom({ estado: 'ok', palavras: 11, amostra: '', barrados: [], plataforma: 'Next.js' })
-    render(<Auditoria dict={pt} />)
+    render(<Auditoria dict={pt} locale="pt" />)
 
     await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
     await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
@@ -112,7 +112,7 @@ describe('Auditoria', () => {
    */
   it('leitura bloqueada não vira veredito nem convite', async () => {
     responderCom({ estado: 'bloqueado' })
-    render(<Auditoria dict={pt} />)
+    render(<Auditoria dict={pt} locale="pt" />)
 
     await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
     await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
@@ -139,7 +139,7 @@ describe('Auditoria', () => {
       plataforma: 'WordPress',
       sitemap: { paginas: 7, maisRecente: '2022-03-14T10:00:00Z' },
     })
-    render(<Auditoria dict={pt} />)
+    render(<Auditoria dict={pt} locale="pt" />)
 
     await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
     await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
@@ -161,7 +161,7 @@ describe('Auditoria', () => {
       plataforma: 'WordPress',
       sitemap: { paginas: 42, maisRecente: tresMesesAtras },
     })
-    render(<Auditoria dict={pt} />)
+    render(<Auditoria dict={pt} locale="pt" />)
 
     await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
     await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
@@ -188,7 +188,7 @@ describe('Auditoria', () => {
       plataforma: null,
       sitemap: { paginas: 4, maisRecente: ontem },
     })
-    render(<Auditoria dict={pt} />)
+    render(<Auditoria dict={pt} locale="pt" />)
 
     await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
     await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
@@ -202,7 +202,7 @@ describe('Auditoria', () => {
 
   it('sitemap ausente não quebra nem vira alarme', async () => {
     responderCom({ estado: 'ok', palavras: 3400, amostra: 'x', barrados: [], plataforma: null, sitemap: null })
-    render(<Auditoria dict={pt} />)
+    render(<Auditoria dict={pt} locale="pt" />)
 
     await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
     await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
@@ -214,7 +214,7 @@ describe('Auditoria', () => {
   // A plataforma é contexto, nunca causa. Aparece separada das duas medições.
   it('nomeia a plataforma como prova de que leu o site', async () => {
     responderCom({ estado: 'ok', palavras: 3400, amostra: 'x', barrados: [], plataforma: 'WordPress com Elementor' })
-    render(<Auditoria dict={pt} />)
+    render(<Auditoria dict={pt} locale="pt" />)
 
     await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
     await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))

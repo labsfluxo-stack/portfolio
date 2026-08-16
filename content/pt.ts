@@ -743,6 +743,9 @@ export const pt: Dictionary = {
         },
         notaMarcacao:
           'Dados estruturados ajudam o Google a montar resultado rico. Não movem citação em IA — isso foi medido em 1.885 páginas e mal mudou.',
+        entendeu: 'O que uma IA entendeu do seu site',
+        entendeuNota:
+          'Lido pelo Llama 3.3 via Groq. Não é o ChatGPT, e a resposta muda de uma execução para outra — isto é leitura, não medição. A lista acima é que é medida.',
       },
       // Dizia "mede duas coisas" quando media duas. Passou a medir cinco e a
       // frase ficou para trás — numa página cujo argumento é que suas

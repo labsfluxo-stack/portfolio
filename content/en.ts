@@ -629,6 +629,9 @@ export const en: Dictionary = {
         },
         notaMarcacao:
           'Structured data helps Google build rich results. It does not move AI citations — that was measured across 1,885 pages and barely changed.',
+        entendeu: 'What an AI understood from your site',
+        entendeuNota:
+          'Read by Llama 3.3 via Groq. This is not ChatGPT, and the answer changes from one run to the next — it is a reading, not a measurement. The list above is the measurement.',
       },
       escopo:
         'This test reads your site the way AI reads it and checks the page fundamentals. It does not measure how long the site takes to open on mobile data, nor whether the content answers what people ask about your field — and nothing here tells you whether the text that exists is any good.',

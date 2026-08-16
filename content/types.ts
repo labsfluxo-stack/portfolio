@@ -440,6 +440,21 @@ export type Dictionary = {
          * mercado e a de evidência mais fraca.
          */
         notaMarcacao: string
+        /**
+         * A leitura por IA — a peça mais próxima de DEMONSTRAÇÃO da ferramenta.
+         * Não é métrica sobre o site: é um modelo lendo o site na frente do
+         * dono, e dizendo o que não conseguiu determinar.
+         */
+        entendeu: string
+        /**
+         * A ressalva que precisa estar na tela, não só no código.
+         *
+         * Duas coisas: não é o ChatGPT (roda Llama pelo Groq), e não é medição
+         * (a resposta muda entre execuções). Sem isso a leitura passaria por
+         * previsão do que o ChatGPT diria — medir uma coisa e vender outra,
+         * que é o mecanismo da métrica de vaidade.
+         */
+        entendeuNota: string
       }
       /**
        * O limite do próprio teste, mostrado SEMPRE e IGUAL PARA TODOS —

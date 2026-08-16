@@ -69,7 +69,7 @@ export default async function LandingPage({
   return (
     <>
       <LandingHero dict={dict} />
-      <Criterio dict={dict} />
+      <Criterio dict={dict} locale={locale} />
       <Oferta dict={dict} />
       <Dupla dict={dict} />
       <Prova dict={dict} locale={locale} />

@@ -345,6 +345,69 @@ async function buscarRobots(alvo, signal) {
   }
 }
 
+/**
+ * O que uma IA entende do site, lendo só o que o servidor entregou.
+ *
+ * É a peça mais próxima de DEMONSTRAÇÃO que esta ferramenta tem — e
+ * demonstração é o que a pesquisa apontou como o sinal mais influente na
+ * decisão de compra, acima de avaliação de terceiro. Não é uma métrica sobre o
+ * site: é a IA lendo o site na frente do dono.
+ *
+ * Fecha também a lacuna que o próprio aviso de escopo admite: a lista de
+ * verificação diz se dá para ler, e nada dizia se o que existe ali serve para
+ * alguma coisa.
+ *
+ * DUAS HONESTIDADES OBRIGATÓRIAS, e a página precisa carregar as duas:
+ *
+ * 1. NÃO É O CHATGPT. Roda Llama pelo Groq. A resposta demonstra o que um
+ *    modelo extrai daquele texto — não prevê o que o ChatGPT responderia sobre
+ *    a empresa. Confundir os dois seria medir uma coisa e vender outra, que é
+ *    o mecanismo da métrica de vaidade.
+ * 2. NÃO É MEDIÇÃO. Rodar duas vezes dá respostas diferentes. Por isso vive
+ *    separada da lista de verificação, que é medida e estável.
+ *
+ * Sem `GROQ_API_KEY` devolve `null` e a página não mostra nada — mesmo padrão
+ * do resto: a ausência some, não vira buraco.
+ */
+async function lerComIA(texto, env, signal, idioma) {
+  if (!env?.GROQ_API_KEY || !texto || texto.length < 40) return null
+
+  const instrucao =
+    idioma === 'en'
+      ? 'You are reading the raw text a crawler extracted from a company website. In at most 3 short sentences, say what the company does, where it operates and what it offers. Be direct about what you CANNOT determine from this text — that is the most useful part. Never invent. Answer in English, plain prose, no lists, no preamble.'
+      : 'Você está lendo o texto bruto que um rastreador extraiu do site de uma empresa. Em no máximo 3 frases curtas, diga o que a empresa faz, onde atua e o que oferece. Seja direto sobre o que NÃO dá para determinar a partir deste texto — essa é a parte mais útil. Nunca invente. Responda em português, em prosa, sem lista e sem preâmbulo.'
+
+  try {
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      signal,
+      headers: {
+        Authorization: `Bearer ${env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        // Temperatura baixa não torna a resposta determinística, mas reduz a
+        // variação entre execuções — e aqui variação é custo, porque o dono
+        // pode rodar duas vezes e comparar.
+        temperature: 0.2,
+        max_tokens: 220,
+        messages: [
+          { role: 'system', content: instrucao },
+          { role: 'user', content: texto.slice(0, 6000) },
+        ],
+      }),
+    })
+    if (!r.ok) return null
+    const dados = await r.json()
+    return dados?.choices?.[0]?.message?.content?.trim() || null
+  } catch {
+    // Chave inválida, cota estourada, tempo esgotado. Nada disso é problema do
+    // site auditado, e nada disso pode virar veredito sobre ele.
+    return null
+  }
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -359,7 +422,7 @@ function json(corpo, status = 200) {
 }
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS })
     if (request.method !== 'GET') return json({ erro: 'metodo' }, 405)
 
@@ -437,9 +500,13 @@ export default {
       // não é problema e não deve virar alarme.
       // As duas buscas extras em paralelo: uma requisição a mais no relógio,
       // não duas.
-      const [barrados, sitemap] = await Promise.all([
+      // As três em paralelo: uma ida ao relógio, não três. A leitura por IA é
+      // a mais lenta das três, então serializá-la dobraria a espera.
+      const idioma = new URL(request.url).searchParams.get('lang') === 'en' ? 'en' : 'pt'
+      const [barrados, sitemap, entendimento] = await Promise.all([
         buscarRobots(alvo, abortar.signal),
         lerSitemap(alvo, abortar.signal),
+        lerComIA(texto, env, abortar.signal, idioma),
       ])
 
       return json({
@@ -454,6 +521,7 @@ export default {
         barrados,
         plataforma: detectarPlataforma(html, resposta.headers),
         cabecalho: analisarCabecalho(html),
+        entendimento,
       })
     } catch (e) {
       // Tempo esgotado, DNS que não resolve, TLS quebrado. Nada disso é

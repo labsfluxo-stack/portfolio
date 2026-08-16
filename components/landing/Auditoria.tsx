@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { Dictionary } from '@/content/types'
+import type { Dictionary, Locale } from '@/content/types'
 import { urlWhatsapp } from './whatsapp'
 
 /**
@@ -58,6 +58,8 @@ type Resposta =
       plataforma: string | null
       sitemap: Sitemap | null
       cabecalho: Cabecalho | null
+      /** Leitura por IA. `null` sem chave do Groq — a seção some, não vira buraco. */
+      entendimento: string | null
     }
   | { estado: 'bloqueado' }
   | { estado: 'nao-html' }
@@ -75,9 +77,10 @@ function mesesDesde(iso: string | null): number | null {
 
 type Situacao = { fase: 'parado' } | { fase: 'lendo' } | { fase: 'erro' } | { fase: 'pronto'; dados: Resposta }
 
-export function Auditoria({ dict }: { dict: Dictionary }) {
+export function Auditoria({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const endpoint = process.env.NEXT_PUBLIC_AUDITORIA_URL
   const { auditoria, cta } = dict.landing
+  const idioma = locale
   const [endereco, setEndereco] = useState('')
   const [situacao, setSituacao] = useState<Situacao>({ fase: 'parado' })
 
@@ -89,7 +92,9 @@ export function Auditoria({ dict }: { dict: Dictionary }) {
     if (!alvo) return
     setSituacao({ fase: 'lendo' })
     try {
-      const r = await fetch(`${endpoint}?url=${encodeURIComponent(alvo)}`)
+      // `lang` decide o idioma da leitura por IA. Sem ele o modelo responderia
+      // em português para um visitante lendo a página em inglês.
+      const r = await fetch(`${endpoint}?url=${encodeURIComponent(alvo)}&lang=${idioma}`)
       if (!r.ok) {
         setSituacao({ fase: 'erro' })
         return
@@ -429,13 +434,32 @@ function Resultado({ dados, dict }: { dados: Resposta; dict: Dictionary }) {
         </p>
       )}
 
-      {/* Ver o que sobrou vale mais que ler o número: a ferramenta existe para
-       *  tornar concreta uma coisa que era abstrata. */}
-      {dados.amostra && (
-        <div className="border-l-2 border-rule pl-4">
-          <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink-2">{t.amostra}</p>
-          <p className="mt-1 text-[17px] leading-relaxed text-ink-2">{dados.amostra}…</p>
+      {/* A LEITURA POR IA SUBSTITUI A AMOSTRA CRUA quando existe.
+       *
+       *  A amostra só existia porque não havia nada melhor: um recorte de
+       *  "Fechar / Qual o endereço do seu site? / Seguir / Imagem" é ruído, e
+       *  quem lê não sabe o que fazer com aquilo. A leitura diz o mesmo em
+       *  português — inclusive o que NÃO deu para determinar, que é a parte
+       *  que importa.
+       *
+       *  Sem chave do Groq a amostra volta a aparecer: é o que sobra, e é
+       *  melhor que nada. */}
+      {dados.entendimento ? (
+        <div className="border-l-2 border-accent pl-4">
+          <p className="font-mono text-xs uppercase tracking-[0.15em] text-accent">{t.entendeu}</p>
+          <p className="mt-1 text-[17px] leading-relaxed text-ink">{dados.entendimento}</p>
+          {/* A ressalva fica colada na leitura, não num rodapé distante: quem
+           *  lê a resposta precisa ler, na mesma respiração, que não foi o
+           *  ChatGPT que respondeu e que isto não é medição. */}
+          <p className="mt-2 text-[17px] leading-relaxed text-ink-2">{t.entendeuNota}</p>
         </div>
+      ) : (
+        dados.amostra && (
+          <div className="border-l-2 border-rule pl-4">
+            <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink-2">{t.amostra}</p>
+            <p className="mt-1 text-[17px] leading-relaxed text-ink-2">{dados.amostra}…</p>
+          </div>
+        )
       )}
     </>
   )
