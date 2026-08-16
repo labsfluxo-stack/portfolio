@@ -2,6 +2,7 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
 import { PorticoFallback } from './PorticoFallback'
+import { VSYNC_DEFAULT, measureVsync } from './portico-quality'
 import type { SceneSystem } from './portico-systems'
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
@@ -58,6 +59,7 @@ export function hasWebGL(): boolean {
  */
 export function PorticoSlot({ systems }: { systems: readonly SceneSystem[] }) {
   const [showScene, setShowScene] = useState(false)
+  const [vsync, setVsync] = useState(VSYNC_DEFAULT)
 
   useEffect(() => {
     if (!hasWebGL()) return
@@ -96,6 +98,22 @@ export function PorticoSlot({ systems }: { systems: readonly SceneSystem[] }) {
     // resolvidos. A ociosidade continua sendo exigida em seguida, para a cena
     // não subir em cima de uma rolagem já em curso.
     const agendar = () => {
+      // A MEDIÇÃO DO MONITOR COMEÇA AQUI, e esta é a única janela em que ela é
+      // honesta: a página já terminou de carregar e a cena ainda não existe,
+      // então o que o rAF entrega é a taxa do monitor e não o custo do que está
+      // rodando. Medir depois — que era o que a escada fazia — deixava o
+      // orçamento se calibrar pela lentidão que ele deveria detectar.
+      //
+      // EM PARALELO COM A ESPERA POR OCIOSIDADE, não em série antes dela: doze
+      // quadros são ~200 ms, e em série eles atrasariam a cena sem necessidade.
+      // Se a ociosidade chegar primeiro, a cena sobe com o padrão de 60 Hz e o
+      // valor medido a alcança muito antes de `WARMUP` terminar — nenhuma
+      // decisão é tomada nesse intervalo.
+      //
+      // A sobreposição também não estraga a medida: `plausibleVsync` fica com o
+      // MENOR delta da amostra, então quadro contaminado pela partida da cena é
+      // sempre mais lento e sempre descartado.
+      void measureVsync().then(setVsync)
       const montar = () => setShowScene(true)
       if (typeof window.requestIdleCallback === 'function') {
         idle = window.requestIdleCallback(montar, { timeout: 2000 })
@@ -125,7 +143,11 @@ export function PorticoSlot({ systems }: { systems: readonly SceneSystem[] }) {
 
   return (
     <div className="h-full w-full">
-      {showScene ? <Portico systems={systems} /> : <PorticoFallback systems={systems} />}
+      {showScene ? (
+        <Portico systems={systems} vsync={vsync} />
+      ) : (
+        <PorticoFallback systems={systems} />
+      )}
     </div>
   )
 }

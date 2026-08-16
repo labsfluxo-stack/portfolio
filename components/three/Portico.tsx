@@ -14,7 +14,7 @@ import {
   valueAt,
 } from './portico-model'
 import { buildAssembly, plateShade } from './portico-architecture'
-import { TIERS, type Tier, VSYNC_DEFAULT, createMeter, judge, startingStep } from './portico-quality'
+import { TIERS, type Tier, createMeter, judge, startingStep } from './portico-quality'
 import {
   type Bounds,
   ENVELOPE,
@@ -659,7 +659,7 @@ function buildAssets(
 
 const UP = new THREE.Vector3(0, 1, 0)
 
-function Yard({ systems }: { systems: readonly SceneSystem[] }) {
+function Yard({ systems, vsync }: { systems: readonly SceneSystem[]; vsync: number }) {
   const gl = useThree((state) => state.gl)
   const camera = useThree((state) => state.camera)
   const scene = useThree((state) => state.scene)
@@ -667,7 +667,7 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
   const palette = useMemo(readPalette, [])
   const still = useStill()
   const lens = useRef<Lens | null>(null)
-  const { tier, watch } = useQuality(VSYNC_DEFAULT)
+  const { tier, watch } = useQuality(vsync)
 
   // A rotação sai do conteúdo, a disposição de cada sistema sai do tamanho da
   // stack dele, o inventário do pátio sai da frequência das marcas na rotação
@@ -1172,7 +1172,16 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
  * o hero entra e sai da viewport: nada de queimar GPU e bateria animando uma
  * máquina que já rolou para fora da tela.
  */
-export function Portico({ systems }: { systems: readonly SceneSystem[] }) {
+export function Portico({
+  systems,
+  vsync,
+}: {
+  systems: readonly SceneSystem[]
+  /** O período do monitor, medido por `PorticoSlot` com a página parada — antes
+   *  desta cena existir, que é a única hora em que a medição não sai
+   *  contaminada pelo custo dela mesma. */
+  vsync: number
+}) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [inView, setInView] = useState(true)
 
@@ -1216,7 +1225,7 @@ export function Portico({ systems }: { systems: readonly SceneSystem[] }) {
         }}
         camera={{ fov: VIEW.fov, near: 6, far: 190, position: [18, 16, 46] }}
       >
-        <Yard systems={systems} />
+        <Yard systems={systems} vsync={vsync} />
       </Canvas>
     </div>
   )

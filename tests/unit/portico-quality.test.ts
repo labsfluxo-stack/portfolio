@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { TIERS, WARMUP, createMeter, judge } from '@/components/three/portico-quality'
+import {
+  TIERS,
+  VSYNC_CEILING,
+  VSYNC_DEFAULT,
+  WARMUP,
+  createMeter,
+  judge,
+  plausibleVsync,
+} from '@/components/three/portico-quality'
 
 /**
  * A cena 3D da home roda a poucos quadros em máquina fraca e a escada de
@@ -66,5 +74,36 @@ describe('escada de qualidade da cena', () => {
   it('não rebaixa num painel de 30 Hz que está no teto', () => {
     const veredito = rodar(createMeter(), 29, WARMUP + 6, 1 / 30)
     expect(veredito, 'painel de 30 Hz não é máquina lenta').not.toBe('down')
+  })
+})
+
+describe('medição do período do monitor', () => {
+  it('devolve o menor delta plausível da amostra', () => {
+    expect(plausibleVsync([0.02, 1 / 60, 0.03])).toBeCloseTo(1 / 60, 5)
+  })
+
+  /** rAF coalescido devolve delta absurdamente curto; ele não é taxa de monitor. */
+  it('descarta quadro curto demais para ser vsync', () => {
+    expect(plausibleVsync([0.001, 1 / 60])).toBeCloseTo(1 / 60, 5)
+  })
+
+  /** Aba que voltou do segundo plano entrega um salto; também não é vsync. */
+  it('descarta quadro longo demais para ser vsync', () => {
+    expect(plausibleVsync([2.5, 1 / 60])).toBeCloseTo(1 / 60, 5)
+  })
+
+  /**
+   * O TETO É A REDE DE SEGURANÇA. Mesmo que toda a amostra saia suja, o
+   * orçamento não pode degenerar de novo para os 9 fps de antes.
+   */
+  it('trava no teto de 30 Hz mesmo com amostra inteira ruim', () => {
+    expect(plausibleVsync([0.048, 0.049, 0.047])).toBeCloseTo(VSYNC_CEILING, 5)
+  })
+
+  /** Sem nada plausível, um número defensável — nunca `Infinity`, que era o
+   *  valor que desligava a proteção. */
+  it('cai num padrão de 60 Hz quando nada é plausível', () => {
+    expect(plausibleVsync([])).toBeCloseTo(VSYNC_DEFAULT, 5)
+    expect(plausibleVsync([0.0001, 5])).toBeCloseTo(VSYNC_DEFAULT, 5)
   })
 })

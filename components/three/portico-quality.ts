@@ -44,8 +44,15 @@ export type Tier = (typeof TIERS)[number]
  * a 144 Hz são setenta quadros de mediana desnecessária, e a 2 Hz é UM quadro.
  */
 export const WINDOW = { min: 10, span: 0.5, cap: 90 } as const
-/** Segundos ignorados no começo: compilação de shader, cube map e envio de textura. */
-export const WARMUP = 3
+/**
+ * Segundos ignorados no começo: compilação de shader e envio de textura.
+ *
+ * Eram 3, e a maior parte disso existia para aprender o período do monitor. Com
+ * o vsync chegando pronto de `measureVsync`, sobra só o custo de partida do
+ * renderer — e três segundos a custo cheio numa máquina fraca são exatamente os
+ * segundos em que o visitante está chegando e rolando.
+ */
+export const WARMUP = 1.2
 /** Segundos de espera depois de cada degrau, para o novo regime assentar. */
 export const SETTLE = 1.5
 
@@ -84,6 +91,33 @@ export function plausibleVsync(deltas: readonly number[]): number {
     if (delta > VSYNC_FLOOR && delta < 1 / 20 && delta < melhor) melhor = delta
   }
   return Number.isFinite(melhor) ? Math.min(melhor, VSYNC_CEILING) : VSYNC_DEFAULT
+}
+
+/**
+ * O período do monitor, medido com a página PARADA.
+ *
+ * É a metade que faltava: `plausibleVsync` sabe limpar a amostra, mas a amostra
+ * precisa vir de um momento em que a cena ainda não existe. `PorticoSlot` já
+ * espera `load` e depois ociosidade antes de montar — essa janela é o único
+ * lugar da vida da página em que a taxa medida é a do monitor e não a do
+ * trabalho que está rolando.
+ *
+ * Doze quadros a 60 Hz são ~200 ms de callbacks fazendo uma subtração. O custo
+ * é irrelevante e a medição, ao contrário da anterior, é honesta.
+ */
+export function measureVsync(amostras = 12): Promise<number> {
+  if (typeof requestAnimationFrame !== 'function') return Promise.resolve(VSYNC_DEFAULT)
+  return new Promise((resolve) => {
+    const deltas: number[] = []
+    let anterior = 0
+    const passo = (agora: number): void => {
+      if (anterior !== 0) deltas.push((agora - anterior) / 1000)
+      anterior = agora
+      if (deltas.length >= amostras) resolve(plausibleVsync(deltas))
+      else requestAnimationFrame(passo)
+    }
+    requestAnimationFrame(passo)
+  })
 }
 
 /**
