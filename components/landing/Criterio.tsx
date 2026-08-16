@@ -25,8 +25,8 @@ export function Criterio({ dict, locale }: { dict: Dictionary; locale: Locale })
 
   return (
     <section className="border-t border-rule">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-16 sm:py-24">
-        <h2 className="text-balance font-sans text-3xl font-bold leading-tight tracking-tight text-ink sm:text-4xl">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-20 sm:py-28">
+        <h2 className="text-balance font-sans text-4xl font-bold leading-tight tracking-tight text-ink sm:text-5xl">
           {criterio.titulo}
         </h2>
         <p className="max-w-2xl text-[19px] leading-relaxed text-ink">{criterio.abertura}</p>

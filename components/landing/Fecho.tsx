@@ -1,5 +1,5 @@
 import type { Dictionary } from '@/content/types'
-import { urlWhatsapp } from './whatsapp'
+import { BotaoWhatsapp } from './Botao'
 
 /**
  * O fecho da página, depois do FAQ.
@@ -26,14 +26,9 @@ export function Fecho({ dict }: { dict: Dictionary }) {
         <p className="max-w-xl text-balance font-sans text-2xl font-bold tracking-tight sm:text-3xl">
           {fecho}
         </p>
-        <a
-          href={urlWhatsapp(dict.contact.whatsapp, cta.mensagem)}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex min-h-12 w-fit items-center rounded-md bg-paper px-6 text-[17px] font-semibold text-ink transition-opacity hover:opacity-90"
-        >
+        <BotaoWhatsapp numero={dict.contact.whatsapp} mensagem={cta.mensagem} variante="claro">
           {cta.rotulo}
-        </a>
+        </BotaoWhatsapp>
       </div>
     </section>
   )

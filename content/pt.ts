@@ -591,9 +591,10 @@ export const pt: Dictionary = {
         'Dois desenvolvedores full-stack. Sites, blogs e sistemas construídos para carregar rápido, aparecer no Google e ser lidos pelo ChatGPT.',
     },
     hero: {
-      titulo: 'Sites, blogs e sistemas sob medida.',
-      subtitulo:
-        'Construídos para carregar rápido, aparecer no Google e ser lidos pelo ChatGPT.',
+      titulo: 'Sites, blogs e sistemas',
+      tituloDestaque: 'sob medida.',
+      subtitulo: 'Construídos para carregar rápido, aparecer no Google e',
+      subtituloDestaque: 'ser lidos pelo ChatGPT.',
       assinatura:
         'Dois desenvolvedores full-stack. Você fala direto com quem escreve o código.',
     },

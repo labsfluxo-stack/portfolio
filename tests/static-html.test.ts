@@ -246,6 +246,13 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
       it('o argumento está no HTML estático, fora de <script>', () => {
         const visivel = semScripts(html(`${locale}/projetos`))
         expect(visivel).toContain(escapeHtmlText(d.landing.hero.titulo))
+        // As palavras em serifa itálica viraram `<span>` próprio e saíram para
+        // chaves separadas do dicionário — o que as deixaria FORA deste portão
+        // se não fossem asseguradas aqui. Uma delas é "ser lidos pelo ChatGPT":
+        // a promessa central da página, e a última que poderia sumir do HTML
+        // sem ninguém notar.
+        expect(visivel).toContain(escapeHtmlText(d.landing.hero.tituloDestaque))
+        expect(visivel).toContain(escapeHtmlText(d.landing.hero.subtituloDestaque))
         expect(visivel).toContain(escapeHtmlText(d.landing.criterio.titulo))
         for (const teste of d.landing.criterio.testes) {
           expect(visivel, `critério "${teste.titulo}" ausente`).toContain(escapeHtmlText(teste.titulo))

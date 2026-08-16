@@ -32,10 +32,10 @@ export function Dupla({ dict }: { dict: Dictionary }) {
 
   return (
     <section className="bg-ink text-paper">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-16 sm:py-24">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-20 sm:py-28">
         <div className="flex flex-col gap-8 md:flex-row md:items-center md:gap-12">
           <div className="flex flex-col gap-8 md:flex-1">
-            <h2 className="font-sans text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="font-sans text-4xl font-bold tracking-tight sm:text-5xl">
               {dupla.titulo}
             </h2>
             <div className="flex max-w-2xl flex-col gap-4">

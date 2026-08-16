@@ -1,5 +1,5 @@
 import type { Dictionary } from '@/content/types'
-import { urlWhatsapp } from './whatsapp'
+import { BotaoWhatsapp } from './Botao'
 import { ArteAbertura } from './arte'
 
 /**
@@ -31,11 +31,29 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
        *  para ganhar o quê — enfeite. */}
       <div className="flex flex-col gap-8 md:flex-1">
         <div className="flex flex-col gap-5">
+          {/* A SERIFA ITÁLICA SÓ NAS ÚLTIMAS PALAVRAS.
+           *
+           * Assinatura de página cara em 2026 — aparece em três dos seis
+           * exemplos premium levantados na pesquisa, sempre igual: sans no
+           * corpo, serifa itálica no que precisa parar o olho. Três ou quatro
+           * palavras no site inteiro; mais que isso e ela deixa de ser destaque
+           * e vira o tom da página.
+           *
+           * Vem de chave própria no dicionário, não de marcador dentro da
+           * string. O portão de GEO compara o dicionário com o HTML entregue, e
+           * um asterisco que existisse num e não no outro quebraria justamente
+           * a comparação que ele existe para fazer.
+           *
+           * `font-normal` porque o resto do título é `font-bold`: em serifa
+           * itálica o peso alto fecha os contraformas e a palavra borra no
+           * tamanho grande. */}
           <h1 className="text-balance font-sans text-5xl font-bold leading-[1.05] tracking-tight text-ink sm:text-6xl lg:text-7xl">
-            {hero.titulo}
+            {hero.titulo}{' '}
+            <span className="font-serif font-normal italic tracking-normal">{hero.tituloDestaque}</span>
           </h1>
           <p className="max-w-2xl text-balance text-[19px] leading-relaxed text-ink-2 sm:text-xl">
-            {hero.subtitulo}
+            {hero.subtitulo}{' '}
+            <span className="font-serif text-[21px] italic text-ink sm:text-[23px]">{hero.subtituloDestaque}</span>
           </p>
         </div>
 
@@ -46,14 +64,9 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
            * Instagram (fonte de tráfego que o spec cita), sem stack de "voltar"
            * confiável, a troca de aba pode encerrar a sessão de vez (achado I3
            * Important da revisão final de branch). */}
-          <a
-            href={urlWhatsapp(dict.contact.whatsapp, cta.mensagem)}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex w-fit items-center gap-2 rounded-md bg-ink px-6 py-3.5 text-[17px] font-semibold text-paper transition-opacity hover:opacity-90"
-          >
+          <BotaoWhatsapp numero={dict.contact.whatsapp} mensagem={cta.mensagem}>
             {cta.rotulo}
-          </a>
+          </BotaoWhatsapp>
           {/* Corpo, não rótulo: onze palavras em duas frases, não 1–3 palavras
            * de etiqueta — a regra global de 17px mínimo vale aqui (o brief
            * original botou isto em mono/caixa-alta/12px e passou por cima da

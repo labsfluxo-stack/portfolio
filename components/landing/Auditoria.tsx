@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import type { Dictionary, Locale } from '@/content/types'
-import { urlWhatsapp } from './whatsapp'
+import { BotaoWhatsapp } from './Botao'
 
 /**
  * O único trecho interativo da landing: o visitante cola o endereço do próprio
@@ -153,14 +153,9 @@ export function Auditoria({ dict, locale }: { dict: Dictionary; locale: Locale }
       </p>
 
       {situacao.fase === 'pronto' && precisaDeAjuda(situacao.dados) && (
-        <a
-          href={urlWhatsapp(dict.contact.whatsapp, cta.mensagem)}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 inline-flex w-fit items-center rounded-md bg-ink px-6 py-3 text-[17px] font-semibold text-paper transition-opacity hover:opacity-90"
-        >
+        <BotaoWhatsapp numero={dict.contact.whatsapp} mensagem={cta.mensagem} className="mt-4">
           {auditoria.cta}
-        </a>
+        </BotaoWhatsapp>
       )}
     </div>
   )

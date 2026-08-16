@@ -40,6 +40,10 @@
 
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* Serifa italica de destaque -- so no que precisa parar o olho. Ver o
+     comentario em app/[locale]/layout.tsx para o porque de uma fonte a mais
+     numa pagina que argumenta por velocidade. */
+  --font-serif: var(--font-instrument), Georgia, serif;
 }
 
 html { color-scheme: dark; }

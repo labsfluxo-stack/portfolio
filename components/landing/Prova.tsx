@@ -47,9 +47,9 @@ export function Prova({ dict, locale }: { dict: Dictionary; locale: Locale }) {
 
   return (
     <section className="border-t border-rule">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-16 sm:py-24">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-20 sm:py-28">
         <div className="flex flex-col gap-3">
-          <h2 className="font-sans text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+          <h2 className="font-sans text-4xl font-bold tracking-tight text-ink sm:text-5xl">
             {prova.titulo}
           </h2>
           <p className="max-w-2xl text-[17px] leading-relaxed text-ink-2">{prova.lead}</p>

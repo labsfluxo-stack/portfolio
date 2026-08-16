@@ -302,7 +302,15 @@ export type Dictionary = {
     meta: { title: string; description: string }
     hero: {
       titulo: string
+      /** Duas ou três palavras em serifa itálica, coladas ao fim do título.
+       *  Assinatura visual de página cara em 2026 — sans no corpo, serifa só
+       *  no que precisa parar o olho. Chave separada, e não marcador dentro da
+       *  string: o portão de GEO compara o dicionário com o HTML entregue, e
+       *  um asterisco no dicionário que não existe na página quebraria a
+       *  comparação — que é exatamente o que ela existe para pegar. */
+      tituloDestaque: string
       subtitulo: string
+      subtituloDestaque: string
       /** Aparece sob o CTA, na dobra. É onde a dupla entra pela primeira vez. */
       assinatura: string
     }

@@ -1,5 +1,5 @@
 import type { Dictionary } from '@/content/types'
-import { urlWhatsapp } from './whatsapp'
+import { BotaoWhatsapp } from './Botao'
 
 /**
  * Barra fixa de rodapé, SÓ NO CELULAR — e deliberadamente não é a bolha verde
@@ -40,14 +40,9 @@ export function BarraCta({ dict }: { dict: Dictionary }) {
       {/* Ver LandingHero.tsx: mesmo `target="_blank" rel="noreferrer"`,
        * mesmo motivo. Esta é a barra que fica no celular -- exatamente onde
        * o navegador embutido do Instagram entra em jogo. */}
-      <a
-        href={urlWhatsapp(dict.contact.whatsapp, cta.mensagem)}
-        target="_blank"
-        rel="noreferrer"
-        className="flex min-h-12 w-full items-center justify-center rounded-md bg-ink px-5 text-[17px] font-semibold text-paper"
-      >
+      <BotaoWhatsapp numero={dict.contact.whatsapp} mensagem={cta.mensagem} largura="cheia">
         {cta.rotulo}
-      </a>
+      </BotaoWhatsapp>
     </div>
   )
 }

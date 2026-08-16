@@ -1,5 +1,5 @@
 import type { Dictionary } from '@/content/types'
-import { urlWhatsapp } from './whatsapp'
+import { BotaoWhatsapp } from './Botao'
 
 /**
  * SEGUNDA e última faixa escura da página (a primeira é Dupla).
@@ -21,9 +21,9 @@ export function LandingCta({ dict }: { dict: Dictionary }) {
 
   return (
     <section className="bg-ink text-paper">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-20 sm:py-24">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-20 sm:py-28">
         <div className="flex flex-col gap-3">
-          <h2 className="font-sans text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="font-sans text-4xl font-bold tracking-tight sm:text-5xl">
             {fechamento.titulo}
           </h2>
           <p className="max-w-xl text-[19px] leading-relaxed text-muted">{fechamento.corpo}</p>
@@ -31,14 +31,9 @@ export function LandingCta({ dict }: { dict: Dictionary }) {
         <div className="flex flex-col gap-3">
           {/* Ver LandingHero.tsx: mesmo `target="_blank" rel="noreferrer"`,
            * mesmo motivo — sem isto o clique leva a aba inteira embora. */}
-          <a
-            href={urlWhatsapp(dict.contact.whatsapp, cta.mensagem)}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex w-fit items-center gap-2 rounded-md bg-paper px-6 py-3.5 text-[17px] font-semibold text-ink transition-opacity hover:opacity-90"
-          >
+          <BotaoWhatsapp numero={dict.contact.whatsapp} mensagem={cta.mensagem} variante="claro">
             {cta.rotulo}
-          </a>
+          </BotaoWhatsapp>
           <p className="text-[17px] leading-relaxed text-muted">{cta.tranquilizador}</p>
         </div>
       </div>

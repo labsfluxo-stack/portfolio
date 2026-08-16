@@ -489,11 +489,13 @@ export const en: Dictionary = {
         'Two full-stack developers. Websites, blogs and systems built to load fast, show up on Google and be readable by ChatGPT.',
     },
     hero: {
-      titulo: 'Websites, blogs and custom systems.',
+      titulo: 'Websites, blogs and',
+      tituloDestaque: 'custom systems.',
       // Ver content/pt.ts (meta.description): "rank on Google" claims more
       // than the PT "aparecer no Google" — ranking position is no more
       // controllable than an AI mention.
-      subtitulo: 'Built to load fast, show up on Google and be readable by ChatGPT.',
+      subtitulo: 'Built to load fast, show up on Google and',
+      subtituloDestaque: 'be readable by ChatGPT.',
       assinatura: 'Two full-stack developers. You talk straight to whoever writes the code.',
     },
     cta: {

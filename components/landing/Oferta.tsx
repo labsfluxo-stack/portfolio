@@ -24,8 +24,8 @@ export function Oferta({ dict }: { dict: Dictionary }) {
 
   return (
     <section className="border-t border-rule">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-16 sm:py-24">
-        <h2 className="font-sans text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-20 sm:py-28">
+        <h2 className="font-sans text-4xl font-bold tracking-tight text-ink sm:text-5xl">
           {oferta.titulo}
         </h2>
         <ul className="grid gap-px overflow-hidden rounded-lg border border-rule bg-rule sm:grid-cols-3">
