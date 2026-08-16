@@ -31,7 +31,7 @@ export function Piso({ dict }: { dict: Dictionary }) {
     // página e é sinalizado por ferramentas de acessibilidade.
     <div className="border-t border-rule">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-2 px-6 py-12">
-        <p className="font-sans text-2xl font-bold tracking-tight text-ink">{piso.valor}</p>
+        <p className="revelar-titulo font-sans text-2xl font-bold tracking-tight text-ink">{piso.valor}</p>
         <p className="text-[17px] leading-relaxed text-ink-2">{piso.nota}</p>
       </div>
     </div>

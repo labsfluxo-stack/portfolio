@@ -23,7 +23,7 @@ export function Fecho({ dict }: { dict: Dictionary }) {
   return (
     <section className="bg-ink text-paper">
       <div className="mx-auto flex w-full max-w-4xl flex-col items-start gap-5 px-6 py-14">
-        <p className="max-w-xl text-balance font-sans text-2xl font-bold tracking-tight sm:text-3xl">
+        <p className="revelar-titulo max-w-xl text-balance font-sans text-2xl font-bold tracking-tight sm:text-3xl">
           {fecho}
         </p>
         <BotaoWhatsapp numero={dict.contact.whatsapp} mensagem={cta.mensagem} variante="claro">

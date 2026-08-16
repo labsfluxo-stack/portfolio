@@ -23,7 +23,7 @@ export function LandingCta({ dict }: { dict: Dictionary }) {
     <section className="bg-ink text-paper">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-20 sm:py-28">
         <div className="flex flex-col gap-3">
-          <h2 className="font-sans text-4xl font-bold tracking-tight sm:text-5xl">
+          <h2 className="revelar-titulo font-sans text-4xl font-bold tracking-tight sm:text-5xl">
             {fechamento.titulo}
           </h2>
           <p className="max-w-xl text-[19px] leading-relaxed text-muted">{fechamento.corpo}</p>
@@ -31,7 +31,24 @@ export function LandingCta({ dict }: { dict: Dictionary }) {
         <div className="flex flex-col gap-3">
           {/* Ver LandingHero.tsx: mesmo `target="_blank" rel="noreferrer"`,
            * mesmo motivo — sem isto o clique leva a aba inteira embora. */}
-          <BotaoWhatsapp numero={dict.contact.whatsapp} mensagem={cta.mensagem} variante="claro">
+          {/* BORDA VIVA (ver app/globals.css) — o "Border Beam" do Magic UI
+            * reescrito em CSS puro: um cônico girando atrás de uma moldura de
+            * 1px, recortado por `mask` para que só a moldura apareça.
+            *
+            * É O ÚNICO ELEMENTO DA PÁGINA COM MOVIMENTO INFINITO, e o limite é
+            * o ponto. Espalhado por vários elementos, movimento perpétuo vira
+            * ruído e passa de caro a barato — é o que separa uma página cara de
+            * um catálogo de efeitos. Num só, ele diz para onde olhar, e aqui é
+            * para onde o olho deve ir mesmo.
+            *
+            * Só nesta faixa escura: o feixe usa `--color-data`, que sobre
+            * `#08090C` é o acento da casa e sobre o papel claro daria 1,93:1. */}
+          <BotaoWhatsapp
+            numero={dict.contact.whatsapp}
+            mensagem={cta.mensagem}
+            variante="claro"
+            className="borda-viva"
+          >
             {cta.rotulo}
           </BotaoWhatsapp>
           <p className="text-[17px] leading-relaxed text-muted">{cta.tranquilizador}</p>

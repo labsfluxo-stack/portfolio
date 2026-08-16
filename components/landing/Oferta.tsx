@@ -25,10 +25,10 @@ export function Oferta({ dict }: { dict: Dictionary }) {
   return (
     <section className="border-t border-rule">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-20 sm:py-28">
-        <h2 className="font-sans text-4xl font-bold tracking-tight text-ink sm:text-5xl">
+        <h2 className="revelar-titulo font-sans text-4xl font-bold tracking-tight text-ink sm:text-5xl">
           {oferta.titulo}
         </h2>
-        <ul className="grid gap-px overflow-hidden rounded-lg border border-rule bg-rule sm:grid-cols-3">
+        <ul className="revelar grid gap-px overflow-hidden rounded-lg border border-rule bg-rule sm:grid-cols-3">
           {oferta.cartoes.map((cartao, i) => (
             <li key={cartao.nome} className="flex flex-col gap-3 bg-paper p-6">
               {/* A arte vem antes do rótulo: no celular os cartões empilham, e

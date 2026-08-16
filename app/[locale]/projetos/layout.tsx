@@ -56,6 +56,22 @@ export default function LandingLayout({ children }: { children: React.ReactNode 
       <style>
         {'html{color-scheme:light}html body{background:#F5F3EF;color:#08090C}html body :focus-visible{outline-color:#08090C}'}
       </style>
+      {/* FIO DE PROGRESSO — dois pixels de tinta e nenhum de JavaScript.
+        * `animation-timeline: scroll()` (ver app/globals.css) liga a escala
+        * horizontal do fio à barra de rolagem do documento. Sem suporte no
+        * navegador ele fica em `scaleX(0)`: invisível, e nada quebra.
+        *
+        * Numa página longa sem menu — a landing apaga Header e Footer de
+        * propósito, porque todo item de menu é uma saída — o visitante perde a
+        * noção de onde está e de quanto ainda falta. O fio devolve essa noção
+        * sem devolver uma saída junto.
+        *
+        * `aria-hidden` porque é duplicata visual de algo que o leitor de tela
+        * já resolve pela navegação por região. */}
+      <div
+        aria-hidden="true"
+        className="fio-progresso fixed inset-x-0 top-0 z-50 h-0.5 bg-accent"
+      />
       <main id="conteudo" className="pb-20 md:pb-0">
         {children}
       </main>

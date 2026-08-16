@@ -19,7 +19,26 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
     // outras) — e é a única que 100% dos visitantes veem por inteiro. Seção
     // curta demais no topo faz a página começar sem peso e empurra tudo o que
     // importa para baixo do orçamento de atenção.
-    <section className="mx-auto flex w-full max-w-4xl flex-col gap-10 px-6 py-24 sm:py-36 md:flex-row md:items-center md:gap-16">
+    // `relative` só para ancorar a malha de pontos, que é `absolute`.
+    <section className="relative mx-auto flex w-full max-w-4xl flex-col gap-10 px-6 py-24 sm:py-36 md:flex-row md:items-center md:gap-16">
+      {/* MALHA DE PONTOS atrás da dobra (ver app/globals.css). Dos fundos do
+        * catálogo do Magic UI é um dos poucos que sobrevive em papel, porque
+        * não emite luz — é subtração, não brilho. Aurora, Meteors e Light Rays
+        * precisam de preto para existir.
+        *
+        * `inset-0` e NÃO uma sangria além da coluna: um `absolute` mais largo
+        * que a viewport entra no cálculo de overflow do documento e cria barra
+        * de rolagem horizontal — que é exatamente o que o e2e da landing
+        * proíbe. E seria trabalho perdido: a máscara já chega transparente na
+        * borda da coluna (raio de 70% da largura, dissolvido a 70% dele), então
+        * a versão sangrada e esta desenham praticamente o mesmo pixel.
+        *
+        * `-z-10` a mantém atrás do conteúdo; `pointer-events-none` impede que
+        * ela roube o clique do botão. */}
+      <div
+        aria-hidden="true"
+        className="malha-pontos pointer-events-none absolute inset-0 -z-10"
+      />
       {/* A partir de `md` o hero vira duas colunas e a arte ocupa a direita —
        *  mesmo gesto que o pórtico faz no hero do portfólio, sem o custo de
        *  WebGL, que esta rota não pode pagar (spec §5.6).
@@ -47,17 +66,32 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
            * `font-normal` porque o resto do título é `font-bold`: em serifa
            * itálica o peso alto fecha os contraformas e a palavra borra no
            * tamanho grande. */}
-          <h1 className="text-balance font-sans text-5xl font-bold leading-[1.05] tracking-tight text-ink sm:text-6xl lg:text-7xl">
+          {/* ESCALONAMENTO DA ENTRADA (`.entrar` + `--i`, ver globals.css).
+            * Título, subtítulo e botão montam em sequência de 90ms. É a única
+            * animação por TEMPO da página — todo o resto responde à rolagem —
+            * e existe porque o hero já nasce na tela: a timeline de rolagem
+            * não tem o que revelar aqui.
+            *
+            * A ordem é a da leitura. Escalonar na ordem inversa, ou tudo de
+            * uma vez, desperdiça o único gesto que a página faz enquanto o
+            * visitante ainda está decidindo se fica. */}
+          <h1
+            style={{ '--i': 0 } as React.CSSProperties}
+            className="entrar text-balance font-sans text-5xl font-bold leading-[1.05] tracking-tight text-ink sm:text-6xl lg:text-7xl"
+          >
             {hero.titulo}{' '}
             <span className="font-serif font-normal italic tracking-normal">{hero.tituloDestaque}</span>
           </h1>
-          <p className="max-w-2xl text-balance text-[19px] leading-relaxed text-ink-2 sm:text-xl">
+          <p
+            style={{ '--i': 1 } as React.CSSProperties}
+            className="entrar max-w-2xl text-balance text-[19px] leading-relaxed text-ink-2 sm:text-xl"
+          >
             {hero.subtitulo}{' '}
             <span className="font-serif text-[21px] italic text-ink sm:text-[23px]">{hero.subtituloDestaque}</span>
           </p>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div style={{ '--i': 2 } as React.CSSProperties} className="entrar flex flex-col gap-3">
           {/* `target="_blank" rel="noreferrer"`, igual a Contact.tsx para a
            * MESMA URL de wa.me — sem isso, no desktop o clique navega a aba
            * inteira para fora e a landing desaparece; no navegador embutido do
@@ -84,7 +118,7 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
         </div>
       </div>
 
-      <div className="hidden md:block md:w-[44%]">
+      <div style={{ '--i': 3 } as React.CSSProperties} className="entrar hidden md:block md:w-[44%]">
         <ArteAbertura />
       </div>
     </section>

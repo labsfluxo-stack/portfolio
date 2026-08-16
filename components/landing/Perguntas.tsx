@@ -19,7 +19,7 @@ export function Perguntas({ dict }: { dict: Dictionary }) {
   return (
     <section className="border-t border-rule">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-16">
-        <h2 className="font-sans text-2xl font-bold tracking-tight text-ink">
+        <h2 className="revelar-titulo font-sans text-2xl font-bold tracking-tight text-ink">
           {perguntas.titulo}
         </h2>
         <div className="flex flex-col">
