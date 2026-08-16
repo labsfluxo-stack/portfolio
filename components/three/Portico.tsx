@@ -14,7 +14,7 @@ import {
   valueAt,
 } from './portico-model'
 import { buildAssembly, plateShade } from './portico-architecture'
-import { TIERS, type Tier, createMeter, judge, startingStep } from './portico-quality'
+import { TIERS, type Tier, VSYNC_DEFAULT, createMeter, judge, startingStep } from './portico-quality'
 import {
   type Bounds,
   ENVELOPE,
@@ -260,7 +260,7 @@ function Framing({ bounds, lens, still }: { bounds: Bounds; lens: React.RefObjec
 
 // ── Qualidade adaptativa ──────────────────────────────────────────────────
 
-function useQuality(): { tier: Tier; watch: (delta: number) => void } {
+function useQuality(vsync: number): { tier: Tier; watch: (delta: number) => void } {
   const setDpr = useThree((state) => state.setDpr)
   const [step, setStep] = useState(startingStep)
   const meter = useRef(createMeter())
@@ -293,7 +293,7 @@ function useQuality(): { tier: Tier; watch: (delta: number) => void } {
   }, [tier, setDpr])
 
   const watch = (delta: number): void => {
-    const verdict = judge(meter.current, delta, step, TIERS.length)
+    const verdict = judge(meter.current, delta, vsync, step, TIERS.length)
     if (verdict === 'down') setStep((current) => current + 1)
     else if (verdict === 'up') setStep((current) => current - 1)
   }
@@ -667,7 +667,7 @@ function Yard({ systems }: { systems: readonly SceneSystem[] }) {
   const palette = useMemo(readPalette, [])
   const still = useStill()
   const lens = useRef<Lens | null>(null)
-  const { tier, watch } = useQuality()
+  const { tier, watch } = useQuality(VSYNC_DEFAULT)
 
   // A rotação sai do conteúdo, a disposição de cada sistema sai do tamanho da
   // stack dele, o inventário do pátio sai da frequência das marcas na rotação

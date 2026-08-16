@@ -54,12 +54,36 @@ export type Meter = {
   since: number
   at: number
   span: number
-  vsync: number
   gaps: Float64Array
 }
 
 export function createMeter(): Meter {
-  return { age: 0, since: 0, at: 0, span: 0, vsync: Infinity, gaps: new Float64Array(WINDOW.cap) }
+  return { age: 0, since: 0, at: 0, span: 0, gaps: new Float64Array(WINDOW.cap) }
+}
+
+/** Quadro mais curto que isto é rAF coalescido, não taxa de monitor. */
+export const VSYNC_FLOOR = 1 / 240
+/** Quadro mais longo que isto não é taxa de monitor: nenhum painel é mais lento que 30 Hz. */
+export const VSYNC_CEILING = 1 / 30
+/** Quando a medição não devolve nada plausível. Nunca `Infinity`: valor ausente
+ *  precisa aterrissar num número defensável, não desligar a proteção. */
+export const VSYNC_DEFAULT = 1 / 60
+
+/**
+ * O período do monitor, a partir de deltas medidos com a página parada.
+ *
+ * Descarta o implausível dos dois lados — abaixo de `VSYNC_FLOOR` é rAF
+ * coalescido, acima de 1/20 é aba que voltou do segundo plano — e trava o
+ * resultado em `VSYNC_CEILING`. Esse teto é a rede de segurança que faltava:
+ * mesmo com a amostra suja, o pior orçamento possível passa a ser 73 ms em vez
+ * dos 110 ms que deixavam a cena degradar só abaixo de 9 fps.
+ */
+export function plausibleVsync(deltas: readonly number[]): number {
+  let melhor = Infinity
+  for (const delta of deltas) {
+    if (delta > VSYNC_FLOOR && delta < 1 / 20 && delta < melhor) melhor = delta
+  }
+  return Number.isFinite(melhor) ? Math.min(melhor, VSYNC_CEILING) : VSYNC_DEFAULT
 }
 
 /**
@@ -82,19 +106,30 @@ export type Verdict = 'hold' | 'down' | 'up'
 /**
  * Consome um quadro e diz o que fazer com o degrau atual.
  *
- * O orçamento sai do próprio monitor, não de um número redondo: comparar
- * `delta` contra 16,7 ms rebaixaria uma cena perfeita num painel de 30 Hz. O
- * que se mede durante o aquecimento é o quadro MAIS RÁPIDO que o navegador
- * entregou.
+ * `vsync` CHEGA DE FORA, e é a correção que este módulo existe para carregar.
+ * Antes ele era aprendido durante o aquecimento, como o quadro mais rápido
+ * entregue — só que durante o aquecimento a cena já está renderizando. Em
+ * máquina com folga o piso é o vsync e a medição acerta; em máquina sem folga
+ * o piso é o custo da própria cena, e o orçamento vira 2,2 × aquilo que ela já
+ * custa. A proteção se desligava exatamente nas máquinas para as quais existe.
+ *
+ * Quem mede agora é `plausibleVsync`, com a página parada, antes da cena subir.
+ *
+ * DESCE E SOBE. A assimetria dos limiares é de propósito: subir dobra o custo
+ * de fragmento, então só vale com folga de verdade. Com os dois iguais a cena
+ * ficaria pingando entre dois degraus, e trocar de resolução a cada dois
+ * segundos incomoda mais que a resolução menor. `SETTLE` impede a oscilação
+ * rápida; a margem impede a lenta.
  */
-export function judge(meter: Meter, delta: number, step: number, steps: number): Verdict {
+export function judge(
+  meter: Meter,
+  delta: number,
+  vsync: number,
+  step: number,
+  steps: number,
+): Verdict {
   meter.age += delta
-  if (meter.age < WARMUP) {
-    // O piso do aquecimento é o período do vsync. Preso entre 240 e 20 Hz
-    // porque dois rAF que se juntam devolvem um delta absurdamente curto.
-    if (delta > 1 / 240 && delta < meter.vsync) meter.vsync = Math.min(delta, 1 / 20)
-    return 'hold'
-  }
+  if (meter.age < WARMUP) return 'hold'
   if (meter.age - meter.since < SETTLE) return 'hold'
 
   meter.gaps[meter.at++] = delta
@@ -107,16 +142,12 @@ export function judge(meter: Meter, delta: number, step: number, steps: number):
   meter.span = 0
 
   // Metade da taxa do monitor, e nunca mais folgado que 45 quadros por segundo.
-  const slow = Math.max(meter.vsync * 2.2, 1 / 45)
+  const slow = Math.max(vsync * 2.2, 1 / 45)
   if (median > slow && step < steps - 1) {
     meter.since = meter.age
     return 'down'
   }
-
-  // A subida, com limiar bem mais apertado que o da descida. Subir dobra o
-  // custo de fragmento, então só vale quando sobra folga de verdade. Com os
-  // dois limiares iguais a cena ficaria pingando entre dois degraus.
-  if (median < meter.vsync * 1.25 && step > 0) {
+  if (median < vsync * 1.25 && step > 0) {
     meter.since = meter.age
     return 'up'
   }
