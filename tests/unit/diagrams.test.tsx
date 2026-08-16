@@ -123,4 +123,59 @@ describe('SystemDiagram', () => {
       expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
     }
   })
+
+  /**
+   * A ARQUITETURA SE DESENHA. É o mesmo mecanismo da landing (`.arte-viva` /
+   * `.traca` / `.preenche`), e aqui ele é mais forte do que lá: um diagrama de
+   * arquitetura que se constrói sozinho é o efeito descrevendo o próprio
+   * conteúdo.
+   *
+   * TEXTO NÃO SE TRAÇA. Contorno de letra sendo desenhado lê como erro de
+   * renderização, não como construção — os rótulos entram preenchendo.
+   */
+  it('o diagrama declara a timeline e nenhum texto é traçado', () => {
+    for (const system of systems) {
+      const { container } = render(<SystemDiagram system={system} dict={pt} />)
+
+      expect(
+        container.querySelector('svg'),
+        'o <svg> precisa declarar a timeline: forma dentro dele não tem caixa CSS, ' +
+          'então uma timeline anônima não teria de onde medir',
+      ).toHaveClass('arte-viva')
+
+      for (const texto of container.querySelectorAll('text')) {
+        expect(
+          texto,
+          `texto com .traca vira contorno de letra sendo desenhado: "${texto.textContent}"`,
+        ).not.toHaveClass('traca')
+      }
+
+      expect(
+        container.querySelectorAll('.traca').length,
+        `nenhuma forma de ${system.slug} recebeu traçado`,
+      ).toBeGreaterThan(0)
+    }
+  })
+
+  /**
+   * `pathLength="1"` é o que substitui o `svg.createDrawable` do anime.js: ele
+   * normaliza o comprimento declarado da forma para 1, então `stroke-dasharray:
+   * 1` a cobre inteira sem medir geometria nenhuma.
+   *
+   * Verificado nos três motores antes de virar padrão (`tests/e2e/pathlength.
+   * spec.ts`): chromium, firefox e webkit honram o atributo em rect, line e
+   * path. Sem ele numa forma traçada, o dasharray de 1 unidade vira um
+   * tracejado finíssimo e a forma aparece rabiscada em vez de se desenhar.
+   */
+  it('toda forma traçada declara pathLength', () => {
+    for (const system of systems) {
+      const { container } = render(<SystemDiagram system={system} dict={pt} />)
+      for (const forma of container.querySelectorAll('.traca')) {
+        expect(
+          forma.getAttribute('pathLength'),
+          `<${forma.tagName}> traçado sem pathLength — vira tracejado, não desenho`,
+        ).toBe('1')
+      }
+    }
+  })
 })

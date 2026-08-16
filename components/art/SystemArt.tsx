@@ -34,7 +34,7 @@ function OscapstackArt() {
   const rings = [0, 26, 52, 78, 104]
   return (
     <>
-      <g className="stroke-faint" strokeWidth="0.6">
+      <g className="preenche stroke-faint" strokeWidth="0.6">
         {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
           <line key={`v${i}`} x1={20 + i * 45} y1="8" x2={20 + i * 45} y2="292" />
         ))}
@@ -57,7 +57,8 @@ function OscapstackArt() {
             y={24 + inset * 0.62}
             width={340 - inset * 2}
             height={252 - inset * 1.24}
-            className={accent ? 'fill-surface-2 stroke-data' : 'fill-surface stroke-border'}
+            pathLength={1}
+            className={`traca ${accent ? 'fill-surface-2 stroke-data' : 'fill-surface stroke-border'}`}
             strokeWidth={accent ? 1.6 : 1}
             strokeOpacity={accent ? 1 : 0.45 + i * 0.18}
             fillOpacity={accent ? 1 : 0.3 + i * 0.16}
@@ -67,7 +68,7 @@ function OscapstackArt() {
 
       {/* Cantoneiras do anel externo — a mesma marcação de estrutura que o
           favicon e o pátio da hero usam. */}
-      <g className="fill-border">
+      <g className="preenche fill-border">
         <rect x="30" y="24" width="16" height="4" />
         <rect x="354" y="24" width="16" height="4" />
         <rect x="30" y="272" width="16" height="4" />
@@ -96,37 +97,46 @@ function SaturnoArt() {
 
   return (
     <>
-      <g className="fill-faint">
+      <g className="preenche fill-faint">
         {stars.map(([x, y]) => (
           <circle key={`${x}-${y}`} cx={x} cy={y} r={x % 3 === 0 ? 1.6 : 1} />
         ))}
       </g>
 
       <g transform={`rotate(-16 ${cx} ${cy})`}>
-        {rings.map(({ rx, ry }, i) => (
-          <ellipse
-            key={rx}
-            cx={cx}
-            cy={cy}
-            rx={rx}
-            ry={ry}
-            fill="none"
-            className={i === 2 ? 'stroke-data' : 'stroke-border'}
-            strokeWidth={i === 2 ? 1.4 : 1}
-            strokeDasharray={i === 3 ? '4 3' : undefined}
-          />
-        ))}
+        {rings.map(({ rx, ry }, i) => {
+          // O QUARTO ANEL É TRACEJADO E FICA DE FORA DO TRAÇADO. Ele já usa
+          // `stroke-dasharray` para significar "órbita mais distante"; o
+          // dasharray do desenho sobrescreveria isso e o efeito comeria o
+          // significado. Ele entra preenchendo, como o conector assíncrono dos
+          // diagramas.
+          const tracejado = i === 3
+          return (
+            <ellipse
+              key={rx}
+              cx={cx}
+              cy={cy}
+              rx={rx}
+              ry={ry}
+              fill="none"
+              {...(tracejado ? {} : { pathLength: 1 })}
+              className={`${tracejado ? 'preenche' : 'traca'} ${i === 2 ? 'stroke-data' : 'stroke-border'}`}
+              strokeWidth={i === 2 ? 1.4 : 1}
+              strokeDasharray={tracejado ? '4 3' : undefined}
+            />
+          )
+        })}
 
         {/* Corpos em órbita, um por anel, em ângulos diferentes para o
             conjunto não ficar alinhado como um alvo. */}
-        <circle cx={cx + 92} cy={cy} r="3.4" className="fill-muted" />
-        <circle cx={cx - 120} cy={cy} r="2.6" className="fill-muted" />
-        <circle cx={cx + 152} cy={cy} r="4" className="fill-data" />
-        <circle cx={cx - 182} cy={cy} r="2.2" className="fill-faint" />
+        <circle cx={cx + 92} cy={cy} r="3.4" className="preenche fill-muted" />
+        <circle cx={cx - 120} cy={cy} r="2.6" className="preenche fill-muted" />
+        <circle cx={cx + 152} cy={cy} r="4" className="preenche fill-data" />
+        <circle cx={cx - 182} cy={cy} r="2.2" className="preenche fill-faint" />
       </g>
 
-      <circle cx={cx} cy={cy} r="34" className="fill-surface-2 stroke-border" strokeWidth="1" />
-      <circle cx={cx} cy={cy} r="34" fill="none" className="stroke-faint" strokeWidth="0.6" strokeDasharray="2 4" />
+      <circle cx={cx} cy={cy} r="34" pathLength={1} className="traca fill-surface-2 stroke-border" strokeWidth="1" />
+      <circle cx={cx} cy={cy} r="34" fill="none" className="preenche stroke-faint" strokeWidth="0.6" strokeDasharray="2 4" />
     </>
   )
 }
@@ -156,9 +166,9 @@ function MoveisProArt() {
     // quatro elementos destacados na trava de paleta.
     return (
       <g strokeWidth={accent ? 1.4 : 1} className={accent ? 'stroke-data' : 'stroke-border'}>
-        <polygon points={top} className="fill-surface-2" />
-        <polygon points={left} className="fill-surface" />
-        <polygon points={right} className="fill-bg" />
+        <polygon points={top} className="preenche fill-surface-2" />
+        <polygon points={left} className="preenche fill-surface" />
+        <polygon points={right} className="preenche fill-bg" />
       </g>
     )
   }
@@ -166,7 +176,7 @@ function MoveisProArt() {
   return (
     <>
       {/* Piso: linhas de fuga, para os volumes pousarem em algum lugar. */}
-      <g className="stroke-faint" strokeWidth="0.6">
+      <g className="preenche stroke-faint" strokeWidth="0.6">
         {[0, 1, 2, 3, 4, 5, 6].map((i) => (
           <line key={`a${i}`} x1={-40 + i * 80} y1="300" x2={120 + i * 80} y2="140" />
         ))}
@@ -201,7 +211,7 @@ export function SystemArt({ slug }: { slug: SystemSlug }) {
     <svg
       aria-hidden="true"
       viewBox="0 0 400 300"
-      className="h-auto w-full border border-border bg-bg"
+      className="arte-viva h-auto w-full border border-border bg-bg"
       preserveAspectRatio="xMidYMid meet"
       fill="none"
     >

@@ -36,11 +36,19 @@ export const UNIT = {
 export function DiagramDefs({ id }: { id: string }) {
   return (
     <defs>
+      {/* AS PONTAS ENTRAM PREENCHENDO. Marcador é desenhado no vértice
+          independentemente do tracejado do traço que o carrega — sem isto, as
+          setas apareceriam flutuando antes das linhas que elas terminam, que
+          lê como defeito de renderização e não como construção.
+
+          Se algum motor não alcançar a animação aqui dentro do `<defs>`, o
+          resultado é a ponta visível desde o início: exatamente o que
+          aconteceria sem a classe. Acrescentar não piora nada. */}
       <marker id={`${id}-arrow`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-        <path d="M0,0.9 L6.2,3.5 L0,6.1 Z" className="fill-faint" />
+        <path d="M0,0.9 L6.2,3.5 L0,6.1 Z" className="preenche fill-faint" />
       </marker>
       <marker id={`${id}-arrow-data`} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-        <path d="M0,0.9 L6.2,3.5 L0,6.1 Z" className="fill-data" />
+        <path d="M0,0.9 L6.2,3.5 L0,6.1 Z" className="preenche fill-data" />
       </marker>
       {/* Hachura de "área", usada para marcar a fronteira de tenant e a laje
           de infraestrutura — mesma linguagem do terreno na elevação do
@@ -82,7 +90,8 @@ export function Box({ x, y, w, h = UNIT.box, label, note, accent = false }: BoxP
         y={y}
         width={w}
         height={h}
-        className={accent ? 'fill-surface-2 stroke-data' : 'fill-surface stroke-border'}
+        pathLength={1}
+        className={`traca ${accent ? 'fill-surface-2 stroke-data' : 'fill-surface stroke-border'}`}
         strokeWidth={accent ? 1.4 : 1}
       />
       <text
@@ -92,7 +101,7 @@ export function Box({ x, y, w, h = UNIT.box, label, note, accent = false }: BoxP
         dominantBaseline="middle"
         fontSize={UNIT.label}
         letterSpacing="0.06em"
-        className={`font-mono ${accent ? 'fill-data' : 'fill-text'}`}
+        className={`preenche font-mono ${accent ? 'fill-data' : 'fill-text'}`}
       >
         {label}
       </text>
@@ -104,7 +113,7 @@ export function Box({ x, y, w, h = UNIT.box, label, note, accent = false }: BoxP
           dominantBaseline="middle"
           fontSize={UNIT.note}
           letterSpacing="0.06em"
-          className="font-mono fill-muted"
+          className="preenche font-mono fill-muted"
         >
           {note}
         </text>
@@ -138,7 +147,11 @@ export function Arrow({
       y1={y1}
       x2={x2}
       y2={y2}
-      className={accent ? 'stroke-data' : 'stroke-faint'}
+      // O conector TRACEJADO fica de fora do traçado, e não é descuido: ele já
+      // usa `stroke-dasharray` para significar "assíncrono". Sobrescrever isso
+      // com o dasharray do desenho apagaria a distinção entre os dois tipos de
+      // conector — o efeito comeria o significado. Ele entra preenchendo.
+      {...(dashed ? { className: `preenche ${accent ? 'stroke-data' : 'stroke-faint'}` } : { pathLength: 1, className: `traca ${accent ? 'stroke-data' : 'stroke-faint'}` })}
       strokeWidth={accent ? 1.1 : 0.9}
       strokeDasharray={dashed ? '3 2.5' : undefined}
       markerEnd={`url(#${id}-arrow${accent ? '-data' : ''})`}
@@ -165,7 +178,8 @@ export function Elbow({
     <path
       d={`M${from.x} ${from.y} V${midY} H${to.x} V${to.y}`}
       fill="none"
-      className={accent ? 'stroke-data' : 'stroke-faint'}
+      pathLength={1}
+      className={`traca ${accent ? 'stroke-data' : 'stroke-faint'}`}
       strokeWidth={accent ? 1.1 : 0.9}
       markerEnd={`url(#${id}-arrow${accent ? '-data' : ''})`}
     />
@@ -193,7 +207,7 @@ export function Tag({
       textAnchor={anchor}
       fontSize={UNIT.note}
       letterSpacing="0.14em"
-      className={`font-mono uppercase ${accent ? 'fill-data' : 'fill-muted'}`}
+      className={`preenche font-mono uppercase ${accent ? 'fill-data' : 'fill-muted'}`}
     >
       {children}
     </text>
@@ -222,7 +236,12 @@ export function DiagramFrame({ viewBox, children }: { viewBox: string; children:
       <svg
         aria-hidden="true"
         viewBox={viewBox}
-        className="h-auto w-full min-w-[680px]"
+        // `arte-viva` declara a timeline de rolagem, e ela precisa morar AQUI:
+        // forma dentro de um SVG não tem caixa CSS, então uma timeline anônima
+        // não teria de onde medir. O `<svg>` é elemento substituído, tem caixa,
+        // e os filhos consomem o nome. Mesma descoberta de components/landing/
+        // arte.tsx, testada antes de virar código.
+        className="arte-viva h-auto w-full min-w-[680px]"
         preserveAspectRatio="xMidYMid meet"
         fill="none"
       >
