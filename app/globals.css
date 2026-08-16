@@ -153,7 +153,17 @@ body {
   .revelar-titulo {
     animation: revelar linear both;
     animation-timeline: view();
-    animation-range: entry 10% entry 70%;
+    /* A FAIXA ESCALONA, NÃO O RELÓGIO. Numa scroll timeline `animation-delay` é
+       ignorado — quem define o progresso é a barra de rolagem — então o
+       escalonamento de uma lista precisa vir de onde cada item COMEÇA a
+       revelar, não de quando o relógio dele dispara. Escrito com atraso, o
+       navegador aceita, nada acontece, e ninguém percebe até comparar as duas
+       versões lado a lado.
+
+       Seis por cento por item dá o mesmo ritmo que os ~80 ms que a versão em
+       JavaScript usava, e o fallback `0` mantém quem não passa `--i` na
+       primeira posição — que é o caso da landing inteira. */
+    animation-range: entry calc(10% + var(--i, 0) * 6%) entry calc(70% + var(--i, 0) * 6%);
   }
 
   .revelar-titulo { animation-name: revelar-titulo; }

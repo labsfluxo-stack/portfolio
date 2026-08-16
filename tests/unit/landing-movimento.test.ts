@@ -128,6 +128,35 @@ describe('camada de movimento da landing', () => {
   })
 
   /**
+   * ESCALONAMENTO EM SCROLL TIMELINE NÃO É `animation-delay`.
+   *
+   * Numa timeline de rolagem a duração e o ATRASO são ignorados — quem define o
+   * progresso é a posição da barra. É o mesmo mecanismo que obriga o bloco de
+   * movimento reduzido a devolver `animation-timeline: auto`.
+   *
+   * Escrito com `animation-delay`, o escalonamento é aceito pelo navegador, não
+   * faz nada, e ninguém percebe até comparar as duas versões lado a lado. O que
+   * escalona de verdade é deslocar a FAIXA de cada item.
+   */
+  it('o escalonamento desloca a faixa, não o relógio', () => {
+    const dentro = corposDe(SUPORTE).join('')
+    expect(dentro, 'a faixa da revelação parou de escalonar por --i').toMatch(
+      /animation-range:[^;]*var\(--i/,
+    )
+
+    // Exige os dois-pontos: é a DECLARAÇÃO que reprova, não a palavra. Sem
+    // isso o guarda casa com o próprio comentário que explica a armadilha, e
+    // dá alarme falso — que é como um teste é abandonado em uma semana.
+    for (const regra of css.match(/\.revelar[\w-]*[^{]*\{[^}]*\}/g) ?? []) {
+      expect(
+        regra,
+        `\`animation-delay\` numa animação de rolagem é ignorado — este ` +
+          `escalonamento não existe na tela:\n${regra}`,
+      ).not.toMatch(/animation-delay\s*:/)
+    }
+  })
+
+  /**
    * MODO DE FALHA 2: MOVIMENTO QUE IGNORA `prefers-reduced-motion`.
    *
    * O bloco de movimento reduzido zera `animation-duration`, e para animação
