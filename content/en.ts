@@ -638,6 +638,7 @@ export const en: Dictionary = {
         'This test reads your site the way AI reads it and checks the page fundamentals. It does not measure how long the site takes to open on mobile data, nor whether the content answers what people ask about your field — and nothing here tells you whether the text that exists is any good.',
       cta: 'Talk about this on WhatsApp',
     },
+    fecho: 'If your site does not answer what people ask, we write what it needs to say.',
     perguntas: {
       titulo: 'Questions',
       itens: [

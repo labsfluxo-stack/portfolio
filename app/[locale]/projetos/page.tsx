@@ -9,6 +9,7 @@ import { Prova } from '@/components/landing/Prova'
 import { Piso } from '@/components/landing/Piso'
 import { LandingCta } from '@/components/landing/LandingCta'
 import { Perguntas } from '@/components/landing/Perguntas'
+import { Fecho } from '@/components/landing/Fecho'
 import { BarraCta } from '@/components/landing/BarraCta'
 
 export const dynamicParams = false
@@ -68,14 +69,28 @@ export default async function LandingPage({
 
   return (
     <>
+      {/* A DUPLA SUBIU PARA ANTES DA AUDITORIA, e a razão foi medida.
+       *
+       * No celular a página tem 6.747px; os primeiros 40% — onde o eyetracking
+       * do NN/g mede 65% da atenção — terminam em 2.699px. A dupla estava em
+       * 3.391px e a prova em 3.972px: o diferencial e a credibilidade viviam
+       * nos 60% da página que recebem 35% da atenção.
+       *
+       * A causa é a ferramenta de auditoria, que sozinha ocupa quase 1.900px —
+       * 28% da página inteira. Ela fica (é o que ninguém tem), mas o argumento
+       * da dupla passa na frente dela.
+       *
+       * Ordem: quem é (dupla) → como julgar (critério + auditoria) → o que
+       * entrega (oferta) → o que já entregou (prova) → preço → CTA. */}
       <LandingHero dict={dict} />
+      <Dupla dict={dict} />
       <Criterio dict={dict} locale={locale} />
       <Oferta dict={dict} />
-      <Dupla dict={dict} />
       <Prova dict={dict} locale={locale} />
       <Piso dict={dict} />
       <LandingCta dict={dict} />
       <Perguntas dict={dict} />
+      <Fecho dict={dict} />
       <div>
         <BarraCta dict={dict} />
       </div>

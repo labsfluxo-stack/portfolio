@@ -334,6 +334,9 @@ export type Dictionary = {
     piso: { valor: string; nota: string } | null
     fechamento: { titulo: string; corpo: string }
     perguntas: { titulo: string; itens: { pergunta: string; resposta: string }[] }
+    /** Uma linha só, na faixa escura depois do FAQ. Quem chegou até ali já leu
+     *  tudo — repetir argumento seria insistência; o que falta é a porta. */
+    fecho: string
     /**
      * A auditoria ao vivo — o único trecho interativo da página.
      *

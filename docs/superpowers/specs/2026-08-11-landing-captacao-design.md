@@ -102,8 +102,13 @@ velho sob luz ambiente.
 A identidade não mora no fundo preto. Mora no **mono dos labels, na borda de 1px, no
 espaço vazio e na cor de destaque única** — tudo isso sobrevive à inversão.
 
-**Duas faixas escuras `#08090C`, full-bleed, e só duas:** a seção da dupla (§4.4) e o CTA
-final (§4.7). São os dois momentos em que o ciano volta ao ambiente nativo e o ar de
+**Faixas escuras `#08090C`, full-bleed:** a seção da dupla (§4.4) e o CTA final (§4.7).
+
+> **Emenda de 2026-08-16 — passaram a ser três.** A terceira é o fecho, depois do FAQ.
+> A página *terminava em acordeão fechado*: a última coisa que o visitante via eram
+> barras cinzas sem conteúdo aberto, e ela parava em vez de fechar. Sem a faixa, o
+> encerramento acontece no mesmo tom claro em que a página passou 80% do tempo, e
+> nada avisa ao olho que chegou ao fim. Duas pontuavam o meio; esta encerra. São os dois momentos em que o ciano volta ao ambiente nativo e o ar de
 terminal aparece inteiro, sem impor polaridade negativa a nenhum bloco de leitura
 contínua.
 
@@ -479,7 +484,8 @@ no portfólio desde o lançamento. Ver §5.4.
 ## 10. Critérios de aceitação
 
 1. A rota existe nos dois idiomas, sem Header nem Footer, e aparece no sitemap.
-2. O corpo é claro; existem exatamente **duas** faixas escuras.
+2. O corpo é claro; as faixas escuras pontuam e não dominam — duas no meio (dupla e
+   CTA) e uma de fecho, depois do FAQ. Ver a emenda em §3.1.
 3. Nenhum par de cor usado em texto reprova AA, com teste travando isso.
 4. `#38BDF8` não aparece fora das faixas escuras.
 5. O CTA tem um único destino, repetido, e o número vem de `contact.whatsapp` — não há

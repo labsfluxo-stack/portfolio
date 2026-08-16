@@ -14,7 +14,12 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
   const { hero, cta } = dict.landing
 
   return (
-    <section className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-20 sm:py-28 md:flex-row md:items-center md:gap-14">
+    // Mais alto e com a arte maior do que na primeira versão. Medida a página
+    // inteira, o hero era a seção MAIS CURTA dela (~450px contra 900+ das
+    // outras) — e é a única que 100% dos visitantes veem por inteiro. Seção
+    // curta demais no topo faz a página começar sem peso e empurra tudo o que
+    // importa para baixo do orçamento de atenção.
+    <section className="mx-auto flex w-full max-w-4xl flex-col gap-10 px-6 py-24 sm:py-36 md:flex-row md:items-center md:gap-16">
       {/* A partir de `md` o hero vira duas colunas e a arte ocupa a direita —
        *  mesmo gesto que o pórtico faz no hero do portfólio, sem o custo de
        *  WebGL, que esta rota não pode pagar (spec §5.6).
@@ -26,7 +31,7 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
        *  para ganhar o quê — enfeite. */}
       <div className="flex flex-col gap-8 md:flex-1">
         <div className="flex flex-col gap-5">
-          <h1 className="text-balance font-sans text-4xl font-bold leading-[1.1] tracking-tight text-ink sm:text-6xl">
+          <h1 className="text-balance font-sans text-5xl font-bold leading-[1.05] tracking-tight text-ink sm:text-6xl lg:text-7xl">
             {hero.titulo}
           </h1>
           <p className="max-w-2xl text-balance text-[19px] leading-relaxed text-ink-2 sm:text-xl">
@@ -66,7 +71,7 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
         </div>
       </div>
 
-      <div className="hidden md:block md:w-[38%]">
+      <div className="hidden md:block md:w-[44%]">
         <ArteAbertura />
       </div>
     </section>

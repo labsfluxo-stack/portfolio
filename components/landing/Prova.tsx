@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import type { Dictionary, Locale } from '@/content/types'
 import { systems } from '@/content/systems'
-import { Counter } from '@/components/ui/Counter'
+import { formatNumber } from '@/lib/format'
 
 /**
  * Depoimento é SINAL BARATO — qualquer um escreve um, e o comprador sabe
@@ -59,31 +59,52 @@ export function Prova({ dict, locale }: { dict: Dictionary; locale: Locale }) {
           {systems.map((system) => {
             const caso = dict.systems.detail[system.slug]
             return (
-              <li key={system.slug} className="flex flex-col gap-4 bg-paper p-6">
-                <h3 className="text-[17px] font-semibold text-ink">{caso.name}</h3>
-                {/* Resultado de NEGÓCIO, não métrica de ferramenta — é o erro
-                 * clássico que a pesquisa flagrou (dev prova competência
-                 * técnica, esquece de provar resultado). `caso.outcome` é o
-                 * mesmo texto do case study; nunca reescrito aqui. */}
-                <p className="text-[17px] leading-relaxed text-ink-2">{caso.outcome}</p>
-                {/* As métricas ESPECÍFICAS do sistema (content/systems.ts) —
-                 * nunca as mesmas categorias que a Telemetria já soma (ver o
-                 * comentário lá no topo do arquivo). Mesmo par dt/mono +
-                 * dd/Counter que CaseStudy.tsx usa no cabeçalho do case; só
-                 * duas por sistema aqui, contra quatro lá, porque este card é
-                 * um resumo, não a página inteira. */}
-                <dl className="flex flex-wrap gap-x-8 gap-y-3 border-t border-rule pt-4">
+              <li key={system.slug} className="flex flex-col gap-5 bg-paper p-6 sm:flex-row sm:gap-10 sm:p-8">
+                {/* O NÚMERO VEM PRIMEIRO, E GRANDE.
+                 *
+                 * Antes era parágrafo longo e, no rodapé dele, os números em
+                 * corpo pequeno. Medida a página inteira, esta era a seção mais
+                 * pesada de ler — três blocos de prosa empilhados — e é a mais
+                 * importante que existe aqui. Quem passa o olho via texto e
+                 * pulava.
+                 *
+                 * Invertido, o número faz o trabalho que ele sabe fazer: para o
+                 * olho. E resolve de quebra a hierarquia plana da página, onde
+                 * fora o h1 tudo tinha o mesmo peso.
+                 *
+                 * Coluna fixa no desktop (`sm:w-40`) para os três cards
+                 * alinharem os números na mesma linha vertical — desalinhado,
+                 * o bloco lê como três coisas soltas em vez de uma tabela. */}
+                <dl className="flex shrink-0 gap-8 sm:w-40 sm:flex-col sm:gap-5">
                   {system.metrics.map((metric) => (
                     <div key={metric.key} className="min-w-0">
-                      <dt className="font-mono text-[11px] uppercase tracking-widest text-ink-2">
+                      {/* SEM `<Counter>` aqui, e a razão mudou com o tamanho.
+                       *
+                       * A Telemetria anima porque lá o número é 250.000 e a
+                       * subida tem para onde ir. Estes são 146, 42, 14, 13, 40
+                       * e 3 — e em corpo 5xl, ver "3" escalar de zero é
+                       * precisamente o padrão que a pesquisa listou entre os
+                       * datados: animar um número pequeno chama atenção para o
+                       * quanto ele é pequeno. Em 2xl passava despercebido;
+                       * neste tamanho, não. */}
+                      <dd className="font-sans text-4xl font-bold tabular-nums leading-none text-ink sm:text-5xl">
+                        {formatNumber(metric.value, locale)}
+                      </dd>
+                      <dt className="mt-1.5 font-mono text-[11px] uppercase tracking-widest text-ink-2">
                         {dict.systems.metricLabels[metric.key]}
                       </dt>
-                      <dd className="mt-1 font-sans text-2xl font-bold tabular-nums text-ink">
-                        <Counter to={metric.value} locale={locale} />
-                      </dd>
                     </div>
                   ))}
                 </dl>
+
+                <div className="flex flex-col gap-2 border-t border-rule pt-5 sm:border-l sm:border-t-0 sm:pl-10 sm:pt-0">
+                  <h3 className="text-[19px] font-semibold text-ink">{caso.name}</h3>
+                  {/* Resultado de NEGÓCIO, não métrica de ferramenta — é o erro
+                   * clássico que a pesquisa flagrou (dev prova competência
+                   * técnica, esquece de provar resultado). `caso.outcome` é o
+                   * mesmo texto do case study; nunca reescrito aqui. */}
+                  <p className="text-[17px] leading-relaxed text-ink-2">{caso.outcome}</p>
+                </div>
               </li>
             )
           })}

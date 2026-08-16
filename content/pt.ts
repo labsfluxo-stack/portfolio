@@ -756,6 +756,7 @@ export const pt: Dictionary = {
         'Este teste lê o seu site como a IA lê e confere os fundamentos da página. Ele não mede quanto tempo o site leva para abrir no 4G, nem se o conteúdo responde o que perguntam sobre o seu setor — e nada aqui diz se o texto que existe é bom.',
       cta: 'Falar sobre isso no WhatsApp',
     },
+    fecho: 'Se o seu site não responde o que perguntam, a gente escreve o que ele precisa dizer.',
     perguntas: {
       titulo: 'Perguntas',
       itens: [
