@@ -70,9 +70,29 @@ body {
   outline-offset: 3px;
 }
 
+/* Revelação em sequência da lista de verificação da auditoria.
+   As linhas são MEDIÇÕES DISTINTAS — legibilidade, permissão, atualização,
+   cabeçalho — e entrar uma a uma dá a elas o ritmo de coisas apuradas, em vez
+   de um bloco que aparece pronto.
+
+   Nada aqui finge etapa: o Worker mede tudo em paralelo e devolve junto. Isto
+   é ritmo de apresentação, como qualquer lista entrando na tela — não barra de
+   progresso falsa nem "analisando robots.txt…" sugerindo um tempo real que não
+   existe. Numa página sobre medição honesta, o teatro custaria caro. */
+@keyframes surgir {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.surgir { animation: surgir 220ms ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    /* O atraso também precisa zerar. Sem isto a lista continuaria escalonada,
+       só que em saltos secos — pior que o movimento original justamente para
+       quem pediu menos movimento. */
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;

@@ -164,6 +164,37 @@ export function robosBarrados(robotsTxt) {
 }
 
 /**
+ * Os fundamentos que ficam no cabeçalho da página.
+ *
+ * Todos saem do HTML que já foi buscado — nenhuma requisição a mais. E todos
+ * falham com frequência em site de construtor, onde o dono nunca teve onde
+ * preencher.
+ *
+ * `h1` conta em vez de devolver booleano porque ZERO e CINCO são problemas
+ * diferentes: zero é a página não declarar do que trata; cinco é declarar
+ * cinco assuntos, o que dá no mesmo. A página decide o que fazer com o número.
+ */
+export function analisarCabecalho(html) {
+  const cabeca = html.slice(0, 200_000)
+
+  const titulo = /<title[^>]*>([\s\S]{0,300}?)<\/title>/i.exec(cabeca)?.[1]?.trim() ?? null
+
+  const descricao =
+    /<meta[^>]+name=["']description["'][^>]+content=["']([^"']{0,400})["']/i.exec(cabeca)?.[1]?.trim() ??
+    /<meta[^>]+content=["']([^"']{0,400})["'][^>]+name=["']description["']/i.exec(cabeca)?.[1]?.trim() ??
+    null
+
+  const h1 = (cabeca.match(/<h1[\s>]/gi) ?? []).length
+
+  // JSON-LD é o formato que Google e as ferramentas de fato consomem.
+  // Microdata (`itemtype`) ainda existe e conta.
+  const dadosEstruturados =
+    /<script[^>]+type=["']application\/ld\+json["']/i.test(cabeca) || /itemtype=["']https?:\/\/schema\.org/i.test(cabeca)
+
+  return { titulo: titulo || null, descricao: descricao || null, h1, dadosEstruturados }
+}
+
+/**
  * Em que a coisa foi construída.
  *
  * Serve como PROVA DE QUE LEMOS O SITE, não como veredito. Nenhuma destas
@@ -365,6 +396,7 @@ export default {
         truncado: lidos >= MAX_BYTES,
         barrados,
         plataforma: detectarPlataforma(html, resposta.headers),
+        cabecalho: analisarCabecalho(html),
       })
     } catch (e) {
       // Tempo esgotado, DNS que não resolve, TLS quebrado. Nada disso é

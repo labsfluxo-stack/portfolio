@@ -65,7 +65,7 @@ describe('Auditoria', () => {
     await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
 
     await waitFor(() => expect(screen.getByText(/3\.400/)).toBeInTheDocument())
-    expect(screen.getByText(pt.landing.auditoria.resultado.permitido)).toBeInTheDocument()
+    expect(screen.getByText(pt.landing.auditoria.resultado.detalhes.nenhumBloqueado)).toBeInTheDocument()
     expect(
       screen.queryByRole('link', { name: pt.landing.auditoria.cta }),
       'a ferramenta ofereceu ajuda para um site que ela mesma disse estar certo',

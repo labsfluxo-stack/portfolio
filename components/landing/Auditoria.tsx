@@ -39,6 +39,9 @@ const MESES_PARA_PARADO = 18
 
 type Sitemap = { paginas: number | null; maisRecente: string | null }
 
+/** `h1` é contagem, não booleano: zero e cinco são problemas diferentes. */
+type Cabecalho = { titulo: string | null; descricao: string | null; h1: number; dadosEstruturados: boolean }
+
 type Resposta =
   | {
       estado: 'ok'
@@ -47,6 +50,7 @@ type Resposta =
       barrados: string[]
       plataforma: string | null
       sitemap: Sitemap | null
+      cabecalho: Cabecalho | null
     }
   | { estado: 'bloqueado' }
   | { estado: 'nao-html' }
@@ -213,6 +217,78 @@ function Sitemap({ dados, dict }: { dados: Sitemap; dict: Dictionary }) {
   )
 }
 
+type Checagem = { rotulo: string; detalhe: string; passou: boolean | null }
+
+/**
+ * As seis medições viram linhas independentes.
+ *
+ * NÃO EXISTE NOTA COMPOSTA AQUI, e a ausência é o ponto. Uma nota agregada
+ * precisa de peso — por que legibilidade valeria 40 pontos e atualização 30? —
+ * e não há resposta defensável. Peso arbitrário é o que faz do Domain
+ * Authority a métrica de vaidade que a pesquisa lista entre os sinais de quem
+ * foi enganado: um número que sobe fácil e não descreve nada.
+ *
+ * Uma lista de itens independentes é escaneável como nota e honesta como
+ * medição — cada linha se sustenta sozinha.
+ *
+ * `passou: null` é o terceiro estado, e ele existe para não transformar
+ * ausência de dado em reprovação: site sem `<lastmod>` no sitemap não está
+ * parado, está sem data.
+ */
+function montarChecagens(dados: Extract<Resposta, { estado: 'ok' }>, dict: Dictionary): Checagem[] {
+  const t = dict.landing.auditoria.resultado
+  const c = t.checagens
+  const d = t.detalhes
+  const cab = dados.cabecalho
+  const meses = mesesDesde(dados.sitemap?.maisRecente ?? null)
+
+  // A legibilidade NÃO entra na lista: ela é a frase-manchete acima, com o
+  // número por extenso. Repetir "3.400 palavras" na linha de baixo é
+  // redundância que aparece ao olhar, não só no teste.
+  return [
+    {
+      rotulo: c.permissao,
+      detalhe: dados.barrados.length > 0 ? dados.barrados.join(', ') : d.nenhumBloqueado,
+      passou: dados.barrados.length === 0,
+    },
+    {
+      rotulo: c.vivo,
+      detalhe: formatarData(dados.sitemap?.maisRecente ?? null) ?? d.semData,
+      passou: meses === null ? null : meses <= MESES_PARA_PARADO,
+    },
+    {
+      rotulo: c.titulo,
+      detalhe: cab?.titulo ? recortar(cab.titulo, 48) : d.semTitulo,
+      passou: cab ? Boolean(cab.titulo) : null,
+    },
+    {
+      // Zero e cinco são problemas DIFERENTES: zero é a página não declarar do
+      // que trata; cinco é declarar cinco assuntos, o que dá no mesmo.
+      rotulo: c.assunto,
+      detalhe: !cab ? d.semAssunto : cab.h1 === 0 ? d.semAssunto : cab.h1 > 3 ? d.assuntoDemais : `H1 × ${cab.h1}`,
+      passou: cab ? cab.h1 >= 1 && cab.h1 <= 3 : null,
+    },
+    {
+      rotulo: c.marcado,
+      detalhe: cab?.dadosEstruturados ? d.comMarcacao : d.semMarcacao,
+      // `null`, nunca `false`: a evidência não sustenta tratar ausência de
+      // dados estruturados como defeito — ver `notaMarcacao`.
+      passou: cab?.dadosEstruturados ? true : null,
+    },
+  ]
+}
+
+function recortar(texto: string, limite: number): string {
+  return texto.length > limite ? `${texto.slice(0, limite)}…` : texto
+}
+
+function formatarData(iso: string | null): string | null {
+  if (!iso) return null
+  const quando = new Date(iso)
+  if (Number.isNaN(quando.getTime())) return null
+  return quando.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+}
+
 function Resultado({ dados, dict }: { dados: Resposta; dict: Dictionary }) {
   const t = dict.landing.auditoria.resultado
 
@@ -223,36 +299,61 @@ function Resultado({ dados, dict }: { dados: Resposta; dict: Dictionary }) {
     return <p className="text-[17px] leading-relaxed text-ink">{t.naoHtml}</p>
   }
 
-  const legivel = dados.palavras >= MINIMO_LEGIVEL
+  const checagens = montarChecagens(dados, dict)
+  const meses = mesesDesde(dados.sitemap?.maisRecente ?? null)
 
   return (
     <>
+      {/* A frase antes da lista, e não só a lista. A checagem é escaneável mas
+       *  seca; uma pessoa precisa de uma sentença que diga o que aconteceu
+       *  antes de encarar seis linhas de estado. */}
       <p className="text-[19px] leading-relaxed text-ink">
         <strong className="font-semibold">
           {dados.palavras.toLocaleString('pt-BR')} {t.palavras}.
         </strong>{' '}
-        {legivel ? t.legivel : t.vazio}
+        {dados.palavras >= MINIMO_LEGIVEL ? t.legivel : t.vazio}
       </p>
 
-      <p className="text-[17px] leading-relaxed text-ink">
-        {dados.barrados.length > 0 ? (
-          <>
-            {t.barrado} <strong className="font-semibold">{dados.barrados.join(', ')}</strong>
-          </>
-        ) : (
-          t.permitido
-        )}
-      </p>
+      <ul className="flex flex-col">
+        {checagens.map((ch, i) => (
+          <li
+            key={ch.rotulo}
+            // O atraso escalonado é ritmo de apresentação, não etapa: o Worker
+            // mede tudo em paralelo. Ver o comentário de `.surgir` em
+            // globals.css.
+            style={{ animationDelay: `${i * 110}ms` }}
+            className="surgir flex items-baseline gap-3 border-b border-rule py-2.5 last:border-b-0"
+          >
+            <Marca passou={ch.passou} />
+            <span className="flex-1 text-[17px] text-ink">{ch.rotulo}</span>
+            <span className="text-right font-mono text-xs text-ink-2">{ch.detalhe}</span>
+          </li>
+        ))}
+      </ul>
+
+      {/* Dados estruturados entram na lista, mas com o limite dito na cara.
+       *  Vendê-los como fator de citação em IA é a alegação mais comum do
+       *  mercado e a de evidência mais fraca. */}
+      {!dados.cabecalho?.dadosEstruturados && (
+        <p className="text-[17px] leading-relaxed text-ink-2">{t.notaMarcacao}</p>
+      )}
+
+      {meses !== null && meses > MESES_PARA_PARADO && (
+        <p className="text-[17px] leading-relaxed text-ink-2">{t.parado}</p>
+      )}
+
+      {/* Tamanho do site: informação, nunca reprovação. Cinco páginas bem
+       *  escritas valem mais que cinquenta vazias, e não existe número
+       *  defensável a partir do qual um site é "pequeno demais" — escolher um
+       *  seria inventar o critério para poder reprovar. */}
+      {dados.sitemap?.paginas != null && (
+        <p className="text-[17px] text-ink-2">
+          {dados.sitemap.paginas.toLocaleString('pt-BR')} {t.paginas}
+        </p>
+      )}
 
       {/* A plataforma é PROVA DE QUE LEMOS, nunca veredito. Nenhuma delas
-       *  impede ser lida por IA — todas entregam HTML pronto por padrão — e
-       *  apresentá-la como causa seria a mentira que as agências vendem. Por
-       *  isso vem em texto secundário, separada das duas medições. */}
-      {/* Tamanho e idade — a medição que de fato explica a ausência deste
-       *  público nas respostas de IA. Os dois testes acima quase sempre
-       *  passam; é aqui que costuma estar o motivo real. */}
-      {dados.sitemap && <Sitemap dados={dados.sitemap} dict={dict} />}
-
+       *  impede ser lida por IA — todas entregam HTML pronto por padrão. */}
       {dados.plataforma && (
         <p className="text-[17px] text-ink-2">
           {t.construidoEm} {dados.plataforma}.
@@ -268,5 +369,16 @@ function Resultado({ dados, dict }: { dados: Resposta; dict: Dictionary }) {
         </div>
       )}
     </>
+  )
+}
+
+/** Forma, e não só cor: quem não distingue vermelho de verde precisa do
+ *  símbolo. Critério 1.4.1 da WCAG — cor nunca é o único portador. */
+function Marca({ passou }: { passou: boolean | null }) {
+  if (passou === null) return <span className="w-4 text-center text-ink-2">·</span>
+  return (
+    <span aria-hidden="true" className={`w-4 text-center ${passou ? 'text-accent' : 'text-ink'}`}>
+      {passou ? '✓' : '✕'}
+    </span>
   )
 }

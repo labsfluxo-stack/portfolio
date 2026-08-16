@@ -587,8 +587,6 @@ export const en: Dictionary = {
         palavras: 'words found',
         legivel: 'AI can read your site.',
         vazio: 'ChatGPT sees what is essentially a blank page.',
-        permitido: 'And your robots.txt lets the AI crawlers through.',
-        barrado: 'But your robots.txt blocks these crawlers:',
         bloqueado:
           'We could not read your site — it refused our request. That says nothing about its content, only that something is guarding the door.',
         naoHtml: 'That address did not return a web page.',
@@ -598,9 +596,27 @@ export const en: Dictionary = {
         atualizadoEm: 'The most recent was updated in',
         parado:
           'Content that has not moved is rarely cited in answers about what is happening now — AI leans on what was written recently.',
+        checagens: {
+          permissao: 'Crawlers are allowed',
+          vivo: 'The content is alive',
+          titulo: 'The page identifies itself',
+          assunto: 'The page states a subject',
+          marcado: 'The content is marked up',
+        },
+        detalhes: {
+          semTitulo: 'no title',
+          semAssunto: 'no H1',
+          assuntoDemais: 'too many H1s',
+          semMarcacao: 'no structured data',
+          comMarcacao: 'structured data',
+          nenhumBloqueado: 'none blocked',
+          semData: 'no date in the sitemap',
+        },
+        notaMarcacao:
+          'Structured data helps Google build rich results. It does not move AI citations — that was measured across 1,885 pages and barely changed.',
       },
       escopo:
-        'This test measures two things: whether it can be read, and whether it is allowed. It does not measure how long the site takes to open on mobile data, nor whether the content answers what people ask about your field.',
+        'This test reads your site the way AI reads it and checks the page fundamentals. It does not measure how long the site takes to open on mobile data, nor whether the content answers what people ask about your field — and nothing here tells you whether the text that exists is any good.',
       cta: 'Talk about this on WhatsApp',
     },
     perguntas: {

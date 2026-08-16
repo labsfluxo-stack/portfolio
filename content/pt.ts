@@ -700,8 +700,6 @@ export const pt: Dictionary = {
         palavras: 'palavras encontradas',
         legivel: 'A IA consegue ler seu site.',
         vazio: 'O ChatGPT vê praticamente uma página em branco.',
-        permitido: 'E o seu robots.txt deixa os robôs de IA passarem.',
-        barrado: 'Mas o seu robots.txt barra estes robôs:',
         // Distinção que a página inteira depende de manter.
         bloqueado:
           'Não conseguimos ler seu site — ele recusou nossa leitura. Isso não diz nada sobre o conteúdo dele, só que há uma proteção no caminho.',
@@ -712,9 +710,31 @@ export const pt: Dictionary = {
         atualizadoEm: 'A mais recente foi atualizada em',
         parado:
           'Conteúdo parado raramente é citado em resposta sobre o que está acontecendo agora — a IA prefere o que foi escrito recentemente.',
+        checagens: {
+          permissao: 'Os robôs têm permissão',
+          vivo: 'O conteúdo está vivo',
+          titulo: 'A página se identifica',
+          assunto: 'A página declara um assunto',
+          marcado: 'O conteúdo está marcado',
+        },
+        detalhes: {
+          semTitulo: 'sem título',
+          semAssunto: 'sem H1',
+          assuntoDemais: 'H1 demais',
+          semMarcacao: 'sem dados estruturados',
+          comMarcacao: 'dados estruturados',
+          nenhumBloqueado: 'nenhum bloqueado',
+          semData: 'sem data no sitemap',
+        },
+        notaMarcacao:
+          'Dados estruturados ajudam o Google a montar resultado rico. Não movem citação em IA — isso foi medido em 1.885 páginas e mal mudou.',
       },
+      // Dizia "mede duas coisas" quando media duas. Passou a medir cinco e a
+      // frase ficou para trás — numa página cujo argumento é que suas
+      // afirmações se conferem, aviso de escopo desatualizado é exatamente a
+      // imprecisão que ela não pode carregar.
       escopo:
-        'Este teste mede duas coisas: se dá para ler, e se tem permissão. Ele não mede quanto tempo o site leva para abrir no 4G, nem se o conteúdo responde o que perguntam sobre o seu setor.',
+        'Este teste lê o seu site como a IA lê e confere os fundamentos da página. Ele não mede quanto tempo o site leva para abrir no 4G, nem se o conteúdo responde o que perguntam sobre o seu setor — e nada aqui diz se o texto que existe é bom.',
       cta: 'Falar sobre isso no WhatsApp',
     },
     perguntas: {

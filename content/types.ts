@@ -360,9 +360,7 @@ export type Dictionary = {
         palavras: string
         legivel: string
         vazio: string
-        permitido: string
         /** Seguido da lista de robôs que o Worker devolveu. */
-        barrado: string
         /**
          * Site que nos barrou NÃO é site vazio. Reportar 403 como "a IA não vê
          * nada" seria afirmação falsa sobre o site de outra pessoa — numa
@@ -385,6 +383,45 @@ export type Dictionary = {
         atualizadoEm: string
         /** Uma frase, sem alarme. A data já fala sozinha. */
         parado: string
+        /**
+         * A lista de verificação — o que o dono pediu como "score", feito sem
+         * inventar nota.
+         *
+         * NÃO EXISTE NÚMERO COMPOSTO AQUI, de propósito. Uma nota agregada
+         * precisa de peso — por que legibilidade valeria 40 pontos e
+         * atualização 30? — e não há resposta defensável. O peso arbitrário é
+         * o que faz do Domain Authority a métrica de vaidade que a pesquisa
+         * lista entre os sinais de quem foi enganado: um número que sobe fácil
+         * e não descreve nada.
+         *
+         * Uma lista de itens independentes é escaneável como nota e honesta
+         * como medição: cada linha se sustenta sozinha.
+         */
+        checagens: {
+          permissao: string
+          vivo: string
+          titulo: string
+          assunto: string
+          marcado: string
+        }
+        /** Textos curtos ao lado de cada linha. */
+        detalhes: {
+          semTitulo: string
+          semAssunto: string
+          assuntoDemais: string
+          semMarcacao: string
+          comMarcacao: string
+          nenhumBloqueado: string
+          semData: string
+        }
+        /**
+         * Dados estruturados aparecem na lista, mas com o limite dito na cara:
+         * o teste em 1.885 páginas mostrou que citação em IA mal se moveu ao
+         * adicioná-los. Eles servem para rich result no Google, que é outra
+         * coisa. Vender como fator de citação é a alegação mais comum do
+         * mercado e a de evidência mais fraca.
+         */
+        notaMarcacao: string
       }
       /**
        * O limite do próprio teste, mostrado SEMPRE e IGUAL PARA TODOS —
