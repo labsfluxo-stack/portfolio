@@ -77,7 +77,7 @@ export function Hero({ dict }: { dict: Dictionary; locale: Locale }) {
         <div
           data-portico-slot
           aria-hidden="true"
-          className="relative -mx-6 aspect-[300/230] border-y border-border bg-bg px-5 py-6
+          className="facho relative -mx-6 aspect-[300/230] border-y border-border bg-bg px-5 py-6
             md:pointer-events-none md:absolute md:inset-y-0 md:left-1/2 md:right-0 md:-z-10 md:m-0 md:aspect-auto md:w-1/2 md:border-0 md:p-0
             md:[-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_7%)] md:[mask-image:linear-gradient(to_right,transparent_0%,black_7%)]"
         >

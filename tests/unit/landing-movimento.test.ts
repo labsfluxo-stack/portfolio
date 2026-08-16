@@ -182,14 +182,30 @@ describe('camada de movimento da landing', () => {
   })
 
   /**
-   * O ORÇAMENTO DE MOVIMENTO INFINITO É UM ELEMENTO. `borda-viva` gira para
-   * sempre; num só elemento ela diz para onde olhar, espalhada por vários vira
-   * ruído — e um catálogo de efeitos é o oposto de uma página cara. Também é
-   * bateria: animação perpétua nunca deixa a GPU ociosa.
+   * O ORÇAMENTO DE MOVIMENTO INFINITO É UM ELEMENTO POR PÁGINA. Num só, ele diz
+   * para onde olhar; espalhado por vários vira ruído — e um catálogo de efeitos
+   * é o oposto de uma página cara. Também é bateria: animação perpétua nunca
+   * deixa a GPU ociosa.
+   *
+   * São duas no arquivo porque são duas páginas, e as duas apontam para a mesma
+   * coisa: a chamada final. `.borda-viva` na landing, `.aurora` na home. Uma
+   * terceira reprova, e é isso que este teste existe para impedir.
    */
-  it('só uma coisa na página se move para sempre', () => {
-    const ocorrencias = css.match(/animation:[^;]*infinite/g) ?? []
-    expect(ocorrencias, `${ocorrencias.length} animações infinitas: ${ocorrencias.join(' | ')}`)
-      .toHaveLength(1)
+  it('cada página tem no máximo uma coisa que se move para sempre', () => {
+    // SEM OS COMENTÁRIOS, e a lição é de hoje: o guarda do escalonamento casou
+    // com o texto que EXPLICA a armadilha em vez da declaração que a comete.
+    const semComentarios = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    const regras = semComentarios.match(/[^{}]+\{[^}]*animation:[^;]*infinite[^}]*\}/g) ?? []
+    const donas = regras.map((regra) => regra.split('{')[0]?.trim() ?? '')
+
+    expect(
+      donas.length,
+      `${donas.length} animações infinitas: ${donas.join(' | ')}`,
+    ).toBe(2)
+
+    expect(donas.join(' '), 'a borda viva da landing sumiu ou trocou de dono').toMatch(
+      /borda-viva/,
+    )
+    expect(donas.join(' '), 'a aurora da home sumiu ou trocou de dono').toMatch(/aurora/)
   })
 })

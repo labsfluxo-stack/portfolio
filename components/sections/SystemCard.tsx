@@ -25,7 +25,7 @@ export function SystemCard({
   const { systems } = dict
 
   return (
-    <article className="flex flex-col gap-6 border border-border bg-surface p-6 transition-colors duration-300 hover:border-faint hover:bg-surface-2">
+    <article className="brilho-borda flex flex-col gap-6 border border-border bg-surface p-6 transition-colors duration-300 hover:border-faint hover:bg-surface-2">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h3 className="font-sans text-xl font-bold text-text">{system.name}</h3>
         <div className="flex flex-wrap gap-2">

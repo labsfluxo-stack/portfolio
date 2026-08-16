@@ -351,6 +351,96 @@ body {
   pointer-events: none;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   CAMADA PREMIUM DA HOME ESCURA
+
+   As mesmas seis referências da landing, agora sobre a superfície para a qual
+   elas foram feitas. Aquele commit descartou metade do catálogo — Aurora,
+   Beams, Light Rays, Neon Gradient — porque sobre papel #F5F3EF um brilho é
+   invisível e um "shine" não tem contra o que brilhar. Verdade lá. A home é
+   #08090C: aqui é onde esses efeitos nasceram para funcionar.
+
+   O ORÇAMENTO É UMA ANIMAÇÃO INFINITA, e ela é a aurora. Tudo o mais desta
+   camada é pintado uma vez e não se mexe.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* FACHO ATRÁS DA CENA. Dá de onde vem a luz que o aço da cena 3D reflete: sem
+   ele o pórtico é iluminado por um estúdio que a página não mostra. Estático —
+   um gradiente pintado uma vez, custo zero depois disso. */
+.facho {
+  background-image: radial-gradient(
+    ellipse 80% 55% at 70% 15%,
+    color-mix(in srgb, var(--color-data) 12%, transparent),
+    transparent 70%
+  );
+}
+
+/* AURORA ATRÁS DA CHAMADA FINAL — a única coisa da home que se move para
+   sempre, e ela está onde o olho deve ir. É a mesma gramática da landing, onde
+   a `.borda-viva` também mora no CTA final.
+
+   O SPEC A COLOCAVA ATRÁS DO `Boot` E ISSO ESTAVA ERRADO: `Boot` é um overlay
+   fixo que roda uma vez por sessão e desmonta, então a única animação perpétua
+   da página seria vista por ~2 s, uma vez por visitante.
+
+   MOVIDA SÓ POR `transform`, E ISSO É A DIFERENÇA ENTRE BARATO E CARO. Uma
+   camada desfocada é rasterizada UMA VEZ e depois só transportada pelo
+   compositor. Animar `background-position` ou o ângulo de um cônico repintaria
+   a área inteira a cada quadro — e desfoque grande repintado por quadro é
+   exatamente o custo que esta página não pode pagar (a landing já tinha
+   restringido `filter: blur()` aos títulos pelo mesmo motivo). */
+@keyframes derivar {
+  from { transform: translate3d(-8%, 0, 0) scale(1.15); }
+  to   { transform: translate3d(8%, 0, 0) scale(1.15); }
+}
+
+.aurora {
+  position: absolute;
+  /* SEM EXTENSÃO LATERAL, e a primeira versão errou nisto: com `-10%` nos lados
+     a caixa passava da seção e a home ganhou 120px de rolagem horizontal — que
+     a bancada pegou. Vertical pode passar (não gera barra); horizontal não.
+     E não custou nada: os gradientes abaixo desvanecem para transparente em 70%
+     do raio, muito antes da borda da caixa, então o brilho nunca chegava aos
+     10% que estavam sobrando. */
+  inset: -30% 0 auto;
+  height: 60%;
+  z-index: -1;
+  pointer-events: none;
+  filter: blur(70px);
+  opacity: 0.5;
+  background-image:
+    radial-gradient(ellipse 40% 60% at 30% 50%, color-mix(in srgb, var(--color-data) 40%, transparent), transparent 70%),
+    radial-gradient(ellipse 35% 50% at 70% 40%, color-mix(in srgb, var(--color-ok) 22%, transparent), transparent 70%);
+  animation: derivar 24s ease-in-out infinite alternate;
+}
+
+/* BRILHO DE BORDA NOS CARDS. A gramática do bklit: 1px de borda, nunca sombra.
+   O gradiente vive num pseudo-elemento recortado por máscara — a mesma técnica
+   da `.borda-viva`, sem a rotação — e só a opacidade transita no hover, que é
+   propriedade de compositor. */
+.brilho-borda { position: relative; }
+
+.brilho-borda::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-data) 55%, transparent),
+    transparent 45%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+  pointer-events: none;
+}
+
+.brilho-borda:hover::before { opacity: 1; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

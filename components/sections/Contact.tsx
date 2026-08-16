@@ -55,7 +55,16 @@ export function Contact({ dict, locale }: { dict: Dictionary; locale: Locale }) 
   const whatsappNumber = formatBrazilianMobile(contact.whatsapp)
 
   return (
-    <Section id="contato" label={contact.label} index="05">
+    <Section id="contato" label={contact.label} index="05" className="relative isolate">
+      {/* A aurora — a única coisa da home que se move para sempre, e está onde
+          o olho deve ir. Mesma gramática da landing, cujo único movimento
+          perpétuo (`.borda-viva`) também mora na chamada final.
+
+          `isolate` na seção não é decoração: sem contexto de empilhamento
+          próprio o `z-index: -1` da aurora a manda para trás do fundo da página
+          e ela simplesmente não aparece. */}
+      <div className="aurora" aria-hidden="true" />
+
       <Reveal>
         <p className="max-w-2xl text-muted">{contact.lead}</p>
       </Reveal>
