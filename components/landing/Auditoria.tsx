@@ -37,10 +37,17 @@ const MINIMO_LEGIVEL = 80
  */
 const MESES_PARA_PARADO = 18
 
-type Sitemap = { paginas: number | null; maisRecente: string | null }
+type Sitemap = { paginas: number | null; maisRecente: string | null; temBlog: boolean | null }
 
 /** `h1` é contagem, não booleano: zero e cinco são problemas diferentes. */
-type Cabecalho = { titulo: string | null; descricao: string | null; h1: number; dadosEstruturados: boolean }
+type Cabecalho = {
+  titulo: string | null
+  descricao: string | null
+  h1: number
+  dadosEstruturados: boolean
+  idioma: string | null
+  cartao: boolean
+}
 
 type Resposta =
   | {
@@ -170,11 +177,16 @@ function precisaDeAjuda(dados: Resposta): boolean {
   if (dados.palavras < MINIMO_LEGIVEL) return true
   if (dados.barrados.length > 0) return true
 
-  // O site parado é o caso que de fato explica a ausência do público desta
-  // página. Os outros dois quase nunca disparam — WordPress, Wix e Shopify
-  // entregam HTML pronto e raramente barram robô.
+  // Estes dois são o que de fato explica a ausência deste público. Os de cima
+  // quase nunca disparam — WordPress, Wix e Shopify entregam HTML pronto e
+  // raramente barram robô.
   const meses = mesesDesde(dados.sitemap?.maisRecente ?? null)
-  return meses !== null && meses > MESES_PARA_PARADO
+  if (meses !== null && meses > MESES_PARA_PARADO) return true
+
+  // Site sem nenhuma página de artigo não tem de onde a IA tirar resposta
+  // sobre o setor dele — e é exatamente o que a página vende. `false`
+  // explícito, nunca `null`: não achar blog não é o mesmo que não ter.
+  return dados.sitemap?.temBlog === false
 }
 
 /**
@@ -217,7 +229,7 @@ function Sitemap({ dados, dict }: { dados: Sitemap; dict: Dictionary }) {
   )
 }
 
-type Checagem = { rotulo: string; detalhe: string; passou: boolean | null }
+type Checagem = { grupo: string; rotulo: string; detalhe: string; passou: boolean | null }
 
 /**
  * As seis medições viram linhas independentes.
@@ -239,6 +251,7 @@ function montarChecagens(dados: Extract<Resposta, { estado: 'ok' }>, dict: Dicti
   const t = dict.landing.auditoria.resultado
   const c = t.checagens
   const d = t.detalhes
+  const g = t.grupos
   const cab = dados.cabecalho
   const meses = mesesDesde(dados.sitemap?.maisRecente ?? null)
 
@@ -247,35 +260,83 @@ function montarChecagens(dados: Extract<Resposta, { estado: 'ok' }>, dict: Dicti
   // redundância que aparece ao olhar, não só no teste.
   return [
     {
+      grupo: g.visivel,
       rotulo: c.permissao,
       detalhe: dados.barrados.length > 0 ? dados.barrados.join(', ') : d.nenhumBloqueado,
       passou: dados.barrados.length === 0,
     },
     {
-      rotulo: c.vivo,
-      detalhe: formatarData(dados.sitemap?.maisRecente ?? null) ?? d.semData,
-      passou: meses === null ? null : meses <= MESES_PARA_PARADO,
+      grupo: g.visivel,
+      rotulo: c.idioma,
+      detalhe: cab?.idioma ?? d.semIdioma,
+      passou: cab ? Boolean(cab.idioma) : null,
     },
     {
-      rotulo: c.titulo,
-      detalhe: cab?.titulo ? recortar(cab.titulo, 48) : d.semTitulo,
-      passou: cab ? Boolean(cab.titulo) : null,
-    },
-    {
-      // Zero e cinco são problemas DIFERENTES: zero é a página não declarar do
-      // que trata; cinco é declarar cinco assuntos, o que dá no mesmo.
-      rotulo: c.assunto,
-      detalhe: !cab ? d.semAssunto : cab.h1 === 0 ? d.semAssunto : cab.h1 > 3 ? d.assuntoDemais : `H1 × ${cab.h1}`,
-      passou: cab ? cab.h1 >= 1 && cab.h1 <= 3 : null,
-    },
-    {
+      grupo: g.visivel,
       rotulo: c.marcado,
       detalhe: cab?.dadosEstruturados ? d.comMarcacao : d.semMarcacao,
       // `null`, nunca `false`: a evidência não sustenta tratar ausência de
       // dados estruturados como defeito — ver `notaMarcacao`.
       passou: cab?.dadosEstruturados ? true : null,
     },
+    {
+      grupo: g.citavel,
+      rotulo: c.vivo,
+      detalhe: formatarData(dados.sitemap?.maisRecente ?? null) ?? d.semData,
+      passou: meses === null ? null : meses <= MESES_PARA_PARADO,
+    },
+    {
+      grupo: g.citavel,
+      rotulo: c.blog,
+      detalhe: dados.sitemap?.temBlog == null ? d.semData : dados.sitemap.temBlog ? d.comBlog : d.semBlog,
+      // `null` quando não houve sitemap legível: não achar não é o mesmo que
+      // não ter, e um site pode publicar numa estrutura que a inferência por
+      // caminho não reconhece.
+      passou: dados.sitemap?.temBlog ?? null,
+    },
+    {
+      grupo: g.apresenta,
+      rotulo: c.titulo,
+      detalhe: cab?.titulo ? recortar(cab.titulo, 40) : d.semTitulo,
+      passou: cab ? Boolean(cab.titulo) : null,
+    },
+    {
+      grupo: g.apresenta,
+      rotulo: c.descricao,
+      detalhe: cab?.descricao ? recortar(cab.descricao, 40) : d.semDescricao,
+      passou: cab ? Boolean(cab.descricao) : null,
+    },
+    {
+      // Zero e cinco são problemas DIFERENTES: zero é a página não declarar do
+      // que trata; cinco é declarar cinco assuntos, o que dá no mesmo.
+      grupo: g.apresenta,
+      rotulo: c.assunto,
+      detalhe: !cab ? d.semAssunto : cab.h1 === 0 ? d.semAssunto : cab.h1 > 3 ? d.assuntoDemais : `H1 × ${cab.h1}`,
+      passou: cab ? cab.h1 >= 1 && cab.h1 <= 3 : null,
+    },
+    {
+      // A linha mais próxima do dia a dia de quem lê: ele manda o próprio site
+      // no WhatsApp e já viu chegar pelado, sem saber o nome disso.
+      grupo: g.apresenta,
+      rotulo: c.cartao,
+      detalhe: cab?.cartao ? d.comCartao : d.semCartao,
+      passou: cab ? cab.cartao : null,
+    },
   ]
+}
+
+/** Preserva a ordem em que as checagens foram declaradas — `Map` mantém ordem
+ *  de inserção, e a ordem dos grupos é decisão de leitura, não alfabética. */
+function agrupar(checagens: Checagem[]): [string, Checagem[]][] {
+  const mapa = new Map<string, Checagem[]>()
+  for (const ch of checagens) mapa.set(ch.grupo, [...(mapa.get(ch.grupo) ?? []), ch])
+  return [...mapa]
+}
+
+/** Quantas linhas vieram antes deste grupo, para o escalonamento não reiniciar
+ *  a cada bloco e a revelação ler como uma sequência só. */
+function deslocamento(todos: [string, Checagem[]][], ate: number): number {
+  return todos.slice(0, ate).reduce((soma, [, itens]) => soma + itens.length, 0)
 }
 
 function recortar(texto: string, limite: number): string {
@@ -314,22 +375,30 @@ function Resultado({ dados, dict }: { dados: Resposta; dict: Dictionary }) {
         {dados.palavras >= MINIMO_LEGIVEL ? t.legivel : t.vazio}
       </p>
 
-      <ul className="flex flex-col">
-        {checagens.map((ch, i) => (
-          <li
-            key={ch.rotulo}
-            // O atraso escalonado é ritmo de apresentação, não etapa: o Worker
-            // mede tudo em paralelo. Ver o comentário de `.surgir` em
-            // globals.css.
-            style={{ animationDelay: `${i * 110}ms` }}
-            className="surgir flex items-baseline gap-3 border-b border-rule py-2.5 last:border-b-0"
-          >
-            <Marca passou={ch.passou} />
-            <span className="flex-1 text-[17px] text-ink">{ch.rotulo}</span>
-            <span className="text-right font-mono text-xs text-ink-2">{ch.detalhe}</span>
-          </li>
-        ))}
-      </ul>
+      {/* Agrupado, e não em lista corrida. Nove linhas soltas viram relatório,
+       *  e relatório ninguém lê — some a qualidade de bater o olho que era o
+       *  motivo de a lista existir. O índice contínuo mantém o escalonamento
+       *  atravessando os grupos, para a revelação ler como uma sequência só. */}
+      {agrupar(checagens).map(([grupo, itens], gi, todos) => (
+        <div key={grupo} className="flex flex-col">
+          <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.15em] text-ink-2">{grupo}</p>
+          <ul className="flex flex-col">
+            {itens.map((ch, i) => (
+              <li
+                key={ch.rotulo}
+                // Ritmo de apresentação, não etapa: o Worker mede tudo em
+                // paralelo. Ver o comentário de `.surgir` em globals.css.
+                style={{ animationDelay: `${(deslocamento(todos, gi) + i) * 90}ms` }}
+                className="surgir flex items-baseline gap-3 border-b border-rule py-2.5 last:border-b-0"
+              >
+                <Marca passou={ch.passou} />
+                <span className="flex-1 text-[17px] text-ink">{ch.rotulo}</span>
+                <span className="text-right font-mono text-xs text-ink-2">{ch.detalhe}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
 
       {/* Dados estruturados entram na lista, mas com o limite dito na cara.
        *  Vendê-los como fator de citação em IA é a alegação mais comum do

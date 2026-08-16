@@ -179,6 +179,8 @@ export function analisarCabecalho(html) {
 
   const titulo = /<title[^>]*>([\s\S]{0,300}?)<\/title>/i.exec(cabeca)?.[1]?.trim() ?? null
 
+  // Duas regex porque a ordem dos atributos numa tag é livre, e construtor de
+  // página gera nas duas ordens.
   const descricao =
     /<meta[^>]+name=["']description["'][^>]+content=["']([^"']{0,400})["']/i.exec(cabeca)?.[1]?.trim() ??
     /<meta[^>]+content=["']([^"']{0,400})["'][^>]+name=["']description["']/i.exec(cabeca)?.[1]?.trim() ??
@@ -191,7 +193,58 @@ export function analisarCabecalho(html) {
   const dadosEstruturados =
     /<script[^>]+type=["']application\/ld\+json["']/i.test(cabeca) || /itemtype=["']https?:\/\/schema\.org/i.test(cabeca)
 
-  return { titulo: titulo || null, descricao: descricao || null, h1, dadosEstruturados }
+  /**
+   * O idioma declarado.
+   *
+   * Construtor gera `lang="en"` em site brasileiro com frequência, ou não gera
+   * nada. É a linha que diz à IA em que idioma o conteúdo está — e um site em
+   * português declarado como inglês é lido com a premissa errada.
+   *
+   * Só a raiz do código interessa: `pt-BR` e `pt-PT` são ambos português para
+   * esta pergunta.
+   */
+  const idioma = /<html[^>]+lang=["']([a-zA-Z-]{2,10})["']/i.exec(cabeca)?.[1]?.toLowerCase() ?? null
+
+  /**
+   * Se o link vira cartão quando alguém compartilha.
+   *
+   * É a medição desta lista mais próxima do dia a dia de quem lê: dono de
+   * empresa manda o próprio site no WhatsApp toda semana. Sem estas tags o
+   * link chega pelado — só o endereço. Ele já viu isso acontecer e nunca soube
+   * o nome.
+   *
+   * Exige título E imagem: só o título produz um cartão magro que quase não se
+   * distingue de link cru, e é a imagem que faz alguém parar de rolar.
+   */
+  const ogTitulo = /<meta[^>]+property=["']og:title["']/i.test(cabeca) || /<meta[^>]+name=["']og:title["']/i.test(cabeca)
+  const ogImagem = /<meta[^>]+property=["']og:image["']/i.test(cabeca) || /<meta[^>]+name=["']og:image["']/i.test(cabeca)
+
+  return {
+    titulo: titulo || null,
+    descricao: descricao || null,
+    h1,
+    dadosEstruturados,
+    idioma,
+    cartao: ogTitulo && ogImagem,
+  }
+}
+
+/**
+ * Se o site publica conteúdo, inferido dos caminhos do sitemap.
+ *
+ * É literalmente o que a página vende. Um institucional sem nenhuma página de
+ * artigo não tem de onde a IA tirar resposta sobre o setor dele — e isso
+ * explica a ausência muito melhor que qualquer detalhe técnico.
+ *
+ * Inferência por caminho, e por isso conservadora: devolve `null` quando não
+ * há sitemap legível, em vez de `false`. Não achar não é o mesmo que não ter,
+ * e afirmar que um site não publica quando ele publica em outra estrutura
+ * seria errar na cara do dono.
+ */
+export function detectarBlog(locs) {
+  if (!locs?.length) return null
+  const marcas = /\/(blog|noticias?|artigos?|news|posts?|insights|conteudo|materias?)(\/|$)/i
+  return locs.some((u) => marcas.test(u))
 }
 
 /**
@@ -260,9 +313,13 @@ export async function lerSitemap(alvo, signal) {
     const maisRecente = datas.length ? datas.sort().at(-1) : null
 
     const ehIndice = /<sitemapindex/i.test(xml)
-    const paginas = ehIndice ? null : (xml.match(/<loc>/gi)?.length ?? 0)
+    const locs = [...xml.matchAll(/<loc>\s*([^<\s]+)/gi)].map((m) => m[1])
+    const paginas = ehIndice ? null : locs.length
 
-    return { paginas, maisRecente: maisRecente ?? null }
+    // Num índice, os `<loc>` apontam para outros sitemaps — e os nomes deles
+    // costumam denunciar a estrutura ("post-sitemap.xml", "blog-sitemap.xml"),
+    // então a inferência ainda vale.
+    return { paginas, maisRecente: maisRecente ?? null, temBlog: detectarBlog(locs) }
   } catch {
     return null
   }

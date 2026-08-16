@@ -397,22 +397,40 @@ export type Dictionary = {
          * Uma lista de itens independentes é escaneável como nota e honesta
          * como medição: cada linha se sustenta sozinha.
          */
+        /**
+         * TRÊS GRUPOS, e eles não são enfeite de layout.
+         *
+         * Nove linhas soltas viram relatório, e relatório ninguém lê — some
+         * exatamente a qualidade de bater o olho que motivou a lista existir.
+         * Três blocos curtos se leem de relance.
+         */
+        grupos: { visivel: string; citavel: string; apresenta: string }
         checagens: {
           permissao: string
-          vivo: string
-          titulo: string
-          assunto: string
+          idioma: string
           marcado: string
+          vivo: string
+          blog: string
+          titulo: string
+          descricao: string
+          assunto: string
+          cartao: string
         }
         /** Textos curtos ao lado de cada linha. */
         detalhes: {
           semTitulo: string
+          semDescricao: string
           semAssunto: string
           assuntoDemais: string
           semMarcacao: string
           comMarcacao: string
           nenhumBloqueado: string
           semData: string
+          semIdioma: string
+          semBlog: string
+          comBlog: string
+          semCartao: string
+          comCartao: string
         }
         /**
          * Dados estruturados aparecem na lista, mas com o limite dito na cara:
