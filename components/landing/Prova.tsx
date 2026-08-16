@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import type { Dictionary, Locale } from '@/content/types'
-import { systems } from '@/content/systems'
-import { formatNumber } from '@/lib/format'
+import { SYSTEM_SLUGS } from '@/content/types'
 
 /**
  * Depoimento é SINAL BARATO — qualquer um escreve um, e o comprador sabe
@@ -15,32 +14,29 @@ import { formatNumber } from '@/lib/format'
  * vem ACIMA de avaliação de terceiros.
  *
  * Daí as duas camadas: a própria página como demonstração conferível, e os
- * cases com resultado E números que sustentam a escala de cada um.
+ * cases mostrando o que mudou na operação de quem usa.
  *
- * Consome os cases e os sistemas que já existem em content/systems.ts. Não
- * duplica nada — se duplicasse, divergiria.
+ * Consome o que já existe no dicionário. Não duplica nada — se duplicasse,
+ * divergiria.
  *
- * DOIS DEFEITOS DA REVISÃO FINAL DE BRANCH, corrigidos juntos:
+ * TRÊS CORREÇÕES ACUMULADAS, e a última desfez parte da primeira:
  *
- * C1 CRÍTICO — o `lead` afirmava "três sistemas em operação" (FALSO: só 2 de
- * 3 têm `production: true`) e prometia "o número que ele moveu e como foi
- * medido" numa seção que renderizava zero dígitos. A correção NÃO é só trocar
- * a frase: é fazer a seção mostrar o que ela promete. `system.metrics` já
- * existe em content/systems.ts com procedência implícita no próprio código
- * (não é medição solta); `dict.systems.metricLabels` já traduz cada chave.
- * O padrão de render é o de CaseStudy.tsx (dt/dd + <Counter>) — reaproveitado
- * aqui, não reinventado. Nenhuma contagem de sistema (quantos existem,
- * quantos estão em produção) é escrita à mão em `dict.landing.prova`: se um
- * dia a copy precisar de um número desses, ele tem de vir computado
- * (`systems.filter((s) => s.production).length`), nunca como palavra solta no
- * dicionário — é exatamente esse hard-code que causou o defeito C1.
+ * C1 CRÍTICO (revisão de branch) — o `lead` afirmava "três sistemas em
+ * operação", FALSO: só 2 dos 3 têm `production: true`. Nenhuma contagem de
+ * sistema pode ser escrita à mão em `dict.landing.prova`; se um dia a copy
+ * precisar de uma, tem de vir computada (`systems.filter((s) =>
+ * s.production).length`). Foi esse hard-code que causou o defeito.
  *
- * I6 IMPORTANTE — cada card era um `<Link>` inteiro para o case study, no
- * polo escuro, sem rota de volta: a landing apagou Header e Footer (todo item
- * de menu é uma saída) e sobrou os três cards como as maiores saídas não-CTA
- * da página. Decisão do dono: os cards continuam mostrando nome, resultado e
- * métricas, mas deixam de ser clicáveis — existe UM link discreto no fim da
- * seção, não três grandes.
+ * I6 IMPORTANTE — cada card era um `<Link>` inteiro para o case study, no polo
+ * escuro e sem rota de volta: a landing apagou Header e Footer (todo item de
+ * menu é uma saída) e sobraram os três cards como as maiores saídas não-CTA da
+ * página. Decisão do dono: os cards deixaram de ser clicáveis e existe UM link
+ * discreto no fim da seção.
+ *
+ * PÚBLICO ERRADO (achado do dono) — a correção do C1 fez a seção exibir
+ * `system.metrics` em corpo 5xl, e aí estava o erro seguinte: 146 RLS policies
+ * e 13 jobs cron são números honestos e ilegíveis para dono de empresa. Ver o
+ * comentário no `<li>` abaixo. Os números técnicos continuam no case study.
  */
 export function Prova({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const { prova } = dict.landing
@@ -56,55 +52,52 @@ export function Prova({ dict, locale }: { dict: Dictionary; locale: Locale }) {
         </div>
 
         <ul className="flex flex-col gap-px overflow-hidden rounded-lg border border-rule bg-rule">
-          {systems.map((system) => {
-            const caso = dict.systems.detail[system.slug]
+          {SYSTEM_SLUGS.map((slug) => {
+            const caso = dict.systems.detail[slug]
             return (
-              <li key={system.slug} className="flex flex-col gap-5 bg-paper p-6 sm:flex-row sm:gap-10 sm:p-8">
-                {/* O NÚMERO VEM PRIMEIRO, E GRANDE.
+              <li key={slug} className="flex flex-col gap-4 bg-paper p-6 sm:p-8">
+                {/* O QUE MUDOU, NÃO O QUE FOI CONSTRUÍDO.
                  *
-                 * Antes era parágrafo longo e, no rodapé dele, os números em
-                 * corpo pequeno. Medida a página inteira, esta era a seção mais
-                 * pesada de ler — três blocos de prosa empilhados — e é a mais
-                 * importante que existe aqui. Quem passa o olho via texto e
-                 * pulava.
+                 * Esta seção já exibiu `system.metrics` em corpo 5xl: 146 RLS
+                 * policies, 42 telas, 14 packages, 13 jobs cron. Números
+                 * verdadeiros, medidos — e ilegíveis para quem lê esta página.
+                 * "RLS policy" e "job cron" não significam nada para um dono de
+                 * empresa, e eram os MAIORES elementos da seção mais importante:
+                 * o que mais chamava o olho era o que menos dizia ao público.
                  *
-                 * Invertido, o número faz o trabalho que ele sabe fazer: para o
-                 * olho. E resolve de quebra a hierarquia plana da página, onde
-                 * fora o h1 tudo tinha o mesmo peso.
+                 * É o erro que a própria pesquisa nomeia — o dev prova
+                 * competência técnica e esquece de provar resultado; uma das
+                 * páginas analisadas estampa "Lighthouse 95+" para quem não
+                 * avalia isso. Ele sobreviveu aqui porque a métrica era honesta,
+                 * e honesta não é o mesmo que relevante.
                  *
-                 * Coluna fixa no desktop (`sm:w-40`) para os três cards
-                 * alinharem os números na mesma linha vertical — desalinhado,
-                 * o bloco lê como três coisas soltas em vez de uma tabela. */}
-                <dl className="flex shrink-0 gap-8 sm:w-40 sm:flex-col sm:gap-5">
-                  {system.metrics.map((metric) => (
-                    <div key={metric.key} className="min-w-0">
-                      {/* SEM `<Counter>` aqui, e a razão mudou com o tamanho.
-                       *
-                       * A Telemetria anima porque lá o número é 250.000 e a
-                       * subida tem para onde ir. Estes são 146, 42, 14, 13, 40
-                       * e 3 — e em corpo 5xl, ver "3" escalar de zero é
-                       * precisamente o padrão que a pesquisa listou entre os
-                       * datados: animar um número pequeno chama atenção para o
-                       * quanto ele é pequeno. Em 2xl passava despercebido;
-                       * neste tamanho, não. */}
-                      <dd className="font-sans text-4xl font-bold tabular-nums leading-none text-ink sm:text-5xl">
-                        {formatNumber(metric.value, locale)}
-                      </dd>
-                      <dt className="mt-1.5 font-mono text-[11px] uppercase tracking-widest text-ink-2">
-                        {dict.systems.metricLabels[metric.key]}
-                      </dt>
-                    </div>
-                  ))}
-                </dl>
-
-                <div className="flex flex-col gap-2 border-t border-rule pt-5 sm:border-l sm:border-t-0 sm:pl-10 sm:pt-0">
+                 * `improvements` já existia, já escrito para este leitor: três
+                 * frases curtas, cada uma uma MUDANÇA na operação de quem usa.
+                 * Os números técnicos seguem vivos no case study, onde um leitor
+                 * técnico vai atrás deles.
+                 *
+                 * O PRAZO É O NÚMERO QUE FICA, porque é o único que um dono lê
+                 * sem tradução. Vem de `duration`, com a precisão que a fonte
+                 * tem — "26 dias" onde o histórico do repositório dá o exato,
+                 * "menos de 45 dias" onde só existe o limite. Exibir "45" para
+                 * os dois seria inventar precisão que ninguém mediu. */}
+                <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
                   <h3 className="text-[19px] font-semibold text-ink">{caso.name}</h3>
-                  {/* Resultado de NEGÓCIO, não métrica de ferramenta — é o erro
-                   * clássico que a pesquisa flagrou (dev prova competência
-                   * técnica, esquece de provar resultado). `caso.outcome` é o
-                   * mesmo texto do case study; nunca reescrito aqui. */}
-                  <p className="text-[17px] leading-relaxed text-ink-2">{caso.outcome}</p>
+                  <p className="font-mono text-[11px] uppercase tracking-widest text-ink-2">
+                    {caso.duration} · {caso.team}
+                  </p>
                 </div>
+
+                <ul className="flex flex-col gap-2.5">
+                  {caso.improvements.map((melhoria) => (
+                    <li key={melhoria} className="flex gap-3 text-[17px] leading-relaxed text-ink">
+                      <span aria-hidden="true" className="select-none text-accent">
+                        →
+                      </span>
+                      {melhoria}
+                    </li>
+                  ))}
+                </ul>
               </li>
             )
           })}

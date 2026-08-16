@@ -562,7 +562,7 @@ export const en: Dictionary = {
       // render time (`systems.filter((s) => s.production).length`, see
       // Prova.tsx), never as a word or digit in this dictionary.
       titulo: 'What has been built',
-      lead: 'Each system with the numbers that show its scale — and what changed for the client who hired it.',
+      lead: 'What each system changed in the operation of whoever uses it — and how long it took to stand up.',
       // Single link at the end of the section now, not one per card (see
       // Prova.tsx, final branch review finding I6: three large exits on a
       // page that deleted its own menu to avoid exits). Points at the whole

@@ -672,7 +672,7 @@ export const pt: Dictionary = {
       // (`systems.filter((s) => s.production).length`, ver Prova.tsx), nunca
       // como palavra ou dígito hard-coded neste dicionário.
       titulo: 'O que já foi construído',
-      lead: 'Cada sistema com os números que mostram a escala dele — e o que mudou para quem contratou.',
+      lead: 'O que cada sistema mudou na operação de quem usa — e em quanto tempo ficou de pé.',
       // Link único no fim da seção, não mais um por card (ver Prova.tsx,
       // achado I6 da revisão final de branch: três saídas grandes numa
       // página que apagou o menu para não ter saída nenhuma). O destino
