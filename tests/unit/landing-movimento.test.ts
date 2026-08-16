@@ -14,17 +14,39 @@ import { describe, expect, it } from 'vitest'
  */
 const css = readFileSync(resolve(__dirname, '../../app/globals.css'), 'utf8')
 
-/** O corpo de uma at-rule, contando chaves — regex não fecha bloco aninhado. */
-function corpoDe(abertura: string): string {
-  const i = css.indexOf(abertura)
-  if (i === -1) throw new Error(`bloco "${abertura}" sumiu de app/globals.css`)
-  let nivel = 0
-  for (let j = css.indexOf('{', i); j < css.length; j++) {
-    if (css[j] === '{') nivel++
-    else if (css[j] === '}' && --nivel === 0) return css.slice(i, j + 1)
+/**
+ * TODOS os corpos de uma at-rule, contando chaves — regex não fecha bloco
+ * aninhado, e `@supports` aqui contém regras com chaves próprias.
+ *
+ * O plural é a correção de um defeito deste próprio arquivo: a primeira versão
+ * pegava só a PRIMEIRA ocorrência, e existem dois `@supports (animation-
+ * timeline: view())` no globals.css — um para a revelação, outro para a arte.
+ * O segundo sobrava no texto "fora do @supports" e o teste acusava um defeito
+ * que não existia. Um guarda que dá alarme falso é abandonado em uma semana.
+ */
+function corposDe(abertura: string): string[] {
+  const blocos: string[] = []
+  for (let i = css.indexOf(abertura); i !== -1; i = css.indexOf(abertura, i + 1)) {
+    let nivel = 0
+    for (let j = css.indexOf('{', i); j < css.length; j++) {
+      if (css[j] === '{') nivel++
+      else if (css[j] === '}' && --nivel === 0) {
+        blocos.push(css.slice(i, j + 1))
+        break
+      }
+    }
   }
-  throw new Error(`bloco "${abertura}" não fecha`)
+  if (blocos.length === 0) throw new Error(`bloco "${abertura}" sumiu de app/globals.css`)
+  return blocos
 }
+
+/** O CSS com todos os blocos daquela at-rule removidos — ou seja, exatamente o
+ *  que um navegador SEM o recurso enxerga. */
+function semOsBlocos(abertura: string): string {
+  return corposDe(abertura).reduce((texto, bloco) => texto.replace(bloco, ''), css)
+}
+
+const SUPORTE = '@supports (animation-timeline: view())'
 
 describe('camada de movimento da landing', () => {
   /**
@@ -44,19 +66,65 @@ describe('camada de movimento da landing', () => {
    * `@supports`.
    */
   it('sem suporte a scroll timeline, a página aparece inteira — nunca em branco', () => {
-    const suporte = corpoDe('@supports (animation-timeline: view())')
-    const foraDoSuporte = css.replace(suporte, '')
-
     expect(
-      foraDoSuporte,
+      semOsBlocos(SUPORTE),
       'existe regra .revelar fora do @supports — nos navegadores sem suporte ' +
         'ela vira estado permanente e apaga o conteúdo da página',
     ).not.toMatch(/^\s*\.revelar[\w-]*\s*(,|\{)/m)
 
     // E o inverso: o estado inicial tem de estar dentro, via `both`.
-    expect(suporte, 'a revelação perdeu o `both` que pinta o estado inicial').toMatch(
-      /animation:\s*revelar\s+linear\s+both/,
+    expect(
+      corposDe(SUPORTE).join(''),
+      'a revelação perdeu o `both` que pinta o estado inicial',
+    ).toMatch(/animation:\s*revelar\s+linear\s+both/)
+  })
+
+  /**
+   * A MESMA ARMADILHA, NA ARTE — e esta não é hipótese: apareceu num teste de
+   * bancada antes de virar código. Com `stroke-dasharray` e `opacity: 0` na
+   * regra base, o navegador sem suporte a scroll timeline renderizou as quatro
+   * ilustrações COMPLETAMENTE INVISÍVEIS. Nada de arte pela metade: nada.
+   *
+   * Medido depois nos três motores — o Firefox do Playwright não implementa
+   * `animation-timeline`, pula o `@supports` inteiro e mostra a arte pronta,
+   * que é o desenho final de qualquer jeito. Só funciona porque o estado
+   * escondido mora inteiro dentro do bloco.
+   *
+   * `.arte-entra` é a exceção legítima e fica de fora deste teste: ela anima
+   * por TEMPO, não por rolagem, então roda em qualquer navegador e não depende
+   * de suporte nenhum para chegar ao fim.
+   */
+  it('a arte nunca nasce escondida fora do @supports', () => {
+    const fora = semOsBlocos(SUPORTE)
+
+    for (const regra of fora.match(/\.arte-viva[^{]*\{[^}]*\}/g) ?? []) {
+      expect(
+        regra,
+        `esta regra esconde a arte fora do @supports, e sem suporte ela nunca ` +
+          `reaparece:\n${regra}`,
+      ).not.toMatch(/stroke-dasharray|opacity\s*:\s*0/)
+    }
+
+    // E o estado escondido tem mesmo de existir lá dentro — sem ele não há
+    // desenho nenhum, só arte estática em toda parte.
+    expect(corposDe(SUPORTE).join(''), 'o traçado sumiu do @supports').toMatch(
+      /stroke-dasharray:\s*var\(--traco/,
     )
+  })
+
+  /**
+   * `--traco` é o comprimento exato de cada forma, e é ele que substitui o
+   * `svg.createDrawable` do anime.js. O fallback `0` não é decoração: sem ele,
+   * uma forma nova sem comprimento tornaria a declaração inválida e o
+   * resultado imprevisível. Com ele, `stroke-dasharray: 0` é linha contínua —
+   * a forma não anima, mas aparece inteira.
+   */
+  it('o traçado tem fallback: forma sem comprimento aparece, não some', () => {
+    for (const uso of css.match(/var\(--traco[^)]*\)/g) ?? []) {
+      expect(uso, `\`${uso}\` sem fallback — forma sem --traco vira indefinida`).toMatch(
+        /var\(--traco,\s*0\)/,
+      )
+    }
   })
 
   /**
@@ -73,7 +141,7 @@ describe('camada de movimento da landing', () => {
    * qual isto é acessibilidade e não preferência estética.
    */
   it('movimento reduzido desliga também as animações de rolagem', () => {
-    const reduzido = corpoDe('@media (prefers-reduced-motion: reduce)')
+    const [reduzido] = corposDe('@media (prefers-reduced-motion: reduce)')
     expect(
       reduzido,
       'falta `animation-timeline: auto !important` — sem isso zerar a duração ' +

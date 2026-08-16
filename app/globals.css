@@ -195,6 +195,85 @@ body {
   mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 10%, transparent 70%);
 }
 
+/* ── DESENHO DA ARTE ──────────────────────────────────────────────────────
+   As quatro ilustrações da landing se constroem: primeiro os contornos são
+   traçados, depois os blocos sólidos preenchem. É o efeito que o dono pediu
+   ao apontar o anime.js, e é o único da lista inteira que não tinha
+   equivalente óbvio em CSS.
+
+   POR QUE NÃO FOI O ANIME.JS. A função dele aqui seria `svg.createDrawable`,
+   que calcula o comprimento de cada forma para animar `stroke-dashoffset`.
+   Mas o comprimento destas formas é conhecido em tempo de escrita — são
+   retângulos e segmentos, e as coordenadas estão em listas no próprio
+   componente. `2 × (largura + altura)` entrega o mesmo número que a
+   biblioteca calcularia em runtime. O que sobraria dela era orquestração, que
+   `animation-range` faz. Custo evitado: ~10 KB numa página cujo argumento é
+   que ela carrega rápido.
+
+   TIMELINE NOMEADA, e não `view()` anônima. Forma dentro de SVG não tem caixa
+   CSS, então uma timeline anônima não tem de onde medir. O nome é declarado no
+   `<svg>` (que é elemento substituído e tem caixa) e os filhos o consomem —
+   testado nos dois estados antes de escrever isto.
+
+   `var(--traco, 0)` com o zero explícito é rede de segurança: se uma forma
+   nova aparecer sem o comprimento, `stroke-dasharray: 0` é linha contínua —
+   ela deixa de animar, mas aparece inteira. Sem o fallback a declaração seria
+   inválida e o resultado, imprevisível. */
+@keyframes tracar {
+  from { stroke-dashoffset: var(--traco, 0); }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes preencher {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.arte-viva { view-timeline-name: --arte; }
+
+/* NADA DE ESTADO INICIAL AQUI FORA, e isto foi medido, não suposto: numa
+   versão de teste com `stroke-dasharray`/`opacity: 0` na regra base, o
+   navegador sem suporte a scroll timeline renderizou as quatro artes
+   COMPLETAMENTE INVISÍVEIS. Dentro do `@supports`, quem não tem suporte vê a
+   arte pronta — que é o desenho final de qualquer jeito. */
+@supports (animation-timeline: view()) {
+  .arte-viva .traca {
+    stroke-dasharray: var(--traco, 0);
+    animation: tracar linear both;
+    animation-timeline: --arte;
+    animation-range: entry 12% entry 58%;
+  }
+
+  /* Os sólidos entram DEPOIS, com sobreposição de 12% para o desenho não
+     parar entre os dois tempos. Contorno e preenchimento simultâneos não
+     leriam como construção — leriam como um fade comum. */
+  .arte-viva .preenche {
+    animation: preencher linear both;
+    animation-timeline: --arte;
+    animation-range: entry 46% entry 82%;
+  }
+}
+
+/* A ARTE DA PRIMEIRA DOBRA se desenha por TEMPO, não por rolagem, pela mesma
+   razão que o texto ao lado dela: já está na tela quando a página abre, então
+   a timeline de rolagem nasce depois do fim da própria faixa e não teria o que
+   revelar. É o lugar mais forte do efeito — é a primeira coisa que o visitante
+   vê acontecer.
+
+   Não precisa de `@supports`: animação por tempo funciona em todo lugar, e o
+   bloco de movimento reduzido a aterrissa no estado final. O atraso deixa a
+   arte começar depois do título, seguindo a ordem de leitura. */
+.arte-entra .traca {
+  stroke-dasharray: var(--traco, 0);
+  animation: tracar 1100ms cubic-bezier(0.65, 0, 0.35, 1) both;
+  animation-delay: 300ms;
+}
+
+.arte-entra .preenche {
+  animation: preencher 480ms ease-out both;
+  animation-delay: 1120ms;
+}
+
 /* FIO DE PROGRESSO no topo. `animation-timeline: scroll()` — a mesma família
    da revelação, aqui ligada à rolagem do documento inteiro.
    Sem suporte, fica em `scaleX(0)`: invisível, e nada quebra. */
