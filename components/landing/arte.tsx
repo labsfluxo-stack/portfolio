@@ -397,6 +397,16 @@ export function ArteAbertura() {
  *   blog      coluna de blocos repetidos — publicação que se acumula com o tempo
  *   sistema   malha de nós conectados — operação, onde tudo se fala
  */
+/** Os quatro módulos ao redor do núcleo, no cartão "sistema". Fonte única: as
+ *  vias e os nós saem daqui, então nenhum ajuste de posição pode dessincronizar
+ *  os dois. */
+const NOS_SISTEMA: [number, number][] = [
+  [22, 14],
+  [98, 14],
+  [22, 58],
+  [98, 58],
+]
+
 export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema' }) {
   return (
     <svg
@@ -408,31 +418,62 @@ export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema'
     >
       {variante === 'site' && (
         <>
-          <rect x="10" y="8" width="100" height="56" strokeWidth="1" {...traca(perimetro(100, 56), 'fill-none stroke-ink')} />
-          <rect x="20" y="18" width="60" height="8" {...preenche('fill-ink')} />
-          {[34, 42, 50].map((y) => (
-            <rect key={y} x="20" y={y} width={y === 42 ? 80 : 66} height="3" {...preenche('fill-rule')} />
+          {/* UMA PÁGINA, e agora com a anatomia que faz reconhecer uma:
+              barra de topo com marca e menu, título, texto, botão. A versão
+              anterior era um retângulo com três tarjas dentro — podia ser
+              qualquer coisa. Mesma correção que a comparação de JS já tinha
+              recebido do dono ("não dá pra entender o que é"), aplicada aqui. */}
+          <rect x="10" y="8" width="100" height="56" strokeWidth="1.2" {...traca(perimetro(100, 56), 'fill-none stroke-ink')} />
+          <line x1="10" y1="20" x2="110" y2="20" strokeWidth="0.6" {...traca(100, 'stroke-rule')} />
+          <rect x="16" y="12" width="10" height="5" {...preenche('fill-ink')} />
+          {[86, 94, 102].map((x) => (
+            <rect key={x} x={x} y="13" width="6" height="2" {...preenche('fill-rule')} />
           ))}
-          <rect x="20" y="34" width="44" height="3" {...preenche('fill-accent')} />
+          <rect x="16" y="27" width="44" height="7" {...preenche('fill-ink')} />
+          {[39, 45].map((y) => (
+            <rect key={y} x="16" y={y} width={y === 39 ? 72 : 58} height="2.5" {...preenche('fill-rule')} />
+          ))}
+          {/* O botão é o sinal mais forte de "isto é um site", e é o único
+              elemento em cor da peça. */}
+          <rect x="16" y="52" width="26" height="8" rx="2" {...preenche('fill-accent')} />
         </>
       )}
 
       {variante === 'blog' && (
         <>
-          {/* Blocos empilhados, decrescendo em opacidade de peso para sugerir
-              acúmulo no tempo — o mais recente em cima, cheio. */}
-          {/* O primeiro bloco é SÓLIDO e por isso entra por opacidade; os três
-              vazados abaixo dele são traçados. Um contorno cheio de tinta não
-              tem desenho a mostrar — animá-lo como traço acenderia a borda de
-              um retângulo que já está preto. */}
-          {[10, 24, 38, 52].map((y, i) =>
-            i === 0 ? (
-              <rect key={y} x="24" y={y} width="72" height="10" strokeWidth="1" {...preenche('fill-ink stroke-ink')} />
-            ) : (
-              <rect key={y} x="24" y={y} width="72" height="10" strokeWidth="1" {...traca(perimetro(72, 10), 'fill-none stroke-ink')} />
-            ),
-          )}
-          <rect x="24" y="24" width="20" height="10" {...preenche('fill-accent')} />
+          {/* PUBLICAÇÃO QUE SE ACUMULA. Cada faixa é um post, e agora cada uma
+              tem CONTEÚDO — uma tarja de título e um marcador de data — em vez
+              de serem quatro retângulos vazios iguais. Quatro caixas idênticas
+              não dizem "blog", dizem "lista".
+
+              O de cima é o mais recente e é o único preenchido: é o que o leitor
+              (e o crawler) encontra primeiro. Os de baixo desbotam para o
+              contorno, que é o tempo passando sem precisar de mais nenhum
+              elemento.
+
+              O bloco sólido entra por opacidade e os vazados por traço: um
+              contorno já cheio de tinta não tem desenho a mostrar — animá-lo
+              como traço acenderia a borda de um retângulo que já está preto. */}
+          {[8, 23, 38, 53].map((y, i) => (
+            <g key={y}>
+              {i === 0 ? (
+                <rect x="16" y={y} width="88" height="11" strokeWidth="1" {...preenche('fill-ink stroke-ink')} />
+              ) : (
+                <rect x="16" y={y} width="88" height="11" strokeWidth="0.9" {...traca(perimetro(88, 11), 'fill-none stroke-ink')} />
+              )}
+              {/* Tarja de título dentro de cada post. No primeiro ela é clara,
+                  porque o fundo dele é preto. */}
+              <rect
+                x="22"
+                y={y + 4}
+                width={[46, 54, 40, 50][i] ?? 46}
+                height="3"
+                {...preenche(i === 0 ? 'fill-paper' : 'fill-rule')}
+              />
+            </g>
+          ))}
+          {/* O marcador do post mais recente — único elemento em cor. */}
+          <rect x="94" y="26" width="6" height="5" {...preenche('fill-accent')} />
         </>
       )}
 
@@ -443,28 +484,38 @@ export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema'
               coordenada que a desenha — escrito à mão, o primeiro ajuste de
               posição deixaria o `--traco` apontando para a geometria antiga e
               o traço fecharia curto ou passaria do fim. */}
-          <g className="stroke-ink" strokeWidth="0.8">
-            {(
-              [
-                [24, 18, 60, 18], [60, 18, 96, 18], [24, 54, 60, 54], [60, 54, 96, 54],
-                [24, 18, 24, 54], [60, 18, 60, 54], [96, 18, 96, 54],
-                [24, 18, 60, 54], [96, 18, 60, 54],
-              ] as [number, number, number, number][]
-            ).map(([x1, y1, x2, y2]) => (
-              <line
-                key={`${x1}-${y1}-${x2}-${y2}`}
-                x1={x1}
-                y1={y1}
-                x2={x2}
-                y2={y2}
-                {...traca(segmento(x1, y1, x2, y2), '')}
-              />
+          {/* OPERAÇÃO: um centro que fala com todos, não uma teia.
+              A malha anterior tinha nove arestas ligando tudo a tudo, e nessa
+              escala virava rabisco — sem contar que "tudo ligado a tudo" é o
+              clichê de rede neural que esta página evita em toda parte.
+
+              Agora é hub e satélites: um núcleo em cor e quatro módulos ao
+              redor, cada um com uma via só. É o que um sistema de operação
+              realmente é — um lugar onde as coisas se encontram — e nessa
+              escala continua legível.
+
+              Os nós saem de UMA lista de coordenadas, e as vias saem da mesma
+              lista: mover um nó move a via junto. Escritas à mão, a primeira
+              correção de posição deixaria o `--traco` apontando para a
+              geometria antiga e o traço fecharia curto. */}
+          <g className="stroke-ink" strokeWidth="0.9">
+            {NOS_SISTEMA.map(([x, y]) => (
+              <line key={`v${x}-${y}`} x1={60} y1={36} x2={x} y2={y} {...traca(segmento(60, 36, x, y), '')} />
             ))}
           </g>
-          {([[24, 18], [60, 18], [96, 18], [24, 54], [96, 54]] as [number, number][]).map(([x, y]) => (
-            <rect key={`${x}-${y}`} x={x - 3} y={y - 3} width="6" height="6" {...preenche('fill-ink')} />
+          {NOS_SISTEMA.map(([x, y]) => (
+            <rect
+              key={`n${x}-${y}`}
+              x={x - 9}
+              y={y - 6}
+              width="18"
+              height="12"
+              strokeWidth="0.9"
+              {...traca(perimetro(18, 12), 'fill-paper stroke-ink')}
+            />
           ))}
-          <rect x="57" y="51" width="6" height="6" {...preenche('fill-accent')} />
+          {/* O núcleo, e o único elemento em cor. */}
+          <rect x="50" y="28" width="20" height="16" {...preenche('fill-accent')} />
         </>
       )}
     </svg>
@@ -488,13 +539,35 @@ export function ArteDupla() {
   // Uma forma só, desenhada uma vez e espelhada — se as duas fossem escritas à
   // mão, a primeira divergência de coordenada quebraria a simetria que é o
   // ponto da peça.
+  //
+  // TINHA VIRADO ALVO DE TIRO. Eram três quadrados concêntricos no mesmo peso
+  // de traço, e quadrado dentro de quadrado dentro de quadrado lê como mira,
+  // não como módulo — nada ali dizia "profissional que entrega". Agora cada
+  // forma tem ANATOMIA: carcaça, uma barra de topo, e quatro portas nas laterais
+  // por onde as ligações entram de verdade, em vez de encostarem no vazio.
+  //
+  // A hierarquia de traço é a mesma correção do hero: 1,4 na carcaça, 0,8 no
+  // interior, 0,6 nas portas. Antes tudo era 1,2 e o desenho lia chapado.
+  const PORTAS = [22, 54]
   const forma = (
     <>
-      <rect x="0" y="0" width="76" height="76" strokeWidth="1.2" {...traca(perimetro(76, 76), 'fill-none stroke-data')} />
-      <rect x="16" y="16" width="44" height="44" strokeWidth="1.2" {...traca(perimetro(44, 44), 'fill-none stroke-data')} />
-      <rect x="30" y="30" width="16" height="16" {...preenche('fill-data')} />
-      <line x1="0" y1="38" x2="16" y2="38" strokeWidth="1.2" {...traca(segmento(0, 38, 16, 38), 'stroke-data')} />
-      <line x1="60" y1="38" x2="76" y2="38" strokeWidth="1.2" {...traca(segmento(60, 38, 76, 38), 'stroke-data')} />
+      {/* Carcaça — o traço mais forte da peça. */}
+      <rect x="0" y="0" width="76" height="76" strokeWidth="1.4" {...traca(perimetro(76, 76), 'fill-none stroke-data')} />
+      {/* Barra de topo: dá orientação à forma. Sem ela o quadrado não tem
+          "em cima", e módulo sem orientação vira ornamento. */}
+      <line x1="0" y1="16" x2="76" y2="16" strokeWidth="0.8" {...traca(segmento(0, 16, 76, 16), 'stroke-data')} />
+      <rect x="8" y="6" width="14" height="5" {...preenche('fill-data')} />
+      {/* Núcleo, deslocado para baixo da barra e sem ser concêntrico — é o que
+          desfaz a leitura de alvo. */}
+      <rect x="14" y="28" width="48" height="34" strokeWidth="0.8" {...traca(perimetro(48, 34), 'fill-none stroke-data')} />
+      <rect x="24" y="38" width="28" height="14" {...preenche('fill-data')} />
+      {/* Portas: dois pontos em cada lateral, onde as ligações chegam. */}
+      {PORTAS.map((y) => (
+        <g key={y}>
+          <line x1="-6" y1={y} x2="0" y2={y} strokeWidth="0.6" {...traca(6, 'stroke-data')} />
+          <line x1="76" y1={y} x2="82" y2={y} strokeWidth="0.6" {...traca(6, 'stroke-data')} />
+        </g>
+      ))}
     </>
   )
 
@@ -521,18 +594,35 @@ export function ArteDupla() {
       <g transform="translate(34, 22)">{forma}</g>
       <g transform="translate(190, 22)">{forma}</g>
 
-      {/* As conexões cruzadas: cada forma alcança as duas extremidades da outra.
-          É a redundância desenhada — qualquer caminho serve. */}
-      <g className="stroke-data" strokeWidth="0.8">
-        {(
-          [
-            [110, 60, 190, 60],
-            [110, 44, 190, 76],
-            [110, 76, 190, 44],
-          ] as [number, number, number, number][]
-        ).map(([x1, y1, x2, y2]) => (
-          <line key={`${y1}-${y2}`} x1={x1} y1={y1} x2={x2} y2={y2} {...traca(segmento(x1, y1, x2, y2), '')} />
-        ))}
+      {/* AS CONEXÕES AGORA SAEM DAS PORTAS, não do ar.
+          Antes as três linhas partiam de pontos arbitrários no meio do vão e
+          morriam encostando na borda do quadrado — lia como risco atravessado,
+          não como ligação. Agora cada uma nasce numa porta real de uma forma e
+          termina numa porta real da outra, e as coordenadas saem das MESMAS
+          constantes que desenham as portas: mexer numa move as duas juntas.
+
+          Quatro caminhos entre dois módulos de duas portas cada é a redundância
+          desenhada — some qualquer um e ainda sobra caminho. É literalmente o
+          argumento da seção: nenhum dos dois é ponto único de falha. */}
+      <g className="stroke-data" strokeWidth="0.7">
+        {[22, 54].flatMap((saida) =>
+          [22, 54].map((chegada) => {
+            const x1 = 34 + 82
+            const y1 = 22 + saida
+            const x2 = 190 - 6
+            const y2 = 22 + chegada
+            return (
+              <line
+                key={`${saida}-${chegada}`}
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                {...traca(segmento(x1, y1, x2, y2), '')}
+              />
+            )
+          }),
+        )}
       </g>
     </svg>
   )
