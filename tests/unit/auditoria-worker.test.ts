@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 // O Worker é JS puro: roda na Cloudflare, não no build do Next. O TS o infere
 // sem tipos declarados, o que basta para o que se testa aqui.
-import { enderecoProibido, textoVisivel, robosBarrados, detectarPlataforma } from '../../workers/auditoria/index.js'
+import {
+  enderecoProibido,
+  textoVisivel,
+  robosBarrados,
+  detectarPlataforma,
+  classificarStatus,
+} from '../../workers/auditoria/index.js'
 
 /**
  * O Worker da auditoria não passa pelo build do Next e não seria coberto por
@@ -162,5 +168,49 @@ describe('detectarPlataforma — prova de que lemos, não veredito', () => {
   it('aceita a página se declarando via meta generator', () => {
     const html = '<meta name="generator" content="Drupal 10">'
     expect(detectarPlataforma(html, semCabecalho)).toBe('Drupal 10')
+  })
+})
+
+/**
+ * O DEFEITO QUE SÓ APARECEU COM O WORKER NO AR.
+ *
+ * A primeira versão tratava todo `!resposta.ok` como recusa. Um domínio que
+ * não existe volta 530 da borda da Cloudflare, então a ferramenta dizia ao
+ * visitante "seu site recusou nossa leitura — há uma proteção no caminho"
+ * sobre um endereço que ele havia digitado errado. Duas afirmações falsas,
+ * ditas com confiança, na ferramenta cujo argumento é que ela só afirma o que
+ * mediu — e é a mesma classe de erro que já tinha custado a remoção da caça a
+ * erro de digitação.
+ *
+ * Passou porque a regra vivia numa condição embutida na chamada de rede, que é
+ * a única parte que os testes deste arquivo não olham. Virou função pura por
+ * isso.
+ */
+describe('classificarStatus — recusa não é o mesmo que inalcançável', () => {
+  // O site RESPONDEU e negou. Só aqui cabe dizer que há proteção no caminho.
+  it.each([401, 403, 406, 429, 451])('%i é recusa do próprio site', (status) => {
+    expect(classificarStatus(status)).toBe('bloqueado')
+  })
+
+  // Nenhum destes autoriza acusar o site de barrar robô.
+  it.each([
+    [404, 'não existe página nesse endereço'],
+    [410, 'a página foi removida'],
+    [500, 'o site está quebrado agora'],
+    [502, 'gateway da origem'],
+    [503, 'origem indisponível'],
+    [522, 'Cloudflare não conectou na origem'],
+    [523, 'Cloudflare não achou a origem'],
+    [530, 'DNS da origem não resolve — o caso do endereço digitado errado'],
+  ])('%i é inalcançável (%s)', (status) => {
+    expect(classificarStatus(status)).toBe('inalcancavel')
+  })
+
+  // O caso concreto que o dono veria: digitar um domínio que não existe.
+  it('domínio inexistente não pode ser reportado como bloqueio', () => {
+    expect(
+      classificarStatus(530),
+      'voltou a acusar o site do visitante de barrar robôs quando o endereço só não existe',
+    ).not.toBe('bloqueado')
   })
 })

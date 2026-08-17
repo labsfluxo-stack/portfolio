@@ -60,8 +60,20 @@ type Resposta =
       cabecalho: Cabecalho | null
       /** Leitura por IA. `null` sem chave do Groq — a seção some, não vira buraco. */
       entendimento: string | null
+      /** Qual modelo produziu a leitura, dito pelo próprio Worker.
+       *  Opcional porque uma versão anterior do Worker não mandava o campo — e
+       *  a tela nova pode conversar com ela enquanto o deploy não roda. */
+      modelo?: string | null
     }
+  /** O site RESPONDEU e recusou (401/403/406/429/451). Só isso é bloqueio. */
   | { estado: 'bloqueado' }
+  /** Não deu para chegar lá: domínio que não existe, site fora do ar, DNS ou
+   *  TLS quebrado, 404. Separado de `bloqueado` porque dizer "seu site está
+   *  barrando robôs" para quem digitou o endereço errado é acusação falsa —
+   *  e era o que a ferramenta fazia até o Worker subir. */
+  | { estado: 'inalcancavel' }
+  /** Estourou o tempo. Também não é veredito sobre o site. */
+  | { estado: 'tempo' }
   | { estado: 'nao-html' }
 
 /** `<lastmod>` é declarado pelo próprio site e nem sempre é honesto — existe
@@ -356,6 +368,15 @@ function Resultado({ dados, dict }: { dados: Resposta; dict: Dictionary }) {
   if (dados.estado === 'bloqueado') {
     return <p className="text-[17px] leading-relaxed text-ink">{t.bloqueado}</p>
   }
+  // Três saídas onde antes havia uma. `bloqueado` afirma que o SITE recusou;
+  // usá-lo para domínio inexistente ou site fora do ar acusava o visitante de
+  // um problema que ele não tem, numa ferramenta que vende exatidão.
+  if (dados.estado === 'inalcancavel') {
+    return <p className="text-[17px] leading-relaxed text-ink">{t.inalcancavel}</p>
+  }
+  if (dados.estado === 'tempo') {
+    return <p className="text-[17px] leading-relaxed text-ink">{t.tempo}</p>
+  }
   if (dados.estado === 'nao-html') {
     return <p className="text-[17px] leading-relaxed text-ink">{t.naoHtml}</p>
   }
@@ -480,8 +501,19 @@ function Resultado({ dados, dict }: { dados: Resposta; dict: Dictionary }) {
           })()}
           {/* A ressalva fica colada na leitura, não num rodapé distante: quem
            *  lê a resposta precisa ler, na mesma respiração, que não foi o
-           *  ChatGPT que respondeu e que isto não é medição. */}
-          <p className="mt-2 text-[17px] leading-relaxed text-ink-2">{t.entendeuNota}</p>
+           *  ChatGPT que respondeu e que isto não é medição.
+           *
+           *  O NOME DO MODELO VEM DO WORKER, não do dicionário. Escrito à mão,
+           *  ele dizia "Llama 3.3" muito depois de a Groq ter aposentado o
+           *  Llama e o Worker ter passado a chamar outro modelo — declaração
+           *  falsa, e justamente na frase que existe para ser transparente.
+           *
+           *  Sem o campo (Worker antigo), cai para o texto genérico: continua
+           *  verdadeiro, só menos específico. Nunca nomeia um modelo que não
+           *  foi quem respondeu. */}
+          <p className="mt-2 text-[17px] leading-relaxed text-ink-2">
+            {dados.modelo ? t.entendeuNota.replace('{modelo}', dados.modelo) : t.entendeuNotaSemModelo}
+          </p>
         </div>
       ) : (
         dados.amostra && (

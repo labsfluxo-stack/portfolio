@@ -42,6 +42,56 @@ const TIMEOUT_MS = 8_000
 const UA = 'AuditoriaDeLegibilidade/1.0 (+https://labsfluxo-stack.github.io/portfolio/pt/projetos/)'
 
 /**
+ * OS ÚNICOS CÓDIGOS QUE SIGNIFICAM "O SITE RESPONDEU E RECUSOU".
+ *
+ * Existe porque a primeira versão tratava todo `!resposta.ok` como recusa, e
+ * isso só apareceu com o Worker no ar: um domínio inexistente volta 530 da
+ * borda da Cloudflare, e o visitante lia "seu site está barrando robôs" sobre
+ * um endereço que ele havia digitado errado. Acusação falsa, dita com
+ * confiança, justamente na ferramenta cujo argumento é que ela só afirma o
+ * que mediu.
+ *
+ *   401/403  o servidor entendeu e negou
+ *   406      recusou o que pedimos (acontece com filtro por User-Agent)
+ *   429      recusou por excesso — recusa com hora marcada, mas recusa
+ *   451      recusou por ordem legal
+ *
+ * Tudo o que NÃO está aqui vira `inalcancavel`: 404 (não há site nesse
+ * endereço), 5xx da origem (o site está fora do ar agora) e a família 52x/530
+ * da Cloudflare (não deu para chegar lá). Nenhum desses é culpa do dono do
+ * site nem afirma nada sobre o conteúdo dele.
+ */
+const RECUSA = new Set([401, 403, 406, 429, 451])
+
+/**
+ * O MODELO FICA NUMA CONSTANTE E VIAJA NA RESPOSTA, e isso corrige um defeito
+ * real — não é arrumação.
+ *
+ * A tela trazia "Lido pelo Llama 3.3 via Groq" escrito à mão no dicionário.
+ * Quando a Groq aposentou o Llama e este arquivo passou a chamar outro modelo,
+ * a frase continuou lá: a página seguiu declarando, com todas as letras, um
+ * modelo que não roda. Numa linha cuja função é ser transparência, é o pior
+ * lugar possível para uma afirmação falsa.
+ *
+ * Agora existe uma fonte só. O Worker diz qual modelo usou e a tela repete —
+ * trocar o valor aqui atualiza a frase sozinho.
+ */
+const MODELO = 'openai/gpt-oss-120b'
+
+/** Como o nome aparece para gente, não para máquina. */
+const MODELO_ROTULO = 'GPT-OSS 120B'
+
+/**
+ * Função própria, e exportada, para o teste alcançar. A regra vivia numa
+ * condição embutida no `fetch` — que é rede, e rede não se testa sem deixar a
+ * suíte instável. Era exatamente por isso que o defeito passou: a única parte
+ * errada era a única parte que nenhum teste conseguia olhar.
+ */
+export function classificarStatus(status) {
+  return RECUSA.has(status) ? 'bloqueado' : 'inalcancavel'
+}
+
+/**
  * Bloqueio de SSRF. Sem isto, qualquer pessoa poderia usar este endereço
  * público para fazer o Worker bater em rede interna — inclusive nos endpoints
  * de metadados que provedores de nuvem expõem em `169.254.169.254`, que é o
@@ -423,7 +473,26 @@ async function lerComIA(texto, env, signal, idioma) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        // ESCOLHIDO COMPARANDO SAÍDA REAL, não pela ficha técnica.
+        //
+        // `llama-3.3-70b-versatile` estava aqui e foi aposentado pela Groq —
+        // toda chamada voltava 404. Dos quatro modelos de texto que restaram
+        // na conta, dois foram testados com ESTE prompt, em português, sobre o
+        // site magro de uma marmoraria:
+        //
+        //   openai/gpt-oss-120b  devolveu exatamente o formato pedido — a
+        //                        resposta vaga entre aspas, linha em branco, e
+        //                        a frase com as perguntas do cliente.
+        //   qwen/qwen3.6-27b     vazou o raciocínio `<think>` no corpo da
+        //                        resposta e estourou `max_tokens` antes de
+        //                        chegar na segunda parte. Inutilizável sem
+        //                        pós-processamento.
+        //
+        // `groq/compound` foi descartado sem teste: é sistema agêntico com
+        // busca na web embutida, e a instrução mais importante deste prompt é
+        // "nunca invente informação que não esteja no texto". Dar ferramenta
+        // de busca a ele é convidar exatamente o que o prompt proíbe.
+        model: MODELO,
         // Temperatura baixa não torna a resposta determinística, mas reduz a
         // variação entre execuções — e aqui variação é custo, porque o dono
         // pode rodar duas vezes e comparar.
@@ -437,12 +506,34 @@ async function lerComIA(texto, env, signal, idioma) {
         ],
       }),
     })
-    if (!r.ok) return null
+    if (!r.ok) {
+      // O SILÊNCIO AQUI QUASE CUSTOU A FUNCIONALIDADE INTEIRA.
+      //
+      // Devolver `null` sem dizer nada é a decisão certa para a TELA — o
+      // visitante não tem o que fazer com um erro nosso. Mas era também a
+      // única pista que existia, e sem ela o Worker subiu em produção com a
+      // leitura por IA desligada e ninguém teria percebido: a página some a
+      // seção e continua parecendo correta.
+      //
+      // Foi assim que o modelo aposentado passou. `llama-3.3-70b-versatile`
+      // saiu do catálogo da Groq e toda chamada voltava 404 `model_not_found`;
+      // a resposta continuava chegando bonita, só que sem a parte que é o
+      // diferencial da ferramenta. Descoberto testando a API na mão, não pela
+      // aplicação.
+      //
+      // `console.error` num Worker vai para `wrangler tail` e para o painel de
+      // observabilidade (já ligado no wrangler.toml). Não muda o que o
+      // visitante vê; muda que a falha deixa rastro.
+      console.error('groq', r.status, (await r.text().catch(() => '')).slice(0, 300))
+      return null
+    }
     const dados = await r.json()
     return dados?.choices?.[0]?.message?.content?.trim() || null
-  } catch {
+  } catch (e) {
     // Chave inválida, cota estourada, tempo esgotado. Nada disso é problema do
-    // site auditado, e nada disso pode virar veredito sobre ele.
+    // site auditado, e nada disso pode virar veredito sobre ele — mas também
+    // não pode sumir sem deixar rastro. Ver o comentário acima.
+    console.error('groq', e instanceof Error ? e.name : 'erro', e instanceof Error ? e.message : '')
     return null
   }
 }
@@ -501,7 +592,18 @@ export default {
         // barrou não é um site vazio. Reportar 403 como "o ChatGPT não vê
         // nada" seria uma afirmação falsa sobre o site de outra pessoa, numa
         // página cujo argumento é que suas afirmações se conferem.
-        return json({ estado: 'bloqueado', status: resposta.status })
+        //
+        // E A MESMA REGRA VALE UM NÍVEL ABAIXO, que é o defeito que só
+        // apareceu com o Worker no ar: "não respondeu ok" não é sinônimo de
+        // "recusou". Um domínio que não existe volta 530 da própria borda da
+        // Cloudflare, e a tela dizia ao visitante que o SITE DELE estava
+        // barrando robôs — sobre um endereço que ele só digitou errado.
+        // Afirmação falsa, dita com confiança, na ferramenta cujo argumento é
+        // que ela só afirma o que mediu.
+        //
+        // `bloqueado` fica reservado para quem RESPONDEU recusando. Todo o
+        // resto é "não cheguei lá", que é honesto e não acusa ninguém.
+        return json({ estado: classificarStatus(resposta.status), status: resposta.status })
       }
 
       const tipo = resposta.headers.get('content-type') ?? ''
@@ -509,7 +611,9 @@ export default {
 
       // Leitura em pedaços, para respeitar o teto sem baixar o arquivo todo.
       const leitor = resposta.body?.getReader()
-      if (!leitor) return json({ estado: 'bloqueado', status: resposta.status })
+      // Respondeu 200 e veio sem corpo: ninguém recusou nada, só não há o que
+      // ler. Mesma correção do bloco acima — não acusar o site de barrar.
+      if (!leitor) return json({ estado: 'inalcancavel', status: resposta.status })
 
       const decodificador = new TextDecoder('utf-8')
       let html = ''
@@ -561,12 +665,21 @@ export default {
         plataforma: detectarPlataforma(html, resposta.headers),
         cabecalho: analisarCabecalho(html),
         entendimento,
+        // `null` quando não houve leitura por IA — aí a tela não tem modelo
+        // nenhum a creditar, e a frase de transparência não aparece junto com
+        // uma seção que não existe. Ver o comentário em `MODELO`.
+        modelo: entendimento ? MODELO_ROTULO : null,
       })
     } catch (e) {
       // Tempo esgotado, DNS que não resolve, TLS quebrado. Nada disso é
       // veredito sobre o conteúdo do site.
-      const motivo = e instanceof Error && e.name === 'AbortError' ? 'tempo' : 'inalcancavel'
-      return json({ estado: 'bloqueado', motivo })
+      //
+      // O COMENTÁRIO ACIMA JÁ ESTAVA CERTO E O CÓDIGO NÃO SEGUIA. Ele calculava
+      // o `motivo` corretamente e mesmo assim devolvia `estado: 'bloqueado'` —
+      // e a tela lê o estado, não o motivo, então um DNS que não resolve
+      // chegava ao visitante como "seu site recusou nossa leitura". O motivo
+      // certo estava calculado e sendo jogado fora.
+      return json({ estado: e instanceof Error && e.name === 'AbortError' ? 'tempo' : 'inalcancavel' })
     } finally {
       clearTimeout(relogio)
     }

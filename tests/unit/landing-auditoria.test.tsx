@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Auditoria } from '@/components/landing/Auditoria'
 import { pt } from '@/content/pt'
+import { en } from '@/content/en'
 
 /**
  * A auditoria é o único trecho da página que faz uma AFIRMAÇÃO SOBRE O SITE DE
@@ -220,5 +221,67 @@ describe('Auditoria', () => {
     await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
 
     await waitFor(() => expect(screen.getByText(/WordPress com Elementor/)).toBeInTheDocument())
+  })
+})
+
+/**
+ * A FRASE DE TRANSPARÊNCIA JÁ MENTIU UMA VEZ.
+ *
+ * `entendeuNota` trazia "Lido pelo Llama 3.3 via Groq" escrito à mão. A Groq
+ * aposentou o Llama, o Worker passou a chamar `openai/gpt-oss-120b`, e a frase
+ * ficou — a página seguiu creditando, com todas as letras, um modelo que não
+ * respondia mais. Numa linha cuja função é ser honesta sobre a procedência, é
+ * o pior lugar possível para uma afirmação falsa, e nada quebrou: a tela
+ * continuou parecendo certa.
+ *
+ * A correção estrutural foi tirar o nome do dicionário e fazer o Worker
+ * informá-lo. Estes testes travam as duas metades disso.
+ */
+describe('crédito do modelo — vem do Worker, nunca escrito à mão', () => {
+  it('nenhum idioma pode voltar a cravar um nome de modelo na frase', () => {
+    for (const [idioma, dict] of [['pt', pt], ['en', en]] as const) {
+      const nota = dict.landing.auditoria.resultado.entendeuNota
+      expect(nota, `${idioma}: a frase precisa do marcador {modelo}`).toContain('{modelo}')
+      expect(
+        nota,
+        `${idioma}: nome de modelo escrito à mão — foi exatamente assim que a ` +
+          `página passou a creditar o Llama depois que ele saiu do ar`,
+      ).not.toMatch(/llama|gpt-oss|qwen|gemini|claude|mixtral|deepseek/i)
+    }
+  })
+
+  it('exibe o modelo que o Worker informou', async () => {
+    responderCom({
+      estado: 'ok', palavras: 3400, amostra: 'x', barrados: [], plataforma: null,
+      sitemap: null, entendimento: 'Uma leitura qualquer.', modelo: 'GPT-OSS 120B',
+    })
+    render(<Auditoria dict={pt} locale="pt" />)
+    await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
+    await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
+    await waitFor(() => expect(screen.getByText(/GPT-OSS 120B/)).toBeInTheDocument())
+  })
+
+  // Worker antigo no ar enquanto o deploy não roda: some o nome, não a
+  // ressalva — e principalmente, não inventa um nome.
+  it('sem o campo, cai para a frase genérica em vez de chutar um modelo', async () => {
+    responderCom({
+      estado: 'ok',
+      palavras: 3400,
+      amostra: 'x',
+      barrados: [],
+      plataforma: null,
+      sitemap: null,
+      entendimento: 'Uma leitura qualquer.',
+    })
+    render(<Auditoria dict={pt} locale="pt" />)
+    await userEvent.type(screen.getByLabelText(pt.landing.auditoria.rotuloCampo), 'exemplo.com.br')
+    await userEvent.click(screen.getByRole('button', { name: pt.landing.auditoria.botao }))
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(pt.landing.auditoria.resultado.entendeuNotaSemModelo),
+      ).toBeInTheDocument(),
+    )
+    expect(screen.queryByText(/\{modelo\}/), 'vazou o marcador cru na tela').toBeNull()
   })
 })

@@ -704,6 +704,14 @@ export const pt: Dictionary = {
         // Distinção que a página inteira depende de manter.
         bloqueado:
           'Não conseguimos ler seu site — ele recusou nossa leitura. Isso não diz nada sobre o conteúdo dele, só que há uma proteção no caminho.',
+        // NÃO DIZ "seu site recusou", e é esse o ponto. Este caso cobre
+        // endereço digitado errado, domínio que não existe e site fora do ar.
+        // Em nenhum deles dá para saber de quem é o problema, então a frase
+        // não acusa ninguém e sugere primeiro a causa mais provável.
+        inalcancavel:
+          'Não chegamos nesse endereço. Confira se está escrito certo; se estiver, o site pode estar fora do ar neste momento.',
+        tempo:
+          'O site demorou demais para responder e paramos de esperar. Tente de novo daqui a alguns minutos.',
         naoHtml: 'Esse endereço não devolveu uma página de site.',
         construidoEm: 'Construído em',
         amostra: 'O começo do que a IA leu:',
@@ -747,7 +755,9 @@ export const pt: Dictionary = {
         entendeu: 'A resposta que uma IA daria sobre você',
         entendeuFalta: 'O que seu cliente ainda precisa perguntar',
         entendeuNota:
-          'Lido pelo Llama 3.3 via Groq. Não é o ChatGPT, e a resposta muda de uma execução para outra — isto é leitura, não medição. A lista acima é que é medida.',
+          'Lido pelo {modelo} via Groq. Não é o ChatGPT, e a resposta muda de uma execução para outra — isto é leitura, não medição. A lista acima é que é medida.',
+        entendeuNotaSemModelo:
+          'Lido por um modelo de linguagem via Groq. Não é o ChatGPT, e a resposta muda de uma execução para outra — isto é leitura, não medição. A lista acima é que é medida.',
       },
       // Dizia "mede duas coisas" quando media duas. Passou a medir cinco e a
       // frase ficou para trás — numa página cujo argumento é que suas

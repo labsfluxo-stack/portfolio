@@ -52,6 +52,20 @@ jobs:
         env:
           NEXT_PUBLIC_BASE_PATH: /portfolio
           NEXT_PUBLIC_WEB3FORMS_KEY: ${{ secrets.WEB3FORMS_KEY }}
+          # ESCRITO AQUI EM TEXTO PURO, E ISSO ESTÁ CERTO. É o endereço que o
+          # NAVEGADOR DO VISITANTE chama, então ele aparece no HTML da página
+          # de qualquer jeito — guardá-lo como secret seria teatro, e teatro
+          # que atrapalha: um secret vazio faz a seção de auditoria sumir sem
+          # erro nenhum, e a causa levaria meia hora para achar.
+          #
+          # O que NÃO pode vazar é a chave da Groq, e ela não está aqui: mora
+          # como secret dentro do próprio Worker (`wrangler secret put`). É por
+          # isso que o Worker existe em vez de o navegador chamar a Groq direto.
+          #
+          # Sem esta variável a seção simplesmente não renderiza — mesmo padrão
+          # do piso de preço. Foi assim que a landing foi ao ar em 2026-08-17
+          # sem a ferramenta que é o diferencial dela.
+          NEXT_PUBLIC_AUDITORIA_URL: https://auditoria-legibilidade.labsfluxo.workers.dev
       - run: npm run test:html
       - run: touch out/.nojekyll
       - uses: actions/configure-pages@v5

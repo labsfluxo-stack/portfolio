@@ -591,6 +591,11 @@ export const en: Dictionary = {
         vazio: 'ChatGPT sees what is essentially a blank page.',
         bloqueado:
           'We could not read your site — it refused our request. That says nothing about its content, only that something is guarding the door.',
+        // Ver content/pt.ts: não atribui culpa, porque nestes casos não dá
+        // para saber de quem é o problema.
+        inalcancavel:
+          'We could not reach that address. Check the spelling; if it is right, the site may be down right now.',
+        tempo: 'The site took too long to answer and we stopped waiting. Try again in a few minutes.',
         naoHtml: 'That address did not return a web page.',
         construidoEm: 'Built on',
         amostra: 'The start of what AI read:',
@@ -634,7 +639,9 @@ export const en: Dictionary = {
         entendeu: 'The answer an AI would give about you',
         entendeuFalta: 'What your customer still has to ask',
         entendeuNota:
-          'Read by Llama 3.3 via Groq. This is not ChatGPT, and the answer changes from one run to the next — it is a reading, not a measurement. The list above is the measurement.',
+          'Read by {modelo} via Groq. This is not ChatGPT, and the answer changes from one run to the next — it is a reading, not a measurement. The list above is the measurement.',
+        entendeuNotaSemModelo:
+          'Read by a language model via Groq. This is not ChatGPT, and the answer changes from one run to the next — it is a reading, not a measurement. The list above is the measurement.',
       },
       escopo:
         'This test reads your site the way AI reads it and checks the page fundamentals. It does not measure how long the site takes to open on mobile data, nor whether the content answers what people ask about your field — and nothing here tells you whether the text that exists is any good.',

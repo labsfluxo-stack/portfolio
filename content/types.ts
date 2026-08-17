@@ -378,6 +378,19 @@ export type Dictionary = {
          * página cujo argumento é que suas afirmações se conferem.
          */
         bloqueado: string
+        /**
+         * E "não respondeu ok" NÃO É SINÔNIMO DE "recusou" — defeito que só
+         * apareceu com o Worker no ar. Domínio inexistente volta 530 da borda
+         * da Cloudflare, e a tela dizia ao visitante que o site DELE estava
+         * barrando robôs, sobre um endereço que ele digitou errado.
+         *
+         * `bloqueado` afirma que o site recusou. Isto aqui não afirma de quem
+         * é o problema, porque não dá para saber: cobre endereço errado,
+         * domínio que não existe, site fora do ar, DNS e TLS quebrados.
+         */
+        inalcancavel: string
+        /** Estourou o tempo de espera. Também não é veredito sobre o site. */
+        tempo: string
         naoHtml: string
         construidoEm: string
         amostra: string
@@ -464,12 +477,26 @@ export type Dictionary = {
         /**
          * A ressalva que precisa estar na tela, não só no código.
          *
-         * Duas coisas: não é o ChatGPT (roda Llama pelo Groq), e não é medição
-         * (a resposta muda entre execuções). Sem isso a leitura passaria por
-         * previsão do que o ChatGPT diria — medir uma coisa e vender outra,
-         * que é o mecanismo da métrica de vaidade.
+         * Duas coisas: não é o ChatGPT, e não é medição (a resposta muda entre
+         * execuções). Sem isso a leitura passaria por previsão do que o ChatGPT
+         * diria — medir uma coisa e vender outra, que é o mecanismo da métrica
+         * de vaidade.
+         *
+         * `{modelo}` É SUBSTITUÍDO PELO NOME QUE O WORKER MANDA, e o marcador
+         * existe por causa de um defeito real: esta frase trazia "Llama 3.3"
+         * escrito à mão, e continuou trazendo depois que a Groq aposentou o
+         * Llama e o Worker passou a chamar outro modelo. A tela declarou por
+         * um tempo, com todas as letras, um modelo que não rodava — na única
+         * frase cuja função é ser transparência.
          */
         entendeuNota: string
+        /**
+         * A mesma ressalva sem nomear modelo, para quando o Worker não manda o
+         * campo (versão anterior no ar enquanto o deploy não roda). Continua
+         * verdadeira, só menos específica — o que nunca pode acontecer é
+         * creditar um modelo que não foi quem respondeu.
+         */
+        entendeuNotaSemModelo: string
       }
       /**
        * O limite do próprio teste, mostrado SEMPRE e IGUAL PARA TODOS —
