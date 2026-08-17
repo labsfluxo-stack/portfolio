@@ -135,35 +135,163 @@ export function ArteSemJavaScript() {
   )
 }
 
-/**
- * Abertura. Molduras retangulares aninhadas e sobrepostas, vistas de frente,
- * derivando para a direita — a coluna de texto ocupa a esquerda.
+/* ── Projeção axonométrica ────────────────────────────────────────────────
  *
- * A composição saiu da terceira imagem da rodada de gerador, que tinha a melhor
- * composição das três e veio inutilizável por estar fotografada dentro de uma
- * moldura de metal numa parede branca.
+ * A abertura passou de composição abstrata para VISTA EXPLODIDA, e a troca
+ * corrigiu um problema que não era de estilo.
+ *
+ * A versão anterior eram molduras sobrepostas de frente — bonitas, modernas e
+ * mudas. Olhando as quatro artes da página lado a lado, a comparação de JS diz
+ * "é isto que o ChatGPT enxerga", a dupla diz "dois sêniores, nenhum é o
+ * principal", os cartões dizem site/blog/sistema, e a maior de todas, a única
+ * que 100% dos visitantes veem, não dizia nada. Retângulos sobrepostos servem
+ * para o site de qualquer coisa.
+ *
+ * Agora ela desenha o que o dono vende: dados, API e interface como camadas
+ * de um sistema, separadas no ar como numa prancha de montagem. É a linguagem
+ * de desenho de engenharia — e a profundidade vem da PROJEÇÃO, não de WebGL:
+ * medido neste repositório, o pórtico three.js da home escura pesa 284 KB
+ * comprimidos, contra 807 bytes de toda a camada premium desta landing.
+ *
+ * As coordenadas são calculadas, não chutadas. Escrever paralelogramo à mão em
+ * SVG é onde o desenho isométrico sempre entorta: basta um vértice fora do eixo
+ * para a peça inteira perder o prumo, e ninguém acha o número errado depois.
  */
+
+/** 30° é o ângulo do isométrico de manual — dois eixos espelhados na mesma
+ *  inclinação, que é o que faz a peça ler como sólida sem sombra nenhuma. */
+const COS30 = Math.cos(Math.PI / 6)
+
+/** Um ponto do plano (x, y) de uma camada, na altura z, projetado na tela. */
+function iso(x: number, y: number, z: number): [number, number] {
+  return [(x - y) * COS30, (x + y) * 0.5 - z]
+}
+
+/** Um retângulo DEITADO no plano de uma camada vira paralelogramo na tela. */
+function faceIso(x: number, y: number, w: number, d: number, z: number): [number, number][] {
+  return [iso(x, y, z), iso(x + w, y, z), iso(x + w, y + d, z), iso(x, y + d, z)]
+}
+
+const pontosDe = (p: [number, number][]) => p.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+
+/** Perímetro de um polígono fechado — o `--traco` do desenho na rolagem.
+ *  `perimetro(w, h)` não serve aqui: depois da projeção os lados deixam de ter
+ *  o comprimento que tinham no plano, e o traço fecharia antes ou depois. */
+const perimetroDe = (p: [number, number][]) =>
+  p.reduce((soma, ponto, i) => {
+    const proximo = p[(i + 1) % p.length]
+    if (!proximo) return soma
+    return soma + Math.hypot(proximo[0] - ponto[0], proximo[1] - ponto[1])
+  }, 0)
+
+/** Paralelogramo pronto para o `<polygon>`, com o traço já medido. */
+const contorno = (pts: [number, number][], pinta: string, largura: number) => ({
+  points: pontosDe(pts),
+  strokeWidth: largura,
+  ...traca(perimetroDe(pts), pinta),
+})
+
+const solido = (pts: [number, number][], pinta: string) => ({
+  points: pontosDe(pts),
+  ...preenche(pinta),
+})
+
+/** Lado do quadrado de cada camada e o ar entre elas.
+ *
+ *  O `AR` subiu de 46 para 66 depois de ver a primeira versão renderizada: com
+ *  46 as marcas de uma camada invadiam o plano da outra e a peça virava um
+ *  emaranhado. Em projeção isométrica a altura na tela é `(x+y)/2`, então um
+ *  plano de 112 ocupa 112px verticais — o ar precisa ser grande o bastante
+ *  para o olho separar os andares. */
+const LADO = 112
+const AR = 66
+
+/**
+ * As três camadas, de baixo para cima, e o que cada uma carrega.
+ *
+ * O conteúdo não é enfeite: é ele que separa "desenho de engenharia" de "três
+ * losangos empilhados". Sem as marcas dentro dos planos a peça vira geometria
+ * bonita de novo — que é exatamente o defeito que esta versão veio corrigir.
+ *
+ * QUASE TUDO É CONTORNO, e isso também veio de ver renderizado. A primeira
+ * tentativa encheu os planos de blocos sólidos: virou mancha preta, e mancha
+ * preta é o oposto da linguagem desta página, que é 1px de borda e nenhuma
+ * sombra. Sólido agora é exceção — dá o peso, não a matéria.
+ */
+type Camada = {
+  z: number
+  /** Marcas vazadas: a maior parte do conteúdo. */
+  contornos: [number, number, number, number][]
+  /** Poucas e pequenas — são o contrapeso que impede a peça de ficar frouxa. */
+  solidos: [number, number, number, number][]
+  /** Ligações desenhadas DENTRO do plano da camada. */
+  linhas?: [number, number, number, number][]
+  acento?: [number, number, number, number]
+}
+
+const CENTRO = LADO / 2
+
+const CAMADAS: Camada[] = [
+  {
+    // DADOS, embaixo, porque é onde tudo se apoia. Grade regular de tabelas —
+    // regular de propósito: banco modelado é grade, não constelação.
+    z: 0,
+    contornos: [22, 48, 74].flatMap((x) =>
+      [22, 48, 74].map((y) => [x, y, 16, 16] as [number, number, number, number]),
+    ),
+    solidos: [
+      [22, 22, 16, 16],
+      [74, 74, 16, 16],
+    ],
+  },
+  {
+    // API no meio: quatro pontas e um centro, com as ligações desenhadas. É a
+    // camada de trânsito, e trânsito se mostra com linha, não com bloco.
+    z: AR,
+    contornos: [
+      [20, 20, 16, 16],
+      [76, 20, 16, 16],
+      [20, 76, 16, 16],
+      [76, 76, 16, 16],
+    ],
+    solidos: [],
+    linhas: [
+      [28, 28, CENTRO, CENTRO],
+      [84, 28, CENTRO, CENTRO],
+      [28, 84, CENTRO, CENTRO],
+      [84, 84, CENTRO, CENTRO],
+    ],
+    // O único bloco em cor da peça, no meio da camada do meio: é o que costura
+    // as outras duas. Um destaque, nunca dois — mesma disciplina dos diagramas
+    // do portfólio.
+    acento: [CENTRO - 9, CENTRO - 9, 18, 18],
+  },
+  {
+    // INTERFACE no topo — o que o cliente dele vê. Barra, bloco e duas linhas:
+    // a anatomia mínima para alguém reconhecer "página" sem ler uma palavra.
+    //
+    // SEM MOLDURA EM VOLTA, e isso veio de ver renderizado. Um contorno de
+    // 72×72 aqui virava um segundo losango quase concêntrico com a borda da
+    // própria camada — lia como moldura dentro de moldura, não como tela. O
+    // plano da camada JÁ é a moldura; desenhar outra era repetir a informação
+    // e sujar a peça.
+    z: AR * 2,
+    contornos: [],
+    solidos: [
+      [24, 24, 44, 9],
+      [24, 41, 26, 26],
+      [58, 41, 26, 9],
+      [58, 58, 26, 9],
+    ],
+  },
+]
+
 export function ArteAbertura() {
-  // [x, y, largura, altura] — molduras vazadas, só contorno fino.
-  const molduras: [number, number, number, number][] = [
-    [96, 40, 150, 150],
-    [130, 16, 132, 132],
-    [64, 76, 168, 100],
-    [150, 60, 120, 160],
-    [110, 100, 156, 96],
-    [180, 30, 96, 180],
-  ]
-  // Blocos sólidos, que dão o peso.
-  const solidos: [number, number, number, number][] = [
-    [120, 52, 82, 44],
-    [86, 112, 84, 62],
-    [206, 66, 34, 92],
-    [156, 148, 62, 38],
-  ]
+  const camadas = CAMADAS.map((c) => ({ ...c, borda: faceIso(0, 0, LADO, LADO, c.z) }))
 
   return (
     <svg
-      viewBox="0 0 300 230"
+      viewBox="0 0 200 268"
       role="img"
       aria-hidden="true"
       // `arte-entra` e não `arte-viva`: esta é a única peça acima da dobra, já
@@ -173,14 +301,90 @@ export function ArteAbertura() {
       className="arte-entra h-auto w-full"
       preserveAspectRatio="xMidYMid meet"
     >
-      {molduras.map(([x, y, w, h]) => (
-        <rect key={`m${x}-${y}`} x={x} y={y} width={w} height={h} strokeWidth="0.8" {...traca(perimetro(w, h), 'fill-none stroke-ink')} />
-      ))}
-      {solidos.map(([x, y, w, h]) => (
-        <rect key={`s${x}-${y}`} x={x} y={y} width={w} height={h} {...preenche('fill-ink')} />
-      ))}
-      {/* Um bloco em cor, e um só — mesma disciplina dos diagramas do portfólio */}
-      <rect x="172" y="96" width="40" height="26" {...preenche('fill-accent')} />
+      {/* A origem da projeção cai em (0,0); o grupo a leva para o meio da
+        * caixa. Com `iso()` devolvendo coordenadas negativas, sem isto metade
+        * do desenho ficaria fora do viewBox. */}
+      <g transform="translate(100, 146)">
+        {/* AS LINHAS DE MONTAGEM, tracejadas, ligando canto a canto.
+          *
+          * São a assinatura da vista explodida: dizem que as três camadas são
+          * UM sistema separado no ar, não três objetos soltos. Sem elas o
+          * desenho lê como pilha; com elas, como peça desmontada.
+          *
+          * Entram por opacidade (`preenche`) e não por traço (`traca`), e o
+          * motivo é técnico: o desenho na rolagem funciona animando
+          * `stroke-dashoffset` sobre um `stroke-dasharray` calculado — o
+          * tracejado ocuparia a mesma propriedade e os dois se anulariam. Como
+          * elas surgem depois que os contornos fecham, a ordem de leitura sai
+          * até melhor: a peça se desenha, e só então as relações aparecem. */}
+        {[0, 1, 2, 3].map((canto) =>
+          camadas.slice(0, -1).map((camada, i) => {
+            const de = camada.borda[canto]
+            const ate = camadas[i + 1]?.borda[canto]
+            if (!de || !ate) return null
+            return (
+              <line
+                key={`l${canto}-${i}`}
+                x1={de[0]}
+                y1={de[1]}
+                x2={ate[0]}
+                y2={ate[1]}
+                // 1px e não 0,6: em `--color-rule` (#DDD9D2) sobre o papel
+                // (#F5F3EF) o contraste é baixo de propósito — é linha de guia,
+                // não conteúdo — e a 0,6px ela simplesmente não aparecia na
+                // tela. Guia invisível é guia que não existe, e era ela que
+                // dizia que as três camadas são um sistema só.
+                strokeWidth="1"
+                strokeDasharray="3 4"
+                {...preenche('stroke-rule')}
+              />
+            )
+          }),
+        )}
+
+        {camadas.map((camada, i) => (
+          <g key={camada.z}>
+            {/* O contorno da camada. A de baixo é meio ponto mais grossa: em
+              * desenho técnico o plano de apoio recebe traço mais forte, e é o
+              * que dá pé à peça sem precisar de sombra — que esta página não
+              * usa em lugar nenhum. */}
+            <polygon {...contorno(camada.borda, 'fill-none stroke-ink', i === 0 ? 1.2 : 0.9)} />
+
+            {/* As ligações vêm ANTES das marcas, para o traço passar por baixo
+              * dos nós em vez de cortá-los ao meio. */}
+            {camada.linhas?.map(([x1, y1, x2, y2]) => {
+              const de = iso(x1, y1, camada.z)
+              const ate = iso(x2, y2, camada.z)
+              return (
+                <line
+                  key={`c${x1}-${y1}`}
+                  x1={de[0]}
+                  y1={de[1]}
+                  x2={ate[0]}
+                  y2={ate[1]}
+                  strokeWidth="0.7"
+                  {...traca(Math.hypot(ate[0] - de[0], ate[1] - de[1]), 'stroke-ink')}
+                />
+              )
+            })}
+
+            {camada.contornos.map(([x, y, w, d]) => (
+              <polygon
+                key={`v${x}-${y}`}
+                {...contorno(faceIso(x, y, w, d, camada.z), 'fill-paper stroke-ink', 0.7)}
+              />
+            ))}
+
+            {camada.solidos.map(([x, y, w, d]) => (
+              <polygon key={`s${x}-${y}`} {...solido(faceIso(x, y, w, d, camada.z), 'fill-ink')} />
+            ))}
+
+            {camada.acento && (
+              <polygon {...solido(faceIso(...camada.acento, camada.z), 'fill-accent')} />
+            )}
+          </g>
+        ))}
+      </g>
     </svg>
   )
 }
