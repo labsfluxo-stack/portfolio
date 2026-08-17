@@ -2,11 +2,26 @@ name = "auditoria-legibilidade"
 main = "index.js"
 compatibility_date = "2026-08-15"
 
-# Sem KV, sem D1, sem variável de ambiente: a função não guarda nada e não
-# tem segredo. Se um dia precisar de limite de taxa por IP, é aqui que entra
-# um binding de KV — mas o teto de bytes e o tempo limite no código já contêm
-# o abuso barato, e a Cloudflare oferece regra de rate limit no painel sem
-# precisar de código.
+# Sem KV e sem D1: a função não guarda nada. Se um dia precisar de limite de
+# taxa por IP, é aqui que entra um binding de KV — mas o teto de bytes e o
+# tempo limite no código já contêm o abuso barato, e a Cloudflare oferece regra
+# de rate limit no painel sem precisar de código.
+#
+# EXISTE UM SEGREDO, e ele NÃO mora neste arquivo. `index.js` lê
+# `env.GROQ_API_KEY` para chamar a Groq. Ele é gravado uma vez, direto na
+# Cloudflare:
+#
+#   npx wrangler secret put GROQ_API_KEY
+#
+# O comando pede o valor no terminal e não o escreve em lugar nenhum do
+# repositório. Localmente o valor vem de `.dev.vars`, que está no .gitignore.
+#
+# NUNCA como `[vars]` aqui e NUNCA com prefixo `NEXT_PUBLIC_`: as duas coisas
+# publicariam a chave — `[vars]` fica em texto puro no repositório, e
+# `NEXT_PUBLIC_` é embutido no pacote que vai para o navegador. Quem abrisse o
+# DevTools gastaria a cota da conta.
+#
+# Sem o segredo, o Worker sobe e responde, mas a parte de IA da resposta falha.
 
 # Depois de `npx wrangler deploy`, o endereço sai como
 #   https://auditoria-legibilidade.<seu-subdominio>.workers.dev
