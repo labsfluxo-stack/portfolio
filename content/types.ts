@@ -512,5 +512,46 @@ export type Dictionary = {
       cta: string
     }
   }
+  /**
+   * Landing de ativações (/[locale]/ativacoes). É a terceira página do
+   * repositório com público próprio, e o leitor é o mais específico dos três:
+   * atendimento ou diretor de operações de AGÊNCIA de live marketing.
+   *
+   * A diferença que justifica um dicionário separado de `landing`: aquela fala
+   * com quem compra o site para a própria empresa, esta fala com quem revende
+   * o trabalho para um cliente dele. Prometer "seu site vai carregar rápido"
+   * para um diretor de agência é falar da coisa errada — ele quer saber se a
+   * ativação vai funcionar no dia, com a fila andando e a internet do estande
+   * caindo.
+   */
+  ativacoes: {
+    meta: { title: string; description: string }
+    capa: {
+      titulo: string
+      /** Segunda linha, em serifa. Mesma mecânica de `landing.hero.tituloDestaque`:
+       *  chave separada e não marcador dentro da string, porque o portão de HTML
+       *  estático compara dicionário com HTML entregue. */
+      tituloDestaque: string
+      subtitulo: string
+      /** Microtexto sobre o canvas, ex.: "Toque nos alvos". */
+      convite: string
+      /** Rótulos do placar. Nunca os valores — esses vêm do motor. */
+      placar: { acertos: string; reacao: string }
+    }
+    cta: { rotulo: string; mensagem: string; tranquilizador: string }
+    catalogo: {
+      titulo: string
+      blocos: { nome: string; corpo: string }[]
+      /** Escopo negativo. Spec §2.2 — não é rodapé, é posicionamento. */
+      escopo: string
+    }
+    compra: { titulo: string; itens: { titulo: string; corpo: string }[] }
+    whiteLabel: { titulo: string; corpo: string[] }
+    /** `lead` traz o marcador `{producao}`, substituído no render pela contagem
+     *  de sistemas em produção. O dicionário nunca carrega o dígito. */
+    prova: { titulo: string; lead: string; verCase: string }
+    perguntas: { titulo: string; itens: { pergunta: string; resposta: string }[] }
+    fechamento: { titulo: string; corpo: string }
+  }
   footer: { rights: string; builtWith: string; sourceCode: string; sourceCodeUrl: string }
 }

@@ -801,6 +801,128 @@ export const pt: Dictionary = {
       ],
     },
   },
+  ativacoes: {
+    meta: {
+      title: 'Ativações digitais para agências — Neto Alves',
+      description:
+        'Dois desenvolvedores full-stack constroem o software da sua ativação: advergame, quiz, roleta, totem e telão. Sai com a marca da agência.',
+    },
+    capa: {
+      titulo: 'A ativação é sua.',
+      tituloDestaque: 'O código é nosso.',
+      subtitulo:
+        'Dois desenvolvedores full-stack constroem o software da ativação que a sua agência vendeu.',
+      convite: 'Toque nos alvos.',
+      placar: { acertos: 'acertos', reacao: 'ms de reação' },
+    },
+    cta: {
+      rotulo: 'Falar sobre um projeto',
+      mensagem: 'Olá, Neto! Vi a página de ativações e quero falar sobre um projeto.',
+      tranquilizador: 'Sem ligação e sem cadastro.',
+    },
+    catalogo: {
+      titulo: 'O que construímos',
+      blocos: [
+        {
+          nome: 'Jogos e mecânicas',
+          corpo:
+            'Advergame de marca, quiz, roleta, jogo da memória, caça-palavras, desafio de reflexo. Roda no navegador do público por QR ou no totem touch.',
+        },
+        {
+          nome: 'Captura e conteúdo',
+          corpo:
+            'GIF e foto com a moldura da marca, entregues por QR, WhatsApp ou e-mail. Realidade aumentada no próprio navegador, sem app.',
+        },
+        {
+          nome: 'Operação',
+          corpo:
+            'Hotsite com cadastro, regulamento e sorteio. Totem em modo quiosque que funciona sem internet. Telão ao vivo com ranking, chamada do vencedor e mural de fotos.',
+        },
+        {
+          nome: 'Dados',
+          corpo:
+            'Lead direto no CRM da marca, base exportável em conformidade com a LGPD, e API para a agência consultar quando quiser.',
+        },
+      ],
+      escopo:
+        'Não fazemos hardware, locação de totem, montagem de estande nem produção física. Construímos o software que roda no totem que você já aluga.',
+    },
+    compra: {
+      titulo: 'O que você compra da gente',
+      itens: [
+        {
+          titulo: 'Funciona sem internet.',
+          corpo:
+            'A rede do estande cai, a fila não para. O software roda local e sobe os dados quando a conexão volta.',
+        },
+        {
+          titulo: 'Aguenta fila.',
+          corpo:
+            'Trinta pessoas em sequência, celular ruim, 4G saturado. É para esse cenário que se otimiza, não para o laboratório.',
+        },
+        {
+          titulo: 'Sem app para baixar.',
+          corpo: 'Abre no navegador do público por QR. Ninguém instala nada num estande.',
+        },
+        {
+          titulo: 'A base sai limpa.',
+          corpo:
+            'Exportável, com o consentimento registrado junto de cada cadastro, no formato que você entrega ao cliente.',
+        },
+        {
+          titulo: 'A data não se move.',
+          corpo:
+            'O cronograma é feito para o dia do evento, e alguém responde nesse dia.',
+        },
+      ],
+    },
+    whiteLabel: {
+      titulo: 'Sai com a sua marca',
+      corpo: [
+        'A ativação é sua e o cliente é seu. Não aparecemos para ele e não falamos com ele.',
+        'Entramos onde a agência precisa de código, e saímos quando o evento acaba.',
+      ],
+    },
+    prova: {
+      titulo: 'De onde vem a confiança',
+      lead: 'A engenharia é a mesma que sustenta sistemas em operação todo dia — {producao} deles em produção agora.',
+      verCase: 'Ver os casos completos',
+    },
+    perguntas: {
+      titulo: 'Perguntas',
+      itens: [
+        {
+          pergunta: 'E se cair a internet no estande?',
+          resposta:
+            'O software roda local, no totem ou no próprio celular do público. A fila continua andando e os dados sobem quando a rede volta.',
+        },
+        {
+          pergunta: 'Vocês assinam o projeto?',
+          resposta:
+            'Não. A peça sai com a marca da agência, e não aparecemos para o cliente final.',
+        },
+        {
+          pergunta: 'Roda no totem que a gente já aluga?',
+          resposta:
+            'Roda, desde que ele abra um navegador. Conferimos o modelo antes e travamos a tela em modo quiosque.',
+        },
+        {
+          pergunta: 'Quem responde no dia do evento?',
+          resposta:
+            'Um de nós dois. Os dois conhecem o código inteiro, e o plantão entra no combinado por escrito.',
+        },
+        {
+          pergunta: 'Como fica a LGPD do cadastro?',
+          resposta:
+            'O consentimento é registrado junto com o lead, e a base sai com a origem de cada dado — do jeito que você entrega ao cliente.',
+        },
+      ],
+    },
+    fechamento: {
+      titulo: 'Traz o briefing.',
+      corpo: 'Conta o que a ativação precisa fazer, e para quando.',
+    },
+  },
   footer: {
     rights: '© 2026 Neto Alves. Todos os direitos reservados.',
     builtWith: 'Construído com Next.js, Tailwind CSS e Motion.',

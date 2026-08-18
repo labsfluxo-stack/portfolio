@@ -209,4 +209,75 @@ describe('dicionários', () => {
       }
     })
   })
+
+  describe('ativações', () => {
+    it('nenhum texto está vazio nos dois idiomas', () => {
+      for (const dict of [pt, en]) {
+        const vazios: string[] = []
+        const varrer = (valor: unknown, caminho: string) => {
+          if (typeof valor === 'string') {
+            if (valor.trim() === '') vazios.push(caminho)
+          } else if (Array.isArray(valor)) {
+            valor.forEach((item, i) => varrer(item, `${caminho}[${i}]`))
+          } else if (valor && typeof valor === 'object') {
+            for (const [k, v] of Object.entries(valor)) varrer(v, `${caminho}.${k}`)
+          }
+        }
+        varrer(dict.ativacoes, 'ativacoes')
+        expect(vazios, `campos vazios: ${vazios.join(', ')}`).toEqual([])
+      }
+    })
+
+    // Spec §2.3. São as palavras que todo concorrente do ramo já usa —
+    // dizê-las é desaparecer no meio deles.
+    it('não usa o vocabulário de folheto do setor', () => {
+      for (const dict of [pt, en]) {
+        const texto = JSON.stringify(dict.ativacoes).toLowerCase()
+        for (const proibido of ['phygital', 'disruptiv', 'imersiv', 'inovação', 'innovation']) {
+          expect(texto, `"${proibido}" voltou ao dicionário`).not.toContain(proibido)
+        }
+      }
+    })
+
+    // Spec §2.2, a regra mais cara da página: não existe case de ativação no
+    // portfólio, e nenhuma frase pode sugerir que existe.
+    it('não afirma experiência prévia em ativação ou evento', () => {
+      const afirmacoes = [
+        /j[áa] (rodamos|fizemos|entregamos)/i,
+        /(dezenas|centenas|milhares) de (eventos|ativa)/i,
+        /nossos clientes/i,
+        /we('ve| have) (run|delivered|built) (dozens|hundreds)/i,
+        /our clients/i,
+      ]
+      for (const dict of [pt, en]) {
+        const texto = JSON.stringify(dict.ativacoes)
+        for (const a of afirmacoes) {
+          expect(texto, `afirmação de experiência que não existe: ${a}`).not.toMatch(a)
+        }
+      }
+    })
+
+    // Spec §2.2. Sem esta linha a página vira "alugamos totem", que é um
+    // negócio de logística que a dupla não tem.
+    it('declara o escopo negativo', () => {
+      expect(pt.ativacoes.catalogo.escopo).toMatch(/hardware/i)
+      expect(en.ativacoes.catalogo.escopo).toMatch(/hardware/i)
+    })
+
+    it('o catálogo tem exatamente quatro blocos e a compra exatamente cinco itens', () => {
+      for (const dict of [pt, en]) {
+        expect(dict.ativacoes.catalogo.blocos).toHaveLength(4)
+        expect(dict.ativacoes.compra.itens).toHaveLength(5)
+      }
+    })
+
+    // Spec §6.2: nenhum número escrito à mão. A contagem de sistemas em
+    // produção é computada no render, e o dicionário só carrega o lugar dela.
+    it('o lead da prova traz o marcador {producao} e nenhum dígito', () => {
+      for (const dict of [pt, en]) {
+        expect(dict.ativacoes.prova.lead).toContain('{producao}')
+        expect(dict.ativacoes.prova.lead).not.toMatch(/\d/)
+      }
+    })
+  })
 })

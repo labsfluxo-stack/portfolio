@@ -677,6 +677,127 @@ export const en: Dictionary = {
       ],
     },
   },
+  ativacoes: {
+    meta: {
+      title: 'Digital brand activations for agencies — Neto Alves',
+      description:
+        'Two full-stack developers build the software behind your activation: advergame, quiz, prize wheel, kiosk and live screen. It ships under the agency brand.',
+    },
+    capa: {
+      titulo: 'The activation is yours.',
+      tituloDestaque: 'The code is ours.',
+      subtitulo:
+        'Two full-stack developers build the software for the activation your agency sold.',
+      convite: 'Tap the targets.',
+      placar: { acertos: 'hits', reacao: 'ms reaction' },
+    },
+    cta: {
+      rotulo: 'Talk about a project',
+      mensagem: 'Hi, Neto! I saw the activations page and want to talk about a project.',
+      tranquilizador: 'No calls, no sign-up.',
+    },
+    catalogo: {
+      titulo: 'What we build',
+      blocos: [
+        {
+          nome: 'Games and mechanics',
+          corpo:
+            'Branded advergame, quiz, prize wheel, memory game, word search, reflex challenge. Runs in the visitor browser via QR, or on the touch kiosk.',
+        },
+        {
+          nome: 'Capture and content',
+          corpo:
+            'GIF and photo inside the brand frame, delivered by QR, WhatsApp or email. Augmented reality in the browser itself, no app.',
+        },
+        {
+          nome: 'Operations',
+          corpo:
+            'Promo site with sign-up, rules and prize draw. Kiosk mode that works with no internet. Live screen with ranking, winner call-out and a rolling photo wall.',
+        },
+        {
+          nome: 'Data',
+          corpo:
+            'Leads straight into the brand CRM, an export that meets Brazilian data law, and an API the agency can query whenever it wants.',
+        },
+      ],
+      escopo:
+        'We do not do hardware, kiosk rental, booth build or physical production. We build the software that runs on the kiosk you already rent.',
+    },
+    compra: {
+      titulo: 'What you buy from us',
+      itens: [
+        {
+          titulo: 'Works with no internet.',
+          corpo:
+            'The booth network drops, the queue keeps moving. The software runs locally and syncs when the connection is back.',
+        },
+        {
+          titulo: 'Holds a queue.',
+          corpo:
+            'Thirty people back to back, weak phones, saturated 4G. That is the case we optimise for, not the lab.',
+        },
+        {
+          titulo: 'No app to install.',
+          corpo: 'It opens in the visitor browser via QR. Nobody installs anything at a booth.',
+        },
+        {
+          titulo: 'The database comes out clean.',
+          corpo:
+            'Exportable, with consent recorded next to every sign-up, in the format you hand to the client.',
+        },
+        {
+          titulo: 'The date does not move.',
+          corpo: 'The schedule is built around event day, and someone answers on that day.',
+        },
+      ],
+    },
+    whiteLabel: {
+      titulo: 'It ships under your brand',
+      corpo: [
+        'The activation is yours and so is the client. We never show up in front of them and we never talk to them.',
+        'We step in where the agency needs code, and step out when the event ends.',
+      ],
+    },
+    prova: {
+      titulo: 'Where the confidence comes from',
+      lead: 'The engineering is the same one holding up systems that run every day — {producao} of them in production right now.',
+      verCase: 'See the full case studies',
+    },
+    perguntas: {
+      titulo: 'Questions',
+      itens: [
+        {
+          pergunta: 'What if the booth internet goes down?',
+          resposta:
+            'The software runs locally, on the kiosk or on the visitor own phone. The queue keeps moving and the data uploads once the network is back.',
+        },
+        {
+          pergunta: 'Do you sign the work?',
+          resposta:
+            'No. The piece ships under the agency brand, and we never appear in front of the end client.',
+        },
+        {
+          pergunta: 'Does it run on the kiosk we already rent?',
+          resposta:
+            'It does, as long as it opens a browser. We check the model beforehand and lock the screen into kiosk mode.',
+        },
+        {
+          pergunta: 'Who answers on event day?',
+          resposta:
+            'One of the two of us. Both know the whole codebase, and the on-call arrangement goes in writing.',
+        },
+        {
+          pergunta: 'What about consent and data law?',
+          resposta:
+            'Consent is recorded next to the lead, and the export carries the origin of every field — the way you hand it to the client.',
+        },
+      ],
+    },
+    fechamento: {
+      titulo: 'Bring the brief.',
+      corpo: 'Tell us what the activation has to do, and by when.',
+    },
+  },
   footer: {
     rights: '© 2026 Neto Alves. All rights reserved.',
     builtWith: 'Built with Next.js, Tailwind CSS and Motion.',
