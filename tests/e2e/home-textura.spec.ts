@@ -3,10 +3,13 @@ import { expect, test } from '@playwright/test'
 /**
  * Grão e vinheta, e o que se guarda aqui é o ESCOPO.
  *
- * A textura mora no grupo de rotas `(site)`, que é home mais case studies — os
- * dois escuros. A landing tem polaridade de papel e `/cv` é feita para
- * impressão: grão em qualquer uma das duas seria defeito, não estilo, e é o
- * tipo de coisa que ninguém percebe até imprimir o currículo.
+ * A textura mora no grupo de rotas `(site)` — home mais case studies — e
+ * também na `/ativacoes`, que vive fora do grupo mas é escura como as duas.
+ * Fica de fora só de `/projetos` e `/cv`: a primeira tem polaridade de papel,
+ * o segundo é feito para impressão, e grão em qualquer um dos dois seria
+ * defeito, não estilo — do tipo que ninguém percebe até imprimir o currículo.
+ * O critério nunca foi "está dentro do `(site)`", é "é escura"; `/ativacoes`
+ * confirma a distinção.
  */
 
 test('a textura cobre a home e os case studies', async ({ page }) => {
@@ -14,6 +17,11 @@ test('a textura cobre a home e os case studies', async ({ page }) => {
   await expect(page.locator('.textura-fundo')).toHaveCount(1)
 
   await page.goto('/pt/sistemas/oscapstack/')
+  await expect(page.locator('.textura-fundo')).toHaveCount(1)
+})
+
+test('a landing de ativações tem a textura: é escura como a home', async ({ page }) => {
+  await page.goto('/pt/ativacoes/')
   await expect(page.locator('.textura-fundo')).toHaveCount(1)
 })
 
