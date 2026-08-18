@@ -45,13 +45,6 @@ O que se promete é o que se controla e se verifica:
 - roda com a internet do estande caindo
 - a base de leads sai em formato que a agência entrega ao cliente
 - a data do evento não se move, e o cronograma é feito para ela
-- **o designer da agência entrega o `.riv` e a gente faz rodar** — no totem, offline,
-  aguentando fila
-
-O último item é diferente dos outros: não é garantia técnica, é onde a agência se
-enxerga dentro do trabalho. Rive é a ferramenta que o designer dela já usa, e a frase
-encaixa esse designer no fluxo em vez de substituí-lo. Nenhum dos concorrentes mapeados
-diz isso — todos chegam com a criação pronta, que é justamente o que ameaça a agência.
 
 **Escopo negativo, dito na página:** não há hardware, locação de totem, montagem de
 estande, produção física nem promotor. Entregamos o **software** que roda no totem que a
@@ -177,77 +170,8 @@ SVG gerado no build a partir da URL canônica, por `scripts/generate-qr.mts`, ex
 
 Custa uma devDependency (`qrcode`), e dependência nova neste repositório significa
 **regerar `package-lock.json` no Linux** ou o deploy quebra em `npm ci` — o npm do Windows
-poda `@emnapi/runtime`.
-
-Esse custo, porém, **já foi pago pela decisão de §4.7**: `@rive-app/canvas-lite` obriga a
-mesma regeneração. Com o lockfile tendo que ser refeito de qualquer jeito, o `qrcode`
-pega carona e o QR deixa de ser tarefa de risco. Continua sendo a última do plano, agora
-só por ordem de importância.
-
-### 4.7 A peça de Rive
-
-Uma peça de Rive entra na página, **abaixo da dobra**, na seção de telão/totem: uma
-ilustração que reage ao ponteiro e à rolagem. É o único lugar onde o peso se paga.
-
-#### 4.7.1 Por que não na dobra
-
-Tabela oficial de tamanho dos runtimes web:
-
-| Runtime | Sem compressão | Brotli |
-|---------|--------------|--------|
-| `canvas-lite` | 707KB | **222KB** |
-| `canvas` | 1728KB | 567KB |
-| `webgl2` | 2179KB | 648KB |
-
-O motor de reflexo em canvas 2D puro é da ordem de 3KB. Colocar 222KB na primeira tela
-para fazer o que 3KB já fazem contradiz, no primeiro scroll, a promessa que a página
-inteira sustenta — que o software roda liso no celular fraco da fila do estande. **A capa
-jogável de §4 não usa Rive.**
-
-#### 4.7.2 Runtime e carregamento
-
-- **`@rive-app/canvas-lite`.** Ele remove texto, layout, áudio e scripting. Se a peça
-  escolhida precisar de qualquer um deles, a decisão volta para a mesa — trocar pelo
-  `canvas` cheio é passar de 222KB para 567KB, e aí a peça não vale mais o que custa.
-- **`rive.wasm` auto-hospedado em `public/`**, apontado por
-  `RuntimeLoader.setWasmUrl()`. Por padrão o runtime busca o wasm num CDN, e requisição
-  externa numa página que promete funcionar sem internet é contradição visível. A versão
-  do arquivo tem que bater **exatamente** com a do pacote, servido como
-  `application/wasm`.
-- **Carga preguiçosa.** O runtime só é importado quando a seção chega a cerca de uma
-  viewport de distância (`IntersectionObserver`). Antes disso, e enquanto carrega, fica um
-  pôster estático. O peso nunca toca o LCP.
-- **`prefers-reduced-motion: reduce` não carrega o runtime.** Fica o pôster, e é o
-  comportamento correto — não é degradação.
-
-#### 4.7.3 Licença e atribuição
-
-Os arquivos da Rive Community/Marketplace são **CC BY 4.0**: uso comercial permitido,
-**atribuição obrigatória**.
-
-A página apagou Header e Footer de propósito, então o crédito não tem onde se esconder.
-Fica uma linha discreta junto da chamada final, com nome do autor original e link para a
-licença. Não é opcional e não é negociável.
-
-**A peça é remixada, não usada crua.** A atribuição continua devida nos dois casos — o que
-muda é que o arquivo original fica público e pesquisável no rive.app, e o diretor de
-criação que estiver avaliando a proposta acha ele numa busca. Numa página que vende
-experiência interativa sob medida, peça de prateleira reconhecível é o golpe de
-credibilidade que custa o contrato. O remix também casa a paleta com `#08090C` e
-`#38BDF8`; arte de estoque com cor estrangeira lê como colada.
-
-#### 4.7.4 O que procurar na comunidade
-
-Critérios, para a escolha não virar gosto:
-
-1. **Reage a ponteiro** (Rive Listeners) — peça que só toca uma animação em laço não
-   justifica o runtime; um GIF faria o mesmo por menos.
-2. **Sem texto, layout, áudio ou scripting**, para caber no `canvas-lite` (§4.7.2).
-3. **Vetor simples**, poucas formas — o custo de desenho por quadro cresce com a
-   contagem de caminhos, e a régua é celular fraco.
-4. **Assunto que sirva a telão/totem** — tela, cartão, painel, grade, partícula
-   controlada. Nada de mascote nem personagem: personagem alheio numa página white-label
-   é a pior combinação possível.
+poda `@emnapi/runtime`. Por isso o QR é a **última tarefa do plano**: se a regeneração do
+lockfile der trabalho, ele cai sem afetar nada acima dele.
 
 ## 5. Seções
 
@@ -255,18 +179,11 @@ Critérios, para a escolha não virar gosto:
 |---|-------|-------|
 | 1 | Capa jogável | "A ativação é sua. O código é nosso." |
 | 2 | Catálogo | Quatro blocos, §5.1 |
-| 3 | Telão ao vivo | Faixa larga, a peça de Rive de §4.7 |
-| 4 | O que a agência compra | As cinco dores, §5.2 |
-| 5 | White-label | Sai com a marca da agência |
-| 6 | Prova | Os três sistemas como prova de engenharia |
-| 7 | Perguntas | As objeções reais de agência, §5.3 |
-| 8 | Chamada final + barra fixa | WhatsApp, e o crédito CC BY de §4.7.3 |
-
-A seção 3 existe por duas razões que se somam: o telão é o item do catálogo que mais
-precisa ser visto para ser entendido (ninguém compra "painel ao vivo" lendo a palavra), e
-é o único lugar da página onde uma peça animada pesada se paga. Ela **não** vive dentro
-do grid do catálogo — quatro cartões com um deles animado quebra a simetria que faz o
-grid funcionar.
+| 3 | O que a agência compra | As cinco dores, §5.2 |
+| 4 | White-label | Sai com a marca da agência |
+| 5 | Prova | Os três sistemas como prova de engenharia |
+| 6 | Perguntas | As objeções reais de agência, §5.3 |
+| 7 | Chamada final + barra fixa | WhatsApp |
 
 Preço fica `null`, como `landing.piso` na `/projetos`: a seção some sozinha até o dono
 decidir o piso.
@@ -340,8 +257,6 @@ Novos em `components/ativacoes/`:
 
 - `CapaJogo.tsx` (client) e `motor-reflexo.ts` (puro)
 - `Catalogo.tsx`
-- `TelaoRive.tsx` (client) — a faixa de §4.7, com pôster estático e importação
-  preguiçosa do runtime
 - `Compra.tsx` — as cinco dores
 - `WhiteLabel.tsx`
 - `ProvaEngenharia.tsx`
@@ -392,10 +307,6 @@ O site é `output: 'export'` em GitHub Pages, e a régua do repositório é Ligh
   `aria-hidden`; a capa renderiza sem canvas.
 - `tests/unit/ativacoes-catalogo.test.tsx` — quatro blocos, e divergência entre dicionário
   e lista de artes reprova no `tsc`.
-- `tests/unit/ativacoes-telao.test.tsx` — a faixa renderiza o pôster sem o runtime; o
-  runtime **não** é importado no módulo (só dentro do efeito), o que o teste confere
-  inspecionando as importações estáticas; e **existindo arquivo `.riv`, a linha de
-  crédito CC BY existe** — atribuição que depende de alguém lembrar não é atribuição.
 - `tests/unit/contraste.test.ts` — estendido com as cores da rota, inclusive o 3:1 do alvo
   do jogo.
 - `tests/content.test.ts` — paridade pt/en de `dict.ativacoes`.
@@ -411,15 +322,6 @@ seções correspondentes somem sozinhas enquanto o dicionário trouxer `null`.
 Novo desta página: **prazo mínimo de antecedência do evento** — a resposta da pergunta
 "com quanto tempo?" não pode ser inventada.
 
-**O arquivo `.riv` também é pendência de dado, e é do dono.** Arquivo de comunidade se
-abre e se remixa dentro do editor do Rive, que é interface gráfica atrás de login — não
-há download por URL. O dono escolhe pelos critérios de §4.7.4, remixa na conta dele,
-exporta e coloca em `public/ativacoes/`, junto do nome do autor original para o crédito.
-
-Enquanto o arquivo não existir, `TelaoRive` renderiza só o pôster e a seção continua de
-pé — mesmo padrão de `landing.piso: null`, que some sozinho. **A página não depende do
-Rive para ir ao ar.**
-
 ## 9. Riscos assumidos
 
 1. **Vender ativação sem case de ativação.** Mitigado pelo enquadramento de braço técnico
@@ -428,16 +330,8 @@ Rive para ir ao ar.**
    frase melhor.
 2. **Terceira mensagem no mesmo domínio.** Mitigado por isolamento: rota fora do `(site)`,
    sem entrada no menu, link direto. O portfólio não muda.
-3. **Arte de comunidade numa página que vende arte sob medida.** A atribuição CC BY diz
-   ao leitor, em texto, que a peça não é sua — e o leitor é diretor de criação. Mitigado
-   pelo remix (§4.7.3) e pelo lugar: a peça ilustra o **telão**, que é produto de
-   operação, enquanto a prova de que vocês constroem interação é a capa jogável, que é
-   100% código de vocês. Se a página um dia parecer montada com peça alheia, a correção é
-   encomendar um `.riv` próprio, não escrever uma frase melhor.
-4. **Dependência nova: `@rive-app/canvas-lite` + `qrcode`.** Obriga regerar o lockfile no
-   Linux (`docker run --rm -v "$PWD:/w" -w /w node:24 …`). Se isso travar, as duas caem
-   juntas e a página vai ao ar sem elas.
-5. **`npm run dev` daqui ocupa a porta 3000**, a mesma do webhook do Evolution no Saturno
+3. **Dependência nova para o QR.** Ver §4.6 — é a última tarefa, e cai sem estrago.
+4. **`npm run dev` daqui ocupa a porta 3000**, a mesma do webhook do Evolution no Saturno
    Labs. Derrubar antes de testar integração lá.
 
 ## 10. Critérios de aceitação
@@ -453,8 +347,4 @@ Rive para ir ao ar.**
 8. Estado inicial de revelação vive dentro do `@supports`; `prefers-reduced-motion` usa
    `animation-timeline: auto`.
 9. Cores novas medidas por `lib/contraste.ts`: texto AA 4.5:1, alvo do jogo 3:1.
-10. O runtime do Rive não aparece no JavaScript da primeira tela, e o `rive.wasm` é
-    servido do próprio domínio — nenhuma requisição a CDN externo em toda a rota.
-11. Havendo `.riv` publicado, a linha de crédito CC BY com o nome do autor original está
-    visível na página. Não havendo, a faixa do telão renderiza o pôster e nada quebra.
-12. `npm run lint`, `npm run typecheck`, `npm test` e `npm run test:e2e` passam.
+10. `npm run lint`, `npm run typecheck`, `npm test` e `npm run test:e2e` passam.
