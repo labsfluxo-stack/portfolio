@@ -123,6 +123,24 @@ async function acharAlvo(page: Page): Promise<{ x: number; y: number } | null> {
 }
 
 /**
+ * `acharAlvo` é a foto de um instante, e o alvo é uma coisa que pisca: dura
+ * 1200ms, nasce a cada 620ms, e existe instante legítimo sem nenhum na tela —
+ * com quatro workers disputando a máquina o laço de rAF fica lento e esse
+ * instante estica. Afirmar "há alvo na dobra" com uma leitura única é afirmar
+ * sobre o relógio, não sobre a página; esta versão insiste durante uma janela,
+ * que é o que a afirmação de fato quer dizer.
+ */
+async function esperarAlvo(page: Page, janelaMs = 4000): Promise<{ x: number; y: number } | null> {
+  const limite = Date.now() + janelaMs
+  for (;;) {
+    const alvo = await acharAlvo(page)
+    if (alvo) return alvo
+    if (Date.now() >= limite) return null
+    await page.waitForTimeout(120)
+  }
+}
+
+/**
  * O teste que existe por causa do C1: o `<div>` de conteúdo cobria o canvas
  * inteiro sem `pointer-events-none`, e como o hit test segue a ordem de
  * pintura, NENHUM ponteiro chegava ao canvas. A 390px o conteúdo cobre 100%
@@ -214,18 +232,24 @@ test.describe('capa com menos movimento', () => {
 
     const placar = page.locator('text=/\\d+ acertos/')
     await expect(placar).toBeVisible()
+
+    // O ALVO PRIMEIRO, e a ordem importa. "O placar ficou em zero" sozinho
+    // também é o que se veria se o laço de rAF nunca tivesse rodado — o teste
+    // passaria sem nada ter acontecido na página. Ver alvo nascer é o que prova
+    // que o jogo está de pé; só depois disso "zero" quer dizer alguma coisa.
+    expect(await esperarAlvo(page), 'menos movimento esvaziou a dobra').not.toBeNull()
     await expect(placar).toHaveText('0 acertos')
 
     // Tempo de sobra para o fantasma ter marcado vários pontos, se estivesse
-    // ligado: ele acerta a cada ~620ms de nascimento.
+    // ligado: ele acerta cerca de um alvo por nascimento, a cada ~620ms.
     await page.waitForTimeout(4000)
     await expect(placar, 'o fantasma marcou ponto com menos movimento ligado').toHaveText(
       '0 acertos',
     )
 
-    // E a dobra não ficou vazia: menos movimento não é um interruptor que
-    // apaga o jogo.
-    expect(await acharAlvo(page), 'menos movimento esvaziou a dobra').not.toBeNull()
+    // E a dobra continua com alvo depois disso: menos movimento não é um
+    // interruptor que apaga o jogo, e o alvo segue lá para ser tocado.
+    expect(await esperarAlvo(page), 'a dobra ficou sem alvo com menos movimento').not.toBeNull()
   })
 })
 
@@ -272,10 +296,5 @@ test('no fim da partida o resultado é DOM, e dá para jogar de novo', async ({ 
 
   // E a partida nova ANDA de verdade: alvo de volta na tela, não um `fim`
   // renomeado para `jogando`.
-  let voltouAViver = false
-  for (let tentativa = 0; tentativa < 20 && !voltouAViver; tentativa++) {
-    voltouAViver = (await acharAlvo(page)) !== null
-    if (!voltouAViver) await page.waitForTimeout(150)
-  }
-  expect(voltouAViver, 'recomeçou sem voltar a nascer alvo').toBe(true)
+  expect(await esperarAlvo(page), 'recomeçou sem voltar a nascer alvo').not.toBeNull()
 })
