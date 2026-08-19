@@ -28,9 +28,10 @@ describe('lista de slugs de OG', () => {
     ).not.toMatch(/const SLUGS\s*=\s*\[\s*'/)
   })
 
-  it('inclui a home, os sistemas e a landing', () => {
+  it('inclui a home, os sistemas e as duas landings', () => {
     expect(OG_SLUGS).toContain('home')
     expect(OG_SLUGS).toContain('projetos')
+    expect(OG_SLUGS).toContain('ativacoes')
   })
 
   // Achado C-e da revisão final de branch: nenhum teste afirmava que
@@ -38,6 +39,6 @@ describe('lista de slugs de OG', () => {
   // três nomes à mão -- achatar a lista reintroduziria a mesma deriva que
   // este arquivo existe para matar, sem quebrar nada aqui.
   it('espalha SYSTEM_SLUGS em vez de repetir os slugs à mão', () => {
-    expect(OG_SLUGS).toEqual(['home', 'projetos', ...SYSTEM_SLUGS])
+    expect(OG_SLUGS).toEqual(['home', 'projetos', 'ativacoes', ...SYSTEM_SLUGS])
   })
 })

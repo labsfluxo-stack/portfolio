@@ -60,6 +60,8 @@ export default async function OgImagePage({
   // sobre "5 em produção" antes de a visita chegar numa página que fala outra
   // coisa. Confirmado por md5: pt-projetos.png e pt-home.png eram o MESMO
   // arquivo.
+  if (slug === 'ativacoes') return <OgAtivacoes dict={dict} />
+
   if (slug === 'projetos') return <OgLanding dict={dict} />
 
   if (!isSystemSlug(slug)) return <OgHome dict={dict} />
@@ -131,6 +133,27 @@ function OgLanding({ dict }: { dict: Dictionary }) {
         </h1>
       </div>
       <p className="max-w-3xl text-2xl leading-snug text-ink-2">{landing.hero.assinatura}</p>
+    </div>
+  )
+}
+
+/**
+ * Card ESCURO, ao contrário do `OgLanding`: esta rota não inverte polaridade, e
+ * o preview precisa parecer a página que a pessoa vai abrir. A serifa do título
+ * é o que diferencia os dois cards escuros — o da home usa sans.
+ */
+function OgAtivacoes({ dict }: { dict: Dictionary }) {
+  const { hero, ativacoes } = dict
+
+  return (
+    <div className="relative flex h-[630px] w-[1200px] flex-col justify-between overflow-hidden bg-bg p-16">
+      <div className="flex flex-col gap-6">
+        <p className="font-mono text-lg uppercase tracking-[0.3em] text-muted">{hero.name}</p>
+        <h1 className="max-w-4xl font-serif text-7xl leading-[1.05] tracking-tight text-text">
+          {ativacoes.capa.titulo} <em className="text-data">{ativacoes.capa.tituloDestaque}</em>
+        </h1>
+      </div>
+      <p className="max-w-3xl text-2xl leading-snug text-muted">{ativacoes.capa.subtitulo}</p>
     </div>
   )
 }
