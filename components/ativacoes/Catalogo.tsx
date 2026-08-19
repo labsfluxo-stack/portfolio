@@ -3,9 +3,21 @@ import { ArteAtivacao, type VarianteArte } from './arte-ativacoes'
 
 /**
  * Uma arte por bloco, na ordem do dicionário. A lista fica FORA do `map` e é
- * `as const` para o tipo ser verificado: se alguém acrescentar um quinto bloco
- * ao dicionário, o `tsc` reclama aqui em vez de a página renderizar um buraco.
- * Mesmo padrão de `components/landing/Oferta.tsx`.
+ * `as const` para os nomes de variante ficarem checados contra `VarianteArte`
+ * — errar `'jogo'` em vez de `'jogos'` aqui é erro de compilação.
+ *
+ * O QUE ISTO NÃO FAZ: travar a quantidade. `catalogo.blocos` é array sem
+ * tamanho fixo em `content/types.ts`, então `ARTES[i]` é sempre
+ * `VarianteArte | undefined` — daí o `?? 'jogos'` logo abaixo, que existe
+ * porque indexar um array sem tamanho fixo não é algo que `tsc` consiga
+ * recusar em tempo de build. Um quinto bloco no dicionário passa no
+ * `typecheck` limpo e renderiza calado com o desenho errado.
+ *
+ * Quem pega isso são os testes, não o tipo: `tests/content.test.ts` trava
+ * exatamente quatro blocos no dicionário, e
+ * `tests/unit/ativacoes-catalogo.test.tsx` trava exatamente quatro `<li>` na
+ * seção. São eles a proteção de verdade — não apagar como "redundante com o
+ * tipo", porque não é.
  */
 const ARTES = ['jogos', 'captura', 'operacao', 'dados'] as const satisfies readonly VarianteArte[]
 
