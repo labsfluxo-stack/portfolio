@@ -76,6 +76,25 @@ export function criarPartida(semente: number, agora: number): Partida {
   }
 }
 
+/**
+ * Recomeça depois do fim: devolve uma partida limpa JÁ EM `jogando`, sem passar
+ * pelo modo atrativo. Quem aperta "jogar de novo" já decidiu participar, e
+ * devolver o fantasma jogando sozinho seria desfazer a decisão dele.
+ *
+ * A SEMENTE VEM DA PARTIDA QUE ACABOU, não do relógio nem de uma nova sorteada.
+ * `partida.semente` não é a semente original: é o estado atual do gerador
+ * congruente, que já andou um passo a cada alvo nascido. Repartir dali faz a
+ * sequência CONTINUAR de onde parou — a segunda partida cai em posições
+ * diferentes da primeira, e uma revanche não é uma repetição. Sortear semente
+ * nova daria o mesmo efeito, mas custaria uma fonte de aleatoriedade dentro de
+ * um motor que existe justamente para não ter nenhuma: `criarPartida` recebe
+ * semente por parâmetro para o teste ser determinístico, e `reiniciar` mantém
+ * essa propriedade de graça.
+ */
+export function reiniciar(partida: Partida, agora: number): Partida {
+  return { ...criarPartida(partida.semente, agora), fase: 'jogando', comecouEm: agora }
+}
+
 function nascer(partida: Partida, agora: number): Partida {
   const px = proximo(partida.semente)
   const py = proximo(px.semente)

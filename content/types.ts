@@ -537,6 +537,13 @@ export type Dictionary = {
       convite: string
       /** Rótulos do placar. Nunca os valores — esses vêm do motor. */
       placar: { acertos: string; reacao: string }
+      /** Fim de partida (spec §4.3): resultado, convite e o botão de recomeçar,
+       *  tudo em DOM real — o canvas terminal não fala com ninguém.
+       *
+       *  `resultado` traz os marcadores `{acertos}` e `{reacao}`, substituídos
+       *  no render pelo placar do motor, exatamente como `{producao}` em
+       *  `prova.lead`. NENHUM DÍGITO ENTRA NO DICIONÁRIO. */
+      fim: { titulo: string; resultado: string; cta: string; reiniciar: string }
     }
     cta: { rotulo: string; mensagem: string; tranquilizador: string }
     catalogo: {

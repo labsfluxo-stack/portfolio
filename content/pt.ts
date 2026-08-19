@@ -814,6 +814,12 @@ export const pt: Dictionary = {
         'Dois desenvolvedores full-stack constroem o software da ativação que a sua agência vendeu.',
       convite: 'Toque nos alvos.',
       placar: { acertos: 'acertos', reacao: 'ms de reação' },
+      fim: {
+        titulo: 'Acabou o tempo.',
+        resultado: '{acertos} acertos, {reacao}ms de reação média.',
+        cta: 'Essa mecânica, com a marca da sua agência, no seu evento.',
+        reiniciar: 'Jogar de novo',
+      },
     },
     cta: {
       rotulo: 'Falar sobre um projeto',
