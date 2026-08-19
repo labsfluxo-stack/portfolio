@@ -4,6 +4,7 @@ import {
   criarPartida,
   DURACAO_MS,
   mediaReacao,
+  reiniciar,
   tocar,
   tocarEm,
   type Partida,
@@ -48,6 +49,12 @@ describe('motor de reflexo', () => {
 
   it('todo alvo nasce dentro do quadro normalizado', () => {
     const p = simular(criarPartida(7, 0), 0, 400)
+    // O `for` abaixo não afirma NADA se `p.alvos` estiver vazio — e vazio
+    // acontece de verdade: 104 dos 400 tiques simulados param num instante sem
+    // alvo vivo (o alvo dura 1200ms, nasce a cada 620ms, e o fantasma remove os
+    // que acerta). Sem esta linha o teste passava na sorte do tique em que a
+    // simulação parou, e um alvo nascendo fora do quadro passaria batido.
+    expect(p.alvos.length).toBeGreaterThan(0)
     for (const alvo of p.alvos) {
       expect(alvo.x).toBeGreaterThanOrEqual(alvo.raio)
       expect(alvo.x).toBeLessThanOrEqual(1 - alvo.raio)
@@ -107,6 +114,42 @@ describe('motor de reflexo', () => {
     const fim = avancar(jogando, DURACAO_MS + 1)
     expect(fim.fase).toBe('fim')
     expect(fim.alvos).toEqual([])
+  })
+
+  // `fim` era estado terminal sem saída: `tocar` devolvia a partida inalterada
+  // e nada no motor sabia recomeçar. `reiniciar` é a saída, e ela entrega uma
+  // partida JÁ EM `jogando` — quem apertou "jogar de novo" não quer assistir ao
+  // fantasma jogar por ele.
+  it('reiniciar devolve uma partida limpa já jogando, e ela volta a nascer alvo', () => {
+    const jogando = tocar(criarPartida(9, 0), 0.5, 0.5, 0)
+    const comAlvo = simular(jogando, 0, 60)
+    const fim = avancar(comAlvo, DURACAO_MS + 1)
+    expect(fim.fase).toBe('fim')
+    expect(fim.acertos).toBeGreaterThanOrEqual(0)
+
+    const t = DURACAO_MS + 2000
+    const nova = reiniciar(fim, t)
+    expect(nova.fase).toBe('jogando')
+    expect(nova.acertos).toBe(0)
+    expect(nova.somaReacao).toBe(0)
+    expect(nova.alvos).toEqual([])
+    expect(nova.comecouEm).toBe(t)
+
+    // E o mais importante: a partida nova ANDA. Um `fim` renomeado para
+    // `jogando` que nunca mais fizesse nascer alvo seria a mesma tela morta com
+    // outro nome.
+    const rodando = simular(nova, t, 60)
+    expect(rodando.alvos.length).toBeGreaterThan(0)
+  })
+
+  // A revanche não pode ser a repetição exata da partida anterior: a semente
+  // que `reiniciar` reaproveita é o ESTADO ATUAL do gerador, não a semente
+  // original, e por isso a sequência continua de onde parou.
+  it('reiniciar continua a sequência em vez de repetir a partida anterior', () => {
+    const primeira = simular(tocar(criarPartida(9, 0), 0.5, 0.5, 0), 0, 200)
+    const fim = avancar(primeira, DURACAO_MS + 1)
+    const segunda = simular(reiniciar(fim, DURACAO_MS + 2000), DURACAO_MS + 2000, 200)
+    expect(segunda.alvos.map((alvo) => alvo.x)).not.toEqual(primeira.alvos.map((alvo) => alvo.x))
   })
 
   // O modo atrativo NÃO tem fim: a dobra fica viva enquanto ninguém tocar.

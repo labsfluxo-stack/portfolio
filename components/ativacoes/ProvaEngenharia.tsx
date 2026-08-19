@@ -48,8 +48,18 @@ export function ProvaEngenharia({ dict, locale }: { dict: Dictionary; locale: Lo
           * Mesma resolução já registrada em `components/landing/Prova.tsx` —
           * não é um critério novo aqui, é o achado que o dono já resolveu
           * numa página irmã; este comentário só nomeia o precedente para
-          * quem vier depois não reabrir a discussão. */}
-        <Link href={`/${locale}`} className="w-fit text-[17px] text-data hover:opacity-80">
+          * quem vier depois não reabrir a discussão.
+          *
+          * `prefetch={false}`, igual ao irmão em `components/landing/Prova.tsx`:
+          * por padrão o Next busca a rota assim que o link entra na viewport, e
+          * aqui isso é baixar a home inteira no meio de uma página que é medida
+          * com régua de Lighthouse. Quem quer o case study clica; quem só rolou
+          * até aqui não paga por ele. */}
+        <Link
+          prefetch={false}
+          href={`/${locale}`}
+          className="w-fit text-[17px] text-data hover:opacity-80"
+        >
           {prova.verCase}
         </Link>
       </div>

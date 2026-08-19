@@ -12,13 +12,20 @@ import { BotaoWhatsapp } from './Botao'
  * um botão de chat flutuante que estava em posição inesperada.
  *
  * O respiro que evita a barra cobrir o último bloco é `pb-20 md:pb-0` no
- * `<main>` de `app/[locale]/projetos/layout.tsx` (Task 10) — não em `page.tsx`,
- * e não com o valor exato desta barra (~73px): padding em qualquer elemento
- * que seja (ou contenha) o último filho de `main` coincide matematicamente
- * com o fim do documento depois de rolar até o fundo, então só um padding no
- * PRÓPRIO `main` cria a folga de verdade. Ver o comentário lá para a medição
- * completa. É exatamente o defeito que o Baymard documenta nas bolhas de
- * chat flutuantes: cobrir o conteúdo que a pessoa está tentando ler.
+ * `<main>` de CADA layout que monta esta barra — hoje são dois,
+ * `app/[locale]/projetos/layout.tsx` (Task 10) e `app/[locale]/ativacoes/layout.tsx`.
+ * A barra não carrega esse respiro consigo: `position: fixed` não ocupa espaço
+ * no fluxo, então quem monta a barra tem que abrir o espaço. Layout novo que a
+ * use e esqueça o padding volta a cobrir o fim do conteúdo, e o teste que mede
+ * isso vive por rota (`tests/e2e/landing.spec.ts` e `tests/e2e/ativacoes.spec.ts`).
+ *
+ * O padding vai no `<main>`, não em `page.tsx` e não com o valor exato desta
+ * barra (~73px): padding em qualquer elemento que seja (ou contenha) o último
+ * filho de `main` coincide matematicamente com o fim do documento depois de
+ * rolar até o fundo, então só um padding no PRÓPRIO `main` cria a folga de
+ * verdade. Ver o comentário em `projetos/layout.tsx` para a medição completa. É
+ * exatamente o defeito que o Baymard documenta nas bolhas de chat flutuantes:
+ * cobrir o conteúdo que a pessoa está tentando ler.
  *
  * Sem o verde `#25D366`: ele dá 1,79:1 sobre o papel, reprova, e é o marcador
  * visual de widget de construtor de página. Numa página que precisa sustentar

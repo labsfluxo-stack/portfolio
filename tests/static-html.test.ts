@@ -377,10 +377,15 @@ describe('portão de GEO — landing de ativações', () => {
   for (const locale of locales) {
     const dict = dicts[locale]
 
-    it(`/${locale}/ativacoes traz o título fora de <script>`, () => {
+    // O CTA entra AQUI, junto do título: o critério de aceite desta rota nomeia
+    // título, catálogo E CTA, e o CTA era o único dos três que nenhum teste
+    // olhava. Ele é o destino único da página — uma landing cujo botão sumisse
+    // do HTML entregue continuaria passando em todo o resto da suíte.
+    it(`/${locale}/ativacoes traz o título e o CTA fora de <script>`, () => {
       const limpo = semScripts(html(`${locale}/ativacoes`))
       expect(limpo).toContain(escapeHtmlText(dict.ativacoes.capa.titulo))
       expect(limpo).toContain(escapeHtmlText(dict.ativacoes.capa.tituloDestaque))
+      expect(limpo).toContain(escapeHtmlText(dict.ativacoes.cta.rotulo))
     })
 
     // Spec §4.2: o texto da dobra é DOM, não pixel. Se alguém um dia desenhar

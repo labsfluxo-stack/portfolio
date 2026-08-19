@@ -1,48 +1,31 @@
 import { render, screen } from '@testing-library/react'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { CapaJogo } from '@/components/ativacoes/CapaJogo'
 import { pt } from '@/content/pt'
 import { en } from '@/content/en'
 
 /**
- * jsdom não implementa `matchMedia`, `ResizeObserver`, `IntersectionObserver`
- * nem contexto 2D de canvas. Isso NÃO é um obstáculo a contornar — é o cenário
- * real de um navegador sem canvas, e o componente tem que sobreviver a ele. Os
- * dois primeiros ganham stub aqui porque a ausência deles é artefato do jsdom;
- * `getContext` fica sem stub de propósito, para o teste exercer exatamente o
- * caminho "não há canvas" que a página promete suportar.
+ * O QUE ESTE ARQUIVO PROVA — E O QUE ELE NÃO TEM COMO ALCANÇAR.
+ *
+ * `tests/setup.ts` já instala `matchMedia` e `IntersectionObserver` para a
+ * suíte inteira, e força `HTMLCanvasElement.prototype.getContext` a devolver
+ * `null` GLOBALMENTE. Havia aqui um `beforeAll` reinstalando os dois primeiros
+ * com `??=` — que nunca disparava, porque já estavam definidos — e um `ResizeObserver`
+ * que o efeito nunca chega a consultar. O comentário que os acompanhava
+ * afirmava que `getContext` ficava sem stub de propósito, ou seja, o contrário
+ * do que o setup faz. Bloco removido: stub morto que descreve errado o ambiente
+ * atrapalha mais do que stub nenhum.
+ *
+ * A consequência real é que O LAÇO DE rAF NUNCA RODA AQUI. Sem contexto 2D o
+ * `useEffect` sai na primeira guarda, e é isto que os casos abaixo exercem: o
+ * cenário do navegador sem canvas que a página promete suportar (spec §4.2 e
+ * §4.4) — título, subtítulo, CTA e QR em DOM real, sem depender de pixel.
+ *
+ * Nada que dependa do laço é observável daqui: o ponteiro chegando ao canvas, o
+ * alvo encolhendo ou não sob `prefers-reduced-motion`, o fim de partida. Esses
+ * vivem em `tests/e2e/ativacoes.spec.ts`, no navegador de verdade, e é por isso
+ * que aquele arquivo é o único portão que enxerga os defeitos C1 e C2.
  */
-beforeAll(() => {
-  window.matchMedia ??= ((query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia
-
-  window.ResizeObserver ??= class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  } as unknown as typeof ResizeObserver
-
-  window.IntersectionObserver ??= class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-    takeRecords() {
-      return []
-    }
-    root = null
-    rootMargin = ''
-    thresholds = []
-  } as unknown as typeof IntersectionObserver
-})
-
 describe('capa jogável', () => {
   // Spec §4.2, a regra mais cara desta seção: canvas é invisível para GPTBot,
   // ClaudeBot e PerplexityBot. A landing irmã vende exatamente o argumento de
