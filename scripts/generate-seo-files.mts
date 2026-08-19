@@ -44,7 +44,12 @@ function routeUrl(locale: Locale, path: string): string {
 // no llms.txt, quebrando a garantia que o comentário do topo deste arquivo
 // promete ("as três coisas juntas... nunca saem de sincronia"). Mesma classe
 // de defeito que a Task 12 existe pra matar (duas listas que deviam ser uma).
-const PATHS: string[] = ['', '/projetos', ...SYSTEM_SLUGS.map((slug) => `/sistemas/${slug}`)]
+const PATHS: string[] = [
+  '',
+  '/projetos',
+  '/ativacoes',
+  ...SYSTEM_SLUGS.map((slug) => `/sistemas/${slug}`),
+]
 
 function buildSitemap(): string {
   const entries = locales.flatMap((locale) =>
@@ -71,15 +76,18 @@ function buildRobots(): string {
 
 /**
  * Par (nome, descrição) de uma rota de `PATHS`, para um `Dictionary` de um
- * locale. Só existem três formatos de rota em `PATHS` hoje (home, a landing
- * de captação, um case study) — os dois primeiros são casos fixos, o
- * terceiro é o único que varia por dado (`SYSTEM_SLUGS`). Nome e descrição
- * SEMPRE vêm de um campo que já existe no dicionário (mesmo par que
+ * locale. Só existem quatro formatos de rota em `PATHS` hoje (home, a landing
+ * de captação, a landing de ativações, um case study) — os três primeiros são
+ * casos fixos, o quarto é o único que varia por dado (`SYSTEM_SLUGS`). Nome e
+ * descrição SEMPRE vêm de um campo que já existe no dicionário (mesmo par que
  * `generateMetadata` de cada rota usa) — nunca um texto novo escrito aqui.
  */
 function entryFor(d: Dictionary, path: string): { label: string; description: string } {
   if (path === '') return { label: d.hero.name, description: d.meta.description }
   if (path === '/projetos') return { label: d.landing.meta.title, description: d.landing.meta.description }
+  if (path === '/ativacoes') {
+    return { label: d.ativacoes.meta.title, description: d.ativacoes.meta.description }
+  }
   const slug = path.replace('/sistemas/', '') as SystemSlug
   const cs = d.systems.detail[slug]
   return { label: cs.name, description: cs.tagline }
