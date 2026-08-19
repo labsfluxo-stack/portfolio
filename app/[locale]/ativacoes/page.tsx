@@ -62,7 +62,7 @@ export default async function AtivacoesPage({
 
   return (
     <>
-      <CapaJogo dict={dict} />
+      <CapaJogo dict={dict} locale={locale} />
       <Catalogo dict={dict} />
       <Compra dict={dict} />
       <WhiteLabel dict={dict} />

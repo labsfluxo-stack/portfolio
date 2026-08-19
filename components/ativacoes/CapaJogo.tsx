@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import type { Dictionary } from '@/content/types'
+import type { Dictionary, Locale } from '@/content/types'
 import { BotaoWhatsapp } from '@/components/landing/Botao'
 import {
   avancar,
@@ -36,7 +36,7 @@ const COR_TRILHO = '#1F232B'
 /** Acima de 2 o ganho é invisível e o custo de preenchimento dobra. */
 const DPR_MAX = 2
 
-export function CapaJogo({ dict }: { dict: Dictionary }) {
+export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const partidaRef = useRef<Partida | null>(null)
   const [placar, setPlacar] = useState({ acertos: 0, reacao: 0 })
@@ -231,6 +231,22 @@ export function CapaJogo({ dict }: { dict: Dictionary }) {
           <span>
             {placar.reacao} {capa.placar.reacao}
           </span>
+          {/* `hidden md:block`: no celular o QR é piada — a pessoa já está no
+            * telefone. Serve ao visitante de desktop que quer sentir a mecânica
+            * no aparelho em que ela de fato vai rodar no estande.
+            *
+            * `qr-${locale}.svg`, não `qr-pt.svg` fixo: o QR aponta para
+            * `/[locale]/ativacoes`, e um visitante em `/en` que escaneasse o
+            * SVG em português cairia na rota errada — o próprio bug que a
+            * página existe para não ter em nenhum outro lugar. */}
+          <img
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? '/portfolio'}/ativacoes/qr-${locale}.svg`}
+            alt=""
+            aria-hidden="true"
+            width={72}
+            height={72}
+            className="hidden md:block"
+          />
         </div>
       </div>
     </section>
