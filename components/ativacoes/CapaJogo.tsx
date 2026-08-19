@@ -211,9 +211,11 @@ export function CapaJogo({ dict }: { dict: Dictionary }) {
           <BotaoWhatsapp numero={dict.contact.whatsapp} mensagem={cta.mensagem} variante="claro">
             {cta.rotulo}
           </BotaoWhatsapp>
-          <span className="font-mono text-xs uppercase tracking-[0.15em] text-faint">
-            {cta.tranquilizador}
-          </span>
+          {/* `cta.tranquilizador` tem CINCO palavras — passa longe do teto de
+            * 1–3 que libera rótulo mono abaixo de 17px. É corpo de texto, não
+            * etiqueta: mesmo tratamento do resto da seção, sem caixa-alta nem
+            * tracking. Ver o mesmo texto em LandingCta.tsx. */}
+          <p className="text-[17px] leading-relaxed text-muted">{cta.tranquilizador}</p>
         </div>
         {/* Placar e convite são `aria-hidden`: duplicam o que o canvas mostra,
           * e um leitor de tela anunciando "3 acertos" a cada segundo seria
