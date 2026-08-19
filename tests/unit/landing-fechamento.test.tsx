@@ -47,21 +47,39 @@ describe('BarraCta', () => {
    * IGNORANDO COMPLETAMENTE um botão de chat flutuante em posição inesperada.
    */
   it('é barra de largura total, não bolha redonda', () => {
-    const { container } = render(<BarraCta dict={pt} />)
+    const { container } = render(
+      <BarraCta
+        numero={pt.contact.whatsapp}
+        rotulo={pt.landing.cta.rotulo}
+        mensagem={pt.landing.cta.mensagem}
+      />
+    )
     const barra = container.firstElementChild
     expect(barra?.className).toContain('inset-x-0')
     expect(barra?.className).not.toContain('rounded-full')
   })
 
   it('some no desktop, onde o CTA inline já existe', () => {
-    const { container } = render(<BarraCta dict={pt} />)
+    const { container } = render(
+      <BarraCta
+        numero={pt.contact.whatsapp}
+        rotulo={pt.landing.cta.rotulo}
+        mensagem={pt.landing.cta.mensagem}
+      />
+    )
     expect(container.firstElementChild?.className).toContain('md:hidden')
   })
 
   // O verde saturado do WhatsApp dá 1,79:1 sobre o papel — reprova — e é o
   // marcador visual de widget genérico de construtor de página.
   it('não usa o verde do WhatsApp como cor de fundo', () => {
-    const { container } = render(<BarraCta dict={pt} />)
+    const { container } = render(
+      <BarraCta
+        numero={pt.contact.whatsapp}
+        rotulo={pt.landing.cta.rotulo}
+        mensagem={pt.landing.cta.mensagem}
+      />
+    )
     expect(container.innerHTML).not.toContain('#25D366')
     expect(container.innerHTML).not.toContain('25d366')
   })
@@ -69,7 +87,13 @@ describe('BarraCta', () => {
   // Ver tests/unit/landing-topo.test.tsx (achado I3) -- é a barra do
   // celular, onde o navegador embutido do Instagram entra em jogo.
   it('o CTA abre em aba nova', () => {
-    render(<BarraCta dict={pt} />)
+    render(
+      <BarraCta
+        numero={pt.contact.whatsapp}
+        rotulo={pt.landing.cta.rotulo}
+        mensagem={pt.landing.cta.mensagem}
+      />
+    )
     const link = screen.getByRole('link')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noreferrer')

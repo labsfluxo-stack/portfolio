@@ -92,7 +92,11 @@ export default async function LandingPage({
       <Perguntas dict={dict} />
       <Fecho dict={dict} />
       <div>
-        <BarraCta dict={dict} />
+        <BarraCta
+          numero={dict.contact.whatsapp}
+          rotulo={dict.landing.cta.rotulo}
+          mensagem={dict.landing.cta.mensagem}
+        />
       </div>
     </>
   )

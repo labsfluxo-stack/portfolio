@@ -1,4 +1,3 @@
-import type { Dictionary } from '@/content/types'
 import { BotaoWhatsapp } from './Botao'
 
 /**
@@ -31,17 +30,46 @@ import { BotaoWhatsapp } from './Botao'
  * `position: fixed` tem histórico de deslocamento no iOS quando a barra de
  * endereço recolhe, e o navegador do Instagram tem viewport menor com barra
  * própria disputando o mesmo espaço.
+ *
+ * A BARRA DEIXOU DE LER `dict.landing`. Ela nasceu para a /projetos e passou a
+ * servir duas rotas com polaridades opostas; ler uma chave específica do
+ * dicionário amarrava um componente de layout a uma página. Agora recebe o que
+ * mostra por prop, e a polaridade escolhe os tokens — na rota clara os tokens
+ * de papel, na escura os de superfície. Sem isso, a barra apareceria branca
+ * sobre a página escura, que é o defeito que ninguém vê em teste de unidade.
  */
-export function BarraCta({ dict }: { dict: Dictionary }) {
-  const { cta } = dict.landing
+const POLARIDADE = {
+  clara: { caixa: 'border-rule bg-paper/95', botao: 'escuro' },
+  escura: { caixa: 'border-border bg-bg/95', botao: 'claro' },
+} as const
+
+export function BarraCta({
+  numero,
+  rotulo,
+  mensagem,
+  polaridade = 'clara',
+}: {
+  numero: string
+  rotulo: string
+  mensagem: string
+  polaridade?: keyof typeof POLARIDADE
+}) {
+  const tokens = POLARIDADE[polaridade]
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-rule bg-paper/95 p-3 backdrop-blur md:hidden">
+    <div
+      className={`fixed inset-x-0 bottom-0 z-50 border-t ${tokens.caixa} p-3 backdrop-blur md:hidden`}
+    >
       {/* Ver LandingHero.tsx: mesmo `target="_blank" rel="noreferrer"`,
        * mesmo motivo. Esta é a barra que fica no celular -- exatamente onde
        * o navegador embutido do Instagram entra em jogo. */}
-      <BotaoWhatsapp numero={dict.contact.whatsapp} mensagem={cta.mensagem} largura="cheia">
-        {cta.rotulo}
+      <BotaoWhatsapp
+        numero={numero}
+        mensagem={mensagem}
+        variante={tokens.botao}
+        largura="cheia"
+      >
+        {rotulo}
       </BotaoWhatsapp>
     </div>
   )
