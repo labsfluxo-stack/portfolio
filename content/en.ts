@@ -702,7 +702,7 @@ export const en: Dictionary = {
         {
           nome: 'Games and mechanics',
           corpo:
-            'Branded advergame, quiz, prize wheel, memory game, word search, reflex challenge. Runs in the visitor browser via QR, or on the touch kiosk.',
+            "Branded advergame, quiz, prize wheel, memory game, word search, reflex challenge. Runs in the visitor's browser via QR, or on the touch kiosk.",
         },
         {
           nome: 'Capture and content',
@@ -734,11 +734,11 @@ export const en: Dictionary = {
         {
           titulo: 'Holds a queue.',
           corpo:
-            'Thirty people back to back, weak phones, saturated 4G. That is the case we optimise for, not the lab.',
+            'Thirty people back to back, weak phones, saturated 4G. That is the case we optimize for, not the lab.',
         },
         {
           titulo: 'No app to install.',
-          corpo: 'It opens in the visitor browser via QR. Nobody installs anything at a booth.',
+          corpo: "It opens in the visitor's browser via QR. Nobody installs anything at a booth.",
         },
         {
           titulo: 'The database comes out clean.',
@@ -769,7 +769,7 @@ export const en: Dictionary = {
         {
           pergunta: 'What if the booth internet goes down?',
           resposta:
-            'The software runs locally, on the kiosk or on the visitor own phone. The queue keeps moving and the data uploads once the network is back.',
+            "The software runs locally, on the kiosk or on the visitor's own phone. The queue keeps moving and the data uploads once the network is back.",
         },
         {
           pergunta: 'Do you sign the work?',
