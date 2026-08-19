@@ -7,7 +7,7 @@ import {
   avancar,
   criarPartida,
   mediaReacao,
-  tocar,
+  tocarEm,
   type Partida,
 } from './motor-reflexo'
 
@@ -160,11 +160,19 @@ export function CapaJogo({ dict }: { dict: Dictionary }) {
       const estado = partidaRef.current
       if (!estado) return
       const caixa = canvas.getBoundingClientRect()
-      partidaRef.current = tocar(
+      // `tocarEm`, não `tocar`: o laço de rAF fica pausado fora da tela e em
+      // aba oculta, e um toque que chegue nesse intervalo precisa reavaliar
+      // a duração da partida antes de ser julgado — ver comentário em
+      // `motor-reflexo.ts`. `agora` é capturado uma vez e reaproveitado, em
+      // vez de duas chamadas a `performance.now()` que poderiam divergir
+      // entre o instante que `avancar` usa e o que `tocar` usa.
+      const agora = performance.now()
+      partidaRef.current = tocarEm(
         estado,
         (evento.clientX - caixa.left) / caixa.width,
         (evento.clientY - caixa.top) / caixa.height,
-        performance.now(),
+        agora,
+        !menosMovimento,
       )
     }
     canvas.addEventListener('pointerdown', aoTocar)

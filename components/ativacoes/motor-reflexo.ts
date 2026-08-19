@@ -168,6 +168,24 @@ export function tocar(partida: Partida, x: number, y: number, agora: number): Pa
   }
 }
 
+/**
+ * `tocar` sozinho não reavalia a duração da partida, e quem consome o motor
+ * a partir de um laço que pode ser pausado (fora da viewport, aba oculta)
+ * leria estado velho — um toque tardio pontuaria contra uma partida já
+ * encerrada. Esta composição é a forma segura de despachar um toque, e
+ * existe aqui, e não no componente, porque frescor do estado no instante do
+ * toque é regra de partida, não detalhe de desenho.
+ */
+export function tocarEm(
+  partida: Partida,
+  x: number,
+  y: number,
+  agora: number,
+  fantasma = true,
+): Partida {
+  return tocar(avancar(partida, agora, fantasma), x, y, agora)
+}
+
 /** Média em ms, arredondada. Zero sem acerto — nunca `NaN` na tela. */
 export function mediaReacao(partida: Partida): number {
   if (partida.acertos === 0) return 0

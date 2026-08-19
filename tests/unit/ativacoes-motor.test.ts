@@ -5,6 +5,7 @@ import {
   DURACAO_MS,
   mediaReacao,
   tocar,
+  tocarEm,
   type Partida,
 } from '@/components/ativacoes/motor-reflexo'
 
@@ -136,5 +137,48 @@ describe('motor de reflexo', () => {
     const fim = avancar(comAlvo, DURACAO_MS + 1)
     const depois = tocar(fim, 0.5, 0.5, DURACAO_MS + 500)
     expect(depois.acertos).toBe(fim.acertos)
+  })
+
+  // Achado do fix round 1 do review da Task 4: `aoTocar`, no componente, lê
+  // `partidaRef.current` e despacha direto para `tocar`. `tocar` sozinho só
+  // olha `fase === 'fim'` — quem reavalia a duração de 15s é `avancar`, que
+  // só roda enquanto o laço de rAF está girando, e o laço é pausado de
+  // propósito fora da viewport e em aba oculta. Um toque que chegue nesse
+  // intervalo — depois que a partida devia ter acabado, mas antes do próximo
+  // quadro rodar `avancar` de novo — julga contra o estado de antes da
+  // pausa. `tocar` puro, sem nenhum `avancar` no meio, cai exatamente nessa
+  // armadilha: pontua contra uma partida cujos 15 segundos já passaram.
+  it('um toque tardio sem avancar no meio não pontua contra a partida já encerrada', () => {
+    const jogando = tocar(criarPartida(9, 0), 0.5, 0.5, 0)
+    const comAlvo = simular(jogando, 0, 60)
+    const alvo = comAlvo.alvos[0]!
+
+    // Tempo real passou muito além da duração da partida, mas nada chamou
+    // `avancar` nesse intervalo — é exatamente o buraco do laço pausado.
+    const agoraTarde = comAlvo.comecouEm + DURACAO_MS + 5000
+
+    // A prova de que a falha é real: `tocar` puro pontua contra estado
+    // velho e nunca marca a partida como `fim`.
+    const comTocarPuro = tocar(comAlvo, alvo.x, alvo.y, agoraTarde)
+    expect(comTocarPuro.fase).toBe('jogando')
+    expect(comTocarPuro.acertos).toBe(comAlvo.acertos + 1)
+
+    // `tocarEm` reavalia a duração antes de julgar o toque: a partida já
+    // devia estar em `fim`, e o toque tardio não pontua contra ela.
+    const comTocarEm = tocarEm(comAlvo, alvo.x, alvo.y, agoraTarde)
+    expect(comTocarEm.fase).toBe('fim')
+    expect(comTocarEm.acertos).toBe(comAlvo.acertos)
+  })
+
+  // A correção não pode virar "nunca pontua": um toque bem dentro da janela
+  // ainda tem que marcar ponto através de `tocarEm`.
+  it('tocarEm ainda marca ponto quando o toque chega bem dentro da janela', () => {
+    const jogando = tocar(criarPartida(9, 0), 0.5, 0.5, 0)
+    const comAlvo = simular(jogando, 0, 60)
+    const alvo = comAlvo.alvos[0]!
+
+    const acertou = tocarEm(comAlvo, alvo.x, alvo.y, alvo.nascidoEm + 100)
+    expect(acertou.fase).toBe('jogando')
+    expect(acertou.acertos).toBe(comAlvo.acertos + 1)
   })
 })
