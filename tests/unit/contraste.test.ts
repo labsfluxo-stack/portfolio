@@ -60,4 +60,24 @@ describe('contraste', () => {
       expect(contraste(hex, PAPEL)).toBeLessThan(4.5)
     })
   })
+
+  /**
+   * O alvo do jogo não é texto, então o mínimo não é o 4.5:1 de AA — é o 3:1 da
+   * WCAG 1.4.11 para componente de interface não textual. `#FFB020` é
+   * `--color-warn`, cor que já existe no `@theme`: a rota não inventa cor
+   * nenhuma, e essa foi a decisão que dispensou medir um tom quente novo.
+   */
+  describe('a partida da dobra', () => {
+    it('o alvo se distingue do fundo do canvas com folga sobre o mínimo de 3:1', () => {
+      expect(contraste('#FFB020', ESCURO)).toBeGreaterThanOrEqual(3)
+    })
+
+    it('o anel do alvo não é usado para transmitir informação sozinho', () => {
+      // `--color-border` (#1F232B) reprova 3:1 de propósito: ele é decoração
+      // em volta do alvo, e o alvo já se distingue sozinho pela cor e pelo
+      // tamanho. Esta asserção existe para que ninguém promova o anel a
+      // portador de significado sem antes trocar a cor dele.
+      expect(contraste('#1F232B', ESCURO)).toBeLessThan(3)
+    })
+  })
 })

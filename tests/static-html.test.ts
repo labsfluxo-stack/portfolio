@@ -372,3 +372,27 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
     }
   })
 })
+
+describe('portão de GEO — landing de ativações', () => {
+  for (const locale of locales) {
+    const dict = dicts[locale]
+
+    it(`/${locale}/ativacoes traz o título fora de <script>`, () => {
+      const limpo = semScripts(html(`${locale}/ativacoes`))
+      expect(limpo).toContain(escapeHtmlText(dict.ativacoes.capa.titulo))
+      expect(limpo).toContain(escapeHtmlText(dict.ativacoes.capa.tituloDestaque))
+    })
+
+    // Spec §4.2: o texto da dobra é DOM, não pixel. Se alguém um dia desenhar
+    // o título no canvas, este é o teste que acusa.
+    it(`/${locale}/ativacoes traz o catálogo inteiro em texto`, () => {
+      const limpo = semScripts(html(`${locale}/ativacoes`))
+      for (const bloco of dict.ativacoes.catalogo.blocos) {
+        expect(limpo, `bloco ausente do HTML: ${bloco.nome}`).toContain(
+          escapeHtmlText(bloco.nome),
+        )
+      }
+      expect(limpo).toContain(escapeHtmlText(dict.ativacoes.catalogo.escopo))
+    })
+  }
+})
