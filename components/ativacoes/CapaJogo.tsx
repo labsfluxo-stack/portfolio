@@ -8,6 +8,7 @@ import {
   criarPartida,
   mediaReacao,
   tocarEm,
+  VIDA_ALVO_MS,
   type Partida,
 } from './motor-reflexo'
 
@@ -25,6 +26,13 @@ import {
  * segundo, e re-renderizar o React a cada quadro colocaria na thread principal
  * justamente o custo que este componente existe para não ter. Só o placar
  * atravessa para o React, e só quando muda de valor.
+ *
+ * O PONTEIRO PRECISA CHEGAR AO CANVAS. O `<div>` de conteúdo cobre a dobra
+ * inteira (a 390px cobre 100% dela), e o hit test do navegador segue a ordem de
+ * pintura, não o `z-index`: sem `pointer-events-none` nele, TODO evento de
+ * ponteiro morre no `<div>` e o `pointerdown` do canvas nunca dispara — a
+ * página escreveria "Toque nos alvos." sobre uma superfície inerte. Quem
+ * precisa de clique (o CTA) reativa com `pointer-events-auto`.
  */
 
 /** Cor do alvo: `--color-warn` (#FFB020). Não é cor nova — já está no `@theme`
@@ -96,11 +104,18 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
       pincel.fillRect(0, 0, largura, altura)
 
       for (const alvo of estado.alvos) {
-        const idade = agora - alvo.nascidoEm
         // O alvo encolhe conforme o tempo dele acaba: é o que transmite pressa
         // sem escrever "rápido!" na tela.
-        const vida = Math.max(0, 1 - idade / 1200)
-        const raio = alvo.raio * Math.min(largura, altura) * (0.55 + 0.45 * vida)
+        //
+        // COM MENOS MOVIMENTO O RAIO É CONSTANTE. O encolhimento É a pulsação
+        // que a spec §4.4 manda remover — não adianta desligar só o fantasma e
+        // deixar cada alvo animando o próprio contorno 60 vezes por segundo. O
+        // alvo continua nascendo, expirando e sendo clicável: menos movimento
+        // não é um interruptor que esvazia a dobra, e quem pediu menos
+        // movimento é justamente quem menos deve ser punido.
+        const vida = Math.max(0, 1 - (agora - alvo.nascidoEm) / VIDA_ALVO_MS)
+        const escala = menosMovimento ? 1 : 0.55 + 0.45 * vida
+        const raio = alvo.raio * Math.min(largura, altura) * escala
 
         pincel.beginPath()
         pincel.arc(alvo.x * largura, alvo.y * altura, raio, 0, Math.PI * 2)
@@ -192,22 +207,40 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
     <section className="relative isolate overflow-hidden border-b border-border">
       {/* O canvas é fundo absoluto; o conteúdo vem por cima em fluxo normal.
         * `aria-hidden` e sem `tabindex`: nenhuma informação vive só aqui.
-        * `touch-none` impede o navegador de interpretar o toque no alvo como
-        * início de rolagem — sem isso, no celular, metade dos acertos vira
-        * scroll. */}
+        *
+        * `touch-manipulation`, NÃO `touch-none`. `touch-action: none` entrega
+        * ao canvas todo gesto de toque da primeira dobra — inclusive o arrasto
+        * de rolagem — e a dobra ocupa a tela inteira do celular: a página
+        * pararia de rolar no dedo, e o visitante teria que adivinhar que
+        * precisa começar a arrastar mais abaixo. `manipulation` mantém a
+        * rolagem e o toque de acerto, e descarta só o zoom por duplo toque, que
+        * é o que de fato atrapalha quem está batendo em alvo.
+        *
+        * O defeito estava latente enquanto o `<div>` de conteúdo comia todos os
+        * eventos: `touch-action` num elemento que nunca é alvo de ponteiro não
+        * faz nada. Ligar o ponteiro no canvas ligaria este junto. */}
       <canvas
         ref={canvasRef}
         aria-hidden="true"
-        className="absolute inset-0 -z-10 h-full w-full touch-none bg-bg"
+        className="absolute inset-0 -z-10 h-full w-full touch-manipulation bg-bg"
       />
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-24 sm:py-32">
+      {/* `pointer-events-none`: ver o cabeçalho do arquivo. É o que deixa o
+        * ponteiro atravessar até o canvas — sem isso não existe superfície
+        * jogável nenhuma no celular. */}
+      <div className="pointer-events-none mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-24 sm:py-32">
         <h1 className="font-serif text-5xl leading-[1.05] tracking-tight text-text sm:text-7xl">
           {capa.titulo}
           <br />
           <em className="text-data">{capa.tituloDestaque}</em>
         </h1>
         <p className="max-w-xl text-[17px] leading-relaxed text-muted">{capa.subtitulo}</p>
-        <div className="flex flex-col gap-2">
+        {/* `pointer-events-auto` devolve o clique ao ÚNICO bloco que precisa
+          * dele aqui: o CTA e a linha que o acompanha. O resto da dobra é texto
+          * e continua transparente ao ponteiro, que é o que faz o jogo existir.
+          * `w-fit` para o bloco não virar uma faixa clicável de ponta a ponta
+          * roubando de volta a área de jogo que o `pointer-events-none` acabou
+          * de liberar. */}
+        <div className="pointer-events-auto flex w-fit flex-col gap-2">
           <BotaoWhatsapp numero={dict.contact.whatsapp} mensagem={cta.mensagem} variante="claro">
             {cta.rotulo}
           </BotaoWhatsapp>

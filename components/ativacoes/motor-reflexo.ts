@@ -13,8 +13,14 @@
 
 /** Duração de uma partida de verdade. O modo atrativo ignora este limite. */
 export const DURACAO_MS = 15_000
-/** Depois disso o alvo some sozinho — é o que cria a pressa. */
-const VIDA_ALVO_MS = 1_200
+/** Depois disso o alvo some sozinho — é o que cria a pressa.
+ *
+ *  EXPORTADO porque `CapaJogo.tsx` desenha o encolhimento a partir desta mesma
+ *  duração. Com o número repetido à mão lá, mexer na vida do alvo aqui deixaria
+ *  o desenho fora de fase com a regra — o alvo sumiria com meio encolhimento
+ *  feito, ou encolheria até zero e ficaria parado esperando expirar — e nenhum
+ *  teste veria, porque o desenho não é testável em jsdom. */
+export const VIDA_ALVO_MS = 1_200
 /** Intervalo entre nascimentos. */
 const INTERVALO_MS = 620
 /** Mais que isso vira ruído visual, e no celular vira alvo pequeno demais. */
