@@ -20,11 +20,26 @@ describe('prova de engenharia', () => {
     expect(container.textContent).not.toContain('{producao}')
   })
 
-  it('lista os sistemas e liga cada um ao case study do idioma certo', () => {
+  // Achado da revisão: a página apagou Header/Footer/SkipLink porque todo
+  // item de menu é uma saída — e esta seção tinha reaberto quatro (três
+  // cards clicáveis + o link final), o mesmo defeito que
+  // `components/landing/Prova.tsx` já corrigiu na página irmã. Este teste
+  // guarda a correção (cards inertes, uma saída só), não o defeito.
+  it('mantém os cards inertes e apenas uma saída na seção', () => {
     render(<ProvaEngenharia dict={pt} locale="pt" />)
+
+    const links = screen.getAllByRole('link')
+    expect(links).toHaveLength(1)
+    expect(links[0]).toHaveAttribute('href', '/pt')
+
     for (const sistema of systems) {
-      const link = screen.getByRole('link', { name: new RegExp(sistema.name) })
-      expect(link.getAttribute('href')).toBe(`/pt/sistemas/${sistema.slug}`)
+      // Nome e tagline continuam na tela, como texto simples...
+      const nome = screen.getByText(sistema.name)
+      expect(nome).toBeInTheDocument()
+      expect(screen.getByText(pt.systems.detail[sistema.slug].tagline)).toBeInTheDocument()
+      // ...mas nenhum nome de sistema pode estar dentro de um <a>: reintroduzir
+      // o link no card é o erro mais fácil de cometer de novo.
+      expect(nome.closest('a')).toBeNull()
     }
   })
 })

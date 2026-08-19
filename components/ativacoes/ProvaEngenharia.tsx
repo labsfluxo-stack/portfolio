@@ -31,22 +31,24 @@ export function ProvaEngenharia({ dict, locale }: { dict: Dictionary; locale: Lo
         </p>
         <ul className="revelar grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
           {systems.map((sistema) => (
-            <li key={sistema.slug} className="bg-surface">
-              <Link
-                href={`/${locale}/sistemas/${sistema.slug}`}
-                className="flex h-full flex-col gap-2 p-6 transition-opacity hover:opacity-80"
-              >
-                <h3 className="text-[17px] font-semibold text-text">{sistema.name}</h3>
-                <p className="text-[17px] leading-relaxed text-muted">
-                  {dict.systems.detail[sistema.slug].tagline}
-                </p>
-              </Link>
+            <li key={sistema.slug} className="flex h-full flex-col gap-2 bg-surface p-6">
+              <h3 className="text-[17px] font-semibold text-text">{sistema.name}</h3>
+              <p className="text-[17px] leading-relaxed text-muted">
+                {dict.systems.detail[sistema.slug].tagline}
+              </p>
             </li>
           ))}
         </ul>
-        {/* UM link ao fim da seção, e não um por card além dos próprios cards:
-          * numa página que apagou o menu para não ter saída nenhuma, três
-          * saídas grandes desfazem a decisão. */}
+        {/* Os cards acima são inertes de propósito — sem <Link>, sem hover,
+          * sem foco. A página apagou Header/Footer/SkipLink porque todo item
+          * de menu é uma saída, e três cards clicáveis para os case studies
+          * eram três saídas grandes que a página já tinha decidido não ter.
+          * A seção oferece exatamente uma: este link, ao fim.
+          *
+          * Mesma resolução já registrada em `components/landing/Prova.tsx` —
+          * não é um critério novo aqui, é o achado que o dono já resolveu
+          * numa página irmã; este comentário só nomeia o precedente para
+          * quem vier depois não reabrir a discussão. */}
         <Link href={`/${locale}`} className="w-fit text-[17px] text-data hover:opacity-80">
           {prova.verCase}
         </Link>
