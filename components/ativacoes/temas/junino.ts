@@ -738,12 +738,76 @@ function desenharEstouro(pincel: CanvasRenderingContext2D, raio: number, progres
   }
 }
 
-// ── Fundo: bandeirinhas paradas + brasas em deriva ────────────────────
+// ── Fundo: bandeirinhas em duas fileiras, fogueira, xadrez, chapéu, brasas ──
+//
+// Reescrito na rodada de densidade (2026-08): o diagnóstico
+// (`docs/superpowers/referencias/2026-08-20-junina-diagnostico.md`) mediu
+// 3,3% dos pixels do quadro tematizados — uma faixa fina de bandeirinha
+// presa ao topo e um punhado de brasas quase invisíveis, o resto preto puro
+// — contra um teto que o próprio briefing original já chamava de
+// deliberadamente esparso. `docs/superpowers/referencias/2026-08-20-junina-referencias.md`
+// é a régua desta reescrita: bandeirinha em duas fileiras com balanço
+// independente por bandeira, uma fogueira animada, xadrez e chapéu de palha
+// estáticos nas margens, uma vinheta morna sobre o preto quase puro — tudo
+// mantendo a COLUNA CENTRAL (`emColunaCentral` abaixo) livre de qualquer
+// elemento novo E de qualquer movimento novo, porque é onde vivem o título,
+// o CTA e o próprio jogo.
 
 const CORES_BANDEIRINHA = ['#D93A2B', '#FFB020', '#38BDF8', '#1E8F5F', '#F5F3EF'] as const
-/** Fração da altura do canvas que a faixa de bandeirinhas ocupa — string na
- *  parte de cima, pano pendurado logo abaixo. */
-const FRACAO_FAIXA_BANDEIRINHAS = 0.12
+/** Straw/tan da régua de densidade §2 — chapéu de palha, nunca usado em
+ *  nenhum outro elemento (é a única cor nova que não já existia em
+ *  `PALETA`/`CORES_BANDEIRINHA`). */
+const COR_PALHA = '#C79A56'
+const COR_PALHA_SOMBRA = '#8F6C3C'
+
+/**
+ * Fração da largura do canvas, medida a partir de cada borda, que fica
+ * PROIBIDA para qualquer elemento novo e qualquer movimento novo — a régua
+ * (`2026-08-20-junina-referencias.md` §3) fala em "center 40% width", ou
+ * seja 30% de cada lado até o centro. Bandeirinha já existia de ponta a
+ * ponta antes desta reescrita (mantido: cortar o fio ao meio pra abrir um
+ * buraco no centro seria pior que uma bandeirinha parada ali) — o que muda é
+ * que NENHUMA bandeira cujo pé cai dentro desta faixa balança, não importa
+ * `parado`. Fogueira, xadrez e chapéu nascem fora dela por construção (ver
+ * as frações de posição de cada um), então não precisam consultar isto.
+ */
+const COLUNA_CENTRAL_INICIO_FRAC = 0.3
+const COLUNA_CENTRAL_FIM_FRAC = 0.7
+function emColunaCentral(xPx: number, largura: number): boolean {
+  return xPx >= largura * COLUNA_CENTRAL_INICIO_FRAC && xPx <= largura * COLUNA_CENTRAL_FIM_FRAC
+}
+
+/**
+ * Pseudo-aleatório determinístico por índice — NUNCA `Math.random` (mesma
+ * disciplina do arquivo inteiro, e de `components/landing/arte.tsx`: a arte
+ * não pode mudar a cada build/SSR). Não é hash criptográfico, é o truque
+ * clássico de ruído procedural "pobre": a parte fracionária de um `sin` com
+ * frequência alta já não tem relação visível com o índice de entrada, então
+ * dois índices vizinhos (duas bandeirinhas lado a lado, duas línguas de
+ * chama) saem de fase sem precisar de uma tabela nem de uma semente extra
+ * pra carregar. Determinístico quer dizer: mesmo índice, mesmo resultado,
+ * sempre — é o que faz cada bandeirinha ter SEMPRE o mesmo período/fase de
+ * balanço em toda visita, sem guardar estado nenhum.
+ */
+function pseudoAleatorio01(semente: number): number {
+  const x = Math.sin(semente * 12.9898) * 43758.5453
+  return x - Math.floor(x)
+}
+
+// ── Bandeirinhas: duas fileiras, cada bandeira um sprite próprio ─────────
+//
+// Reescrito (régua de densidade §4): a versão anterior rasterizava a fileira
+// INTEIRA — fio e bandeiras juntos — num único bitmap estático, ótimo pra
+// uma faixa parada, errado agora que balanço é permitido (a fileira inteira
+// balançando junto leria como bandeira de pano tremulando, não como
+// bandeirinhas penduradas balançando cada uma no seu próprio ritmo). A
+// correção é por-bandeira: rasteriza CADA COR uma vez (5 sprites, não 1 por
+// fileira) e o quadro a quadro só transforma esse sprite já pronto —
+// `save/translate/rotate/drawImage/restore`, o mesmo custo "barato" que o
+// balanço do balão já paga (ver a tabela de custo da régua §3). O fio
+// continua um traço quadrático recomputado por quadro (nunca rasterizado) —
+// já era assim antes, e é o que permite a fileira de trás ceder mais que a
+// de frente sem precisar de dois caminhos de fio guardados.
 
 function caminhoBandeira(largura: number, altura: number): string {
   // Triângulo ápice-para-baixo, um pouco mais alto que largo (1,3:1) — lê
@@ -754,57 +818,471 @@ function caminhoBandeira(largura: number, altura: number): string {
   return `M ${-meiaLargura} 0 L ${meiaLargura} 0 L 0 ${altura} Z`
 }
 
-function rasterizarBandeirinhas(largura: number, altura: number, dpr: number): HTMLCanvasElement | null {
-  if (typeof document === 'undefined' || typeof Path2D === 'undefined') return null
-  if (largura <= 0 || altura <= 0) return null
+/** Proporção altura:largura de UMA bandeira — igual pras duas fileiras, só
+ *  o tamanho muda (`ConfigFileiraBandeirinha.escala`). */
+const PROPORCAO_BANDEIRA = 1.3
 
-  const alturaFaixaCss = altura * FRACAO_FAIXA_BANDEIRINHAS * 1.5
+function rasterizarBandeira(larguraPx: number, cor: string, dpr: number): HTMLCanvasElement | null {
+  if (typeof document === 'undefined' || typeof Path2D === 'undefined') return null
+  if (larguraPx <= 0) return null
+  const alturaPx = larguraPx * PROPORCAO_BANDEIRA
+  const escala = ESCALA_RASTER * dpr
   const tela = document.createElement('canvas')
-  tela.width = Math.max(1, Math.ceil(largura * dpr))
-  tela.height = Math.max(1, Math.ceil(alturaFaixaCss * dpr))
+  tela.width = Math.max(1, Math.ceil(larguraPx * escala))
+  tela.height = Math.max(1, Math.ceil(alturaPx * escala))
   const pincel = tela.getContext('2d')
   if (!pincel) return null
-  pincel.scale(dpr, dpr)
+  pincel.scale(escala, escala)
+  pincel.translate(larguraPx / 2, 0)
+  pincel.fillStyle = cor
+  pincel.fill(new Path2D(caminhoBandeira(larguraPx, alturaPx)))
+  return tela
+}
 
-  const larguraBandeira = Math.min(34, Math.max(20, largura * 0.05))
-  const alturaBandeira = larguraBandeira * 1.3
+/** Um sprite por COR (5, não por fileira) — a fileira de trás reaproveita os
+ *  mesmos sprites, só pede um tamanho de destino menor no `drawImage` (62%,
+ *  ver `LINHA_FUNDO.escala`); reescalar um raster já pronto é de graça
+ *  comparado a rasterizar um segundo conjunto. */
+let spritesBandeiraCache: { larguraPx: number; dpr: number; porCor: Map<string, HTMLCanvasElement> } | null = null
+function garantirSpriteBandeira(larguraPx: number, cor: string, dpr: number): HTMLCanvasElement | null {
+  if (
+    !spritesBandeiraCache ||
+    spritesBandeiraCache.larguraPx !== larguraPx ||
+    spritesBandeiraCache.dpr !== dpr
+  ) {
+    spritesBandeiraCache = { larguraPx, dpr, porCor: new Map() }
+  }
+  const cache = spritesBandeiraCache
+  const existente = cache.porCor.get(cor)
+  if (existente) return existente
+  const nova = rasterizarBandeira(larguraPx, cor, dpr)
+  if (nova) cache.porCor.set(cor, nova)
+  return nova
+}
+
+/** Amplitude do balanço de CADA bandeira, em grau — a régua pede 4–6°. */
+const AMPLITUDE_BALANCO_BANDEIRA_RAD = (5 * Math.PI) / 180
+const PERIODO_BALANCO_BANDEIRA_MIN_MS = 1600
+const PERIODO_BALANCO_BANDEIRA_VAR_MS = 800
+function periodoBalancoBandeira(indice: number): number {
+  return PERIODO_BALANCO_BANDEIRA_MIN_MS + pseudoAleatorio01(indice * 7 + 1) * PERIODO_BALANCO_BANDEIRA_VAR_MS
+}
+function faseBalancoBandeira(indice: number): number {
+  return pseudoAleatorio01(indice * 13 + 5) * Math.PI * 2
+}
+
+type ConfigFileiraBandeirinha = {
+  /** Fração da altura do canvas onde o fio (sem vão) fica. */
+  fracaoAlturaFio: number
+  /** Quanto o vão do fio cede no meio, fração do passo entre bandeiras. */
+  fracaoSag: number
+  /** 1 = fileira da frente (tamanho pleno); a de trás usa 0,62 — DERIVADO da
+   *  fileira da frente, nunca um clamp próprio, pra nunca inverter numa
+   *  tela fora do comum (régua §4). */
+  escala: number
+  /** Deslocamento no ciclo de 5 cores — a de trás começa 2 posições à
+   *  frente, pra nunca cair na mesma cor na mesma posição x que a de frente
+   *  (a marca de "uma fileira duplicada", não "duas fileiras de verdade"). */
+  deslocamentoCor: number
+  /** Deslocamento no índice usado por `periodoBalancoBandeira`/
+   *  `faseBalancoBandeira` — evita que a bandeira `i` da fileira de trás
+   *  balance EXATAMENTE em fase com a bandeira `i` da fileira da frente. */
+  deslocamentoIndice: number
+}
+
+const LINHA_FRENTE: ConfigFileiraBandeirinha = {
+  fracaoAlturaFio: 0.09,
+  fracaoSag: 0.14,
+  escala: 1,
+  deslocamentoCor: 0,
+  deslocamentoIndice: 0,
+}
+const LINHA_FUNDO: ConfigFileiraBandeirinha = {
+  fracaoAlturaFio: 0.02,
+  fracaoSag: 0.16,
+  escala: 0.62,
+  deslocamentoCor: 2,
+  deslocamentoIndice: 1000,
+}
+
+function desenharFileiraBandeirinhas(
+  pincel: CanvasRenderingContext2D,
+  largura: number,
+  altura: number,
+  dpr: number,
+  config: ConfigFileiraBandeirinha,
+  agora: number,
+  parado: boolean,
+): void {
+  const larguraBandeiraFrente = Math.min(34, Math.max(20, largura * 0.05))
+  const larguraBandeira = larguraBandeiraFrente * config.escala
+  const alturaBandeira = larguraBandeira * PROPORCAO_BANDEIRA
+  // O PASSO usa a largura da PRÓPRIA fileira — é o que preserva a razão de
+  // 18% de vão entre bandeiras (medida real, régua §4) em qualquer escala,
+  // em vez de a fileira de trás ficar mais apertada ou mais espaçada que a
+  // de frente por acidente de conta.
   const passo = larguraBandeira * 1.18
-  const yFio = altura * FRACAO_FAIXA_BANDEIRINHAS * 0.3
+  const yFio = altura * config.fracaoAlturaFio
   const nBandeiras = Math.ceil(largura / passo) + 1
 
   // O FIO NUNCA É RETO — cada vão cede num quadrático. Reto é "gerado", não
   // "pendurado": a gravidade é de graça para desenhar, e a ausência dela é
   // o que mais denuncia
-  // (`docs/superpowers/referencias/2026-08-20-arte-junina.md` §3).
+  // (`docs/superpowers/referencias/2026-08-20-arte-junina.md` §3). O fio em
+  // si NÃO balança (só as bandeiras penduradas nele) — manter o traço
+  // parado é o que garante a coluna central sem NENHUM movimento sem
+  // precisar recortar o caminho no meio do vão.
   pincel.strokeStyle = CORES_BANDEIRINHA[4]
   pincel.lineWidth = 1
   pincel.beginPath()
   pincel.moveTo(0, yFio)
   for (let x = passo; x <= largura + passo; x += passo) {
     const meio = x - passo / 2
-    pincel.quadraticCurveTo(meio, yFio + passo * 0.14, x, yFio)
+    pincel.quadraticCurveTo(meio, yFio + passo * config.fracaoSag, x, yFio)
   }
   pincel.stroke()
 
   for (let i = 0; i < nBandeiras; i++) {
     const x = i * passo
+    const cor = CORES_BANDEIRINHA[(i + config.deslocamentoCor) % CORES_BANDEIRINHA.length]!
+    const sprite = garantirSpriteBandeira(larguraBandeiraFrente, cor, dpr)
+
+    // A COLUNA CENTRAL NUNCA BALANÇA — nem sob movimento ligado. Uma
+    // bandeirinha oscilando atrás do título é uma intrusão MAIOR que a
+    // mesma forma parada (a visão periférica pega movimento antes de
+    // forma), então isto zera o ângulo por POSIÇÃO, independente de
+    // `parado` (que já zera por PREFERÊNCIA). Ver `emColunaCentral` acima.
+    const indice = config.deslocamentoIndice + i
+    const angulo =
+      parado || emColunaCentral(x, largura)
+        ? 0
+        : AMPLITUDE_BALANCO_BANDEIRA_RAD *
+          Math.sin(agora / periodoBalancoBandeira(indice) + faseBalancoBandeira(indice))
+
     pincel.save()
     pincel.translate(x, yFio)
-    pincel.fillStyle = CORES_BANDEIRINHA[i % CORES_BANDEIRINHA.length]!
-    pincel.fill(new Path2D(caminhoBandeira(larguraBandeira, alturaBandeira)))
+    pincel.rotate(angulo)
+    if (sprite) {
+      pincel.drawImage(sprite, -larguraBandeira / 2, 0, larguraBandeira, alturaBandeira)
+    } else {
+      // Traçado vetorial de reserva — SEM `Path2D` (o sprite só falta
+      // quando o ambiente também não tem `Path2D`, ver cabeçalho do
+      // arquivo), mesma disciplina de `desenharBalaoVetorial`.
+      const meiaLargura = larguraBandeira / 2
+      pincel.beginPath()
+      pincel.moveTo(-meiaLargura, 0)
+      pincel.lineTo(meiaLargura, 0)
+      pincel.lineTo(0, alturaBandeira)
+      pincel.closePath()
+      pincel.fillStyle = cor
+      pincel.fill()
+    }
     pincel.restore()
   }
+}
+
+function desenharBandeirinhas(
+  pincel: CanvasRenderingContext2D,
+  largura: number,
+  altura: number,
+  dpr: number,
+  agora: number,
+  parado: boolean,
+): void {
+  // Fundo primeiro (menor, mais alto, cede mais) — ordem de pintura é a
+  // pista de profundidade que a régua §3 pede em vez de blur.
+  desenharFileiraBandeirinhas(pincel, largura, altura, dpr, LINHA_FUNDO, agora, parado)
+  desenharFileiraBandeirinhas(pincel, largura, altura, dpr, LINHA_FRENTE, agora, parado)
+}
+
+// ── Fogueira: toras paradas + línguas de chama piscando + auréola aditiva ──
+//
+// Ganha o lugar duas vezes, per a régua §1/§5: tremulação é uma assinatura
+// de reconhecimento que nenhum outro elemento deste vocabulário tem, e ela
+// ANCORA a luz-de-baixo que o gradiente do próprio balão já assume
+// (`gradienteGomo`: "fonte de luz única, de BAIXO") mas que, até esta
+// reescrita, nada na cena de fato produzia. Nunca na coluna central (a
+// posição é uma fração fixa da borda esquerda, longe da faixa 30–70%), e
+// nunca sob o CTA/QR (que vivem na coluna de conteúdo, à direita do canto
+// onde a fogueira mora).
+
+const FOGUEIRA_X_FRAC = 0.09
+const FOGUEIRA_Y_FRAC = 0.93
+/** Raio de referência da fogueira inteira, fração do MENOR lado do canvas —
+ *  pequena o bastante pra não competir com o placar/QR, grande o bastante
+ *  pra ler como objeto e não como poeira (o defeito que o diagnóstico já
+ *  mediu nas brasas isoladas, §3 do diagnóstico). */
+const FOGUEIRA_RAIO_FRAC = 0.05
+
+const COR_TRONCO = '#3D2A1C'
+const COR_TRONCO_CLARO = '#5A4028'
+
+/** Duas toras cruzadas — a leitura mais rápida de "fogueira" sem uma pilha
+ *  inteira de caminhos por um ganho de reconhecimento que a régua §5 item 2
+ *  já não credita a mais que isso. `ellipse` nativo, sem `Path2D` — nunca
+ *  precisa de fallback porque não depende de nada que falte em Node/jsdom
+ *  além do próprio `getContext`, que quem chama já garantiu. */
+function desenharToras(pincel: CanvasRenderingContext2D, raio: number): void {
+  const rx = raio * 0.85
+  const ry = raio * 0.19
+  pincel.save()
+  pincel.rotate(-0.26)
+  pincel.fillStyle = COR_TRONCO
+  pincel.beginPath()
+  pincel.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2)
+  pincel.fill()
+  pincel.restore()
+
+  pincel.save()
+  pincel.rotate(0.22)
+  pincel.fillStyle = COR_TRONCO_CLARO
+  pincel.beginPath()
+  pincel.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2)
+  pincel.fill()
+  pincel.restore()
+}
+
+/** Sprite de UMA língua de chama — reaproveita `caminhoPetala`, a MESMA
+ *  forma de vesica/pétala que o bico do balão já usa (régua §5 item 2: "the
+ *  same family the balão's bico already uses"), com o mesmo par
+ *  externo-escuro/interno-claro que `desenharBico` já pinta — só que
+ *  rasterizado num sprite PRÓPRIO (não desenhado direto), porque cada
+ *  língua precisa da própria transformação por quadro (escala vertical +
+ *  leve rotação), e transformar um sprite já pronto é o técnica "barata" da
+ *  régua §3 — recomputar o `Path2D` a cada quadro não seria. */
+function rasterizarLinguaChama(dpr: number): HTMLCanvasElement | null {
+  if (typeof document === 'undefined' || typeof Path2D === 'undefined') return null
+  const largura = 22
+  const altura = 36
+  const escala = ESCALA_RASTER * dpr
+  const tela = document.createElement('canvas')
+  tela.width = Math.max(1, Math.ceil(largura * escala))
+  tela.height = Math.max(1, Math.ceil(altura * escala))
+  const pincel = tela.getContext('2d')
+  if (!pincel) return null
+  pincel.scale(escala, escala)
+  pincel.translate(largura / 2, altura)
+  const caminho = caminhoPetala(largura * 0.85, altura)
+  pincel.fillStyle = PALETA.brasa
+  pincel.fill(new Path2D(caminho))
+  pincel.save()
+  pincel.translate(0, -altura * 0.14)
+  pincel.scale(0.58, 0.6)
+  pincel.fillStyle = PALETA.destaque
+  pincel.fill(new Path2D(caminho))
+  pincel.restore()
+  return tela
+}
+
+let spriteLinguaChamaCache: { dpr: number; tela: HTMLCanvasElement } | null = null
+function garantirSpriteLinguaChama(dpr: number): HTMLCanvasElement | null {
+  if (spriteLinguaChamaCache && spriteLinguaChamaCache.dpr === dpr) return spriteLinguaChamaCache.tela
+  const tela = rasterizarLinguaChama(dpr)
+  if (tela) spriteLinguaChamaCache = { dpr, tela }
+  return tela
+}
+
+type LinguaChama = { deslocamentoXFrac: number; escala: number; indice: number }
+/** Três línguas — o teto de baixo da régua §5 item 2 ("2–3 flame-tongue
+ *  sprites"), cada uma com o próprio período/fase via
+ *  `pseudoAleatorio01(indice)`, nunca em fase umas com as outras (a mesma
+ *  regra de "vizinhos fora de fase" que as bandeirinhas já seguem, e pela
+ *  mesma razão: tremulação em uníssono lê como UM sprite reaproveitado, não
+ *  como três línguas de verdade). */
+const LINGUAS_CHAMA: readonly LinguaChama[] = [
+  { deslocamentoXFrac: -0.32, escala: 0.82, indice: 0 },
+  { deslocamentoXFrac: 0.04, escala: 1, indice: 1 },
+  { deslocamentoXFrac: 0.34, escala: 0.78, indice: 2 },
+]
+const PERIODO_TREMULACAO_MIN_MS = 420
+const PERIODO_TREMULACAO_VAR_MS = 380
+function periodoTremulacao(indice: number): number {
+  return PERIODO_TREMULACAO_MIN_MS + pseudoAleatorio01(indice * 17 + 3) * PERIODO_TREMULACAO_VAR_MS
+}
+function faseTremulacao(indice: number): number {
+  return pseudoAleatorio01(indice * 23 + 11) * Math.PI * 2
+}
+
+function desenharFogueira(
+  pincel: CanvasRenderingContext2D,
+  largura: number,
+  altura: number,
+  dpr: number,
+  agora: number,
+  parado: boolean,
+): void {
+  const menorLado = Math.min(largura, altura)
+  const raio = menorLado * FOGUEIRA_RAIO_FRAC
+  const cx = largura * FOGUEIRA_X_FRAC
+  const cy = altura * FOGUEIRA_Y_FRAC
+
+  pincel.save()
+  pincel.translate(cx, cy)
+
+  // AURÉOLA — mesma técnica aditiva das brasas (`arc`+`rgba`, sem gradiente
+  // por quadro): ancora visualmente a luz-de-baixo que o balão já assume.
+  // Sob `parado`, trava num ponto médio do pulso — nunca lê `agora`.
+  const tAureola = parado ? 0.5 : (Math.sin(agora / 900) + 1) / 2
+  pincel.save()
+  pincel.globalCompositeOperation = 'lighter'
+  pincel.beginPath()
+  pincel.arc(0, -raio * 0.3, raio * (2.1 + tAureola * 0.4), 0, Math.PI * 2)
+  pincel.fillStyle = `rgba(255, 107, 53, ${(0.12 + tAureola * 0.06).toFixed(3)})`
+  pincel.fill()
+  pincel.restore()
+
+  desenharToras(pincel, raio)
+
+  const sprite = garantirSpriteLinguaChama(dpr)
+  for (const lingua of LINGUAS_CHAMA) {
+    const oscilacao = parado ? 0.5 : (Math.sin(agora / periodoTremulacao(lingua.indice) + faseTremulacao(lingua.indice)) + 1) / 2
+    // `0,85 + 0,3·|...|` é a fórmula da régua §5 item 2 — reescrita aqui com
+    // `oscilacao` já em 0..1 (via `(sin+1)/2`) em vez do valor absoluto de
+    // `sin`, mesmo efeito, sem precisar de `Math.abs` separado.
+    const escalaY = lingua.escala * (0.85 + oscilacao * 0.3)
+    const angulo = parado ? 0 : ((3 * Math.PI) / 180) * Math.sin(agora / (periodoTremulacao(lingua.indice) * 0.6) + faseTremulacao(lingua.indice))
+
+    const larguraChama = raio * 0.78 * lingua.escala
+    const alturaChama = raio * 1.55 * lingua.escala
+
+    pincel.save()
+    pincel.translate(raio * lingua.deslocamentoXFrac, -raio * 0.1)
+    pincel.rotate(angulo)
+    pincel.scale(1, escalaY)
+    if (sprite) {
+      pincel.drawImage(sprite, -larguraChama / 2, -alturaChama, larguraChama, alturaChama)
+    } else {
+      // Traçado vetorial de reserva — mesma disciplina de
+      // `desenharBalaoVetorial`: sem `Path2D`, nunca um espaço mudo.
+      pincel.beginPath()
+      pincel.moveTo(0, -alturaChama)
+      pincel.quadraticCurveTo(larguraChama / 2, -alturaChama * 0.5, 0, 0)
+      pincel.quadraticCurveTo(-larguraChama / 2, -alturaChama * 0.5, 0, -alturaChama)
+      pincel.fillStyle = PALETA.brasa
+      pincel.fill()
+    }
+    pincel.restore()
+  }
+
+  pincel.restore()
+}
+
+// ── Xadrez + chapéu de palha: acentos estáticos na margem direita ────────
+//
+// Régua §1/§5: xadrez é rank 2 de reconhecimento (mais rápido que
+// bandeirinha pra quem já viu roupa/toalha junina), chapéu é rank 4 — os
+// dois `[no motion]`, os dois ausentes da cena até esta reescrita. Rasteriza
+// UMA VEZ por tamanho de tela (como a bandeirinha antiga fazia) porque não
+// precisam se mexer — a densidade sozinha já cumpre o que a régua pede
+// deles, e animar um xadrez é a própria régua chamando de "moiré" (§5
+// item 1).
+
+const XADREZ_LARGURA_FRAC = 0.045
+const XADREZ_QUADRO_PX = 9
+const COR_XADREZ_A = PALETA.elemento
+const COR_XADREZ_B = CORES_BANDEIRINHA[4]
+
+function desenharChapeu(pincel: CanvasRenderingContext2D, raio: number): void {
+  // Aba: elipse achatada, nativa — nenhuma dependência de `Path2D`.
+  pincel.beginPath()
+  pincel.ellipse(0, 0, raio, raio * 0.32, 0, 0, Math.PI * 2)
+  pincel.fillStyle = COR_PALHA_SOMBRA
+  pincel.fill()
+
+  // Copa: triângulo simples com o topo levemente arredondado — silhueta de
+  // cone, a pista de forma que a régua §1 credita como reconhecível mesmo
+  // sem cor nenhuma.
+  const larguraCopa = raio * 1.1
+  const alturaCopa = raio * 1.15
+  pincel.beginPath()
+  pincel.moveTo(-larguraCopa / 2, 0)
+  pincel.quadraticCurveTo(0, -alturaCopa * 1.08, larguraCopa / 2, 0)
+  pincel.closePath()
+  pincel.fillStyle = COR_PALHA
+  pincel.fill()
+
+  // Faixa na base da copa — o único toque de "feito à mão", dois tons
+  // planos, nenhum gradiente.
+  pincel.beginPath()
+  pincel.ellipse(0, -raio * 0.05, larguraCopa * 0.42, raio * 0.09, 0, 0, Math.PI * 2)
+  pincel.fillStyle = COR_PALHA_SOMBRA
+  pincel.fill()
+}
+
+function rasterizarAcentosDireita(larguraPx: number, alturaPx: number, dpr: number): HTMLCanvasElement | null {
+  if (typeof document === 'undefined') return null
+  if (larguraPx <= 0 || alturaPx <= 0) return null
+  const tela = document.createElement('canvas')
+  tela.width = Math.max(1, Math.ceil(larguraPx * dpr))
+  tela.height = Math.max(1, Math.ceil(alturaPx * dpr))
+  const pincel = tela.getContext('2d')
+  if (!pincel) return null
+  pincel.scale(dpr, dpr)
+
+  // Xadrez: faixa vertical dobrada na borda direita — tira de tecido, não
+  // fundo inteiro (a régua §3 pede "a folded strip", não um preenchimento).
+  const larguraXadrez = larguraPx * XADREZ_LARGURA_FRAC
+  const xXadrez = larguraPx - larguraXadrez
+  const nColunas = Math.max(1, Math.ceil(larguraXadrez / XADREZ_QUADRO_PX))
+  const nLinhas = Math.max(1, Math.ceil(alturaPx / XADREZ_QUADRO_PX))
+  for (let linha = 0; linha < nLinhas; linha++) {
+    for (let coluna = 0; coluna < nColunas; coluna++) {
+      pincel.fillStyle = (linha + coluna) % 2 === 0 ? COR_XADREZ_A : COR_XADREZ_B!
+      pincel.fillRect(
+        xXadrez + coluna * XADREZ_QUADRO_PX,
+        linha * XADREZ_QUADRO_PX,
+        XADREZ_QUADRO_PX,
+        XADREZ_QUADRO_PX,
+      )
+    }
+  }
+
+  // Chapéu: ancorado embaixo-à-direita, à esquerda da tira de xadrez —
+  // nunca sobrepõe o QR (que vive dentro da coluna de conteúdo, terminando
+  // bem antes de `xXadrez`).
+  const raioChapeu = Math.min(larguraPx, alturaPx) * 0.052
+  pincel.save()
+  pincel.translate(xXadrez - raioChapeu * 1.6, alturaPx * 0.9)
+  desenharChapeu(pincel, raioChapeu)
+  pincel.restore()
 
   return tela
 }
 
-let spriteBandeirinhasCache: { largura: number; altura: number; dpr: number; tela: HTMLCanvasElement } | null = null
-function garantirSpriteBandeirinhas(largura: number, altura: number, dpr: number): HTMLCanvasElement | null {
-  const cache = spriteBandeirinhasCache
-  if (cache && cache.largura === largura && cache.altura === altura && cache.dpr === dpr) return cache.tela
-  const tela = rasterizarBandeirinhas(largura, altura, dpr)
-  if (tela) spriteBandeirinhasCache = { largura, altura, dpr, tela }
+let spriteAcentosDireitaCache: { larguraPx: number; alturaPx: number; dpr: number; tela: HTMLCanvasElement } | null = null
+function garantirSpriteAcentosDireita(larguraPx: number, alturaPx: number, dpr: number): HTMLCanvasElement | null {
+  const cache = spriteAcentosDireitaCache
+  if (cache && cache.larguraPx === larguraPx && cache.alturaPx === alturaPx && cache.dpr === dpr) return cache.tela
+  const tela = rasterizarAcentosDireita(larguraPx, alturaPx, dpr)
+  if (tela) spriteAcentosDireitaCache = { larguraPx, alturaPx, dpr, tela }
   return tela
+}
+
+// ── Vinheta morna: undertone sobre o preto quase puro ─────────────────────
+//
+// Régua §2/§3: o problema do `#08090C` não é ser escuro, é ser
+// FOTOGRAFICAMENTE neutro — sem nada por perto estabelecendo calor, ele lê
+// "boate/dashboard" antes de "arraiá ao entardecer". A correção NÃO troca o
+// hex (decisão de sistema de design inteiro por um problema de uma
+// página) — é uma vinheta radial, grande e quase transparente, pintada por
+// cima. O `CanvasGradient` é cacheado por tamanho de tela e reaproveitado
+// como `fillStyle` em todo quadro — construí-lo dentro do laço de desenho é
+// exatamente a classe "cara" que a régua §3 pede pra evitar
+// (`createRadialGradient` por quadro); reconstruí-lo só quando o tamanho
+// muda é a mesma disciplina que todo sprite deste arquivo já segue.
+let vinhetaCache: { largura: number; altura: number; gradiente: CanvasGradient } | null = null
+function obterVinheta(pincel: CanvasRenderingContext2D, largura: number, altura: number): CanvasGradient | null {
+  const cache = vinhetaCache
+  if (cache && cache.largura === largura && cache.altura === altura) return cache.gradiente
+  if (largura <= 0 || altura <= 0) return null
+  const gradiente = pincel.createRadialGradient(
+    largura * 0.5, altura * 0.85, 0,
+    largura * 0.5, altura * 0.85, Math.max(largura, altura) * 0.75,
+  )
+  gradiente.addColorStop(0, 'rgba(255, 107, 53, 0.05)')
+  gradiente.addColorStop(1, 'rgba(255, 107, 53, 0)')
+  vinhetaCache = { largura, altura, gradiente }
+  return gradiente
 }
 
 type SementeBrasa = {
@@ -823,9 +1301,28 @@ type SementeBrasa = {
  * concentrado nos 25% externos de cada lado, `y` no terço de baixo do
  * quadro: o centro fica livre para o texto e o próprio jogo
  * (`docs/superpowers/referencias/2026-08-20-arte-junina.md` §3).
+ *
+ * EXPANDIDA de 10 pra 26 sementes na rodada de densidade (régua de
+ * densidade §5 item 5: "raise the seed count, not the technique" — cada
+ * brasa continua um círculo `[cheap]`, só a CONTAGEM sobe). As 10
+ * originais permanecem intactas (primeiras 10 entradas); as 16 novas
+ * seguem o mesmo viés de `xFrac`/`yFrac0` (margens externas, terço de
+ * baixo) com `faseMs` variados.
+ *
+ * CORRIGIDO DE PASSAGEM (régua de densidade, addendum): a primeira semente
+ * (`xFrac: 0.04`) tinha `faseMs: 0` — sob `prefers-reduced-motion`,
+ * `desenharFundo` trava `tempo` em 0, e a fórmula de alfa
+ * (`t < 0.1 ? t/0.1 : ...`) avalia `t=0` pra `alpha=0`: essa brasa
+ * especificamente sumia por completo no quadro congelado, um acidente de
+ * `faseMs`, não uma escolha (ver o comentário de `desenharBrasas`/
+ * `desenharFundo` abaixo). Trocado pra `1500` — dentro da janela
+ * 630–3150ms que a régua pede pra `alpha=1` no quadro parado — sem tocar
+ * em mais nada da semente (posição, velocidade, período, raio idênticos).
+ * As 16 sementes novas já nasceram com `faseMs` dentro dessa janela, pelo
+ * mesmo motivo: nenhuma brasa nova devia repetir o mesmo acidente.
  */
 const SEMENTES_BRASA: readonly SementeBrasa[] = [
-  { xFrac: 0.04, yFrac0: 0.92, faseMs: 0, velocidade: 10, amplitude: 4, periodoMs: 2600, raioBase: 1.6 },
+  { xFrac: 0.04, yFrac0: 0.92, faseMs: 1500, velocidade: 10, amplitude: 4, periodoMs: 2600, raioBase: 1.6 },
   { xFrac: 0.10, yFrac0: 0.86, faseMs: 900, velocidade: 12, amplitude: 5, periodoMs: 3100, raioBase: 1.2 },
   { xFrac: 0.16, yFrac0: 0.95, faseMs: 1800, velocidade: 9, amplitude: 3, periodoMs: 2200, raioBase: 2.0 },
   { xFrac: 0.21, yFrac0: 0.89, faseMs: 2600, velocidade: 13, amplitude: 6, periodoMs: 3600, raioBase: 1.4 },
@@ -835,6 +1332,22 @@ const SEMENTES_BRASA: readonly SementeBrasa[] = [
   { xFrac: 0.79, yFrac0: 0.97, faseMs: 3000, velocidade: 10, amplitude: 6, periodoMs: 2000, raioBase: 1.1 },
   { xFrac: 0.07, yFrac0: 0.88, faseMs: 3400, velocidade: 12, amplitude: 4, periodoMs: 2700, raioBase: 1.9 },
   { xFrac: 0.87, yFrac0: 0.93, faseMs: 3800, velocidade: 9, amplitude: 5, periodoMs: 3400, raioBase: 1.5 },
+  { xFrac: 0.03, yFrac0: 0.83, faseMs: 700, velocidade: 11, amplitude: 4, periodoMs: 2400, raioBase: 1.5 },
+  { xFrac: 0.13, yFrac0: 0.98, faseMs: 1100, velocidade: 9, amplitude: 5, periodoMs: 3300, raioBase: 1.3 },
+  { xFrac: 0.18, yFrac0: 0.84, faseMs: 1900, velocidade: 13, amplitude: 3, periodoMs: 2100, raioBase: 1.8 },
+  { xFrac: 0.02, yFrac0: 0.96, faseMs: 2300, velocidade: 10, amplitude: 6, periodoMs: 2800, raioBase: 1.2 },
+  { xFrac: 0.12, yFrac0: 0.91, faseMs: 2700, velocidade: 12, amplitude: 4, periodoMs: 3500, raioBase: 1.7 },
+  { xFrac: 0.20, yFrac0: 0.82, faseMs: 3100, velocidade: 8, amplitude: 5, periodoMs: 2300, raioBase: 1.4 },
+  { xFrac: 0.06, yFrac0: 0.99, faseMs: 1600, velocidade: 14, amplitude: 3, periodoMs: 3000, raioBase: 1.1 },
+  { xFrac: 0.15, yFrac0: 0.85, faseMs: 2000, velocidade: 9, amplitude: 6, periodoMs: 2600, raioBase: 2.0 },
+  { xFrac: 0.98, yFrac0: 0.83, faseMs: 800, velocidade: 11, amplitude: 4, periodoMs: 2700, raioBase: 1.6 },
+  { xFrac: 0.82, yFrac0: 0.98, faseMs: 1200, velocidade: 13, amplitude: 5, periodoMs: 3200, raioBase: 1.3 },
+  { xFrac: 0.96, yFrac0: 0.9, faseMs: 1700, velocidade: 8, amplitude: 3, periodoMs: 2200, raioBase: 1.9 },
+  { xFrac: 0.77, yFrac0: 0.84, faseMs: 2400, velocidade: 12, amplitude: 6, periodoMs: 3400, raioBase: 1.2 },
+  { xFrac: 0.92, yFrac0: 0.96, faseMs: 2900, velocidade: 10, amplitude: 4, periodoMs: 2500, raioBase: 1.7 },
+  { xFrac: 0.99, yFrac0: 0.87, faseMs: 700, velocidade: 9, amplitude: 5, periodoMs: 3100, raioBase: 1.4 },
+  { xFrac: 0.81, yFrac0: 0.91, faseMs: 1400, velocidade: 14, amplitude: 3, periodoMs: 2900, raioBase: 1.1 },
+  { xFrac: 0.89, yFrac0: 0.83, faseMs: 3000, velocidade: 11, amplitude: 6, periodoMs: 2000, raioBase: 1.8 },
 ] as const
 /** Duração de um ciclo de vida de uma brasa antes de reaparecer embaixo de
  *  novo — o "respawn" da deriva contínua descrita em
@@ -873,6 +1386,30 @@ function desenharBrasas(pincel: CanvasRenderingContext2D, largura: number, altur
   pincel.restore()
 }
 
+/**
+ * Ordem de pintura — de trás pra frente, a mesma lógica de profundidade por
+ * camada que a régua §3 pede em vez de blur:
+ *
+ * 1. Fundo sólido.
+ * 2. Vinheta morna (tom, não forma — fica sob TUDO pra não lavar a cor de
+ *    nenhum elemento por cima).
+ * 3. Bandeirinhas (fileira de trás, depois a de frente — `desenharBandeirinhas`
+ *    já ordena as duas).
+ * 4. Acentos estáticos da margem direita (xadrez + chapéu) — textura de
+ *    frisa, nunca compete com nada porque não se move e não fica sob texto.
+ * 5. Fogueira — o elemento mais "vivo" do fundo, por cima dos acentos
+ *    estáticos do lado esquerdo do quadro.
+ * 6. Brasas — sempre por último, aditivas, por cima de tudo (era assim
+ *    antes desta reescrita, mantido).
+ *
+ * `agora` só chega em `desenharBandeirinhas`/`desenharFogueira`/
+ * `desenharBrasas` — as três coisas desta função que de fato animam. Sob
+ * `parado`, as três recebem o sinal (ou, no caso das brasas, `tempo`
+ * travado em 0) e nenhuma lê `agora` de verdade nesse caminho — sem isso,
+ * "sem movimento" só desligaria o balanço do balão e deixaria o FUNDO
+ * pulsando sozinho atrás dele, a mesma classe de descuido que a doc do tipo
+ * já cobra da marca de foco.
+ */
 function desenharFundo(
   pincel: CanvasRenderingContext2D,
   largura: number,
@@ -883,16 +1420,24 @@ function desenharFundo(
   pincel.fillStyle = PALETA.fundo
   pincel.fillRect(0, 0, largura, altura)
 
-  const dpr = dprAtual()
-  const bandeirinhas = garantirSpriteBandeirinhas(largura, altura, dpr)
-  if (bandeirinhas) {
-    pincel.drawImage(bandeirinhas, 0, 0, largura, bandeirinhas.height / dpr)
+  const vinheta = obterVinheta(pincel, largura, altura)
+  if (vinheta) {
+    pincel.fillStyle = vinheta
+    pincel.fillRect(0, 0, largura, altura)
   }
 
-  // `tempo` travado em 0 sob `parado`: a brasa é a única coisa desta função
-  // que lê `agora`. Sem travar aqui, "sem movimento" desligaria só o
-  // balanço do balão e deixaria o fundo pulsando sozinho atrás dele — a
-  // mesma classe de descuido que a doc do tipo já cobra da marca de foco.
+  const dpr = dprAtual()
+
+  desenharBandeirinhas(pincel, largura, altura, dpr, agora, parado)
+
+  const acentos = garantirSpriteAcentosDireita(largura, altura, dpr)
+  if (acentos) {
+    pincel.drawImage(acentos, 0, 0, largura, altura)
+  }
+
+  desenharFogueira(pincel, largura, altura, dpr, agora, parado)
+
+  // `tempo` travado em 0 sob `parado` — mesma disciplina de sempre.
   desenharBrasas(pincel, largura, altura, parado ? 0 : agora)
 }
 
