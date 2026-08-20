@@ -82,11 +82,11 @@ test('a dobra joga sozinha e o placar sobe sem ninguém tocar', async ({ page })
 })
 
 /**
- * Acha um alvo VIVO no canvas e devolve a coordenada de página correspondente
- * — sem conhecer a cor de nada. É a única forma honesta de "saber onde está o
- * alvo" de fora: o estado da partida vive num `ref` e não atravessa para o
- * DOM, e inventar uma posição faria o teste clicar no vazio e passar por
- * sorte.
+ * Acha TODOS os alvos VIVOS no canvas neste instante e devolve a coordenada
+ * de página de cada um — sem conhecer a cor de nada. É a única forma honesta
+ * de "saber onde está o alvo" de fora: o estado da partida vive num `ref` e
+ * não atravessa para o DOM, e inventar uma posição faria o teste clicar no
+ * vazio e passar por sorte.
  *
  * REESCRITO (ruling do controller, Task 3): a versão anterior varria o canvas
  * atrás de um pixel `#FFB020` — a cor do alvo ANTES do tema. Ela quebrou no
@@ -112,27 +112,44 @@ test('a dobra joga sozinha e o placar sobe sem ninguém tocar', async ({ page })
  * ISSO SOZINHO AINDA PEGARIA BRASA: a brasa do fundo também se move (deriva
  * lenta, alpha em rampa) e por instantes pode mudar o bastante para passar
  * num limiar de diferença de cor. O que distingue as duas é TAMANHO: uma
- * brasa é um punhado de pixels (raio de poucos px); um alvo tem dezenas de
- * pixels de diâmetro (a régua do motor, `RAIO = 0,055` do lado menor da
- * tela). Por isso um candidato só é aceito se os quatro vizinhos a
+ * brasa é um punhado de pixels — raio de 1,1 a 2,0px (`raioBase` em
+ * `SEMENTES_BRASA`, `temas/junino.ts`); um alvo tem dezenas de pixels de
+ * diâmetro (a régua do motor, `RAIO = 0,055` do lado menor da tela, ~24px
+ * num canvas de 430px de largura — `motor-reflexo.ts`). Uma ordem de
+ * grandeza de folga entre as duas escalas é o que sustenta os limiares
+ * abaixo. Por isso um candidato só é aceito se os quatro vizinhos a
  * `RAIO_FOOTPRINT` de distância (acima, abaixo, esquerda, direita) TAMBÉM
  * mudaram — uma brasa não tem essa extensão em nenhuma das quatro direções ao
- * mesmo tempo; um alvo real tem, na maior parte da própria vida (medido:
- * calibrado contra o jogo rodando de verdade, ver o relatório desta tarefa).
+ * mesmo tempo; um alvo real tem, na maior parte da própria vida — calibrado
+ * observando o jogo rodando de verdade em navegador, não só a olho na
+ * fórmula.
  *
- * FALHA ALTO, NÃO EM SILÊNCIO: sem candidato que passe nos dois critérios
- * (mudou E tem corpo), a função devolve `null` — nunca uma coordenada
- * chutada. Quem chama trata `null` como "não achei ainda" e tenta de novo
- * dentro do próprio orçamento de tempo do teste; se a janela inteira passar
- * sem achar nada, é a asserção do teste (inalterada) que reprova, com a
+ * DEVOLVE TODOS OS CANDIDATOS, NÃO SÓ O PRIMEIRO (achado da revisão final de
+ * branch): a versão anterior parava no primeiro pixel que passasse nos dois
+ * critérios e devolvia só ele. Isso bastava para "existe alvo em algum
+ * lugar" (`acharAlvo`/`esperarAlvo` abaixo, que só precisam de UM), mas não
+ * serve para "nenhum alvo está numa zona proibida" — essa pergunta precisa
+ * checar TODOS os alvos vivos, não só o primeiro que a varredura encontrar,
+ * senão um segundo ou terceiro alvo nascido dentro de uma zona passaria
+ * batido sempre que o primeiro encontrado estivesse limpo. `acharAlvo` e
+ * `acharAlvoEmZonaProibida` (abaixo) COMPARTILHAM este mesmo detector — cor
+ * nunca vai ser um jeito seguro de identificar alvo, e reescrever a
+ * comparação de quadros duas vezes neste arquivo arriscaria as duas cópias
+ * divergirem e uma delas ficar com a calibração velha.
+ *
+ * FALHA ALTO, NÃO EM SILÊNCIO: sem nenhum candidato que passe nos dois
+ * critérios (mudou E tem corpo), a função devolve array vazio — nunca uma
+ * coordenada chutada. Quem chama trata array vazio como "não achei ainda" e
+ * tenta de novo dentro do próprio orçamento de tempo do teste; se a janela
+ * inteira passar sem achar nada, é a asserção do teste que reprova, com a
  * mensagem de sempre — não esta função inventando um clique no vazio.
  */
-async function acharAlvo(page: Page): Promise<{ x: number; y: number } | null> {
+async function acharTodosAlvos(page: Page): Promise<Array<{ x: number; y: number }>> {
   return page.evaluate(async () => {
     const canvas = document.querySelector('canvas')
-    if (!canvas) return null
+    if (!canvas) return []
     const ctx = canvas.getContext('2d')
-    if (!ctx) return null
+    if (!ctx) return []
     const caixa = canvas.getBoundingClientRect()
 
     const ler = () => ctx.getImageData(0, 0, canvas.width, canvas.height).data
@@ -151,11 +168,12 @@ async function acharAlvo(page: Page): Promise<{ x: number; y: number } | null> {
     // em um custaria mais do que a própria janela de comparação.
     const PASSO = 4
     // Raio do "corpo" exigido nas quatro direções cardeais — grande o
-    // bastante para nenhuma brasa do fundo (raio de poucos px, ver
-    // `temas/junino.ts`) alcançar, pequeno o bastante para caber dentro de
-    // um alvo real mesmo no instante em que ele está menor (perto de
-    // expirar). Calibrado contra o jogo rodando de verdade — ver o
-    // relatório desta tarefa.
+    // bastante para nenhuma brasa do fundo alcançar (raioBase 1,1-2,0px, ver
+    // `SEMENTES_BRASA` em `temas/junino.ts`), pequeno o bastante para caber
+    // dentro de um alvo real mesmo no instante em que ele está menor (perto
+    // de expirar) — RAIO = 0,055 do lado menor da tela em
+    // `motor-reflexo.ts`. Calibrado contra o jogo rodando de verdade em
+    // navegador.
     const RAIO_FOOTPRINT = 6
     // Soma das diferenças absolutas de R+G+B entre os dois quadros.
     const LIMIAR_DIFF = 40
@@ -175,6 +193,7 @@ async function acharAlvo(page: Page): Promise<{ x: number; y: number } | null> {
       return brilhoAtual > LIMIAR_BRILHO
     }
 
+    const candidatos: { x: number; y: number }[] = []
     for (let py = RAIO_FOOTPRINT; py < altura - RAIO_FOOTPRINT; py += PASSO) {
       for (let px = RAIO_FOOTPRINT; px < largura - RAIO_FOOTPRINT; px += PASSO) {
         if (!mudouEAceso(px, py)) continue
@@ -187,15 +206,23 @@ async function acharAlvo(page: Page): Promise<{ x: number; y: number } | null> {
           mudouEAceso(px - RAIO_FOOTPRINT, py) &&
           mudouEAceso(px + RAIO_FOOTPRINT, py)
         ) {
-          return {
+          candidatos.push({
             x: caixa.left + (px / largura) * caixa.width,
             y: caixa.top + (py / altura) * caixa.height,
-          }
+          })
         }
       }
     }
-    return null
+    return candidatos
   })
+}
+
+/** Atalho sobre `acharTodosAlvos` para quem só precisa de UM alvo vivo,
+ *  qualquer um — o caso comum de "clicar em algo que existe" ou "provar que
+ *  a dobra tem alvo na tela". */
+async function acharAlvo(page: Page): Promise<{ x: number; y: number } | null> {
+  const candidatos = await acharTodosAlvos(page)
+  return candidatos[0] ?? null
 }
 
 /**
@@ -217,49 +244,65 @@ async function esperarAlvo(page: Page, janelaMs = 4000): Promise<{ x: number; y:
 }
 
 /**
- * Varre o canvas atrás de um pixel de alvo, igual a `acharAlvo`, mas em vez de
- * devolver a primeira coordenada encontrada, devolve a primeira que cai
- * DENTRO da caixa de um bloco `[data-zona-jogo]` — os blocos de DOM que
- * `CapaJogo.tsx` mede e passa como `zonasProibidas` ao motor (job 2 do
- * redesign). `null` quando nenhum pixel de alvo viola zona nenhuma, que é o
- * resultado esperado em toda leitura.
+ * Entre TODOS os alvos vivos que `acharTodosAlvos` encontra neste instante,
+ * devolve o primeiro cuja coordenada cai DENTRO da caixa de um bloco
+ * `[data-zona-jogo]` — os blocos de DOM que `CapaJogo.tsx` mede e passa como
+ * `zonasProibidas` ao motor (job 2 do redesign). `null` quando nenhum alvo
+ * vivo viola zona nenhuma, que é o resultado esperado em toda leitura.
  *
- * Reimplementado aqui, e não importado do componente, pelo mesmo motivo de
- * `circuloTocaZonaTeste` em tests/unit/ativacoes-motor.test.ts: o teste
- * precisa verificar o COMPORTAMENTO observável (nenhum pixel de alvo dentro
- * de bloco real), não reusar a lógica de medição do próprio componente e
- * correr o risco de validar um defeito contra ele mesmo.
+ * REESCRITO (achado da revisão final de branch, headline finding): a versão
+ * anterior varria o canvas atrás de um pixel batendo `pixels[i] > 200 &&
+ * pixels[i+1] > 140 && pixels[i+2] < 80` — a MESMA heurística de cor que
+ * `acharTodosAlvos` já tinha abandonado (ver o comentário dele) pelo mesmo
+ * motivo, só que esta função nunca foi atualizada junto. O escurecimento de
+ * borda do balão — a correção do achado anterior, que fez posição vencer
+ * matiz (ver `NEUTRO_ESCURO_BORDA`/`FRONTALIDADE_POR_GOMO` em
+ * `temas/junino.ts`) — empurra `#FFB020` para algo perto de `rgb(64,44,13)`,
+ * e o pixel mais claro que um balão vivo chega a mostrar mede perto de
+ * `rgb(230,124,89)` — canal verde 124, abaixo do `> 140` que este critério
+ * exigia. MEDIDO em 10 alvos vivos, dois viewports: ZERO pixel bateu esse
+ * critério perto de qualquer um deles. O teste que chama esta função
+ * afirmava `null` e recebia `null` incondicionalmente — guardava a classe de
+ * defeito mais cara desta rota (um alvo que o olho vê e o clique não
+ * alcança, o C1 original) e tinha parado de guardar qualquer coisa.
+ *
+ * A CORREÇÃO REUSA `acharTodosAlvos`, não inventa um segundo detector: cor
+ * nunca vai ser um jeito seguro de identificar alvo (qualquer tema pode
+ * reusar qualquer cor da própria paleta em qualquer parte do fundo, de
+ * propósito — é exatamente o que já quebrou esta função uma vez), e a
+ * comparação de quadros já é a forma calibrada e funcionando de achar alvo
+ * neste arquivo. A única lógica própria que sobra aqui é o filtro por zona
+ * proibida — comparar cada candidato às caixas de `[data-zona-jogo]`, que
+ * não tem nada a ver com detecção de alvo e por isso não pertence a
+ * `acharTodosAlvos`.
  */
 async function acharAlvoEmZonaProibida(
   page: Page,
 ): Promise<{ x: number; y: number } | null> {
-  return page.evaluate(() => {
-    const canvas = document.querySelector('canvas')
-    if (!canvas) return null
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return null
-    const caixaCanvas = canvas.getBoundingClientRect()
-    const blocos = Array.from(document.querySelectorAll('[data-zona-jogo]')).map((el) =>
-      el.getBoundingClientRect(),
-    )
-    if (blocos.length === 0) return null
-    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
-    for (let py = 0; py < canvas.height; py += 4) {
-      for (let px = 0; px < canvas.width; px += 4) {
-        const i = (py * canvas.width + px) * 4
-        if (pixels[i]! > 200 && pixels[i + 1]! > 140 && pixels[i + 2]! < 80) {
-          const x = caixaCanvas.left + (px / canvas.width) * caixaCanvas.width
-          const y = caixaCanvas.top + (py / canvas.height) * caixaCanvas.height
-          for (const b of blocos) {
-            if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) {
-              return { x, y }
-            }
-          }
-        }
+  const candidatos = await acharTodosAlvos(page)
+  if (candidatos.length === 0) return null
+
+  const blocos = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('[data-zona-jogo]')).map((el) => {
+      const r = el.getBoundingClientRect()
+      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }
+    }),
+  )
+  if (blocos.length === 0) return null
+
+  for (const candidato of candidatos) {
+    for (const bloco of blocos) {
+      if (
+        candidato.x >= bloco.left &&
+        candidato.x <= bloco.right &&
+        candidato.y >= bloco.top &&
+        candidato.y <= bloco.bottom
+      ) {
+        return candidato
       }
     }
-    return null
-  })
+  }
+  return null
 }
 
 /**
