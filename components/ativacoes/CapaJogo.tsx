@@ -16,6 +16,7 @@ import {
   type Partida,
   type Zona,
 } from './motor-reflexo'
+import { TEMA_ATIVO } from './temas'
 
 /**
  * A dobra é uma partida rodando de verdade. O visitante brinca antes de ler
@@ -50,32 +51,35 @@ import {
  * tecla vai acertar — sem ela a tecla faz algo, mas ninguém sabe o quê.
  */
 
-/** Cor do alvo: `--color-warn` (#FFB020). Não é cor nova — já está no `@theme`
- *  — e dá ~11:1 contra o fundo do canvas, muito acima do mínimo de 3:1 da WCAG
- *  1.4.11 para elemento não textual. A trava está em tests/unit/contraste.test.ts. */
-const COR_ALVO = '#FFB020'
-/** Componentes RGB de `COR_ALVO`, para montar `rgba()` nas partículas e no
- *  sprite de brilho sem depender de conversão em tempo de execução. */
+/** Componentes RGB do dourado do tema (`PALETA.destaque` em
+ *  `temas/junino.ts`, a mesma cor que já era `--color-warn` no `@theme`), pra
+ *  montar `rgba()` na rajada de partículas do acerto sem depender de
+ *  conversão em tempo de execução. O CÍRCULO E O ANEL que este arquivo
+ *  desenhava por conta própria saíram para o tema (`TEMA_ATIVO.desenharElemento`
+ *  etc.) — só a cor crua sobrevive aqui, porque a partícula continua sendo
+ *  desta função, não do tema (ver passo 7 do brief da tarefa: mover a
+ *  partícula pro tema é decisão de outro escopo). */
 const COR_ALVO_RGB = '255,176,32'
+/** Fundo antes do tema pintar por cima (`TEMA_ATIVO.desenharFundo`) — uma
+ *  base sólida caso o tema falhe em cobrir o quadro inteiro, nunca o que de
+ *  fato aparece na tela em uso normal. */
 const COR_FUNDO = '#08090C'
-const COR_TRILHO = '#1F232B'
-/** `--color-data`: já é o azul de destaque do resto da página (placar,
- *  fio de progresso) — reaproveitado aqui para a marca do alvo em foco, em
- *  vez de inventar uma terceira cor no canvas. */
-const COR_FOCO = '#38BDF8'
-/** `--color-text` em RGB — a onda de erro usa um tom neutro, não o alvo, para
- *  não ler como "quase acertou": é reconhecimento de toque, não pontuação. */
+/** `--color-text` em RGB — a onda de erro usa um tom neutro, não o do alvo,
+ *  para não ler como "quase acertou": é reconhecimento de toque, não
+ *  pontuação. Não é do tema porque a onda de erro nem sempre tem alvo por
+ *  perto — ela marca o TOQUE, e o toque não é um elemento do jogo. */
 const COR_ONDA_RGB = '245,243,239'
 /** Acima de 2 o ganho é invisível e o custo de preenchimento dobra. */
 const DPR_MAX = 2
 
-/** Duração do "pop" de nascimento (job 4). Abaixo disso o alvo cresce com
- *  ultrapassagem (`easeOutBack`) em vez de já aparecer no tamanho final. É a
- *  mudança de maior alavancagem do arquivo: não custa nada por quadro — é só
- *  mais um fator na mesma multiplicação de raio que já existia — e é a
- *  diferença entre "o alvo aparece" e "o alvo bate na tela e assenta". O
- *  alvo continua acertável desde o primeiro quadro: o raio de colisão vem do
- *  motor (`alvo.raio` × `TOLERANCIA`), e este fator só afeta o desenho. */
+/** Duração do "pop" de nascimento. Abaixo disso o alvo cresce com
+ *  ultrapassagem em vez de já aparecer no tamanho final — a curva em si
+ *  (`easeOutBack`) agora mora no tema (`escalaPopDoNascimento` em
+ *  `temas/junino.ts`); aqui só sobra a conta de quanto tempo já passou desde
+ *  que o alvo nasceu, que é o `nascimento` (0 a 1) que `TEMA_ATIVO.desenharElemento`
+ *  recebe. O alvo continua acertável desde o primeiro quadro: o raio de
+ *  colisão vem do motor (`alvo.raio` × `TOLERANCIA`), e este fator só afeta
+ *  o desenho. */
 const POP_MS = 180
 
 /** Escolhe a forma gramatical certa para uma contagem exibida na tela —
@@ -92,44 +96,6 @@ const POP_MS = 180
  *  zero num teste de componente. `motor-reflexo.ts` é puro pelo mesmo motivo. */
 export function formaContagem(contagem: number, formas: { um: string; varios: string }): string {
   return contagem === 1 ? formas.um : formas.varios
-}
-
-/** `easeOutBack`, fórmula canônica (Penner / easings.net) — passa de 1 perto
- *  do fim do trajeto e recua até assentar nele: é a ultrapassagem. `c1`/`c3`
- *  são as constantes de sempre da curva, não números ajustados a olho. */
-function easeOutBack(t: number): number {
-  const c1 = 1.70158
-  const c3 = c1 + 1
-  const x = t - 1
-  return 1 + c3 * x * x * x + c1 * x * x
-}
-
-/**
- * Sprite de brilho pré-cozido: UM gradiente radial desenhado uma única vez,
- * fora do laço de quadro, reaproveitado com `drawImage` em todo alvo, todo
- * quadro, com `globalCompositeOperation = 'lighter'` (job 4).
- *
- * `shadowBlur` e `filter: blur()` são os caminhos lentos documentados do
- * Canvas 2D — os dois recalculam um borrão a cada pixel, a cada quadro.
- * `drawImage` de um sprite já pronto é reamostragem de textura, a mesma
- * operação barata que qualquer jogo 2D usa para brilho. `null` quando o
- * navegador não dá contexto 2D para um canvas fora do DOM — mesma defesa do
- * canvas principal, um nível abaixo — e o desenho pula o brilho sem quebrar.
- */
-function criarSpriteBrilho(): HTMLCanvasElement | null {
-  const tamanho = 128
-  const tela = document.createElement('canvas')
-  tela.width = tamanho
-  tela.height = tamanho
-  const pincel = tela.getContext('2d')
-  if (!pincel) return null
-  const meio = tamanho / 2
-  const gradiente = pincel.createRadialGradient(meio, meio, 0, meio, meio, meio)
-  gradiente.addColorStop(0, `rgba(${COR_ALVO_RGB},0.55)`)
-  gradiente.addColorStop(1, `rgba(${COR_ALVO_RGB},0)`)
-  pincel.fillStyle = gradiente
-  pincel.fillRect(0, 0, tamanho, tamanho)
-  return tela
 }
 
 /**
@@ -160,6 +126,23 @@ const VIDA_PARTICULA_MS = 380
 type Onda = { ativa: boolean; x: number; y: number; nascidoEm: number }
 const POOL_ONDAS = 4
 const VIDA_ONDA_MS = 420
+
+/** Um estouro do tema em andamento — mesmo molde de `Onda`: posição
+ *  normalizada 0–1 (o espaço dos alvos do motor) e o RAIO também normalizado
+ *  (fração de `menorLado`, igual a `alvo.raio`), não em pixel. O alvo some do
+ *  estado assim que é acertado (`acertarAlvoAtivo`/`tocar` o removem), então
+ *  o estouro precisa guardar o próprio tamanho no instante do acerto — não
+ *  há mais `alvo.raio` nenhum para reler dali a um quadro. Guardar
+ *  normalizado, e escalar por `menorLado` só na hora de desenhar, é o mesmo
+ *  cuidado que `Particula`/`Onda` já tomam com posição: sobrevive a um
+ *  redimensionamento no meio da própria vida (curta, ~500ms, mas o padrão do
+ *  arquivo já é este). */
+type Estouro = { ativa: boolean; x: number; y: number; raio: number; nascidoEm: number }
+const POOL_ESTOUROS = 4
+/** ~500ms: o mesmo teto que o comentário de `desenharEstouro` em
+ *  `temas/junino.ts` já assume ("raro e curto") para justificar reaproveitar
+ *  os `Path2D` dos gomos em vez de um sprite pré-rasterizado. */
+const VIDA_ESTOURO_MS = 500
 
 export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -198,11 +181,6 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
     const menosMovimento =
       !semSuporte && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-    // Nada de brilho, partícula ou onda sob menos movimento — job 4 é
-    // explícito: "no pop, no particles, no ripple, constant radius". O sprite
-    // nem chega a ser construído quando não vai ser usado.
-    const spriteBrilho = menosMovimento ? null : criarSpriteBrilho()
-
     const particulas: Particula[] = Array.from({ length: POOL_PARTICULAS }, () => ({
       ativa: false,
       x: 0,
@@ -239,6 +217,27 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
       o.x = x
       o.y = y
       o.nascidoEm = agora
+    }
+
+    const estouros: Estouro[] = Array.from({ length: POOL_ESTOUROS }, () => ({
+      ativa: false,
+      x: 0,
+      y: 0,
+      raio: 0,
+      nascidoEm: 0,
+    }))
+    let proximoEstouro = 0
+    // Mesmo padrão de `emitirRajada`/`emitirOnda`: `raio` aqui é o
+    // NORMALIZADO do alvo (`alvo.raio`), não pixel — ver o comentário do
+    // tipo `Estouro` acima para o porquê.
+    const emitirEstouro = (x: number, y: number, raio: number, agora: number) => {
+      const e = estouros[proximoEstouro]!
+      proximoEstouro = (proximoEstouro + 1) % POOL_ESTOUROS
+      e.ativa = true
+      e.x = x
+      e.y = y
+      e.raio = raio
+      e.nascidoEm = agora
     }
 
     let largura = 0
@@ -319,8 +318,14 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
       const estado = avancar(anterior, agora, !menosMovimento)
       partidaRef.current = estado
 
+      // Base sólida ANTES do tema — ver o comentário de `COR_FUNDO` acima.
+      // `TEMA_ATIVO.desenharFundo`, logo em seguida, é quem de fato pinta o
+      // que fica na tela (no junino: cor de fundo própria, bandeirinhas,
+      // brasas em deriva) — os dois nunca competem porque o segundo cobre o
+      // quadro inteiro de novo.
       pincel.fillStyle = COR_FUNDO
       pincel.fillRect(0, 0, largura, altura)
+      TEMA_ATIVO.desenharFundo(pincel, largura, altura, agora, menosMovimento)
 
       const menorLado = Math.min(largura, altura)
 
@@ -332,72 +337,60 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
         // (vida 1050ms) encolhia como se tivesse 1400ms pela frente e sumia
         // ainda "gordo"; um alvo do pouso (vida 1300ms) demorava a começar a
         // encolher. `vidaDoAlvo` devolve a vida da fase em que O ALVO nasceu
-        // — a mesma conta que decide quando ele expira de verdade.
+        // — a mesma conta que decide quando ele expira de verdade. O tema
+        // recebe `vida` crua (1 a 0) e decide sozinho como isso vira raio
+        // desenhado — CapaJogo não converte mais para `escalaVida` aqui.
         const vidaMaxima = vidaDoAlvo(estado, alvo)
         const vida = Math.max(0, 1 - (agora - alvo.nascidoEm) / vidaMaxima)
-        // COM MENOS MOVIMENTO O RAIO É CONSTANTE. O encolhimento É a pulsação
-        // que a spec manda remover — não adianta desligar só o fantasma e
-        // deixar cada alvo animando o próprio contorno 60 vezes por segundo.
-        const escalaVida = menosMovimento ? 1 : 0.55 + 0.45 * vida
 
-        // POP DE NASCIMENTO (job 4): ultrapassagem de ~180ms via
-        // `easeOutBack`, também desligada sob menos movimento — "constant
-        // radius" ali significa isto também, não só o encolhimento.
-        const idade = agora - alvo.nascidoEm
-        const escalaPop = menosMovimento
-          ? 1
-          : Math.max(0, easeOutBack(Math.min(1, idade / POP_MS)))
+        // POP DE NASCIMENTO: `nascimento` é o progresso LINEAR de entrada, 0
+        // a 1, sem a curva de ultrapassagem — `escalaPopDoNascimento`
+        // (`temas/junino.ts`) é quem aplica `easeOutBack` por dentro do
+        // tema, exatamente como `tipos.ts` documenta ("nascimento vai de 0 a
+        // 1 durante a entrada"). Passar aqui um valor já curvado faria o
+        // tema curvar DE NOVO em cima de um número que já passa de 1 —
+        // `escalaPopDoNascimento` prende isso em [0,1] antes de aplicar a
+        // curva, e o resultado seria a ultrapassagem inteira cortada fora.
+        const nascimento = Math.min(1, (agora - alvo.nascidoEm) / POP_MS)
 
-        const raio = alvo.raio * menorLado * escalaVida * escalaPop
+        // `raio` aqui é o BASE (motor × tela), sem escala de vida nem de pop
+        // — a mesma convenção que `tests/unit/ativacoes-tema.test.ts` usa
+        // (raio=24 é literalmente `RAIO × 430`, ver motor-reflexo.ts). O
+        // tema recebe `raio`, `vida` e `nascimento` separados e compõe a
+        // escala final por dentro; compor aqui e mandar só o resultado
+        // duplicaria a fórmula em dois arquivos.
+        const raio = alvo.raio * menorLado
         const cx = alvo.x * largura
         const cy = alvo.y * altura
 
-        // BRILHO (job 4): aditivo, sprite pré-cozido, `drawImage` — nunca
-        // `shadowBlur`. `globalCompositeOperation` volta a `source-over`
-        // logo depois, porque o preenchimento sólido e o anel abaixo não
-        // podem herdar composição aditiva.
-        if (spriteBrilho && raio > 0) {
-          const tamanhoBrilho = raio * 2.6
-          pincel.globalCompositeOperation = 'lighter'
-          pincel.drawImage(
-            spriteBrilho,
-            cx - tamanhoBrilho / 2,
-            cy - tamanhoBrilho / 2,
-            tamanhoBrilho,
-            tamanhoBrilho,
-          )
-          pincel.globalCompositeOperation = 'source-over'
-        }
-
-        pincel.beginPath()
-        pincel.arc(cx, cy, raio, 0, Math.PI * 2)
-        pincel.fillStyle = COR_ALVO
-        pincel.fill()
-
-        pincel.beginPath()
-        pincel.arc(cx, cy, raio * 1.9, 0, Math.PI * 2)
-        pincel.strokeStyle = COR_TRILHO
-        pincel.lineWidth = 1
-        pincel.stroke()
+        // O pincel chega ao tema JÁ TRANSLADADO para o centro do elemento —
+        // é o contrato de `temas/tipos.ts`: todo tema desenha em torno da
+        // própria origem, e CapaJogo nunca precisa saber onde cada tema
+        // resolveu pôr gomo, brilho ou costura.
+        pincel.save()
+        pincel.translate(cx, cy)
+        TEMA_ATIVO.desenharElemento(pincel, raio, vida, nascimento, agora, menosMovimento)
+        pincel.restore()
       }
 
       // MARCA DE FOCO (job 3) — o que a barra de espaço vai acertar. Sem
       // ela, quem navega por teclado tem uma tecla que faz algo, não um
-      // jogo: não dá para mirar no que não se vê. Independe de
-      // `menosMovimento` — não é movimento, é a única forma de um jogador de
-      // teclado saber onde está, e some sozinha porque só desenha com o
-      // canvas focado.
+      // jogo: não dá para mirar no que não se vê. O ANEL em si agora é do
+      // tema (`TEMA_ATIVO.desenharAlvoAtivo`); o que sobra aqui é decidir
+      // QUANDO desenhar (só com o canvas focado, e só se há um alvo ativo) e
+      // ONDE (a translação). `menosMovimento` chega ao tema porque a marca
+      // pode ter uma respiração própria (o junino tem uma, leve) — mas ela
+      // nunca é apagada por `menosMovimento`: é a única forma de um jogador
+      // de teclado saber onde está, e "sem movimento" para ela significa só
+      // "sem a respiração", nunca "some".
       if (focado) {
         const ativo = alvoAtivo(estado)
         if (ativo) {
           const raioBase = ativo.raio * menorLado
-          pincel.beginPath()
-          pincel.arc(ativo.x * largura, ativo.y * altura, raioBase * 1.7, 0, Math.PI * 2)
-          pincel.strokeStyle = COR_FOCO
-          pincel.lineWidth = 2
-          pincel.setLineDash([5, 4])
-          pincel.stroke()
-          pincel.setLineDash([])
+          pincel.save()
+          pincel.translate(ativo.x * largura, ativo.y * altura)
+          TEMA_ATIVO.desenharAlvoAtivo(pincel, raioBase, agora, menosMovimento)
+          pincel.restore()
         }
       }
 
@@ -443,6 +436,30 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
           pincel.strokeStyle = `rgba(${COR_ONDA_RGB},${(1 - progresso) * 0.3})`
           pincel.lineWidth = 1.5
           pincel.stroke()
+        }
+
+        // ESTOURO: pool fixo, mesmo padrão de `particulas`/`ondas` — some
+        // sozinho quando a idade passa da própria vida. Dentro do MESMO
+        // `if (!menosMovimento)` das partículas e da onda: o passo 5 do
+        // brief pede exatamente isto ("em menosMovimento, o estouro não é
+        // desenhado"), e barrar aqui, na fonte, é mais simples que repetir a
+        // condição dentro do tema — `emitirEstouro` também só é chamado sob
+        // `!menosMovimento` (ver `aoTocar`/`aoTeclar`), então o pool nem
+        // chega a ter estouro ativo nesse modo; o `if` aqui é redundância
+        // deliberada, não confiar em silêncio que quem emite sempre respeita
+        // a regra.
+        for (const e of estouros) {
+          if (!e.ativa) continue
+          const idadeEstouro = agora - e.nascidoEm
+          if (idadeEstouro >= VIDA_ESTOURO_MS) {
+            e.ativa = false
+            continue
+          }
+          const progresso = idadeEstouro / VIDA_ESTOURO_MS
+          pincel.save()
+          pincel.translate(e.x * largura, e.y * altura)
+          TEMA_ATIVO.desenharEstouro(pincel, e.raio * menorLado, progresso)
+          pincel.restore()
         }
       }
 
@@ -569,6 +586,10 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
         )
         if (atingido) {
           emitirRajada(atingido.x, atingido.y, agora)
+          // `atingido.raio` é normalizado (o mesmo espaço de `Alvo` no
+          // motor) — ver o comentário do tipo `Estouro` acima para o porquê
+          // de guardar assim, e não já em pixel.
+          emitirEstouro(atingido.x, atingido.y, atingido.raio, agora)
         } else if (antesDoToque.fase !== 'atrativo') {
           // Onda de erro só quando o toque de fato tentou acertar algo: o
           // primeiro toque (saindo do modo atrativo) não julga alvo nenhum —
@@ -598,7 +619,10 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
       // rajada de acerto precisa saber a posição.
       const alvo = alvoAtivo(antesDoAcionamento)
       partidaRef.current = acertarAlvoAtivo(antesDoAcionamento, agora)
-      if (!menosMovimento && alvo) emitirRajada(alvo.x, alvo.y, agora)
+      if (!menosMovimento && alvo) {
+        emitirRajada(alvo.x, alvo.y, agora)
+        emitirEstouro(alvo.x, alvo.y, alvo.raio, agora)
+      }
     }
     const aoFocar = () => {
       focado = true
@@ -785,7 +809,14 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
              * inteiras no pior caso (390px), nunca seis pedaços picados. */
             <div aria-hidden="true" className="flex flex-col gap-1">
               <p className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-mono text-xs text-faint">{capa.convite}</span>
+                {/* O convite muda com o tema (`TEMA_ATIVO.chaveConvite`) — o
+                  * junino diz "Estoure os balões.", não "Toque nos alvos.".
+                  * `capa.convite` sobra como RESERVA: um tema mal configurado
+                  * (chave sem tradução) degrada em texto neutro em vez de
+                  * renderizar vazio ou `undefined` na tela. */}
+                <span className="font-mono text-xs text-faint">
+                  {capa.convitesTema[TEMA_ATIVO.chaveConvite] ?? capa.convite}
+                </span>
                 <span className="text-xl font-semibold tabular-nums text-data">
                   {/* `formaContagem`: zero e dois-ou-mais são plural, só o 1
                     * exato muda de rótulo — ver o comentário na função. */}

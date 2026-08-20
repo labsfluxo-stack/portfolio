@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { CapaJogo, formaContagem } from '@/components/ativacoes/CapaJogo'
 import { pt } from '@/content/pt'
 import { en } from '@/content/en'
+import { TEMA_ATIVO } from '@/components/ativacoes/temas'
 
 /**
  * O QUE ESTE ARQUIVO PROVA — E O QUE ELE NÃO TEM COMO ALCANÇAR.
@@ -151,5 +152,15 @@ describe('capa jogável', () => {
   it('o placar ao vivo mostra a forma plural em zero acertos, o único estado alcançável aqui', () => {
     render(<CapaJogo dict={pt} locale="pt" />)
     expect(screen.getByText(`0 ${pt.ativacoes.capa.placar.acertos.varios}`)).toBeInTheDocument()
+  })
+
+  // O convite deixa de ser string fixa e passa a vir do tema ativo. Sem este
+  // teste, trocar `TEMA_ATIVO` mudaria o desenho e deixaria a frase falando de
+  // outra coisa — "Toque nos alvos" sobre uma tela cheia de balão.
+  it('o convite renderizado vem do tema ativo', () => {
+    render(<CapaJogo dict={pt} locale="pt" />)
+    const esperado = pt.ativacoes.capa.convitesTema[TEMA_ATIVO.chaveConvite]
+    expect(esperado, 'o tema ativo aponta para uma chave que não existe no dicionário').toBeTruthy()
+    expect(screen.getByText(esperado!)).toBeInTheDocument()
   })
 })
