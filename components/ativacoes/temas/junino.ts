@@ -66,7 +66,8 @@ const PALETA = {
 
 const LARGURA_CORPO = 100
 /** Só o corpo (gomos), excluindo nó e bico — largura:altura 0,72:1, ajustado
- *  de um molde real (~0,52:1) para legibilidade a 24px. Ver arte-junina.md §2. */
+ *  de um molde real (~0,52:1) para legibilidade a 24px. Ver
+ *  `docs/superpowers/referencias/2026-08-20-arte-junina.md` §2. */
 const PROPORCAO_CORPO = 0.72
 const ALTURA_CORPO = LARGURA_CORPO / PROPORCAO_CORPO
 /** Onde o gomo incha mais. 42%, não 50% — centro exato lê como balão de
@@ -92,10 +93,11 @@ const CENTRO_Y = (ALTURA_CORPO + ALTURA_RABICHO - ALTURA_NO) / 2
  * -90° a 90°) num plano: `sin(longitude)` dá o deslocamento horizontal de
  * cada costura. A costura central (longitude 0°) desce reta; as duas
  * costuras da silhueta (±90°) SÃO a borda esquerda/direita do balão inteiro.
- * O efeito colateral é o que arte-junina.md pediu à mão (gomos da borda mais
- * estreitos que os do centro) sair de graça da trigonometria, sem tabela
- * chutada por gomo: a diferença entre senos consecutivos já encolhe perto
- * das pontas.
+ * O efeito colateral é o que
+ * `docs/superpowers/referencias/2026-08-20-arte-junina.md` pediu à mão
+ * (gomos da borda mais estreitos que os do centro) sair de graça da
+ * trigonometria, sem tabela chutada por gomo: a diferença entre senos
+ * consecutivos já encolhe perto das pontas.
  */
 const N_GOMOS = 6
 function seloEm(indice: number): number {
@@ -109,7 +111,8 @@ const SELOS = Array.from({ length: N_GOMOS + 1 }, (_, i) => seloEm(i))
 /**
  * Caminho SVG de UM gomo: duas curvas quadráticas partindo do mesmo ponto
  * (o nó, topo) e chegando no mesmo ponto (o bico, base) — uma vesica, não um
- * revolve. `Q` (quadrática) e não a cúbica que arte-junina.md sugeriu: o
+ * revolve. `Q` (quadrática) e não a cúbica que
+ * `docs/superpowers/referencias/2026-08-20-arte-junina.md` sugeriu: o
  * ponto de controle único tem solução fechada para "a curva passa por
  * (bulge, ALTURA_EQUADOR) na metade do trajeto" — `cy = 2·ALTURA_EQUADOR −
  * 0,5·ALTURA_CORPO`, a mesma álgebra de Bézier quadrática de sempre — e sem
@@ -155,6 +158,27 @@ const FAMILIA_POR_GOMO: readonly FamiliaCor[] = [VERMELHO, DOURADO, VERDE, VERME
  *  continua sendo o topo de cada gradiente, ver `gradienteGomo`) — é só o
  *  gomo, como um todo, mais próximo da própria sombra que da própria luz. */
 const FRONTALIDADE_POR_GOMO = [0.55, 0.8, 1, 1, 0.8, 0.55] as const
+
+/**
+ * Cores REALMENTE desenhadas nos dois gomos centrais — índices 2 (verde) e 3
+ * (vermelho) em `FAMILIA_POR_GOMO`, os únicos com `FRONTALIDADE_POR_GOMO`
+ * igual a 1 — mais o acento do tema (`PALETA.destaque`, usado no apliqué do
+ * bico, na marca do alvo em foco e na rajada de acerto). Frontalidade 1
+ * significa escurecimento de borda ZERO (`(1 − 1⁵) × FATOR_ESCURECIMENTO_BORDA
+ * = 0`, ver `gradienteGomo`), então `.base` destes dois gomos é o hex puro da
+ * família — nenhuma mistura escondida entre este export e o pixel de tela.
+ *
+ * EXPORTADO só para `tests/unit/contraste.test.ts` medir as cores que o
+ * balão de fato desenha, em vez de copiar hex para dentro do teste — uma
+ * cópia sai de sincronia se a paleta mudar de novo (foi exatamente esse
+ * descompasso, com `#FFB020` e o extinto `#1F232B`, que deixou o gate de
+ * contraste da WCAG 1.4.11 descrevendo uma peça que não existe mais).
+ */
+export const CORES_CONTRASTE = {
+  gomoCentralVerde: VERDE.base,
+  gomoCentralVermelho: VERMELHO.base,
+  acento: PALETA.destaque,
+} as const
 
 function paraRgb(hex: string): [number, number, number] {
   const n = Number.parseInt(hex.slice(1), 16)
@@ -218,8 +242,9 @@ const FATOR_ESCURECIMENTO_BORDA = 0.85
 
 /**
  * O gradiente de UM gomo — vertical, nó (topo) a bico (base). NÃO é o
- * gradiente esquerda-direita que uma primeira leitura de arte-junina.md
- * sugeriria: aquele documento supõe luz vindo de cima-esquerda, e a decisão
+ * gradiente esquerda-direita que uma primeira leitura de
+ * `docs/superpowers/referencias/2026-08-20-arte-junina.md` sugeriria:
+ * aquele documento supõe luz vindo de cima-esquerda, e a decisão
  * que rege ESTA tarefa (a régua do briefing, que é quem manda aqui) é outra
  * — fonte de luz única, de BAIXO, porque o calor do balão é o brilho interno
  * do papel, não um sol. Duas fontes de luz brigando é o segundo erro mais
@@ -575,7 +600,8 @@ function desenharAlvoAtivo(
 
 /** Um giro final distinto por gomo — nunca a mesma velocidade angular em
  *  todos, que é a marca de "um sprite reaproveitado seis vezes" em vez de
- *  seis cacos de verdade (ver arte-junina.md §4).
+ *  seis cacos de verdade (ver
+ *  `docs/superpowers/referencias/2026-08-20-arte-junina.md` §4).
  *
  *  Ajustado no segundo ciclo do olhar (relatório da tarefa): a primeira
  *  versão girava cada gomo em torno do PRÓPRIO centro, mas o gomo inteiro
@@ -613,7 +639,8 @@ function desenharEstouroVetorial(pincel: CanvasRenderingContext2D, raio: number,
 function desenharEstouro(pincel: CanvasRenderingContext2D, raio: number, progresso: number): void {
   const p = limitar01(progresso)
   // Some a partir de 60% do trajeto — os cacos dissolvem no ar; nunca
-  // "pousam" (ver arte-junina.md §4: sem plano de chão, sem colisão).
+  // "pousam" (ver `docs/superpowers/referencias/2026-08-20-arte-junina.md`
+  // §4: sem plano de chão, sem colisão).
   const alpha = p < 0.6 ? 1 : Math.max(0, 1 - (p - 0.6) / 0.4)
   if (alpha <= 0) return
 
@@ -670,7 +697,8 @@ const FRACAO_FAIXA_BANDEIRINHAS = 0.12
 function caminhoBandeira(largura: number, altura: number): string {
   // Triângulo ápice-para-baixo, um pouco mais alto que largo (1,3:1) — lê
   // como pano cortado na diagonal; um triângulo equilátero lê como ícone de
-  // bandeirola genérico (arte-junina.md §3).
+  // bandeirola genérico
+  // (`docs/superpowers/referencias/2026-08-20-arte-junina.md` §3).
   const meiaLargura = largura / 2
   return `M ${-meiaLargura} 0 L ${meiaLargura} 0 L 0 ${altura} Z`
 }
@@ -695,7 +723,8 @@ function rasterizarBandeirinhas(largura: number, altura: number, dpr: number): H
 
   // O FIO NUNCA É RETO — cada vão cede num quadrático. Reto é "gerado", não
   // "pendurado": a gravidade é de graça para desenhar, e a ausência dela é
-  // o que mais denuncia (arte-junina.md §3).
+  // o que mais denuncia
+  // (`docs/superpowers/referencias/2026-08-20-arte-junina.md` §3).
   pincel.strokeStyle = CORES_BANDEIRINHA[4]
   pincel.lineWidth = 1
   pincel.beginPath()
@@ -742,7 +771,7 @@ type SementeBrasa = {
  * `components/landing/arte.tsx` (a arte não pode mudar a cada build). `x`
  * concentrado nos 25% externos de cada lado, `y` no terço de baixo do
  * quadro: o centro fica livre para o texto e o próprio jogo
- * (arte-junina.md §3).
+ * (`docs/superpowers/referencias/2026-08-20-arte-junina.md` §3).
  */
 const SEMENTES_BRASA: readonly SementeBrasa[] = [
   { xFrac: 0.04, yFrac0: 0.92, faseMs: 0, velocidade: 10, amplitude: 4, periodoMs: 2600, raioBase: 1.6 },
@@ -757,7 +786,8 @@ const SEMENTES_BRASA: readonly SementeBrasa[] = [
   { xFrac: 0.87, yFrac0: 0.93, faseMs: 3800, velocidade: 9, amplitude: 5, periodoMs: 3400, raioBase: 1.5 },
 ] as const
 /** Duração de um ciclo de vida de uma brasa antes de reaparecer embaixo de
- *  novo — o "respawn" da deriva contínua descrita em arte-junina.md §3. */
+ *  novo — o "respawn" da deriva contínua descrita em
+ *  `docs/superpowers/referencias/2026-08-20-arte-junina.md` §3. */
 const VIDA_BRASA_MS = 4200
 
 function desenharBrasas(pincel: CanvasRenderingContext2D, largura: number, altura: number, tempo: number): void {

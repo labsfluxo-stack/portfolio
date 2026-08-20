@@ -372,7 +372,7 @@ com listras reprova nesta tarefa mesmo passando em todos os testes automatizados
 ### O objeto é específico, e errar isto é o tell número um
 
 A pesquisa de direção de arte está em
-[`arte-junina.md`](../../../.superpowers/redesign/arte-junina.md) — **leia antes de
+[`arte-junina.md`](../referencias/2026-08-20-arte-junina.md) — **leia antes de
 desenhar**. Três achados dela são requisito, não sugestão:
 
 1. **É um balão de São João: lanterna de papel em gomos, afunilada nas DUAS pontas.** Não é

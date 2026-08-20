@@ -56,9 +56,12 @@ import { TEMA_ATIVO } from './temas'
  *  montar `rgba()` na rajada de partículas do acerto sem depender de
  *  conversão em tempo de execução. O CÍRCULO E O ANEL que este arquivo
  *  desenhava por conta própria saíram para o tema (`TEMA_ATIVO.desenharElemento`
- *  etc.) — só a cor crua sobrevive aqui, porque a partícula continua sendo
- *  desta função, não do tema (ver passo 7 do brief da tarefa: mover a
- *  partícula pro tema é decisão de outro escopo). */
+ *  etc.) — só a cor crua sobrevive aqui, porque a partícula de acerto é
+ *  reconhecimento de TOQUE, não vocabulário visual do elemento: ela marca
+ *  ONDE a pessoa acertou, não o que existe naquele lugar, e por isso continua
+ *  sendo desta função, não do tema. Mover a partícula pro tema exigiria
+ *  decidir se cada tema futuro tem sua própria linguagem de partícula — uma
+ *  decisão maior e separada, não um ajuste de retoque desta leva. */
 const COR_ALVO_RGB = '255,176,32'
 /** Fundo antes do tema pintar por cima (`TEMA_ATIVO.desenharFundo`) — uma
  *  base sólida caso o tema falhe em cobrir o quadro inteiro, nunca o que de
