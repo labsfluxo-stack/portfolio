@@ -214,7 +214,7 @@ function misturar(a: string, b: string, t: number): string {
  */
 const NEUTRO_ESCURO_BORDA = '#120D09'
 /**
- * Curva de escurecimento por posição — côncava (`frontalidade³`), não
+ * Curva de escurecimento por posição — côncava (`frontalidade⁹`), não
  * linear, e calibrada por medição de pixel de verdade, não só a olho.
  *
  * A primeira tentativa (`(1 − frontalidade) × 1,3`, linear) escureceu os
@@ -226,19 +226,64 @@ const NEUTRO_ESCURO_BORDA = '#120D09'
  * a ~144 de luminância, mais claro que os DOIS gomos centrais (verde ~130,
  * vermelho ~103) — o defeito persistia, só um degrau mais fraco.
  *
- * A curva côncava resolve isso: `1 − frontalidade³` cai rápido assim que
- * `frontalidade` sai de 1, então mesmo o gomo quase-frontal (0,8) já leva
- * uma fração substancial do escurecimento máximo, em vez de escalar
- * linearmente com a distância ao centro. Medido depois: dourado em 0,8 caiu
- * pra ~76, azul em 0,8 pra ~68 — os dois abaixo do vermelho central (~103) e
- * do verde central (~130), pela primeira vez com posição vencendo matiz nos
- * quatro gomos não-centrais, não só nos dois mais extremos.
+ * A curva côncava (`frontalidade³` na época) resolveu ISSO: mesmo o gomo
+ * quase-frontal (0,8) já levava uma fração substancial do escurecimento
+ * máximo. Mas o EXPOENTE 5 + FATOR 0,85 que saiu dali ficou bom demais —
+ * escureceu a MISTURA inteira até um ponto em que a maioria dos pixels do
+ * balão passou a cair mais perto do stop `sombra` de QUALQUER família do
+ * que do `base`, não só do próprio: o diagnóstico de densidade
+ * (`docs/superpowers/referencias/2026-08-20-junina-diagnostico.md` §4)
+ * mediu ~73% dos pixels do balão mais perto de sombra contra ~26% de base —
+ * a pista de volume sobreviveu, mas o objeto inteiro passou a ler como
+ * mancha escura, o oposto de "vivid and contrasting"
+ * (`docs/superpowers/referencias/2026-08-20-arte-junina.md` §1).
+ *
+ * ACHADO DA RODADA DE DENSIDADE (2026-08): script de medição descartável
+ * (`scripts/_tmp-medir-balao.mts`, rodado num Chromium real — Path2D e
+ * gradiente de verdade, não jsdom) isolou a causa: o próprio gradiente
+ * vertical, mesmo SEM nenhum escurecimento de borda, já lê ~27,5% "sombra"
+ * por POSIÇÃO — o stop `base` só existia num único ponto (55%) da barra em
+ * vez de ocupar uma faixa. Duas mudanças resolvem os dois problemas juntas:
+ * `EXPOENTE_FRONTALIDADE` subiu de 5 para 9 (curva ainda mais íngreme perto
+ * de frontalidade=1 — os quatro gomos não-centrais continuam escurecendo o
+ * bastante pra ficar abaixo dos dois centrais, com MAIS folga que antes, não
+ * menos) e `FATOR_ESCURECIMENTO_BORDA` desceu de 0,85 para 0,75 (o pico de
+ * mistura é mais raso). A segunda mudança — `PONTO_BASE_INICIO`/
+ * `PONTO_BASE_FIM` abaixo, um platô em vez de um único ponto — é quem faz a
+ * diferença de verdade: o hex `base` (sem mistura nenhuma nos dois gomos
+ * centrais) passa a valer por 70% da altura do corpo em vez de um instante
+ * só, então mesmo um gomo central sem NENHUM escurecimento de borda lê como
+ * "cor vívida" na maior parte da própria extensão, não só numa linha fina no
+ * meio de uma rampa contínua sombra→destaque.
+ *
+ * MEDIDO DEPOIS (mesmo script, 4 famílias × 3 stops, todo pixel do balão
+ * classificado pelo stop DECLARADO mais próximo — a mesma metodologia do
+ * diagnóstico): sombra 50,3% / base 48,7% / destaque 1,1% — de "3 em 4
+ * pixels em sombra" para praticamente meio a meio. A pista de volume não só
+ * sobreviveu como GANHOU folga: vermelho central (o mais escuro dos dois
+ * centrais) mede ~92 de luminância contra dourado borda-adjacente (o mais
+ * claro dos quatro não-centrais) em ~73 — 19 pontos de margem, quase o
+ * DOBRO dos ~9 pontos que a configuração antiga tinha entre dourado
+ * borda-adjacente (~77) e vermelho central (~86). Ver o relatório da tarefa
+ * para a tabela completa de candidatos testados.
  */
-const EXPOENTE_FRONTALIDADE = 5
+const EXPOENTE_FRONTALIDADE = 9
 /** Fração de mistura no ponto mais escuro (`frontalidade→0`). Não é 1
  *  (misturaria até o neutro puro) — sobra um pouco da cor original mesmo no
- *  limite, pra nenhum gomo virar uma silhueta lisa sem matiz nenhum. */
-const FATOR_ESCURECIMENTO_BORDA = 0.85
+ *  limite, pra nenhum gomo virar uma silhueta lisa sem matiz nenhum. Descido
+ *  de 0,85 pra 0,75 na rodada de densidade — ver o comentário de
+ *  `EXPOENTE_FRONTALIDADE` acima para a medição completa. */
+const FATOR_ESCURECIMENTO_BORDA = 0.75
+/** Onde o platô do stop `base` COMEÇA e TERMINA, fração da altura do corpo
+ *  (nó=0, bico=1). Era um único ponto (55%) — um gradiente contínuo de
+ *  sombra a destaque passando por UM instante de cor pura. Virou uma faixa
+ *  plana (10%–80%): a cor declarada da família aparece sem NENHUMA mistura
+ *  ao longo de 70% da altura do gomo, e só os dois extremos (perto do nó,
+ *  perto do bico) continuam em transição — mais parede lisa de cor vívida,
+ *  menos rampa contínua. Ver `EXPOENTE_FRONTALIDADE` acima para a medição
+ *  que motivou a troca. */
+const PONTO_BASE_INICIO = 0.1
+const PONTO_BASE_FIM = 0.8
 
 /**
  * O gradiente de UM gomo — vertical, nó (topo) a bico (base). NÃO é o
@@ -268,7 +313,13 @@ function gradienteGomo(
   const baseAjustada = misturar(familia.base, NEUTRO_ESCURO_BORDA, escurecimento)
   const destaqueAjustado = misturar(familia.destaque, NEUTRO_ESCURO_BORDA, escurecimento)
   gradiente.addColorStop(0, sombraAjustada)
-  gradiente.addColorStop(0.55, baseAjustada)
+  gradiente.addColorStop(PONTO_BASE_INICIO, baseAjustada)
+  // Mesmo stop de cor, um segundo ponto mais adiante — é o que abre o platô
+  // (ver o comentário de `PONTO_BASE_INICIO`/`PONTO_BASE_FIM` acima). Entre
+  // os dois pontos o Canvas 2D não interpola nada: é o mesmo valor dos dois
+  // lados, então a cor fica CHAPADA nessa faixa em vez de continuar em rampa
+  // até o próximo stop.
+  gradiente.addColorStop(PONTO_BASE_FIM, baseAjustada)
   gradiente.addColorStop(1, destaqueAjustado)
   return gradiente
 }
