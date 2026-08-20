@@ -35,8 +35,20 @@ export type Tema = {
     parado: boolean,
   ): void
   /** Marca o elemento que a barra de espaço vai acertar. Vive no tema porque
-   *  um anel que serve a um círculo não serve a um balão. */
-  desenharAlvoAtivo(pincel: CanvasRenderingContext2D, raio: number, agora: number): void
+   *  um anel que serve a um círculo não serve a um balão. `parado` é
+   *  `prefers-reduced-motion`, igual às outras duas funções que recebem
+   *  `agora` — uma marca de foco que pulsasse mesmo assim seria a mesma
+   *  classe de descuido que o resto da dobra evita: a marca existe para
+   *  ORIENTAR quem navega por teclado, não para chamar atenção sozinha, e
+   *  duas leituras possíveis da mesma assinatura (anima sempre vs. respeita
+   *  a preferência) é ambiguidade que o tipo não tem por que deixar em
+   *  aberto — outro tema que interpretasse diferente ainda bateria o tipo. */
+  desenharAlvoAtivo(
+    pincel: CanvasRenderingContext2D,
+    raio: number,
+    agora: number,
+    parado: boolean,
+  ): void
   /** UM estouro em andamento, `progresso` de 0 a 1. Puramente visual: não
    *  pontua, não atrasa nada, e a partida segue igual se não for desenhado. */
   desenharEstouro(pincel: CanvasRenderingContext2D, raio: number, progresso: number): void
