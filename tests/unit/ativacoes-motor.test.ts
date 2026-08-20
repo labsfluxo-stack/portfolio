@@ -296,6 +296,42 @@ describe('motor de reflexo', () => {
     expect(acertou.fase).toBe('jogando')
     expect(acertou.acertos).toBe(comAlvo.acertos + 1)
   })
+
+  /**
+   * POR QUE ESTE TESTE EXISTE AO LADO DOS DE `tocarEm` ACIMA (achado da
+   * revisão final de branch): `tocarEm` prova que a COMPOSIÇÃO "avancar,
+   * depois julgar o toque contra o estado fresco" é a correta — mas
+   * `CapaJogo.tsx` não chama `tocarEm`. `aoTocar`/`aoTeclar`, no componente,
+   * chamam `avancar` e `tocar` SEPARADOS (`const antesDoToque = avancar(...)`
+   * seguido de `const depois = tocar(antesDoToque, ...)`), de propósito: o
+   * componente precisa do estado INTERMEDIÁRIO — entre o avanço do relógio e
+   * o julgamento do toque — para saber, por comparação, se foi ESTE toque
+   * que removeu um alvo (a rajada visual de acerto). A composição é
+   * EQUIVALENTE a `tocarEm` por fora (mesmo resultado final), então o
+   * comportamento do jogo está certo — mas nenhum teste antes deste chamava
+   * `avancar` e `tocar` como duas chamadas separadas, na mesma ordem que o
+   * componente roda. Apagar o `avancar` de `CapaJogo.tsx` (voltando a um
+   * toque cru contra estado velho, a MESMA regressão que motivou `tocarEm`)
+   * deixaria os testes de `tocarEm` inteiramente verdes — eles testam a
+   * função exportada, não quem a chama ou deixa de chamar. Este teste prende
+   * a composição que o COMPONENTE de fato executa.
+   */
+  it('avancar seguido de tocar — a composição que o componente roda — não pontua um toque tardio', () => {
+    const jogando = tocar(criarPartida(9, 0), 0.5, 0.5, 0)
+    const comAlvo = simular(jogando, 0, 60)
+    const alvo = comAlvo.alvos[0]!
+    const agoraTarde = comAlvo.comecouEm + DURACAO_MS + 5000
+
+    // Exatamente a sequência de `aoTocar`/`aoTeclar` em `CapaJogo.tsx`:
+    // `avancar` primeiro, sobre o estado ORIGINAL — reavalia a duração de 15s
+    // e leva a partida a `fim` — só depois `tocar`, contra esse estado fresco.
+    const antesDoToque = avancar(comAlvo, agoraTarde)
+    expect(antesDoToque.fase).toBe('fim')
+
+    const depois = tocar(antesDoToque, alvo.x, alvo.y, agoraTarde)
+    expect(depois.fase).toBe('fim')
+    expect(depois.acertos).toBe(comAlvo.acertos)
+  })
 })
 
 // Mudança 1: "repique" — cadência, vida e teto de alvos vivos deixam de ser
