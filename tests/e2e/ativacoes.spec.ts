@@ -82,42 +82,114 @@ test('a dobra joga sozinha e o placar sobe sem ninguém tocar', async ({ page })
 })
 
 /**
- * Varre o canvas atrás de um pixel da cor do alvo (`#FFB020`) e devolve a
- * coordenada de página correspondente. É a única forma honesta de "saber onde
- * está o alvo" de fora: o estado da partida vive num `ref` e não atravessa
- * para o DOM, e inventar uma posição faria o teste clicar no vazio e passar
- * por sorte.
+ * Acha um alvo VIVO no canvas e devolve a coordenada de página correspondente
+ * — sem conhecer a cor de nada. É a única forma honesta de "saber onde está o
+ * alvo" de fora: o estado da partida vive num `ref` e não atravessa para o
+ * DOM, e inventar uma posição faria o teste clicar no vazio e passar por
+ * sorte.
+ *
+ * REESCRITO (ruling do controller, Task 3): a versão anterior varria o canvas
+ * atrás de um pixel `#FFB020` — a cor do alvo ANTES do tema. Ela quebrou no
+ * instante em que o fundo passou a ter arte de verdade: `PALETA.destaque` do
+ * tema junino (`temas/junino.ts`) É `#FFB020`, e a faixa de bandeirinhas do
+ * fundo pinta uma delas SÓLIDA nessa cor — a varredura (que devolve o
+ * PRIMEIRO pixel que bate, de cima para baixo) sempre achava a bandeirinha,
+ * nunca o balão, e o clique caía num enfeite estático. Cor nunca mais vai ser
+ * um jeito seguro de identificar alvo: qualquer tema pode reusar qualquer cor
+ * da própria paleta em qualquer parte do fundo, de propósito (é exatamente o
+ * caso aqui — `--color-warn` reaproveitado, não coincidência).
+ *
+ * A NOVA ABORDAGEM COMPARA DOIS QUADROS. Bandeirinha é `desenharFundo`
+ * PARADA — pixel a pixel, byte a byte, o mesmo entre dois quadros SEMPRE (ver
+ * `temas/junino.ts`: "bandeirinhas paradas + brasas em deriva"). Um alvo
+ * nasce, balança, encolhe e estoura — muda de quadro a quadro em QUALQUER
+ * tema futuro, porque é assim que o motor de reflexo funciona (`avancar` em
+ * `motor-reflexo.ts`), não uma escolha de arte. Comparar dois quadros
+ * separados por ~200ms e procurar pixels que MUDARAM é uma pergunta sobre
+ * COMPORTAMENTO do jogo, não sobre a paleta do tema ativo — sobrevive a
+ * qualquer redesenho de fundo.
+ *
+ * ISSO SOZINHO AINDA PEGARIA BRASA: a brasa do fundo também se move (deriva
+ * lenta, alpha em rampa) e por instantes pode mudar o bastante para passar
+ * num limiar de diferença de cor. O que distingue as duas é TAMANHO: uma
+ * brasa é um punhado de pixels (raio de poucos px); um alvo tem dezenas de
+ * pixels de diâmetro (a régua do motor, `RAIO = 0,055` do lado menor da
+ * tela). Por isso um candidato só é aceito se os quatro vizinhos a
+ * `RAIO_FOOTPRINT` de distância (acima, abaixo, esquerda, direita) TAMBÉM
+ * mudaram — uma brasa não tem essa extensão em nenhuma das quatro direções ao
+ * mesmo tempo; um alvo real tem, na maior parte da própria vida (medido:
+ * calibrado contra o jogo rodando de verdade, ver o relatório desta tarefa).
+ *
+ * FALHA ALTO, NÃO EM SILÊNCIO: sem candidato que passe nos dois critérios
+ * (mudou E tem corpo), a função devolve `null` — nunca uma coordenada
+ * chutada. Quem chama trata `null` como "não achei ainda" e tenta de novo
+ * dentro do próprio orçamento de tempo do teste; se a janela inteira passar
+ * sem achar nada, é a asserção do teste (inalterada) que reprova, com a
+ * mensagem de sempre — não esta função inventando um clique no vazio.
  */
 async function acharAlvo(page: Page): Promise<{ x: number; y: number } | null> {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
     const canvas = document.querySelector('canvas')
     if (!canvas) return null
     const ctx = canvas.getContext('2d')
     if (!ctx) return null
     const caixa = canvas.getBoundingClientRect()
-    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+
+    const ler = () => ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    const antes = ler()
+    // ~200ms: menor que a vida de um alvo (1050-1400ms) e maior que um
+    // quadro de rAF — tempo suficiente para o balanço/encolhimento/estouro
+    // do tema (ou o nascimento/expiração de um alvo, mesmo sob
+    // `prefers-reduced-motion`, onde o desenho em si não anima) produzirem
+    // diferença real entre os dois quadros.
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    const depois = ler()
+
+    const largura = canvas.width
+    const altura = canvas.height
     // Passo de 4px: o alvo tem dezenas de pixels de diâmetro, e varrer de um
-    // em um custaria mais do que a vida do próprio alvo (1200ms).
-    for (let py = 0; py < canvas.height; py += 4) {
-      for (let px = 0; px < canvas.width; px += 4) {
-        const i = (py * canvas.width + px) * 4
-        // `#FFB020` contra `#08090C` (fundo) e `#1F232B` (anel): só o alvo
-        // tem vermelho alto com azul baixo.
-        if (pixels[i]! > 200 && pixels[i + 1]! > 140 && pixels[i + 2]! < 80) {
-          // O primeiro pixel em ordem de varredura é o TOPO do círculo, e
-          // clicar na borda encolhe a margem que a tolerância de acerto dá.
-          // Descer pela mesma coluna até sair do alvo devolve o outro extremo,
-          // e o meio dos dois é o centro com folga de sobra.
-          let fundo = py
-          while (fundo + 1 < canvas.height) {
-            const j = ((fundo + 1) * canvas.width + px) * 4
-            if (!(pixels[j]! > 200 && pixels[j + 1]! > 140 && pixels[j + 2]! < 80)) break
-            fundo += 1
-          }
-          const meio = (py + fundo) / 2
+    // em um custaria mais do que a própria janela de comparação.
+    const PASSO = 4
+    // Raio do "corpo" exigido nas quatro direções cardeais — grande o
+    // bastante para nenhuma brasa do fundo (raio de poucos px, ver
+    // `temas/junino.ts`) alcançar, pequeno o bastante para caber dentro de
+    // um alvo real mesmo no instante em que ele está menor (perto de
+    // expirar). Calibrado contra o jogo rodando de verdade — ver o
+    // relatório desta tarefa.
+    const RAIO_FOOTPRINT = 6
+    // Soma das diferenças absolutas de R+G+B entre os dois quadros.
+    const LIMIAR_DIFF = 40
+    // O pixel no quadro ATUAL precisa estar aceso de verdade — descarta
+    // sombra/ruído de antialiasing que mudou um pouco mas não é nada.
+    const LIMIAR_BRILHO = 70
+
+    const indice = (px: number, py: number) => (py * largura + px) * 4
+    const mudouEAceso = (px: number, py: number): boolean => {
+      const i = indice(px, py)
+      const diferenca =
+        Math.abs(antes[i]! - depois[i]!) +
+        Math.abs(antes[i + 1]! - depois[i + 1]!) +
+        Math.abs(antes[i + 2]! - depois[i + 2]!)
+      if (diferenca <= LIMIAR_DIFF) return false
+      const brilhoAtual = Math.max(depois[i]!, depois[i + 1]!, depois[i + 2]!)
+      return brilhoAtual > LIMIAR_BRILHO
+    }
+
+    for (let py = RAIO_FOOTPRINT; py < altura - RAIO_FOOTPRINT; py += PASSO) {
+      for (let px = RAIO_FOOTPRINT; px < largura - RAIO_FOOTPRINT; px += PASSO) {
+        if (!mudouEAceso(px, py)) continue
+        // O CORPO: os quatro vizinhos cardeais também mudaram e estão
+        // acesos. É o que separa um alvo de verdade (dezenas de pixels) de
+        // uma brasa (poucos pixels) — ver o comentário da função.
+        if (
+          mudouEAceso(px, py - RAIO_FOOTPRINT) &&
+          mudouEAceso(px, py + RAIO_FOOTPRINT) &&
+          mudouEAceso(px - RAIO_FOOTPRINT, py) &&
+          mudouEAceso(px + RAIO_FOOTPRINT, py)
+        ) {
           return {
-            x: caixa.left + (px / canvas.width) * caixa.width,
-            y: caixa.top + (meio / canvas.height) * caixa.height,
+            x: caixa.left + (px / largura) * caixa.width,
+            y: caixa.top + (py / altura) * caixa.height,
           }
         }
       }
