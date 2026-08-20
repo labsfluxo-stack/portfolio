@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { contraste } from '@/lib/contraste'
+import { CORES_CONTRASTE } from '@/components/ativacoes/temas/junino'
 
 /**
  * A landing inverte a polaridade do portfólio, e os tokens do fundo escuro NÃO
@@ -62,22 +63,42 @@ describe('contraste', () => {
   })
 
   /**
-   * O alvo do jogo não é texto, então o mínimo não é o 4.5:1 de AA — é o 3:1 da
-   * WCAG 1.4.11 para componente de interface não textual. `#FFB020` é
-   * `--color-warn`, cor que já existe no `@theme`: a rota não inventa cor
-   * nenhuma, e essa foi a decisão que dispensou medir um tom quente novo.
+   * O alvo do jogo não é texto, então o mínimo não é o 4.5:1 de AA — é o 3:1
+   * da WCAG 1.4.11 para componente de interface não textual.
+   *
+   * REESCRITO (revisão final de branch): a versão anterior testava `#FFB020`
+   * como "o alvo" e `#1F232B` como "o anel do alvo" — as DUAS afirmações
+   * pararam de ser verdade quando o balão junino substituiu o círculo liso.
+   * `#FFB020` continua existindo (é `PALETA.destaque`: bandeirinha da faixa
+   * do fundo, apliqué do bico, rajada de acerto e a marca do alvo em foco —
+   * nunca mais "o alvo" sozinho), e `#1F232B` foi apagado de `CapaJogo.tsx`
+   * pelo redesign: `desenharAlvoAtivo` risca com a cor do PRÓPRIO tema
+   * (`PALETA.destaque`), não com um token de borda genérico que nem existe
+   * mais nesta rota.
+   *
+   * O elemento de verdade é um balão de seis gomos com GRADIENTE — não uma
+   * cor única —, e o escurecimento de borda que corrigiu um achado anterior
+   * (posição vencendo matiz, ver `NEUTRO_ESCURO_BORDA` em `temas/junino.ts`)
+   * significa que nem todo pixel do balão passa 3:1: a borda mais escura de
+   * um gomo lateral fica bem abaixo disso de propósito — é sombra, não o que
+   * carrega a leitura do elemento. A pergunta que a WCAG 1.4.11 faz ("dá pra
+   * distinguir o componente do fundo") tem que mirar as cores que de fato
+   * carregam essa leitura: o núcleo dos dois gomos centrais (sem nenhuma
+   * mistura de escurecimento de borda) e o acento do tema, que é a cor mais
+   * clara usada em qualquer parte do balão.
+   *
+   * `CORES_CONTRASTE`, exportado por `junino.ts`, é essa paleta real — ler do
+   * export em vez de copiar hex para o teste é o que impede este arquivo de
+   * continuar testando uma versão velha do balão se a paleta mudar de novo,
+   * o mesmo descompasso que deixou este gate descrevendo uma peça que já não
+   * existia.
    */
   describe('a partida da dobra', () => {
-    it('o alvo se distingue do fundo do canvas com folga sobre o mínimo de 3:1', () => {
-      expect(contraste('#FFB020', ESCURO)).toBeGreaterThanOrEqual(3)
-    })
-
-    it('o anel do alvo não é usado para transmitir informação sozinho', () => {
-      // `--color-border` (#1F232B) reprova 3:1 de propósito: ele é decoração
-      // em volta do alvo, e o alvo já se distingue sozinho pela cor e pelo
-      // tamanho. Esta asserção existe para que ninguém promova o anel a
-      // portador de significado sem antes trocar a cor dele.
-      expect(contraste('#1F232B', ESCURO)).toBeLessThan(3)
-    })
+    it.each(Object.entries(CORES_CONTRASTE))(
+      '%s (%s) se distingue do fundo do canvas com folga sobre o mínimo de 3:1',
+      (_nome, hex) => {
+        expect(contraste(hex, ESCURO)).toBeGreaterThanOrEqual(3)
+      },
+    )
   })
 })
