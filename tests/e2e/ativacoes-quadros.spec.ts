@@ -26,7 +26,14 @@ import { expect, test } from '@playwright/test'
  * mesma alavanca do painel Performance do DevTools, e não existe em
  * Firefox/WebKit via Playwright.
  *
- *   npx playwright test tests/e2e/ativacoes-quadros.spec.ts --project=chromium
+ *   npx playwright test tests/e2e/ativacoes-quadros.spec.ts
+ *
+ * SEM `--project=chromium`: `playwright.config.ts` deste repositório não
+ * declara nenhum `projects` nomeado, então essa flag erra com "Project(s)
+ * chromium not found" em vez de selecionar o navegador. Sem `projects`, o
+ * Playwright já roda com um único projeto padrão em Chromium — é por isso
+ * que `test.skip(browserName !== 'chromium', ...)` acima nunca pula nada
+ * neste repositório, e por isso a flag não faz falta.
  */
 
 /**

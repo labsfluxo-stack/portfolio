@@ -1,9 +1,22 @@
 import type { Dictionary } from '@/content/types'
 import { ArteOferta } from './arte'
 
-/** Uma arte por cartão, na ordem do dicionário. Fora do `map` para o tipo ser
- *  verificado: se alguém acrescentar um quarto cartão, o `tsc` reclama aqui em
- *  vez de a página renderizar um buraco. */
+/**
+ * Uma arte por cartão, na ordem do dicionário. Fica FORA do `map`, mas isto
+ * NÃO trava a quantidade (correção da revisão final de branch: a versão
+ * anterior deste comentário afirmava que o `tsc` reclamaria de um quarto
+ * cartão — a mesma afirmação falsa que existia em `Catalogo.tsx` até a
+ * revisão final corrigir o mesmo engano lá). `dict.landing.oferta.cartoes` é
+ * array sem tamanho fixo em `content/types.ts`, então `ARTES[i]` é sempre
+ * `'site' | 'blog' | 'sistema' | undefined` — daí o `?? 'site'` abaixo.
+ * Indexar um array sem tamanho fixo não é algo que `tsc` recuse em tempo de
+ * build: um quarto cartão no dicionário passa no `typecheck` limpo e
+ * renderiza calado com a arte errada.
+ *
+ * Quem pega isso é o teste, não o tipo: `tests/content.test.ts` ("a oferta
+ * tem exatamente três cartões") trava `dict.landing.oferta.cartoes` em
+ * exatamente 3, nos dois idiomas — essa é a proteção de verdade.
+ */
 const ARTES = ['site', 'blog', 'sistema'] as const
 
 /**
