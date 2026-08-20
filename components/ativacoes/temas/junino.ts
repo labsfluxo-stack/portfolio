@@ -174,6 +174,49 @@ function misturar(a: string, b: string, t: number): string {
 }
 
 /**
+ * Pra onde a borda escurece — um neutro quase-preto, não a sombra do PRÓPRIO
+ * matiz de cada gomo.
+ *
+ * ACHADO DA REVISÃO (rodada de correção 1): a versão anterior misturava cada
+ * stop com `familia.sombra` — a sombra do PRÓPRIO matiz. A sombra do
+ * dourado (`#7A4A08`) já é clara comparada com a sombra do verde
+ * (`#0E4A30`), então misturar dourado com a sombra dele mesmo mantinha
+ * dourado claro não importa a frontalidade — o matiz dominava a leitura de
+ * brilho, a posição não. Medido pela revisão: vermelho central ~85 de
+ * luminância, verde central ~110, contra dourado da borda ~161–167 — mais
+ * claro que os DOIS centrais, o oposto do que a régua pede. Misturar com um
+ * neutro escuro em vez da sombra do próprio matiz é o que faz a borda
+ * escurecer por IGUAL não importa a cor embaixo.
+ */
+const NEUTRO_ESCURO_BORDA = '#120D09'
+/**
+ * Curva de escurecimento por posição — côncava (`frontalidade³`), não
+ * linear, e calibrada por medição de pixel de verdade, não só a olho.
+ *
+ * A primeira tentativa (`(1 − frontalidade) × 1,3`, linear) escureceu os
+ * dois gomos MAIS extremos (frontalidade 0,55) o bastante, mas deixou os
+ * dois quase-frontais (frontalidade 0,8, o dourado "edge-adjacent" que a
+ * revisão mediu em ~161–167) praticamente intocados — a fração linear em
+ * 0,8 é pequena demais (0,2) pra vencer o quanto o dourado já nasce claro.
+ * Medido depois do primeiro ajuste: dourado em frontalidade 0,8 ainda saía
+ * a ~144 de luminância, mais claro que os DOIS gomos centrais (verde ~130,
+ * vermelho ~103) — o defeito persistia, só um degrau mais fraco.
+ *
+ * A curva côncava resolve isso: `1 − frontalidade³` cai rápido assim que
+ * `frontalidade` sai de 1, então mesmo o gomo quase-frontal (0,8) já leva
+ * uma fração substancial do escurecimento máximo, em vez de escalar
+ * linearmente com a distância ao centro. Medido depois: dourado em 0,8 caiu
+ * pra ~76, azul em 0,8 pra ~68 — os dois abaixo do vermelho central (~103) e
+ * do verde central (~130), pela primeira vez com posição vencendo matiz nos
+ * quatro gomos não-centrais, não só nos dois mais extremos.
+ */
+const EXPOENTE_FRONTALIDADE = 5
+/** Fração de mistura no ponto mais escuro (`frontalidade→0`). Não é 1
+ *  (misturaria até o neutro puro) — sobra um pouco da cor original mesmo no
+ *  limite, pra nenhum gomo virar uma silhueta lisa sem matiz nenhum. */
+const FATOR_ESCURECIMENTO_BORDA = 0.85
+
+/**
  * O gradiente de UM gomo — vertical, nó (topo) a bico (base). NÃO é o
  * gradiente esquerda-direita que uma primeira leitura de arte-junina.md
  * sugeriria: aquele documento supõe luz vindo de cima-esquerda, e a decisão
@@ -183,6 +226,11 @@ function misturar(a: string, b: string, t: number): string {
  * comum que a régua cita, então a escolha é: o topo (mais longe do brilho)
  * fica na própria sombra, a base (mais perto do bico, onde o brilho mora)
  * fica no tom mais claro — nunca o inverso, e nunca as duas ao mesmo tempo.
+ *
+ * O escurecimento de borda (posição) e o gradiente vertical (luz) são dois
+ * eixos independentes, aplicados um por cima do outro nos três stops — ver
+ * `NEUTRO_ESCURO_BORDA` acima pra por que o primeiro não pode ser "misturar
+ * com a própria sombra".
  */
 function gradienteGomo(
   pincel: CanvasRenderingContext2D,
@@ -190,9 +238,11 @@ function gradienteGomo(
   frontalidade: number,
 ): CanvasGradient {
   const gradiente = pincel.createLinearGradient(0, 0, 0, ALTURA_CORPO)
-  const baseAjustada = misturar(familia.base, familia.sombra, (1 - frontalidade) * 0.25)
-  const destaqueAjustado = misturar(familia.destaque, familia.sombra, (1 - frontalidade) * 0.5)
-  gradiente.addColorStop(0, familia.sombra)
+  const escurecimento = (1 - frontalidade ** EXPOENTE_FRONTALIDADE) * FATOR_ESCURECIMENTO_BORDA
+  const sombraAjustada = misturar(familia.sombra, NEUTRO_ESCURO_BORDA, escurecimento)
+  const baseAjustada = misturar(familia.base, NEUTRO_ESCURO_BORDA, escurecimento)
+  const destaqueAjustado = misturar(familia.destaque, NEUTRO_ESCURO_BORDA, escurecimento)
+  gradiente.addColorStop(0, sombraAjustada)
   gradiente.addColorStop(0.55, baseAjustada)
   gradiente.addColorStop(1, destaqueAjustado)
   return gradiente
@@ -205,6 +255,20 @@ function caminhoPetala(largura: number, altura: number): string {
   return `M 0 0 Q ${meiaLargura} ${altura * 0.4} 0 ${altura} Q ${-meiaLargura} ${altura * 0.4} 0 0 Z`
 }
 
+/**
+ * ACHADO DA REVISÃO (rodada de correção 1): a camada interna usava
+ * `PALETA.destaque` (`#FFB020`) — um salto de ~140 de luminância sobre a
+ * camada externa. Duas camadas, a de fora escura e a de dentro num dourado
+ * bem mais claro, é exatamente o vocabulário visual de "brasa com núcleo
+ * quente" — não importa que a régua peça só duas camadas planas sem
+ * labareda: o CONTRASTE entre elas é que lê como fogo, e o dourado cheio
+ * tinha esse contraste. Aqui a camada interna é uma variação morna da
+ * própria externa — mistura, não salto de matiz —, então o par de camadas
+ * para de compor um núcleo quente e volta a ler como o apliqué de papel
+ * dessaturado que a régua pede. */
+const BICO_EXTERNO = '#B23A1F'
+const BICO_INTERNO = misturar(BICO_EXTERNO, '#D9855A', 0.55)
+
 function desenharBico(pincel: CanvasRenderingContext2D): void {
   const largura = LARGURA_CORPO * 0.3
   const altura = ALTURA_RABICHO
@@ -213,12 +277,12 @@ function desenharBico(pincel: CanvasRenderingContext2D): void {
   // 15° fora do prumo — twist artesanal, não peça de vetor perfeitamente
   // centrada.
   pincel.rotate((15 * Math.PI) / 180)
-  pincel.fillStyle = '#B23A1F' // dessaturado de propósito: NÃO é o tom de uma chama acesa
+  pincel.fillStyle = BICO_EXTERNO // dessaturado de propósito: NÃO é o tom de uma chama acesa
   pincel.fill(new Path2D(caminhoPetala(largura, altura)))
   pincel.save()
   pincel.translate(0, -altura * 0.12)
   pincel.scale(0.55, 0.55)
-  pincel.fillStyle = PALETA.destaque // a única nota "quente" do apliqué, reaproveitando o acento da casa
+  pincel.fillStyle = BICO_INTERNO // morno, não brilhante — ver o comentário acima
   pincel.fill(new Path2D(caminhoPetala(largura, altura)))
   pincel.restore()
   pincel.restore()
@@ -260,25 +324,31 @@ function rasterizarBalao(dpr: number): HTMLCanvasElement | null {
   // isto substitui a chama, não a imita). Um radial simples, sem
   // `shadowBlur`: o gradiente já é o "borrão".
   //
-  // RAIO CONTIDO DE PROPÓSITO: o primeiro ciclo do olhar (relatório da
-  // tarefa) usou 0,6×ALTURA_CORPO e o resultado foi um halo retangular atrás
-  // do balão inteiro — o raio era maior que a metade da largura do próprio
-  // canvas de rasterização, então o gradiente "vazava" até a borda dura do
-  // canvas e essa borda reta é que ficava visível, lendo como "esqueceu de
-  // limpar o fundo" em vez de brilho. 0,16 fica bem dentro da distância até
-  // a borda inferior (o bico é a parte mais baixa da caixa), então o
-  // gradiente termina em transparência total antes de tocar qualquer
-  // borda — só uma migalha de luz escapa pela ponta afunilada, como papel
-  // fino deixando passar a luz de dentro.
+  // RAIO CONTIDO DE PROPÓSITO (ciclo de olhar original): 0,6×ALTURA_CORPO
+  // vazava até a borda dura do canvas de rasterização e lia como "esqueceu
+  // de limpar o fundo".
+  //
+  // CENTRO AFASTADO DO BICO (ACHADO DA REVISÃO, rodada de correção 1): a
+  // versão anterior centrava em 0,97×ALTURA_CORPO — praticamente em cima do
+  // bico — com alpha 0,45. A dupla "halo quente" + "apliqué de duas cores
+  // logo atrás dele" lia como brasa ou vela acesa, mesmo cada peça sozinha
+  // respeitando a letra da régua (duas camadas planas, sem terceira camada
+  // de chama). O par é que compunha o problema, não uma peça isolada. Aqui
+  // o centro sobe pro corpo (0,80×ALTURA_CORPO, bem acima da junção com o
+  // bico em 1,0×ALTURA_CORPO) e o raio/alpha encolhem — o brilho passa a
+  // reforçar o gradiente vertical dos próprios gomos (que já escurece pro
+  // topo e clareia pro bico, ver `gradienteGomo`) como uma segunda pincelada
+  // suave, em vez de formar um ponto de luz separado bem onde o bico está.
+  // Verificado a olho em raio=24 e raio=48 — ver relatório da tarefa.
   const brilho = pincel.createRadialGradient(
-    0, ALTURA_CORPO * 0.97, 0,
-    0, ALTURA_CORPO * 0.97, ALTURA_CORPO * 0.16,
+    0, ALTURA_CORPO * 0.8, 0,
+    0, ALTURA_CORPO * 0.8, ALTURA_CORPO * 0.1,
   )
-  brilho.addColorStop(0, 'rgba(255, 210, 145, 0.45)')
-  brilho.addColorStop(1, 'rgba(255, 210, 145, 0)')
+  brilho.addColorStop(0, 'rgba(255, 200, 145, 0.22)')
+  brilho.addColorStop(1, 'rgba(255, 200, 145, 0)')
   pincel.fillStyle = brilho
   pincel.beginPath()
-  pincel.arc(0, ALTURA_CORPO * 0.97, ALTURA_CORPO * 0.16, 0, Math.PI * 2)
+  pincel.arc(0, ALTURA_CORPO * 0.8, ALTURA_CORPO * 0.1, 0, Math.PI * 2)
   pincel.fill()
 
   for (const indice of ORDEM_DESENHO) {
@@ -387,11 +457,50 @@ function easeOutBack(t: number): number {
 
 // ── Elemento ───────────────────────────────────────────────────────────
 
-/** Largura visual do balão como múltiplo do `raio` abstrato do motor —
- *  ajustado no ciclo de olhar (ver relatório da tarefa) para o balão ocupar
- *  a maior parte do círculo de tolerância de acerto (raio × 1,6) sem
- *  estourar dele. */
-const FATOR_LARGURA = 1.7
+/**
+ * Largura visual do balão como múltiplo do `raio` abstrato do motor.
+ *
+ * ACHADO DA REVISÃO (rodada de correção 1): 1,7 media só o estado ESTÁVEL
+ * (`nascimento=1`, sem estouro). `easeOutBack` ultrapassa 1 em TODO
+ * nascimento — não é bug, é a curva —, e o harness da primeira rodada só
+ * renderizou `nascimento=1`, já depois da janela de ultrapassagem: nada viu
+ * o pior instante de verdade. Composto — ultrapassagem do pop × largura ×
+ * balanço, no mesmo instante — o raio=24 chegava a 45,4px contra 38,4px de
+ * tolerância (1,6×raio): 18% pra fora. Essa é a mesma classe de defeito que
+ * já custou um Crítico nesta rota (alvo visível que engole o clique), então
+ * a composição — não um termo isolado — é o que tem que caber.
+ *
+ * 1,3 foi achado por varredura numérica (script fora do repositório, ver
+ * relatório) testando o PIOR CASO composto — não a aparência isolada — em
+ * toda a janela de entrada e toda a fase do balanço. Com o amortecimento do
+ * balanço abaixo, dá pior caso 33,74px contra 38,40px: 12% de folga real, e
+ * o mesmo percentual em qualquer `raio` (a relação é invariante de escala).
+ * `tests/unit/ativacoes-tema.test.ts` prende esse número por varredura, não
+ * por amostra pontual — ver `extensaoElemento`/`escalaPopDoNascimento`
+ * abaixo, as mesmas funções que o teste chama. */
+const FATOR_LARGURA = 1.3
+
+/** `easeOutBack` aplicada ao `nascimento`, e travada em 0 por baixo — a
+ *  MESMA conta que `desenharElemento` usa pra achar a escala do pop.
+ *  Exportada para o teste da tolerância de acerto nunca duplicar esta
+ *  fórmula: testar uma cópia da conta não prende o código de verdade. */
+export function escalaPopDoNascimento(nascimento: number): number {
+  return Math.max(0, easeOutBack(limitar01(nascimento)))
+}
+
+/**
+ * Largura/altura de destino do sprite pra um `raio` e uma escala combinada
+ * (`escalaPop × escalaVida`) — a MESMA conta que `desenharElemento` usa pra
+ * posicionar o `drawImage`. Exportada pelo mesmo motivo de
+ * `escalaPopDoNascimento`: o teste da tolerância de acerto precisa da
+ * extensão RENDERIZADA de verdade, não de uma fórmula reescrita à parte que
+ * pode divergir da implementação com o tempo.
+ */
+export function extensaoElemento(raio: number, escala: number): { largura: number; altura: number } {
+  const largura = raio * FATOR_LARGURA * escala
+  const altura = (largura / LARGURA_CORPO) * ALTURA_TOTAL
+  return { largura, altura }
+}
 
 function desenharElemento(
   pincel: CanvasRenderingContext2D,
@@ -406,13 +515,22 @@ function desenharElemento(
   // Sob `parado`: sem pop, sem encolhimento de fim de vida, sem balanço —
   // "constant radius", a mesma leitura que `CapaJogo.tsx` já dá ao alvo
   // circular sob `prefers-reduced-motion`. Nenhum dos três lê `agora`.
-  const escalaPop = parado ? 1 : Math.max(0, easeOutBack(limitar01(nascimento)))
+  const escalaPop = parado ? 1 : escalaPopDoNascimento(nascimento)
   const escalaVida = parado ? 1 : 0.55 + 0.45 * limitar01(vida)
-  const deslocamento = parado ? { dx: 0, dy: 0 } : deslocamentoBalanco(agora, raio)
+  // AMORTECIMENTO NA ENTRADA (rodada de correção 1): o balanço nasce em 0 e
+  // sobe junto com `nascimento`, em vez de já bater na amplitude cheia desde
+  // o primeiro quadro. É o que desacopla os dois picos de risco — a
+  // ultrapassagem do pop (perto de `nascimento≈0,85`) e o balanço no auge —
+  // de acontecerem no mesmo instante: quando o pop está mais inchado, o
+  // balanço ainda não chegou à força total. Sem amortecimento os dois picos
+  // são livres pra coincidir (o balanço não sabe que acabou de nascer), e é
+  // essa coincidência que fura a tolerância.
+  const fatorBalanco = parado ? 0 : limitar01(nascimento)
+  const balancoBruto = parado ? { dx: 0, dy: 0 } : deslocamentoBalanco(agora, raio)
+  const deslocamento = { dx: balancoBruto.dx * fatorBalanco, dy: balancoBruto.dy * fatorBalanco }
   const alpha = parado ? 1 : 0.4 + 0.6 * limitar01(vida)
 
-  const larguraDestino = raio * FATOR_LARGURA * escalaPop * escalaVida
-  const alturaDestino = (larguraDestino / LARGURA_CORPO) * ALTURA_TOTAL
+  const { largura: larguraDestino, altura: alturaDestino } = extensaoElemento(raio, escalaPop * escalaVida)
 
   pincel.save()
   pincel.translate(deslocamento.dx, deslocamento.dy)

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { junino, deslocamentoBalanco } from '@/components/ativacoes/temas/junino'
+import {
+  junino,
+  deslocamentoBalanco,
+  escalaPopDoNascimento,
+  extensaoElemento,
+} from '@/components/ativacoes/temas/junino'
 import { TEMA_ATIVO } from '@/components/ativacoes/temas'
 import { pt } from '@/content/pt'
 import { en } from '@/content/en'
@@ -9,11 +14,22 @@ import { en } from '@/content/en'
  * comportamento: as funções de desenho não têm retorno para afirmar, e o que
  * importa é justamente O QUE elas mandam o canvas fazer — em particular o que
  * elas NUNCA podem mandar.
+ *
+ * GRAVA ARGUMENTO, NÃO SÓ NOME (achado da revisão, rodada de correção 1). A
+ * versão anterior só empilhava o NOME do método em `chamadas`, e
+ * `desenharElemento` nunca muda QUAIS métodos chama por causa do balanço —
+ * só os números que passa pra `translate`. Um teste que compara só nomes
+ * passaria mesmo se o balanço tivesse sido apagado do código inteiro: two
+ * arrays de nomes idênticos, zero e zero. `chamadasComArgumentos` grava os
+ * dois — nome e argumentos —, então uma regressão que muda O QUE é
+ * desenhado (não só que algo foi desenhado) tem como ser pega.
  */
 function pincelDeMentira() {
   const chamadas: string[] = []
+  const chamadasComArgumentos: { metodo: string; args: unknown[] }[] = []
   const alvo = {
     chamadas,
+    chamadasComArgumentos,
     // Propriedades que o código escreve; guardadas para inspeção.
     shadowBlur: 0,
     filter: 'none',
@@ -22,7 +38,10 @@ function pincelDeMentira() {
     strokeStyle: '',
     lineWidth: 1,
     globalAlpha: 1,
-  } as unknown as CanvasRenderingContext2D & { chamadas: string[] }
+  } as unknown as CanvasRenderingContext2D & {
+    chamadas: string[]
+    chamadasComArgumentos: { metodo: string; args: unknown[] }[]
+  }
 
   for (const metodo of [
     'save', 'restore', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'arc',
@@ -35,7 +54,7 @@ function pincelDeMentira() {
     const devolve = metodo.startsWith('create') ? { addColorStop: vi.fn() } : undefined
     ;(alvo as unknown as Record<string, unknown>)[metodo] = (...args: unknown[]) => {
       chamadas.push(metodo)
-      void args
+      chamadasComArgumentos.push({ metodo, args })
       return devolve
     }
   }
@@ -105,30 +124,94 @@ describe('tema junino', () => {
   /**
    * A TRAVA MAIS IMPORTANTE DESTE ARQUIVO.
    *
-   * O teste de acerto vive no motor puro e usa a posição FIXA do alvo, com
-   * tolerância de 1,6 vez o raio. Se o balanço do desenho tirar o balão de
-   * dentro desse círculo, o clique erra um balão que o olho vê ali — a mesma
-   * classe do defeito mais caro que esta rota já teve, um alvo visível que
-   * engole o clique. Margem de segurança: metade da folga.
+   * REESCRITA na rodada de correção 1: a versão anterior testava só
+   * `deslocamentoBalanco` ISOLADO — e isso deixou passar um defeito de
+   * verdade. `easeOutBack` ultrapassa 1 em TODO nascimento (não é bug, é a
+   * curva), e a revisão mediu que, composto com a largura renderizada e o
+   * balanço no mesmo instante, o raio=24 chegava a 45,4px contra 38,4px de
+   * tolerância — 18% pra fora. O termo isolado nunca acusaria isso: o
+   * balanço sozinho respeitava o próprio limite, e a ultrapassagem do pop
+   * era um fator de escala separado que o teste antigo nem olhava.
+   *
+   * Este teste varre a janela de entrada INTEIRA (`nascimento` de 0 a 1, onde
+   * a ultrapassagem acontece) cruzada com a fase INTEIRA do balanço
+   * (`agora`) — os dois são livres pra coincidir em qualquer combinação,
+   * porque `agora` é o relógio do jogo, não o tempo desde que o alvo
+   * nasceu: um balão pode nascer em QUALQUER fase do balanço. E usa
+   * `extensaoElemento`/`escalaPopDoNascimento`, as MESMAS funções que
+   * `desenharElemento` chama pra desenhar — testar uma cópia da fórmula não
+   * prende o código de verdade, só uma reimplementação dela que pode
+   * divergir com o tempo.
+   *
+   * Tolerância do motor (`TOLERANCIA` em motor-reflexo.ts) não é exportada;
+   * 1,6 está hardcoded aqui do mesmo jeito que já estava na versão anterior
+   * deste teste.
    */
-  it('o balanço nunca tira o elemento de dentro da tolerância de acerto', () => {
+  it('a composição de pop + balanço nunca tira o elemento de dentro da tolerância de acerto', () => {
     const raio = 24
-    const folgaMaxima = raio * (1.6 - 1) * 0.5
-    let maior = 0
-    for (let t = 0; t < 20_000; t += 17) {
-      const { dx, dy } = deslocamentoBalanco(t, raio)
-      maior = Math.max(maior, Math.hypot(dx, dy))
+    const TOLERANCIA_MOTOR = 1.6
+    const limite = raio * TOLERANCIA_MOTOR
+
+    let pior = 0
+    for (let n = 0; n <= 1; n += 0.002) {
+      // `escalaVida = 1`: pior caso é um alvo recém-nascido (`vida` perto
+      // de 1 é exatamente quando `nascimento` também está varrendo a
+      // ultrapassagem) — `extensaoElemento` já recebe a escala combinada
+      // pronta, igual `desenharElemento` monta.
+      const { largura, altura } = extensaoElemento(raio, escalaPopDoNascimento(n))
+      const metadeMaior = Math.max(largura, altura) / 2
+      // Mesmo amortecimento de entrada que `desenharElemento` aplica ao
+      // balanço (`limitar01(nascimento)`) — sem ele o teste defenderia uma
+      // fórmula que o desenho não usa.
+      const fatorBalanco = Math.max(0, Math.min(1, n))
+      for (let agora = 0; agora <= 6_000; agora += 5) {
+        const { dx, dy } = deslocamentoBalanco(agora, raio)
+        const extensao = metadeMaior + Math.hypot(dx, dy) * fatorBalanco
+        pior = Math.max(pior, extensao)
+      }
     }
-    expect(maior, `balanço chegou a ${maior.toFixed(2)}px, folga é ${folgaMaxima.toFixed(2)}px`)
-      .toBeLessThanOrEqual(folgaMaxima)
+
+    // Não só "dentro" — dentro com folga real: até 90% do limite. Uma
+    // composição que passa raspando no limite exato reprovaria no próximo
+    // ajuste de meio pixel.
+    const limiteComFolga = limite * 0.9
+    expect(
+      pior,
+      `pior caso composto chegou a ${pior.toFixed(2)}px, limite é ${limite.toFixed(2)}px (folga exigida: ${limiteComFolga.toFixed(2)}px)`,
+    ).toBeLessThanOrEqual(limiteComFolga)
   })
 
-  it('em modo parado o elemento não balança', () => {
+  /**
+   * ACHADO DA REVISÃO (rodada de correção 1): a versão anterior comparava só
+   * `chamadas` (nomes de método) e `desenharElemento` nunca muda QUAIS
+   * métodos chama por causa do balanço — só os argumentos de `translate`.
+   * Duas listas de nomes idênticas passariam mesmo que o balanço tivesse
+   * sido apagado do código: o teste não conseguia falhar de verdade.
+   *
+   * Agora compara `chamadasComArgumentos` — e cobra as DUAS metades da
+   * garantia: igual sob `parado`, DIFERENTE sem `parado`. A segunda metade
+   * importa tanto quanto a primeira — sem ela, um `desenharElemento` que não
+   * desenhasse nada também passaria (duas listas vazias são "iguais" IGUAL
+   * às duas listas vazias de antes).
+   */
+  it('em modo parado o elemento não balança, e em modo ativo o balanço muda com o tempo', () => {
     const p = pincelDeMentira()
     junino.desenharElemento(p, 24, 0.6, 1, 1000, true)
     const q = pincelDeMentira()
     junino.desenharElemento(q, 24, 0.6, 1, 9999, true)
-    expect(p.chamadas).toEqual(q.chamadas)
+    expect(
+      p.chamadasComArgumentos,
+      'parado deveria desenhar exatamente igual pra `agora` diferentes',
+    ).toEqual(q.chamadasComArgumentos)
+
+    const r = pincelDeMentira()
+    junino.desenharElemento(r, 24, 0.6, 1, 1000, false)
+    const s = pincelDeMentira()
+    junino.desenharElemento(s, 24, 0.6, 1, 9999, false)
+    expect(
+      r.chamadasComArgumentos,
+      'sem parado, `agora` diferentes deveriam desenhar diferente — senão o teste não pega regressão nenhuma',
+    ).not.toEqual(s.chamadasComArgumentos)
   })
 
   it('em modo parado o fundo não se move', () => {
