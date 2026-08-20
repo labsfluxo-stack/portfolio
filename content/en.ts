@@ -696,6 +696,11 @@ export const en: Dictionary = {
         cta: "This mechanic, under your agency's brand, at your event.",
         reiniciar: 'Play again',
       },
+      qr: 'Play on your phone',
+      acessibilidade: {
+        rotulo: 'Reflex game',
+        instrucao: 'Space or Enter hits the focused target.',
+      },
     },
     cta: {
       rotulo: 'Talk about a project',

@@ -820,6 +820,11 @@ export const pt: Dictionary = {
         cta: 'Essa mecânica, com a marca da sua agência, no seu evento.',
         reiniciar: 'Jogar de novo',
       },
+      qr: 'Jogue no celular',
+      acessibilidade: {
+        rotulo: 'Jogo de reflexo',
+        instrucao: 'Espaço ou Enter acerta o alvo em foco.',
+      },
     },
     cta: {
       rotulo: 'Falar sobre um projeto',

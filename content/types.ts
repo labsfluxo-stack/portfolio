@@ -544,6 +544,15 @@ export type Dictionary = {
        *  no render pelo placar do motor, exatamente como `{producao}` em
        *  `prova.lead`. NENHUM DÍGITO ENTRA NO DICIONÁRIO. */
       fim: { titulo: string; resultado: string; cta: string; reiniciar: string }
+      /** Legenda visível do QR (job 5, spec redesign 2026-08): antes ele
+       *  aparecia sem dizer o que era — só quem já soubesse que era um QR de
+       *  jogo saberia por que escaneá-lo. */
+      qr: string
+      /** Nome acessível do canvas e instrução curta de teclado (job 3, spec
+       *  redesign 2026-08): o canvas deixa de ser `aria-hidden` e ganha foco
+       *  de verdade — um elemento focável sem nome nem instrução é pior do
+       *  que nenhum, porque promete interação e não diz qual. */
+      acessibilidade: { rotulo: string; instrucao: string }
     }
     cta: { rotulo: string; mensagem: string; tranquilizador: string }
     catalogo: {
