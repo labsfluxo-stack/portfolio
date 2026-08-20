@@ -152,6 +152,13 @@ O canvas é `aria-hidden="true"` e não recebe foco, e **nenhuma informação ex
 dentro dele**: título, subtítulo, catálogo e CTA vivem em DOM. O jogo é acréscimo; a
 página inteira funciona sem ele.
 
+> **Nota (redesign 2026-08-20):** esta decisão foi deliberadamente superada — o canvas
+> passou a ser focável e jogável pelo teclado, e ganhou nome acessível. Ver
+> [`2026-08-20-dobra-tematica-design.md`](./2026-08-20-dobra-tematica-design.md) §7 e
+> critério 7. Quem estiver seguindo o checklist DESTA spec não deve reportar isso como
+> regressão: é a evolução pretendida, e a razão (dar uma forma de jogar a quem não usa
+> ponteiro) está registrada na spec mais nova.
+
 `prefers-reduced-motion: reduce`: sem modo atrativo, alvos parados, sem pulsação — e
 **ainda jogável** por toque e clique.
 
@@ -342,7 +349,10 @@ Novo desta página: **prazo mínimo de antecedência do evento** — a resposta 
 3. A página diz explicitamente que não há hardware, locação nem produção física.
 4. Nenhum dos termos proibidos de §2.3 aparece em texto visível.
 5. Nenhum número escrito à mão no dicionário; contagem de sistemas computada no render.
-6. Canvas `aria-hidden`, sem informação exclusiva, e a capa renderiza sem ele.
+6. Canvas `aria-hidden`, sem informação exclusiva, e a capa renderiza sem ele. **Superado em
+   2026-08-20** — ver a nota em §4.4: o canvas passou a ser focável e jogável pelo teclado
+   de propósito (`2026-08-20-dobra-tematica-design.md` §7 e critério 7). O restante deste
+   critério (sem informação exclusiva, a capa renderiza sem canvas) continua valendo.
 7. Com `prefers-reduced-motion: reduce` não há modo atrativo e o jogo continua jogável.
 8. Estado inicial de revelação vive dentro do `@supports`; `prefers-reduced-motion` usa
    `animation-timeline: auto`.

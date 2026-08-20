@@ -190,9 +190,13 @@ sprite pré-assado.
 ## 7. Movimento reduzido e acessibilidade
 
 Com `prefers-reduced-motion: reduce`: fundo parado (bandeirinha sem balanço, sem brasa),
-balão sem balanço, estouro instantâneo em vez de animado. **O jogo
-continua jogável** — alvo nasce, é clicável, pontua. Isto não é interruptor que esvazia a
-dobra, e há teste ponta a ponta guardando isso desde a leva anterior.
+balão sem balanço, e o estouro **não é desenhado** — não uma versão instantânea dele. Ver
+§5: o estouro é puramente visual (o motor já removeu o alvo e pontuou antes de o
+componente decidir desenhar ou não o estouro), e a partida segue idêntica se ele não for
+desenhado — é exatamente esse caminho que `menosMovimento` toma (`CapaJogo.tsx` só chama
+`emitirEstouro` fora do modo de movimento reduzido). **O jogo continua jogável** — alvo
+nasce, é clicável, pontua. Isto não é interruptor que esvazia a dobra, e há teste ponta a
+ponta guardando isso desde a leva anterior.
 
 O que já está de pé e não pode regredir: o canvas é focável, tem nome acessível, e espaço
 ou enter acerta o alvo ativo pelo motor. O marcador do alvo ativo passa a ser desenhado
@@ -237,7 +241,12 @@ ou enter acerta o alvo ativo pelo motor. O marcador do alvo ativo passa a ser de
 1. O motor puro está **byte a byte inalterado**, e seus 35 testes passam sem edição.
 2. Trocar `TEMA_ATIVO` troca elemento, estouro, fundo e convite, sem tocar em `CapaJogo`.
 3. Nenhum texto de tema vive fora do dicionário; a paridade PT/EN cobre `convitesTema`.
-4. O balão é desenhado em caminhos de canvas, sem sprite de imagem e sem `shadowBlur`.
+4. O balão é desenhado em caminhos de canvas (`Path2D`), rasterizado uma vez para sprite —
+   nunca via `Image`, blob ou `await` dentro do laço de quadro — e sem `shadowBlur`. "Sem
+   sprite de imagem" (redação original deste critério) descrevia mal a própria intenção: o
+   §4 manda RASTERIZAR para sprite de propósito (é o que paga o custo do gradiente uma vez
+   só); o que o critério queria proibir era carregar uma imagem externa (`Image`, blob,
+   `await`), não o sprite que o próprio desenho produz.
 5. Com `prefers-reduced-motion: reduce` o fundo está parado e o jogo continua jogável.
 6. O portão de quadros existe, roda, e reprova se o mediano cair abaixo de 45fps a 4×.
 7. O canvas segue focável, com nome acessível, e o alvo ativo segue marcado — agora pelo
