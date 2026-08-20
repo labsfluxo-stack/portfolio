@@ -141,6 +141,52 @@ async function esperarAlvo(page: Page, janelaMs = 4000): Promise<{ x: number; y:
 }
 
 /**
+ * Varre o canvas atrás de um pixel de alvo, igual a `acharAlvo`, mas em vez de
+ * devolver a primeira coordenada encontrada, devolve a primeira que cai
+ * DENTRO da caixa de um bloco `[data-zona-jogo]` — os blocos de DOM que
+ * `CapaJogo.tsx` mede e passa como `zonasProibidas` ao motor (job 2 do
+ * redesign). `null` quando nenhum pixel de alvo viola zona nenhuma, que é o
+ * resultado esperado em toda leitura.
+ *
+ * Reimplementado aqui, e não importado do componente, pelo mesmo motivo de
+ * `circuloTocaZonaTeste` em tests/unit/ativacoes-motor.test.ts: o teste
+ * precisa verificar o COMPORTAMENTO observável (nenhum pixel de alvo dentro
+ * de bloco real), não reusar a lógica de medição do próprio componente e
+ * correr o risco de validar um defeito contra ele mesmo.
+ */
+async function acharAlvoEmZonaProibida(
+  page: Page,
+): Promise<{ x: number; y: number } | null> {
+  return page.evaluate(() => {
+    const canvas = document.querySelector('canvas')
+    if (!canvas) return null
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    const caixaCanvas = canvas.getBoundingClientRect()
+    const blocos = Array.from(document.querySelectorAll('[data-zona-jogo]')).map((el) =>
+      el.getBoundingClientRect(),
+    )
+    if (blocos.length === 0) return null
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    for (let py = 0; py < canvas.height; py += 4) {
+      for (let px = 0; px < canvas.width; px += 4) {
+        const i = (py * canvas.width + px) * 4
+        if (pixels[i]! > 200 && pixels[i + 1]! > 140 && pixels[i + 2]! < 80) {
+          const x = caixaCanvas.left + (px / canvas.width) * caixaCanvas.width
+          const y = caixaCanvas.top + (py / canvas.height) * caixaCanvas.height
+          for (const b of blocos) {
+            if (x >= b.left && x <= b.right && y >= b.top && y <= b.bottom) {
+              return { x, y }
+            }
+          }
+        }
+      }
+    }
+    return null
+  })
+}
+
+/**
  * O teste que existe por causa do C1: o `<div>` de conteúdo cobria o canvas
  * inteiro sem `pointer-events-none`, e como o hit test segue a ordem de
  * pintura, NENHUM ponteiro chegava ao canvas. A 390px o conteúdo cobre 100%
@@ -297,4 +343,62 @@ test('no fim da partida o resultado é DOM, e dá para jogar de novo', async ({ 
   // E a partida nova ANDA de verdade: alvo de volta na tela, não um `fim`
   // renomeado para `jogando`.
   expect(await esperarAlvo(page), 'recomeçou sem voltar a nascer alvo').not.toBeNull()
+})
+
+// Job 3 do redesign (2026-08): o canvas ERA `aria-hidden` sem `tabindex` —
+// um visitante de teclado tinha o título, o subtítulo, o botão de WhatsApp e
+// nenhuma prova interativa, que é exatamente o que a dobra existe para
+// mostrar. Este teste prova as duas pontas: o Tab chega ao canvas como o
+// primeiro elemento focável da dobra (não há header nem skip link nesta
+// rota — ver app/[locale]/ativacoes/layout.tsx), e a barra de espaço acerta
+// o alvo em foco de verdade, não só dispara um evento que não faz nada.
+test('a dobra é alcançável e jogável pelo teclado', async ({ page }) => {
+  test.setTimeout(20_000)
+  await page.goto('/pt/ativacoes/')
+
+  await page.keyboard.press('Tab')
+  const focoInicial = await page.evaluate(() => document.activeElement?.tagName)
+  expect(focoInicial, 'o canvas não é o primeiro elemento focável da dobra').toBe('CANVAS')
+
+  const placar = page.locator('text=/\\d+ acertos/')
+  await expect(placar).toBeVisible()
+
+  // ORÇAMENTO DE TEMPO, não de tentativas — mesmo motivo do teste de
+  // ponteiro acima: com workers disputando a máquina o laço de rAF fica
+  // lento, e uma única tentativa pode cair exatamente entre dois alvos.
+  const limite = Date.now() + 7000
+  let acertou = false
+  while (Date.now() < limite && !acertou) {
+    await page.keyboard.press('Space')
+    // O placar só atravessa para o React no quadro seguinte ao acerto.
+    await page.waitForTimeout(150)
+    if (/^[1-9]\d* acertos$/.test(((await placar.textContent()) ?? '').trim())) acertou = true
+  }
+  expect(acertou, 'a barra de espaço nunca acertou o alvo em foco').toBe(true)
+})
+
+// Job 2 do redesign: a auditoria mediu 9,4%-15,6% dos alvos nascendo embaixo
+// de um bloco de DOM que intercepta o clique — cerca de dois em cinco deles
+// visíveis sobre texto transparente, o pior defeito possível numa demo.
+// Varre o canvas repetidamente por uma janela de tempo, no viewport mais
+// apertado (390px, onde o conteúdo cobre a maior fração da dobra), e falha
+// se algum pixel de alvo cair dentro da caixa de um bloco que intercepta o
+// ponteiro.
+test('nenhum alvo nasce sob um bloco de DOM que intercepta o clique', async ({ page }) => {
+  test.setTimeout(20_000)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/pt/ativacoes/')
+
+  const canvas = page.locator('canvas')
+  await expect(canvas).toBeVisible()
+  // Prova de que o teste testou alguma coisa: sem isto, uma página que nunca
+  // marcasse zona nenhuma passaria pela razão errada.
+  await expect(page.locator('[data-zona-jogo]').first()).toBeAttached()
+
+  const limite = Date.now() + 8000
+  while (Date.now() < limite) {
+    const violacao = await acharAlvoEmZonaProibida(page)
+    expect(violacao, `alvo desenhado dentro de zona proibida: ${JSON.stringify(violacao)}`).toBeNull()
+    await page.waitForTimeout(200)
+  }
 })

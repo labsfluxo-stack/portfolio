@@ -46,14 +46,28 @@ describe('capa jogável', () => {
     expect(cta.getAttribute('href')).toContain(encodeURIComponent(pt.ativacoes.cta.mensagem))
   })
 
-  // Spec §4.4: o jogo é acréscimo. Nada de exclusivo vive dentro do canvas, e
-  // por isso ele sai inteiro da árvore de acessibilidade.
-  it('o canvas é decoração: aria-hidden e fora da ordem de foco', () => {
+  // Job 3 do redesign (2026-08): o canvas ERA `aria-hidden` sem `tabindex` —
+  // um visitante de teclado tinha o título, o subtítulo, o botão de
+  // WhatsApp, e nenhuma prova interativa, que é o motivo da dobra existir.
+  // Continua verdade que nada de EXCLUSIVO vive só no canvas (placar e fim de
+  // partida seguem em DOM, testados abaixo e no arquivo de fim); o que mudou
+  // é que o canvas agora é o próprio controle interativo, e precisa estar na
+  // árvore de acessibilidade para isso.
+  it('o canvas é focável, entra na ordem de foco e carrega nome e instrução', () => {
     const { container } = render(<CapaJogo dict={pt} locale="pt" />)
     const canvas = container.querySelector('canvas')
     expect(canvas).not.toBeNull()
-    expect(canvas!.getAttribute('aria-hidden')).toBe('true')
-    expect(canvas!.hasAttribute('tabindex')).toBe(false)
+    expect(canvas!.getAttribute('aria-hidden')).not.toBe('true')
+    expect(canvas!.getAttribute('tabindex')).toBe('0')
+    expect(canvas!.getAttribute('aria-label')).toBe(pt.ativacoes.capa.acessibilidade.rotulo)
+
+    // A instrução curta vive num parágrafo `sr-only` ligado por
+    // `aria-describedby` — nome e instrução são propriedades de
+    // acessibilidade distintas, e não a mesma string fazendo dois papéis.
+    const idInstrucao = canvas!.getAttribute('aria-describedby')
+    expect(idInstrucao).toBeTruthy()
+    const instrucao = container.querySelector(`#${idInstrucao}`)
+    expect(instrucao?.textContent).toBe(pt.ativacoes.capa.acessibilidade.instrucao)
   })
 
   // Sem contexto 2D (jsdom, navegador antigo, canvas desligado por política),
@@ -79,5 +93,23 @@ describe('capa jogável', () => {
     const { container: capaEn } = render(<CapaJogo dict={en} locale="en" />)
     const qrEn = capaEn.querySelector('img')
     expect(qrEn!.getAttribute('src')).toContain('/ativacoes/qr-en.svg')
+  })
+
+  // Job 5: o QR não tinha legenda — só quem já soubesse que era um jogo
+  // saberia por que apontar o celular para ele.
+  it('o QR carrega uma legenda visível dizendo o que ele é', () => {
+    render(<CapaJogo dict={pt} locale="pt" />)
+    expect(screen.getByText(pt.ativacoes.capa.qr)).toBeInTheDocument()
+  })
+
+  // Job 2: os dois blocos que de fato interceptam o ponteiro por cima do
+  // canvas (CTA sempre, fim de partida só depois de 15s) precisam estar
+  // marcados para o motor saber onde não nascer alvo. A ausência do
+  // atributo é o próprio bug que a auditoria mediu — por isso o teste trava
+  // a marcação, não o resultado do cálculo (que só o navegador de verdade
+  // consegue medir, em tests/e2e/ativacoes.spec.ts).
+  it('o bloco de CTA está marcado como zona proibida ao motor', () => {
+    const { container } = render(<CapaJogo dict={pt} locale="pt" />)
+    expect(container.querySelector('[data-zona-jogo="cta"]')).not.toBeNull()
   })
 })
