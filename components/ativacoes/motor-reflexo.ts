@@ -67,8 +67,15 @@ export const VIDA_ALVO_MS = REPIQUE_CHEGADA.vida
 /** Fração do quadro. 0.055 dá ~24px num canvas de 430px de largura, acima do
  *  mínimo de toque quando somado à tolerância de acerto abaixo. */
 const RAIO = 0.055
-/** O toque acerta um pouco além da borda desenhada. Dedo não é mouse. */
-const TOLERANCIA = 1.6
+/** O toque acerta um pouco além da borda desenhada. Dedo não é mouse.
+ *
+ *  EXPORTADA (fix wave final de branch): `tests/unit/ativacoes-tema.test.ts`
+ *  media o pior caso do pop+balanço do tema contra uma CÓPIA hardcoded deste
+ *  número (`TOLERANCIA_MOTOR = 1.6`). Uma cópia sai de sincronia — se este
+ *  valor mudar aqui, a varredura de 600 mil pontos daquele teste continua
+ *  comparando contra o número velho e segue passando calada. Importar a
+ *  constante de verdade fecha esse buraco. */
+export const TOLERANCIA = 1.6
 /** Em modo atrativo o "jogador fantasma" acerta com este atraso, e erra de vez
  *  em quando — acerto perfeito a cada alvo lê como animação em laço, não como
  *  partida. */

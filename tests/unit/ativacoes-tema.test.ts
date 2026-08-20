@@ -6,6 +6,7 @@ import {
   extensaoElemento,
 } from '@/components/ativacoes/temas/junino'
 import { TEMA_ATIVO } from '@/components/ativacoes/temas'
+import { TOLERANCIA } from '@/components/ativacoes/motor-reflexo'
 import { pt } from '@/content/pt'
 import { en } from '@/content/en'
 
@@ -143,14 +144,18 @@ describe('tema junino', () => {
    * prende o código de verdade, só uma reimplementação dela que pode
    * divergir com o tempo.
    *
-   * Tolerância do motor (`TOLERANCIA` em motor-reflexo.ts) não é exportada;
-   * 1,6 está hardcoded aqui do mesmo jeito que já estava na versão anterior
-   * deste teste.
+   * TOLERÂNCIA IMPORTADA, NÃO COPIADA (fix wave final de branch): a versão
+   * anterior hardcodava `TOLERANCIA_MOTOR = 1.6` porque `TOLERANCIA` não era
+   * exportada de `motor-reflexo.ts`. Esse número é a única régua contra a
+   * qual esta varredura de 600 mil pontos mede o invariante mais importante
+   * do branch — se `TOLERANCIA` mudasse no motor, a cópia hardcoded aqui
+   * continuaria em 1,6 e a varredura seguiria passando contra um número que
+   * já não é o que o jogo usa. `motor-reflexo.ts` agora exporta a constante
+   * de verdade, e este teste importa em vez de copiar.
    */
   it('a composição de pop + balanço nunca tira o elemento de dentro da tolerância de acerto', () => {
     const raio = 24
-    const TOLERANCIA_MOTOR = 1.6
-    const limite = raio * TOLERANCIA_MOTOR
+    const limite = raio * TOLERANCIA
 
     let pior = 0
     for (let n = 0; n <= 1; n += 0.002) {
@@ -214,11 +219,45 @@ describe('tema junino', () => {
     ).not.toEqual(s.chamadasComArgumentos)
   })
 
+  /**
+   * ACHADO DA REVISÃO FINAL DE BRANCH: esta comparação usava `p.chamadas`
+   * (só NOMES de método) — o mesmo defeito que a revisão anterior já tinha
+   * corrigido no teste irmão acima ("em modo parado o elemento não
+   * balança..."), e pelo mesmo motivo: `desenharFundo` nunca muda QUAIS
+   * métodos chama por causa da brasa, só os NÚMEROS que passa pra `arc`
+   * (posição `x`, `y`, que derivam de `oscilacao`/`subidaPx` — ambos função
+   * de `tempo`). Comparar só nomes não detecta a brasa se mexendo.
+   *
+   * Sob o travamento CORRETO (`desenharBrasas(pincel, largura, altura,
+   * parado ? 0 : agora)` em `desenharFundo`), os dois lados deste teste
+   * recebem `tempo = 0` não importa o `agora` de fora — por isso `p` e `q`
+   * sempre batem, com `1000`/`50_000` ou com qualquer outro par.
+   *
+   * A FRAGILIDADE está em quão bem o `chamadas` (só nomes) pegaria uma
+   * REGRESSÃO nesse travamento — alguém apagando o `parado ? 0 :` e deixando
+   * `agora` vazar cru para `desenharBrasas`. Medido (script fora do
+   * repositório): com o travamento removido, `agora=1000` deixa as 10
+   * `SEMENTES_BRASA` (`temas/junino.ts`) vivas, mas `agora=50_000` apaga
+   * exatamente uma — `(50_000 + 400) mod VIDA_BRASA_MS(4200) = 0` zera o
+   * alpha da semente de `faseMs: 400`, e ela é pulada (`if (alpha <= 0)
+   * continue`) — 9 vivas em vez de 10. A contagem diferente (9 vs 10) já
+   * faz um array de só NOMES ter tamanho diferente, e `toEqual` reprovaria
+   * — mas por ACIDENTE de contagem, não porque o teste verificou a posição
+   * de nenhuma brasa. Trocar `50_000` por `9_999` (mesma contagem de vivas
+   * que `1000`, verificado) faria essa mesma regressão passar batida: nomes
+   * e contagem idênticos nos dois lados, apesar de cada brasa estar em `x`,
+   * `y` bem diferentes — nomes de método não carregam posição.
+   *
+   * `chamadasComArgumentos` fecha isso: grava os números que `arc` recebeu,
+   * então uma regressão no travamento diverge os dois lados pela posição em
+   * si, não pela sorte de uma contagem batendo ou não — a mesma correção do
+   * teste irmão, e pelo mesmo motivo.
+   */
   it('em modo parado o fundo não se move', () => {
     const p = pincelDeMentira()
     junino.desenharFundo(p, 800, 600, 1000, true)
     const q = pincelDeMentira()
     junino.desenharFundo(q, 800, 600, 50_000, true)
-    expect(p.chamadas).toEqual(q.chamadas)
+    expect(p.chamadasComArgumentos).toEqual(q.chamadasComArgumentos)
   })
 })
