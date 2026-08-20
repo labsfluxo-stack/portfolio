@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import {
+  acertarAlvoAtivo,
+  alvoAtivo,
   avancar,
   criarPartida,
   DURACAO_MS,
+  faseDoRepique,
   mediaReacao,
   reiniciar,
   tocar,
   tocarEm,
+  vidaDoAlvo,
+  VIDA_ALVO_MS,
   type Partida,
+  type Zona,
 } from '@/components/ativacoes/motor-reflexo'
 
 /**
@@ -22,6 +28,72 @@ function simular(partida: Partida, t0: number, passos: number): Partida {
   let estado = partida
   for (let i = 1; i <= passos; i++) estado = avancar(estado, t0 + i * 16)
   return estado
+}
+
+/**
+ * Contagem de nascimentos da versão ACHATADA que a auditoria mediu: cadência,
+ * vida e teto fixos, sem fase nenhuma — a mesma lógica que `nascer`/`avancar`
+ * tinham antes da Mudança 1. Existe só neste arquivo, e não importa nada do
+ * motor, porque é o "antes" contra o qual a curva de repique precisa provar
+ * ser diferente. A auditoria mediu 24 nascimentos em 15s rodando esta mesma
+ * conta.
+ */
+function contarNascimentosFlat(): number {
+  const INTERVALO = 620
+  const VIDA = 1200
+  const MAX = 3
+  let vivos: number[] = []
+  let ultimoNascimento = 0
+  let total = 0
+  for (let t = 16; t <= DURACAO_MS; t += 16) {
+    vivos = vivos.filter((nascidoEm) => t - nascidoEm < VIDA)
+    if (vivos.length < MAX && t - ultimoNascimento >= INTERVALO) {
+      vivos.push(t)
+      ultimoNascimento = t
+      total++
+    }
+  }
+  return total
+}
+
+/**
+ * Roda uma partida de verdade (fantasma desligado, para a contagem não
+ * misturar acerto automático com nascimento) do começo ao fim e mede: quantos
+ * alvos nasceram ao todo, e a densidade média de alvos vivos em cada uma das
+ * três janelas da tabela de repique. É a prova de que a curva sobe e alivia
+ * — um formato, não um número solto.
+ */
+function medirPartida(semente: number) {
+  let estado = tocar(criarPartida(semente, 0), 0.5, 0.5, 0)
+  const soma = { chegada: 0, pico: 0, pouso: 0 }
+  const amostras = { chegada: 0, pico: 0, pouso: 0 }
+  for (let t = 16; t <= DURACAO_MS; t += 16) {
+    estado = avancar(estado, t, false)
+    const fase = t < 5_000 ? 'chegada' : t < 11_000 ? 'pico' : 'pouso'
+    soma[fase] += estado.alvos.length
+    amostras[fase] += 1
+  }
+  return {
+    totalNascidos: estado.proximoId - 1,
+    densidadeChegada: soma.chegada / amostras.chegada,
+    densidadePico: soma.pico / amostras.pico,
+    densidadePouso: soma.pouso / amostras.pouso,
+  }
+}
+
+/**
+ * Mesmo teste círculo-retângulo pelo ponto mais próximo que `nascer` usa por
+ * dentro — reimplementado aqui, e não importado, de propósito: o teste
+ * precisa verificar o COMPORTAMENTO observável (nenhum alvo sobrepõe a zona),
+ * não reusar a função do motor e correr o risco de validar um bug contra ele
+ * mesmo.
+ */
+function circuloTocaZonaTeste(x: number, y: number, raio: number, zona: Zona): boolean {
+  const maisPertoX = Math.max(zona.x, Math.min(x, zona.x + zona.largura))
+  const maisPertoY = Math.max(zona.y, Math.min(y, zona.y + zona.altura))
+  const dx = x - maisPertoX
+  const dy = y - maisPertoY
+  return dx * dx + dy * dy < raio * raio
 }
 
 describe('motor de reflexo', () => {
@@ -223,5 +295,213 @@ describe('motor de reflexo', () => {
     const acertou = tocarEm(comAlvo, alvo.x, alvo.y, alvo.nascidoEm + 100)
     expect(acertou.fase).toBe('jogando')
     expect(acertou.acertos).toBe(comAlvo.acertos + 1)
+  })
+})
+
+// Mudança 1: "repique" — cadência, vida e teto de alvos vivos deixam de ser
+// constantes do módulo e passam a variar em três janelas ao longo dos 15s.
+// A auditoria mediu a versão achatada: 24 alvos no total, densidade parada
+// em 1-2 do segundo 1 ao 14, sem curva nenhuma.
+describe('faseDoRepique', () => {
+  it('fase chegada vale do início até (sem incluir) 5s', () => {
+    expect(faseDoRepique(0)).toEqual({ intervalo: 760, vida: 1400, maximo: 2 })
+    expect(faseDoRepique(4_999)).toEqual({ intervalo: 760, vida: 1400, maximo: 2 })
+  })
+
+  it('fase pico vale de 5s até (sem incluir) 11s', () => {
+    expect(faseDoRepique(5_000)).toEqual({ intervalo: 520, vida: 1050, maximo: 3 })
+    expect(faseDoRepique(10_999)).toEqual({ intervalo: 520, vida: 1050, maximo: 3 })
+  })
+
+  it('fase pouso vale de 11s em diante, inclusive além do fim de uma partida', () => {
+    expect(faseDoRepique(11_000)).toEqual({ intervalo: 700, vida: 1300, maximo: 2 })
+    expect(faseDoRepique(14_999)).toEqual({ intervalo: 700, vida: 1300, maximo: 2 })
+    // `avancar` já teria devolvido `fim` antes de chegar aqui, mas a função
+    // pura não sabe disso e não deve nem explodir nem voltar para `chegada`
+    // — fica em `pouso`, a última fase que existiu.
+    expect(faseDoRepique(20_000)).toEqual({ intervalo: 700, vida: 1300, maximo: 2 })
+  })
+})
+
+describe('curva de repique (Mudança 1)', () => {
+  it('a partida inteira nasce um número de alvos mensuravelmente diferente da versão achatada', () => {
+    const achatada = contarNascimentosFlat()
+    const comRepique = medirPartida(11).totalNascidos
+    expect(comRepique).not.toBe(achatada)
+  })
+
+  it('a densidade de alvos vivos sobe na janela de pico e alivia na janela de pouso', () => {
+    const m = medirPartida(11)
+    expect(m.densidadePico).toBeGreaterThan(m.densidadeChegada)
+    expect(m.densidadePico).toBeGreaterThan(m.densidadePouso)
+  })
+
+  // Ambiente, não partida: quem só está lendo a página não pode levar a
+  // mesma tensão crescente de quem está de fato jogando.
+  it('o modo atrativo trava nos valores de chegada, mesmo muito além da duração de uma partida', () => {
+    let estado = criarPartida(3, 0)
+    const nascimentos: number[] = []
+    let proximoIdAnterior = estado.proximoId
+    for (let t = 16; t <= DURACAO_MS * 3; t += 16) {
+      // Fantasma desligado: ele remove alvo por acerto, e isso embaralharia a
+      // contagem de vivos que este teste mede.
+      estado = avancar(estado, t, false)
+      expect(estado.alvos.length).toBeLessThanOrEqual(2)
+      if (estado.proximoId !== proximoIdAnterior) {
+        nascimentos.push(estado.alvos[estado.alvos.length - 1]!.nascidoEm)
+        proximoIdAnterior = estado.proximoId
+      }
+    }
+    expect(nascimentos.length).toBeGreaterThan(0)
+    for (let i = 1; i < nascimentos.length; i++) {
+      expect(nascimentos[i]! - nascimentos[i - 1]!).toBeGreaterThanOrEqual(760)
+    }
+  })
+})
+
+describe('vidaDoAlvo', () => {
+  it('VIDA_ALVO_MS continua exportado e igual ao valor de chegada', () => {
+    expect(VIDA_ALVO_MS).toBe(1_400)
+  })
+
+  it('devolve a vida da fase em que o alvo nasceu, não a fase corrente', () => {
+    const jogando = tocar(criarPartida(9, 0), 0.5, 0.5, 0)
+    const noPico = simular(jogando, 0, 375) // 375 * 16ms = 6000ms, dentro do pico
+    const alvoDoPico = noPico.alvos.find((a) => a.nascidoEm >= 5_000 && a.nascidoEm < 11_000)
+    expect(alvoDoPico).toBeDefined()
+    expect(vidaDoAlvo(noPico, alvoDoPico!)).toBe(1_050)
+  })
+
+  it('em modo atrativo todo alvo tem a vida de chegada', () => {
+    const atrativo = simular(criarPartida(3, 0), 0, 400)
+    expect(atrativo.alvos.length).toBeGreaterThan(0)
+    for (const alvo of atrativo.alvos) {
+      expect(vidaDoAlvo(atrativo, alvo)).toBe(VIDA_ALVO_MS)
+    }
+  })
+
+  // Caso de borda documentado no comentário de `vidaDoAlvo`: o primeiro toque
+  // herda os alvos do modo atrativo (ver `tocar`) e adianta `comecouEm` para
+  // o instante do toque — um alvo herdado passa a ter `nascidoEm` ANTERIOR a
+  // `comecouEm`, e `alvo.nascidoEm - partida.comecouEm` dá negativo.
+  it('alvo herdado do atrativo pelo primeiro toque continua com a vida de chegada mesmo com decorrido negativo', () => {
+    const atrativo = simular(criarPartida(3, 0), 0, 400)
+    expect(atrativo.alvos.length).toBeGreaterThan(0)
+    const herdado = atrativo.alvos[0]!
+
+    const jogando = tocar(atrativo, 0.5, 0.5, 7_000)
+    expect(herdado.nascidoEm).toBeLessThan(jogando.comecouEm)
+    expect(vidaDoAlvo(jogando, herdado)).toBe(VIDA_ALVO_MS)
+  })
+})
+
+// Mudança 2: zonas proibidas — a auditoria mediu 9,4%-15,6% dos alvos
+// nascendo embaixo de conteúdo real que intercepta o clique.
+describe('zonasProibidas (Mudança 2)', () => {
+  it('nenhum alvo nasce sobrepondo uma zona proibida, numa corrida longa com reinícios', () => {
+    const zonas: Zona[] = [
+      { x: 0.1, y: 0.1, largura: 0.3, altura: 0.2 },
+      { x: 0.55, y: 0.5, largura: 0.35, altura: 0.35 },
+    ]
+    let estado = tocar(criarPartida(23, 0, zonas), 0.5, 0.5, 0)
+    const idsVistos = new Set<number>()
+    let total = 0
+    for (let t = 16; t <= DURACAO_MS * 4; t += 16) {
+      estado = avancar(estado, t, false)
+      for (const alvo of estado.alvos) {
+        if (idsVistos.has(alvo.id)) continue
+        idsVistos.add(alvo.id)
+        total++
+        for (const zona of zonas) {
+          expect(circuloTocaZonaTeste(alvo.x, alvo.y, alvo.raio, zona)).toBe(false)
+        }
+      }
+      if (estado.fase === 'fim') estado = reiniciar(estado, t)
+    }
+    // Prova de que o teste testou alguma coisa: sem isto, um motor que nunca
+    // nascesse alvo nenhum passaria pela razão errada.
+    expect(total).toBeGreaterThan(20)
+  })
+
+  it('quando as zonas cobrem quase tudo, o nascimento é pulado em vez de malposicionado', () => {
+    // Sobra só uma faixa de 0.05 na borda direita — mais estreita que o
+    // diâmetro do alvo (2 * 0.055 = 0.11) e fora do alcance do centro, que já
+    // é travado em [raio, 1-raio] = [0.055, 0.945]. Nenhuma posição sorteável
+    // escapa das oito tentativas.
+    const zonas: Zona[] = [{ x: 0, y: 0, largura: 0.95, altura: 1 }]
+    let estado = tocar(criarPartida(23, 0, zonas), 0.5, 0.5, 0)
+    for (let t = 16; t <= DURACAO_MS; t += 16) {
+      estado = avancar(estado, t, false)
+      expect(estado.alvos).toHaveLength(0)
+    }
+  })
+})
+
+// Mudança 3: teclado. A barra de espaço acerta o alvo mais velho — sem ela o
+// jogo era inalcançável para quem não usa ponteiro.
+describe('acertarAlvoAtivo e alvoAtivo (Mudança 3)', () => {
+  it('acerta o alvo mais velho entre vários vivos, não um mais novo', () => {
+    const jogando = tocar(criarPartida(5, 0), 0.5, 0.5, 0)
+    const comAlvos = simular(jogando, 0, 400)
+    expect(comAlvos.alvos.length).toBeGreaterThan(1)
+
+    const maisVelho = comAlvos.alvos.reduce((a, b) => (a.nascidoEm <= b.nascidoEm ? a : b))
+    expect(alvoAtivo(comAlvos)).toEqual(maisVelho)
+
+    const depois = acertarAlvoAtivo(comAlvos, maisVelho.nascidoEm + 200)
+    expect(depois.alvos.some((a) => a.id === maisVelho.id)).toBe(false)
+    expect(depois.alvos).toHaveLength(comAlvos.alvos.length - 1)
+  })
+
+  it('pontua exatamente como um toque de ponteiro no mesmo instante e no mesmo alvo', () => {
+    const jogando = tocar(criarPartida(5, 0), 0.5, 0.5, 0)
+    const comAlvos = simular(jogando, 0, 400)
+    const alvo = alvoAtivo(comAlvos)!
+    const agora = alvo.nascidoEm + 300
+
+    const viaTeclado = acertarAlvoAtivo(comAlvos, agora)
+    const viaPonteiro = tocar(comAlvos, alvo.x, alvo.y, agora)
+    expect(viaTeclado.acertos).toBe(viaPonteiro.acertos)
+    expect(viaTeclado.somaReacao).toBe(viaPonteiro.somaReacao)
+    expect(viaTeclado.alvos).toEqual(viaPonteiro.alvos)
+  })
+
+  it('é um no-op quando não há alvo vivo', () => {
+    const semAlvo = tocar(criarPartida(5, 0), 0.5, 0.5, 0)
+    expect(semAlvo.alvos).toEqual([])
+    expect(acertarAlvoAtivo(semAlvo, 0)).toEqual(semAlvo)
+  })
+
+  it('é um no-op depois do fim da partida', () => {
+    const jogando = tocar(criarPartida(9, 0), 0.5, 0.5, 0)
+    const comAlvo = simular(jogando, 0, 60)
+    const fim = avancar(comAlvo, DURACAO_MS + 1)
+    expect(fim.fase).toBe('fim')
+    expect(acertarAlvoAtivo(fim, DURACAO_MS + 500)).toBe(fim)
+  })
+
+  it('sai do modo atrativo como um primeiro toque: zera o placar do fantasma e mantém os alvos', () => {
+    const atrativo = simular(criarPartida(3, 0), 0, 400)
+    expect(atrativo.fase).toBe('atrativo')
+    expect(atrativo.alvos.length).toBeGreaterThan(0)
+
+    const depois = acertarAlvoAtivo(atrativo, 7_000)
+    expect(depois.fase).toBe('jogando')
+    expect(depois.comecouEm).toBe(7_000)
+    // Zerou o placar do fantasma e marcou exatamente o ponto do próprio
+    // acionamento — não herdou nada de antes, e não deixou de contar o seu.
+    expect(depois.acertos).toBe(1)
+    expect(depois.alvos).toHaveLength(atrativo.alvos.length - 1)
+  })
+
+  it('alvoAtivo concorda com o alvo que acertarAlvoAtivo de fato remove', () => {
+    const jogando = tocar(criarPartida(5, 0), 0.5, 0.5, 0)
+    const comAlvos = simular(jogando, 0, 400)
+    const antes = alvoAtivo(comAlvos)
+    expect(antes).not.toBeNull()
+
+    const depois = acertarAlvoAtivo(comAlvos, antes!.nascidoEm + 100)
+    expect(depois.alvos.some((a) => a.id === antes!.id)).toBe(false)
+    expect(alvoAtivo(depois)?.id).not.toBe(antes!.id)
   })
 })
