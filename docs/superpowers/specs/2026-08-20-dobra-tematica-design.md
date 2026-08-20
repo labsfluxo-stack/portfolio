@@ -73,19 +73,32 @@ export type Tema = {
   /** Cores do tema. Entram no canvas; nenhuma delas vira texto sobre fundo sem
    *  passar por lib/contraste.ts. */
   paleta: { elemento: string; destaque: string; fundo: string; brasa: string }
-  /** Desenha UM alvo no estado em que ele está. Recebe o pincel já transladado,
-   *  o raio em pixels, e o progresso de vida de 1 (recém-nascido) a 0. */
-  desenharElemento(pincel: CanvasRenderingContext2D, raio: number, vida: number, agora: number): void
-  /** Desenha UM estouro em andamento, com progresso de 0 a 1. */
-  desenharEstouro(pincel: CanvasRenderingContext2D, raio: number, progresso: number): void
-  /** Camada de fundo, desenhada ANTES dos alvos, no mesmo canvas. */
-  desenharFundo(pincel: CanvasRenderingContext2D, largura: number, altura: number, agora: number): void
-  /** Marca o alvo que a barra de espaço vai acertar, quando o canvas tem foco.
-   *  Vive no tema porque a marcação precisa fazer sentido sobre a forma do
-   *  elemento — um anel que serve a um círculo não serve a um balão. */
+  /** Desenha UM elemento. `vida` vai de 1 (recém-nascido) a 0; `nascimento` vai
+   *  de 0 a 1 durante a entrada e fica em 1 depois; `parado` é
+   *  `prefers-reduced-motion`. Recebe o pincel JÁ TRANSLADADO para o centro. */
+  desenharElemento(
+    pincel: CanvasRenderingContext2D,
+    raio: number,
+    vida: number,
+    nascimento: number,
+    agora: number,
+    parado: boolean,
+  ): void
+  /** Marca o elemento que a barra de espaço vai acertar. Vive no tema porque um
+   *  anel que serve a um círculo não serve a um balão. */
   desenharAlvoAtivo(pincel: CanvasRenderingContext2D, raio: number, agora: number): void
-  /** Chaves de texto que este tema sobrescreve — ver §3.3. */
-  textos: { convite: keyof Dictionary['ativacoes']['capa']['convitesTema'] }
+  /** UM estouro em andamento, `progresso` de 0 a 1. */
+  desenharEstouro(pincel: CanvasRenderingContext2D, raio: number, progresso: number): void
+  /** Camada de fundo, desenhada ANTES dos elementos, no mesmo canvas. */
+  desenharFundo(
+    pincel: CanvasRenderingContext2D,
+    largura: number,
+    altura: number,
+    agora: number,
+    parado: boolean,
+  ): void
+  /** Chave do convite no dicionário — o texto mora em `content/*.ts`. */
+  chaveConvite: string
 }
 ```
 
