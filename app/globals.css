@@ -79,6 +79,22 @@ body {
   outline-offset: 3px;
 }
 
+/* Canvas do jogo de reflexo (ativações, redesign 2026-08, job 3) — cobre a
+   seção de ponta a ponta (`inset-0 h-full w-full`) e a seção é
+   `overflow-hidden`. MEDIDO: com o deslocamento padrão de 3px PARA FORA, o
+   anel de foco cai inteiro fora da caixa da seção nos quatro lados e é
+   cortado — foco tecnicamente aplicado, visualmente inexistente contra o
+   fundo escuro, que é exatamente o que a spec proíbe. Deslocar para DENTRO
+   resolve sem mexer no anel genérico do resto do site: uma classe utilitária
+   do Tailwind não bastaria aqui, porque as utilidades do Tailwind vivem numa
+   `@layer` e uma regra SEM camada — como a `:focus-visible` acima — sempre
+   vence uma regra COM camada no cascade do CSS nativo, não importa a
+   especificidade. Esta regra também fica sem camada, de propósito, só para
+   poder competir por especificidade com a de cima. */
+.jogo-canvas:focus-visible {
+  outline-offset: -4px;
+}
+
 /* Revelação em sequência da lista de verificação da auditoria.
    As linhas são MEDIÇÕES DISTINTAS — legibilidade, permissão, atualização,
    cabeçalho — e entrar uma a uma dá a elas o ritmo de coisas apuradas, em vez
