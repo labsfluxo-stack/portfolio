@@ -105,13 +105,25 @@ deixaria de cobrir o texto mais visível da página.
 
 ## 4. O tema junino
 
-**Elemento:** balão de papel, corpo em gomos com listras, boca mais estreita, chama viva na
-base. Desenhado em canvas 2D com caminhos, não sprite — pelo mesmo motivo que a arte do
-catálogo é SVG: cor de token exata, nitidez em qualquer densidade, poucos bytes.
+**Elemento:** **balão de São João** — lanterna de papel em gomos, afunilada nas duas pontas.
+Não é balão de festa de látex e não é o balão de cesta ocidental; confundir a silhueta é o
+erro que um olho de agência brasileira identifica mais rápido.
 
-O balão **balança de leve no lugar** e a chama tremula em ciclo curto. O encolhimento que
-hoje marca o fim da vida do alvo continua, agora como o balão murchando e perdendo
-opacidade — a mesma informação, na linguagem do tema.
+**Ele aparece parado e decorativo, nunca no ar com chama acesa.** Isso não é recato: é como
+agência brasileira de fato desenha o objeto, porque nenhuma campanha real retrata o que a
+lei nomeia. O calor vem de um brilho interno suave, como papel iluminado por dentro — não
+há chama viva tremulando. A ressalva do §2.2 e a régua de arte convergem aqui, e a
+convergência é o que permite o tema existir sem constranger quem vai ler a página.
+
+A arte é autorada como **dados de caminho SVG**, convertida em `Path2D` e rasterizada uma
+vez para sprite, na densidade da tela. `new Path2D()` aceita a sintaxe de caminho do SVG e
+a rasterização é síncrona — nada de `Image`, nada de blob, nada de `await` dentro do laço
+de quadro. Gradiente e sombreado saem de `createLinearGradient` aplicado sobre o caminho,
+uma vez, na rasterização.
+
+O balão **balança de leve no lugar**. O encolhimento que hoje marca o fim da vida do alvo
+continua, agora como o balão murchando e perdendo opacidade — a mesma informação, na
+linguagem do tema.
 
 **O balão NÃO sobe, e isto é restrição, não escolha de gosto.** O teste de acerto vive no
 motor puro e usa a posição fixa do alvo; qualquer deriva do desenho em relação a essa
@@ -134,8 +146,8 @@ partida, não de desenho. O **componente** ganha uma lista curta de estouros em 
 (posição, instante, raio), em pool pré-alocado com teto, no mesmo padrão das partículas de
 acerto que já existem.
 
-Cada estouro dura ~420ms e é desenhado pelo tema. No junino: papel rasgando em gomos que
-se afastam, faísca da chama, e nada de confete genérico — confete é o que todo gerador de
+Cada estouro dura ~420ms e é desenhado pelo tema. No junino, o papel se abre pela COSTURA DOS GOMOS — aproveitando os caminhos que o próprio balão já tem — em pedaços que
+se afastam pela costura, e nada de confete genérico — confete é o que todo gerador de
 efeito faz, e é exatamente o que faria a peça parecer template.
 
 O estouro é **puramente visual**. Ele não pontua, não atrasa nada, e a partida segue igual
@@ -165,7 +177,7 @@ sprite pré-assado.
 ## 7. Movimento reduzido e acessibilidade
 
 Com `prefers-reduced-motion: reduce`: fundo parado (bandeirinha sem balanço, sem brasa),
-balão sem subida e sem tremulação de chama, estouro instantâneo em vez de animado. **O jogo
+balão sem balanço, estouro instantâneo em vez de animado. **O jogo
 continua jogável** — alvo nasce, é clicável, pontua. Isto não é interruptor que esvazia a
 dobra, e há teste ponta a ponta guardando isso desde a leva anterior.
 
