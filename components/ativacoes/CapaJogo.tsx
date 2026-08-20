@@ -78,6 +78,22 @@ const DPR_MAX = 2
  *  motor (`alvo.raio` × `TOLERANCIA`), e este fator só afeta o desenho. */
 const POP_MS = 180
 
+/** Escolhe a forma gramatical certa para uma contagem exibida na tela —
+ *  singular só quando a contagem é EXATAMENTE 1, plural para todo o resto,
+ *  INCLUINDO ZERO. "0 acertos" e "2 acertos" são os dois plural; é só o 1
+ *  exato que muda de forma. Regra fácil de "consertar" errado depois — quem
+ *  for mexer aqui, ver o defeito que motivou esta função: o placar e o
+ *  resultado de fim de partida liam "1 acertos" (e "1 hits" em inglês) com
+ *  um rótulo fixo, sempre plural.
+ *
+ *  Função pura e exportada — não por engenharia antecipada, mas porque é a
+ *  única forma de testar a fronteira 0/1/2+ sem o laço de rAF: `getContext`
+ *  devolve `null` no jsdom (ver tests/setup.ts), então `placar` nunca sai de
+ *  zero num teste de componente. `motor-reflexo.ts` é puro pelo mesmo motivo. */
+export function formaContagem(contagem: number, formas: { um: string; varios: string }): string {
+  return contagem === 1 ? formas.um : formas.varios
+}
+
 /** `easeOutBack`, fórmula canônica (Penner / easings.net) — passa de 1 perto
  *  do fim do trajeto e recua até assentar nele: é a ultrapassagem. `c1`/`c3`
  *  são as constantes de sempre da curva, não números ajustados a olho. */
@@ -724,8 +740,13 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
                   {/* Os dígitos vêm do motor e são substituídos aqui, no mesmo
                     * padrão de `{producao}` em `ProvaEngenharia.tsx`. O
                     * dicionário não carrega número: número no dicionário é
-                    * número que envelhece sozinho e passa a mentir. */}
-                  {capa.fim.resultado
+                    * número que envelhece sozinho e passa a mentir.
+                    *
+                    * `formaContagem` escolhe entre `resultado.um` e
+                    * `resultado.varios` ANTES da substituição — é este
+                    * momento de maior atenção da página, logo depois de
+                    * jogar, que lia "1 acertos" com o rótulo fixo antigo. */}
+                  {formaContagem(placar.acertos, capa.fim.resultado)
                     .replace('{acertos}', String(placar.acertos))
                     .replace('{reacao}', String(placar.reacao))}
                 </span>
@@ -766,7 +787,9 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
               <p className="flex flex-wrap items-baseline gap-x-2">
                 <span className="font-mono text-xs text-faint">{capa.convite}</span>
                 <span className="text-xl font-semibold tabular-nums text-data">
-                  {placar.acertos} {capa.placar.acertos}
+                  {/* `formaContagem`: zero e dois-ou-mais são plural, só o 1
+                    * exato muda de rótulo — ver o comentário na função. */}
+                  {placar.acertos} {formaContagem(placar.acertos, capa.placar.acertos)}
                 </span>
               </p>
               <span className="text-[17px] tabular-nums text-muted">

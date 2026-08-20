@@ -72,7 +72,11 @@ test('a barra fixa não cobre o último bloco no celular', async ({ page }) => {
 // e é o que dá movimento à dobra para quem só está lendo.
 test('a dobra joga sozinha e o placar sobe sem ninguém tocar', async ({ page }) => {
   await page.goto('/pt/ativacoes/')
-  const placar = page.locator('text=/\\d+ acertos/')
+  // `acertos?` (o "s" opcional): a correção do defeito "1 acertos" fez o
+  // rótulo virar singular em 1 exato ("1 acerto") — sem o `?` este locator
+  // deixaria de achar o placar bem no instante em que o fantasma passa por
+  // essa contagem, e o teste ficaria instável por um motivo que não é dele.
+  const placar = page.locator('text=/\\d+ acertos?/')
   await expect(placar).toBeVisible()
   await expect(placar).not.toHaveText('0 acertos', { timeout: 8000 })
 })
@@ -201,7 +205,9 @@ test('um clique marca ponto no celular — a dobra é jogável de verdade', asyn
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/pt/ativacoes/')
 
-  const placar = page.locator('text=/\\d+ acertos/')
+  // `acertos?`: ver o comentário do primeiro teste desta suíte que usa o
+  // mesmo locator — "1 acerto" (singular) não contém a palavra "acertos".
+  const placar = page.locator('text=/\\d+ acertos?/')
   await expect(placar).toBeVisible()
 
   // PRIMEIRO deixa o fantasma pontuar. Sem isto o passo seguinte seria vazio:
@@ -249,7 +255,9 @@ test('um clique marca ponto no celular — a dobra é jogável de verdade', asyn
     // O placar só atravessa para o React no quadro seguinte ao acerto: ler no
     // mesmo instante do clique é ler o valor de antes dele.
     await page.waitForTimeout(150)
-    if (/^[1-9]\d* acertos$/.test(((await placar.textContent()) ?? '').trim())) break
+    // `acertos?`: 1 é singular ("1 acerto") desde a correção do defeito — a
+    // âncora `$` sem o "s" opcional nunca bateria nesse valor específico.
+    if (/^[1-9]\d* acertos?$/.test(((await placar.textContent()) ?? '').trim())) break
   }
 
   await expect(
@@ -360,7 +368,9 @@ test('a dobra é alcançável e jogável pelo teclado', async ({ page }) => {
   const focoInicial = await page.evaluate(() => document.activeElement?.tagName)
   expect(focoInicial, 'o canvas não é o primeiro elemento focável da dobra').toBe('CANVAS')
 
-  const placar = page.locator('text=/\\d+ acertos/')
+  // `acertos?`: ver o comentário do primeiro teste desta suíte que usa o
+  // mesmo locator — "1 acerto" (singular) não contém a palavra "acertos".
+  const placar = page.locator('text=/\\d+ acertos?/')
   await expect(placar).toBeVisible()
 
   // ORÇAMENTO DE TEMPO, não de tentativas — mesmo motivo do teste de
@@ -372,7 +382,8 @@ test('a dobra é alcançável e jogável pelo teclado', async ({ page }) => {
     await page.keyboard.press('Space')
     // O placar só atravessa para o React no quadro seguinte ao acerto.
     await page.waitForTimeout(150)
-    if (/^[1-9]\d* acertos$/.test(((await placar.textContent()) ?? '').trim())) acertou = true
+    // `acertos?`: 1 é singular ("1 acerto") desde a correção do defeito.
+    if (/^[1-9]\d* acertos?$/.test(((await placar.textContent()) ?? '').trim())) acertou = true
   }
   expect(acertou, 'a barra de espaço nunca acertou o alvo em foco').toBe(true)
 })

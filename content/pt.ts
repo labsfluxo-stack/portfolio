@@ -813,10 +813,16 @@ export const pt: Dictionary = {
       subtitulo:
         'Dois desenvolvedores full-stack constroem o software da ativação que a sua agência vendeu.',
       convite: 'Toque nos alvos.',
-      placar: { acertos: 'acertos', reacao: 'ms de reação' },
+      // Zero é plural: "0 acertos", nunca "0 acerto". Só a contagem
+      // EXATAMENTE 1 usa `um` — ver o comentário em content/types.ts antes
+      // de "corrigir" isto ao contrário.
+      placar: { acertos: { um: 'acerto', varios: 'acertos' }, reacao: 'ms de reação' },
       fim: {
         titulo: 'Acabou o tempo.',
-        resultado: '{acertos} acertos, {reacao}ms de reação média.',
+        resultado: {
+          um: '{acertos} acerto, {reacao}ms de reação média.',
+          varios: '{acertos} acertos, {reacao}ms de reação média.',
+        },
         cta: 'Essa mecânica, com a marca da sua agência, no seu evento.',
         reiniciar: 'Jogar de novo',
       },

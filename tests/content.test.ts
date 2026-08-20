@@ -279,5 +279,30 @@ describe('dicionários', () => {
         expect(dict.ativacoes.prova.lead).not.toMatch(/\d/)
       }
     })
+
+    // Defeito real, visto na tela: "1 acertos" e "1 hits" — o placar ao vivo
+    // e o resultado de fim de partida tinham só uma forma fixa, sempre
+    // plural. As duas chaves agora carregam `um` (singular, contagem
+    // EXATAMENTE 1) e `varios` (todo o resto, INCLUINDO zero — "0 acertos" é
+    // plural nos dois idiomas). As duas formas continuam sem dígito, mesma
+    // regra do {producao} acima: quem substitui o número é o render, nunca
+    // o dicionário.
+    it('o placar e o resultado final trazem forma singular e plural, sem dígito', () => {
+      for (const dict of [pt, en]) {
+        const { acertos } = dict.ativacoes.capa.placar
+        expect(acertos.um, 'singular e plural do placar são idênticos').not.toBe(acertos.varios)
+        expect(acertos.um).not.toMatch(/\d/)
+        expect(acertos.varios).not.toMatch(/\d/)
+
+        const { resultado } = dict.ativacoes.capa.fim
+        expect(resultado.um, 'singular e plural do resultado são idênticos').not.toBe(resultado.varios)
+        expect(resultado.um).toContain('{acertos}')
+        expect(resultado.varios).toContain('{acertos}')
+        expect(resultado.um).toContain('{reacao}')
+        expect(resultado.varios).toContain('{reacao}')
+        expect(resultado.um).not.toMatch(/\d/)
+        expect(resultado.varios).not.toMatch(/\d/)
+      }
+    })
   })
 })

@@ -689,10 +689,16 @@ export const en: Dictionary = {
       subtitulo:
         'Two full-stack developers build the software for the activation your agency sold.',
       convite: 'Tap the targets.',
-      placar: { acertos: 'hits', reacao: 'ms reaction' },
+      // Zero is plural: "0 hits", never "0 hit". Only the count of EXACTLY
+      // 1 uses `um` — see the comment in content/types.ts before "fixing"
+      // this the other way around.
+      placar: { acertos: { um: 'hit', varios: 'hits' }, reacao: 'ms reaction' },
       fim: {
         titulo: "Time's up.",
-        resultado: '{acertos} hits, {reacao}ms average reaction.',
+        resultado: {
+          um: '{acertos} hit, {reacao}ms average reaction.',
+          varios: '{acertos} hits, {reacao}ms average reaction.',
+        },
         cta: "This mechanic, under your agency's brand, at your event.",
         reiniciar: 'Play again',
       },

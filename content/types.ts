@@ -535,15 +535,34 @@ export type Dictionary = {
       subtitulo: string
       /** Microtexto sobre o canvas, ex.: "Toque nos alvos". */
       convite: string
-      /** Rótulos do placar. Nunca os valores — esses vêm do motor. */
-      placar: { acertos: string; reacao: string }
+      /**
+       * Rótulos do placar. Nunca os valores — esses vêm do motor.
+       *
+       * `acertos` carrega DUAS formas gramaticais — `um` (contagem
+       * EXATAMENTE 1: "1 acerto") e `varios` (todo o resto — "0 acertos",
+       * "2 acertos", "7 acertos"). Defeito real visto na tela antes desta
+       * chave existir: rótulo fixo sempre plural lia "1 acertos". Zero é
+       * plural nos dois idiomas — não é o "singular ou plural" de senso
+       * comum, é a regra gramatical de verdade, e é fácil alguém "corrigir"
+       * isso errado depois. Quem escolhe entre as duas formas é
+       * `formaContagem`, em `CapaJogo.tsx`.
+       */
+      placar: { acertos: { um: string; varios: string }; reacao: string }
       /** Fim de partida (spec §4.3): resultado, convite e o botão de recomeçar,
        *  tudo em DOM real — o canvas terminal não fala com ninguém.
        *
-       *  `resultado` traz os marcadores `{acertos}` e `{reacao}`, substituídos
-       *  no render pelo placar do motor, exatamente como `{producao}` em
+       *  `resultado` também carrega `um`/`varios` — mesma regra gramatical de
+       *  `placar.acertos` acima, e é o lugar de MAIOR atenção da página: o
+       *  visitante acabou de jogar e está lendo o próprio resultado. Cada
+       *  forma traz os marcadores `{acertos}` e `{reacao}`, substituídos no
+       *  render pelo placar do motor, exatamente como `{producao}` em
        *  `prova.lead`. NENHUM DÍGITO ENTRA NO DICIONÁRIO. */
-      fim: { titulo: string; resultado: string; cta: string; reiniciar: string }
+      fim: {
+        titulo: string
+        resultado: { um: string; varios: string }
+        cta: string
+        reiniciar: string
+      }
       /** Legenda visível do QR (job 5, spec redesign 2026-08): antes ele
        *  aparecia sem dizer o que era — só quem já soubesse que era um QR de
        *  jogo saberia por que escaneá-lo. */

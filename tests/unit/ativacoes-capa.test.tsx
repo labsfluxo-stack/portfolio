@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { CapaJogo } from '@/components/ativacoes/CapaJogo'
+import { CapaJogo, formaContagem } from '@/components/ativacoes/CapaJogo'
 import { pt } from '@/content/pt'
 import { en } from '@/content/en'
 
@@ -111,5 +111,45 @@ describe('capa jogável', () => {
   it('o bloco de CTA está marcado como zona proibida ao motor', () => {
     const { container } = render(<CapaJogo dict={pt} locale="pt" />)
     expect(container.querySelector('[data-zona-jogo="cta"]')).not.toBeNull()
+  })
+
+  /**
+   * Defeito real, visto na tela: com exatamente 1 acerto o placar lia
+   * "1 acertos" (e "1 hits" em inglês) — rótulo fixo, sempre plural.
+   *
+   * `formaContagem` é a função pura que decide qual das duas formas do
+   * dicionário (`um`/`varios`) usar, e é o mesmo motivo de `motor-reflexo.ts`
+   * ser um módulo à parte: a fronteira 0/1/2+ se testa sozinha, sem precisar
+   * do laço de rAF — que, como o comentário no topo deste arquivo explica,
+   * NUNCA roda aqui, porque `tests/setup.ts` estanca `getContext` em `null`
+   * para o jsdom inteiro. `placar.acertos` no componente nasce e MORRE em
+   * zero neste ambiente; testar 1 e 2+ diretamente no componente renderizado
+   * exigiria o navegador de verdade — é o que `tests/e2e/ativacoes.spec.ts`
+   * já faz. Aqui a fronteira se prova na função que o render usa por dentro.
+   */
+  describe('pluralização do placar (formaContagem)', () => {
+    const formas = { um: 'acerto', varios: 'acertos' }
+
+    it('zero é plural — regra que alguém vai querer "consertar" um dia', () => {
+      expect(formaContagem(0, formas)).toBe('acertos')
+    })
+
+    it('exatamente 1 é a única contagem singular', () => {
+      expect(formaContagem(1, formas)).toBe('acerto')
+    })
+
+    it('mais de um volta a ser plural', () => {
+      expect(formaContagem(2, formas)).toBe('acertos')
+      expect(formaContagem(7, formas)).toBe('acertos')
+    })
+  })
+
+  // O único estado do placar alcançável por render em jsdom é o inicial
+  // (zero, ver comentário da suíte acima) — mas ele já prova que o
+  // componente de fato USA `formaContagem`/`capa.placar.acertos.varios` no
+  // lugar da string fixa antiga, e não só que a função pura existe solta.
+  it('o placar ao vivo mostra a forma plural em zero acertos, o único estado alcançável aqui', () => {
+    render(<CapaJogo dict={pt} locale="pt" />)
+    expect(screen.getByText(`0 ${pt.ativacoes.capa.placar.acertos.varios}`)).toBeInTheDocument()
   })
 })
