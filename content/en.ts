@@ -689,6 +689,7 @@ export const en: Dictionary = {
       subtitulo:
         'Two full-stack developers build the software for the activation your agency sold.',
       convite: 'Tap the targets.',
+      convitesTema: { junino: 'Pop the balloons.' },
       // Zero is plural: "0 hits", never "0 hit". Only the count of EXACTLY
       // 1 uses `um` — see the comment in content/types.ts before "fixing"
       // this the other way around.

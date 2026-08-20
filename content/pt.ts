@@ -813,6 +813,7 @@ export const pt: Dictionary = {
       subtitulo:
         'Dois desenvolvedores full-stack constroem o software da ativação que a sua agência vendeu.',
       convite: 'Toque nos alvos.',
+      convitesTema: { junino: 'Estoure os balões.' },
       // Zero é plural: "0 acertos", nunca "0 acerto". Só a contagem
       // EXATAMENTE 1 usa `um` — ver o comentário em content/types.ts antes
       // de "corrigir" isto ao contrário.

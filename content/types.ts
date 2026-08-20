@@ -535,6 +535,10 @@ export type Dictionary = {
       subtitulo: string
       /** Microtexto sobre o canvas, ex.: "Toque nos alvos". */
       convite: string
+      /** Convite por tema. O tema ativo escolhe a chave; o texto mora aqui,
+       *  para a paridade PT/EN continuar cobrindo a frase mais visível da
+       *  página. `convite` segue existindo como texto neutro de reserva. */
+      convitesTema: Record<string, string>
       /**
        * Rótulos do placar. Nunca os valores — esses vêm do motor.
        *

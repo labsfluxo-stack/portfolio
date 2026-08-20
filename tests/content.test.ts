@@ -304,5 +304,25 @@ describe('dicionários', () => {
         expect(resultado.varios).not.toMatch(/\d/)
       }
     })
+
+    // O tema carrega CHAVE, nunca texto. Sem isto, cada tema novo traria um par
+    // de strings soltas fora do dicionário e o teste de paridade PT/EN — que é
+    // quem pega chave escrita num idioma e esquecida no outro — deixaria de
+    // cobrir justamente a frase mais visível da página.
+    it('os convites de tema existem nos dois idiomas, com as mesmas chaves', () => {
+      expect(Object.keys(pt.ativacoes.capa.convitesTema).sort()).toEqual(
+        Object.keys(en.ativacoes.capa.convitesTema).sort(),
+      )
+      for (const dict of [pt, en]) {
+        for (const [chave, frase] of Object.entries(dict.ativacoes.capa.convitesTema)) {
+          expect(frase.trim().length, `convite vazio: ${chave}`).toBeGreaterThan(0)
+        }
+      }
+    })
+
+    it('há um convite para o tema junino', () => {
+      expect(pt.ativacoes.capa.convitesTema.junino).toBeTruthy()
+      expect(en.ativacoes.capa.convitesTema.junino).toBeTruthy()
+    })
   })
 })
