@@ -826,12 +826,25 @@ export const pt: Dictionary = {
         },
         cta: 'Essa mecânica, com a marca da sua agência, no seu evento.',
         reiniciar: 'Jogar de novo',
+        brinde: 'Ver o brinde com a marca',
       },
       qr: 'Jogue no celular',
       acessibilidade: {
         rotulo: 'Jogo de reflexo',
         instrucao: 'Espaço ou Enter acerta o alvo em foco.',
       },
+    },
+    brinde: {
+      titulo: 'O brinde, com a marca',
+      descricao:
+        'O brinde que uma ativação entrega — troque a cor e o nome para ver a marca aplicada.',
+      rotuloCor: 'Cor da marca',
+      rotuloNome: 'Nome da marca',
+      nomePadrao: 'Sua Marca',
+      fechar: 'Fechar',
+      legenda: 'Caneca com a marca “{marca}”.',
+      semWebgl:
+        'Seu navegador não roda a pré-visualização em 3D — a marca abaixo já é a que sai impressa.',
     },
     cta: {
       rotulo: 'Falar sobre um projeto',

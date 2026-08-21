@@ -702,12 +702,25 @@ export const en: Dictionary = {
         },
         cta: "This mechanic, under your agency's brand, at your event.",
         reiniciar: 'Play again',
+        brinde: 'See the branded giveaway',
       },
       qr: 'Play on your phone',
       acessibilidade: {
         rotulo: 'Reflex game',
         instrucao: 'Space or Enter hits the focused target.',
       },
+    },
+    brinde: {
+      titulo: 'The giveaway, branded',
+      descricao:
+        'The giveaway an activation hands out — change the colour and name to see the brand applied.',
+      rotuloCor: 'Brand colour',
+      rotuloNome: 'Brand name',
+      nomePadrao: 'Your Brand',
+      fechar: 'Close',
+      legenda: 'Mug with the brand "{marca}".',
+      semWebgl:
+        "Your browser can't run the 3D preview — the brand below is already what gets printed.",
     },
     cta: {
       rotulo: 'Talk about a project',

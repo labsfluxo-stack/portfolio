@@ -566,6 +566,11 @@ export type Dictionary = {
         resultado: { um: string; varios: string }
         cta: string
         reiniciar: string
+        /** Rótulo do botão que abre o modal do brinde 3D (`ativacoes.brinde`
+         *  abaixo), ao lado de `reiniciar`. Vive aqui porque é onde o botão
+         *  aparece na tela — o mesmo raciocínio de `reiniciar` já morar em
+         *  `fim` em vez de num bloco próprio. */
+        brinde: string
       }
       /** Legenda visível do QR (job 5, spec redesign 2026-08): antes ele
        *  aparecia sem dizer o que era — só quem já soubesse que era um QR de
@@ -576,6 +581,35 @@ export type Dictionary = {
        *  de verdade — um elemento focável sem nome nem instrução é pior do
        *  que nenhum, porque promete interação e não diz qual. */
       acessibilidade: { rotulo: string; instrucao: string }
+    }
+    /**
+     * O modal do brinde 3D, aberto pelo botão `capa.fim.brinde`: uma caneca
+     * girando devagar com a marca do visitante aplicada — cor e nome, nada de
+     * upload de logo (ver o comentário de `BrindeModal.tsx` para o porquê).
+     *
+     * O canvas WebGL dentro do modal é decoração (`aria-hidden`, mesma regra
+     * do resto da rota): a informação de verdade — QUAL marca está sendo
+     * mostrada — vive em `legenda`, texto real ao lado da cena, não dentro
+     * dela. `titulo` é o nome acessível do diálogo (`aria-labelledby`).
+     */
+    brinde: {
+      titulo: string
+      descricao: string
+      rotuloCor: string
+      rotuloNome: string
+      /** Valor inicial do campo de nome — o modal nunca abre com o campo
+       *  vazio nem a pré-visualização sem marca nenhuma. */
+      nomePadrao: string
+      /** `aria-label` do botão de fechar (um ícone, sem texto visível). */
+      fechar: string
+      /** Carrega o marcador `{marca}`, substituído no render pelo nome
+       *  digitado — mesma convenção de `{producao}`/`{acertos}`/`{reacao}`
+       *  em outras chaves deste dicionário: nenhum dado do visitante entra
+       *  no dicionário, só o molde da frase. */
+      legenda: string
+      /** Exibida no lugar da cena 3D quando `hasWebGL()` (`CanecaSlot.tsx`)
+       *  devolve falso — nunca um modal vazio. */
+      semWebgl: string
     }
     cta: { rotulo: string; mensagem: string; tranquilizador: string }
     catalogo: {
