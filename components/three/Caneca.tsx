@@ -37,13 +37,27 @@ const ALCA = { raioMaior: 0.32, raioTubo: 0.068, arco: Math.PI * 1.62 }
  *  parado num modal que só fica aberto por alguns segundos. */
 const VELOCIDADE = (Math.PI * 2) / 16
 
-/** Ângulo de repouso: o instante inicial, e o único ângulo sob
- *  `prefers-reduced-motion: reduce` (job 2 do brief — quem pediu menos
- *  movimento continua vendo a marca, só não vê o giro). Um quarto de volta
- *  fora do eixo da câmera mostra a faixa da marca em três quartos, com a
- *  alça visível do lado — a mesma pose de uma foto de produto, não um plano
- *  frontal chapado. */
-const ANGULO_REPOUSO = 0.62
+/**
+ * Ângulo de repouso: o instante inicial, e o único ângulo sob
+ * `prefers-reduced-motion: reduce` (job 2 do brief — quem pediu menos
+ * movimento continua vendo a marca, só não vê o giro).
+ *
+ * O PONTO DE PARTIDA É `Math.PI`, NÃO ZERO. `CylinderGeometry` (ver o
+ * código-fonte em `node_modules/three/src/geometries/CylinderGeometry.js`)
+ * mapeia `u=0` para `theta=0`, e `theta=0` dá o vértice `(sin 0, y, cos 0) =
+ * (0, y, +raio)` — o ponto que já olha de frente para a câmera padrão
+ * (posicionada em `+Z`, olhando para `-Z`) sem rotação nenhuma no grupo. A
+ * faixa da marca (`caneca-textura.ts`) fica centrada em `u=0,5`, que cai em
+ * `theta=π` — o ponto `(0, y, -raio)`, o FUNDO da caneca. Sem `Math.PI`
+ * aqui, a marca nasceria olhando para o lado errado.
+ *
+ * Por cima disso, um desvio menor que a metade da própria largura da faixa
+ * (`FAIXA_LARGURA` em `caneca-textura.ts`, 0,32 da volta ⇒ meia-largura
+ * ≈ 1,0 rad) gira a caneca para uma pose de três quartos — a marca ainda
+ * inteira no quadro, a alça entrando de lado — em vez de um plano frontal
+ * chapado.
+ */
+const ANGULO_REPOUSO = Math.PI - 0.5
 
 /**
  * `prefers-reduced-motion`, lido dentro da própria cena — mesmo motivo do

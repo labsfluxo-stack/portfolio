@@ -43,13 +43,20 @@ export const COR_CERAMICA = '#F1ECE4'
  *  brigar com a marca, só a base cerâmica clara e fixa. */
 const COR_CONTORNO = '#20242B'
 
-/** Fração da largura da textura que a faixa impressa ocupa, centrada. Não é
- *  a textura inteira DE PROPÓSITO: uma caneca de brinde real tem a marca
- *  impressa numa FACE, não dando a volta inteira — sobra cerâmica lisa nas
- *  bordas, que é o que também faz a marca ENTRAR e SAIR de quadro conforme a
- *  peça gira, em vez de estar sempre visível em algum ponto da
- *  circunferência (o que leria como adesivo colado, não como objeto real). */
-const FAIXA_LARGURA = 0.56
+/** Fração da largura da textura (= fração da circunferência inteira) que a
+ *  faixa impressa ocupa, centrada. Não é a textura inteira DE PROPÓSITO: uma
+ *  caneca de brinde real tem a marca impressa numa FACE, não dando a volta
+ *  inteira — sobra cerâmica lisa na maior parte da peça, que é o que também
+ *  faz a marca ENTRAR e SAIR de quadro conforme ela gira, em vez de estar
+ *  sempre visível em algum ponto da circunferência (o que leria como adesivo
+ *  colado, não como objeto real).
+ *
+ *  0,32 ainda é generoso perto de uma etiqueta impressa de verdade (mais
+ *  perto de 1/4 a 1/3 da volta): valores maiores começam a levar as bordas do
+ *  nome para perto da silhueta do cilindro, onde a curvatura estreita o
+ *  texto de lado quase até sumir — a mesma distorção que faz a borda de
+ *  qualquer rótulo curvo, real ou 3D. */
+const FAIXA_LARGURA = 0.32
 const FAIXA_Y0 = 0.4
 const FAIXA_Y1 = 0.64
 
