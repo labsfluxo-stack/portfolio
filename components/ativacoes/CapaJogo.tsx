@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { Dictionary, Locale } from '@/content/types'
 import { BotaoWhatsapp } from '@/components/landing/Botao'
+import { BrindeModal } from './BrindeModal'
 import {
   acertarAlvoAtivo,
   alvoAtivo,
@@ -787,13 +788,23 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
                 * `min-h-12` são os 48px de alvo mínimo de toque, o mesmo piso do
                 * `BotaoWhatsapp` — e aqui vale em dobro, porque quem aperta
                 * acabou de passar quinze segundos batendo em alvo no celular. */}
-              <button
-                type="button"
-                onClick={() => reiniciarRef.current?.()}
-                className="inline-flex min-h-12 items-center justify-center rounded-md border border-border px-6 text-[17px] font-semibold text-text transition-opacity hover:opacity-80"
-              >
-                {capa.fim.reiniciar}
-              </button>
+              {/* `flex-wrap`: os dois botões cabem lado a lado no desktop e
+                * empilham a 390px sem se sobrepor — o mesmo problema que o
+                * placar ao vivo (job 5, comentário abaixo) já resolveu. */}
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => reiniciarRef.current?.()}
+                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-border px-6 text-[17px] font-semibold text-text transition-opacity hover:opacity-80"
+                >
+                  {capa.fim.reiniciar}
+                </button>
+                {/* O modal do brinde 3D: uma caneca girando com a marca do
+                  * visitante aplicada. Só existe aqui, ao lado de "Jogar de
+                  * novo" — ver BrindeModal.tsx para a razão de o chunk de
+                  * three.js só carregar depois deste botão ser clicado. */}
+                <BrindeModal dict={dict} />
+              </div>
             </div>
           ) : (
             /* PLACAR AO VIVO — redesenhado (job 5): a versão anterior era
