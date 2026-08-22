@@ -838,6 +838,28 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
         * cima. Ver o cabeçalho de `Arraial.tsx` para por que o jogo não vai
         * junto para o 3D. */}
       <ArraialSlot aoDecidir={setCenario3d} />
+      {/* O VÉU DO TEXTO.
+        *
+        * Existe para a CENA poder ser clara. A referência do arraial é um fim
+        * de tarde iluminado, e as versões anteriores desta dobra escureciam a
+        * cena inteira para o título branco caber por cima — o que nunca
+        * chegava perto da foto e ia estragando o cenário a cada rodada.
+        *
+        * A solução é a mesma de qualquer capa de revista: a foto fica clara e
+        * a tipografia ganha o próprio fundo. Um degradê da esquerda para a
+        * direita, forte onde o texto vive e transparente onde a praça aparece.
+        * Ele fica ACIMA da cena (-z-10 contra -z-20) e ABAIXO do canvas do
+        * jogo, então nunca escurece os alvos.
+        *
+        * O véu NÃO intercepta ponteiro, porque ele cobre a área de jogo: sem isso o
+        * clique morreria nele e a dobra deixaria de ser jogável — que é o
+        * defeito mais caro que esta página já teve. */}
+      {cenario3d ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-bg/92 via-bg/55 to-transparent"
+        />
+      ) : null}
       {/* O canvas é fundo absoluto; o conteúdo vem por cima em fluxo normal.
         *
         * `touch-manipulation`, NÃO `touch-none`. `touch-action: none` entrega

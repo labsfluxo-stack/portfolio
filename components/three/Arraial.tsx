@@ -32,18 +32,39 @@ import {
 
 /** Cores da noite. Saem escurecidas de propósito — é noite, e há texto branco
  *  por cima desta cena. */
-const COR_CEU_ALTO = '#05070E'
-const COR_CEU_HORIZONTE = '#2A1A12'
-const COR_NEVOA = '#150F12'
+/**
+ * O céu do FIM DE TARDE, não da noite fechada.
+ *
+ * Esta é a correção que vinha sendo adiada a cada rodada. A foto de
+ * referência é clara: azul ainda alto no zênite descendo para pêssego e
+ * dourado no horizonte, com tudo na praça bem iluminado. As versões
+ * anteriores desta cena eram noite fechada, e eu as mantinha escuras para
+ * proteger o texto branco da dobra — nudando a luz um pouco a cada vez, sem
+ * nunca chegar perto da referência.
+ *
+ * A proteção do texto não pode sair da CENA. Ela sai de um véu escuro atrás
+ * da coluna de texto (ver `VeuDeTexto` em `CapaJogo`), que é o que qualquer
+ * capa de revista faz: a foto fica clara, e a tipografia ganha o próprio
+ * fundo. Escurecer a fotografia inteira para caber uma legenda é o erro que
+ * eu estava repetindo.
+ */
+const COR_CEU_ALTO = '#2E5C8A'
+const COR_CEU_MEIO = '#7E86A2'
+const COR_CEU_HORIZONTE = '#E8A868'
+const COR_NEVOA = '#B79A88'
 
 /** As fachadas do casario, já no tom de noite. Nunca preto: silhueta preta diz
  *  "prédio", cor de fachada diz "cidade do interior". */
 const FACHADAS = [
-  { parede: '#8A7358', telha: '#8E4430' },
-  { parede: '#8A6266', telha: '#8E4430' },
-  { parede: '#556E84', telha: '#83402C' },
-  { parede: '#5E8272', telha: '#8E4430' },
-  { parede: '#8E7A5C', telha: '#83402C' },
+/** As fachadas em tom de DIA. A foto tem casario pastel bem claro — creme,
+ *  rosa, azul, verde-água — com telha vermelha. As versões anteriores eram
+ *  esses mesmos matizes escurecidos para a noite, e escurecer pastel dá
+ *  marrom: era por isso que o casario nunca tinha a cor da referência. */
+  { parede: '#E8D9B8', telha: '#B4543A' },
+  { parede: '#E4B8B4', telha: '#B4543A' },
+  { parede: '#A8C4D8', telha: '#A84E34' },
+  { parede: '#B4D0BC', telha: '#B4543A' },
+  { parede: '#EFC98E', telha: '#A84E34' },
 ] as const
 
 /** Pseudoaleatório determinístico. A cena é montada uma vez e não pode mudar
@@ -67,7 +88,8 @@ function Ceu() {
     if (!p) return null
     const g = p.createLinearGradient(0, 0, 0, 256)
     g.addColorStop(0, COR_CEU_ALTO)
-    g.addColorStop(0.62, '#0C1018')
+    g.addColorStop(0.5, COR_CEU_MEIO)
+    g.addColorStop(0.82, '#F0C489')
     g.addColorStop(1, COR_CEU_HORIZONTE)
     p.fillStyle = g
     p.fillRect(0, 0, 4, 256)
@@ -85,33 +107,6 @@ function Ceu() {
   )
 }
 
-/** As estrelas, só na metade de cima da abóbada — perto do horizonte a luz do
- *  arraial as apagaria, e desenhá-las ali contradiria o próprio gradiente. */
-function Estrelas() {
-  const geometria = useMemo(() => {
-    const pontos: number[] = []
-    for (let i = 0; i < 220; i++) {
-      const theta = aleatorio(i * 3 + 1) * Math.PI * 2
-      const phi = aleatorio(i * 5 + 2) * 0.62
-      const r = 84
-      pontos.push(
-        r * Math.sin(phi) * Math.cos(theta),
-        r * Math.cos(phi),
-        r * Math.sin(phi) * Math.sin(theta),
-      )
-    }
-    const g = new THREE.BufferGeometry()
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pontos, 3))
-    return g
-  }, [])
-  useEffect(() => () => geometria.dispose(), [geometria])
-  return (
-    <points geometry={geometria}>
-      <pointsMaterial color="#E2E8F4" size={0.22} sizeAttenuation transparent opacity={0.75} />
-    </points>
-  )
-}
-
 /** O chão da praça. Um plano grande, escuro, levemente reflexivo — é ele que
  *  recebe a luz da fogueira, e é essa poça de luz no chão que mais diz "há uma
  *  fogueira acesa aqui" numa cena noturna. */
@@ -124,7 +119,7 @@ function Chao() {
       {/* A pedra é o que dá ESCALA à praça: é por ela que o olho mede o
           tamanho da fogueira e da barraca. Um plano de cor única fazia a cena
           parecer estúdio com fundo infinito. */}
-      <meshStandardMaterial color="#5A4A44" map={textura} roughness={0.92} metalness={0} />
+      <meshStandardMaterial color="#C4B2A4" map={textura} roughness={0.94} metalness={0} />
     </mesh>
   )
 }
@@ -581,23 +576,35 @@ function Cena() {
     <>
       <Camera />
       <Ceu />
-      <Estrelas />
       {/* A NÉVOA começa longe e fecha rápido: é ela que apaga o casario ao
           fundo e dá a sensação de ar entre a praça e as casas. Sem névoa uma
           cena noturna fica com tudo no mesmo plano, por mais que a
           perspectiva esteja certa. */}
-      <fog attach="fog" args={[COR_NEVOA, 30, 96]} />
+      <fog attach="fog" args={[COR_NEVOA, 34, 110]} />
       <Chao />
       <Casario />
       <Fogueira posicao={[0.5, 0, -11]} />
-      <Barraca posicao={[-7.6, 0, -8.5]} giro={0.55} />
-      <Barraca posicao={[8.2, 0, -9]} giro={-0.6} />
+      {/* Barracas em DOIS planos: as de trás emoldurando a praça, as da
+          frente cortadas pela borda do quadro. É o corte que faz a cena
+          continuar para fora da tela em vez de terminar nela — a foto de
+          referência tem barraca encostada nas duas bordas. */}
+      <Barraca posicao={[-8.4, 0, -9]} giro={0.55} />
+      <Barraca posicao={[9, 0, -9.5]} giro={-0.6} />
+      <Barraca posicao={[-15.5, 0, 1]} giro={0.85} />
+      <Barraca posicao={[16, 0, 0]} giro={-0.9} />
       {/* Os varais cruzam o céu em alturas e profundidades diferentes — é o
           cruzamento, e não a quantidade, que dá profundidade ao alto do
           quadro. */}
-      <Varal de={[-34, 13.6, -20]} ate={[34, 10.4, -20]} barriga={2.4} texturas={texturas} />
-      <Varal de={[-32, 10.6, -15]} ate={[32, 13.8, -15]} barriga={2.2} texturas={texturas} />
-      <Varal de={[-30, 12.4, -9]} ate={[30, 9.4, -9]} barriga={2} texturas={texturas} />
+      {/* SETE VARAIS, não três. A foto tem o céu inteiro riscado de cordas —
+          é a DENSIDADE que faz a praça parecer enfeitada para a festa, e três
+          varais num céu grande leem como decoração de orçamento apertado. */}
+      <Varal de={[-40, 15.4, -26]} ate={[40, 12.2, -26]} barriga={2.6} texturas={texturas} />
+      <Varal de={[-38, 12.4, -22]} ate={[38, 15.6, -22]} barriga={2.5} texturas={texturas} />
+      <Varal de={[-36, 14.2, -18]} ate={[36, 11, -18]} barriga={2.4} texturas={texturas} />
+      <Varal de={[-34, 11.2, -14]} ate={[34, 14.4, -14]} barriga={2.3} texturas={texturas} />
+      <Varal de={[-32, 13.4, -10]} ate={[32, 10.2, -10]} barriga={2.1} texturas={texturas} />
+      <Varal de={[-30, 10.4, -6]} ate={[30, 13.2, -6]} barriga={2} texturas={texturas} />
+      <Varal de={[-28, 12.6, -2]} ate={[28, 9.8, -2]} barriga={1.9} texturas={texturas} />
       {/* A LUZ. Noite, mas não um buraco preto — a primeira montagem deixou
           a fogueira como única fonte e tudo o que ela não alcançava sumia.
           Uma praça de arraial tem luz de sobra: as próprias barracas, as
@@ -608,18 +615,30 @@ function Cena() {
           faz: céu frio por cima, chão quente por baixo. É essa diferença que
           impede tudo de ficar da mesma cor e é o jeito mais barato de a cena
           parecer iluminada por um AMBIENTE e não por uma lâmpada só. */}
-      <hemisphereLight args={['#5E76A6', '#7A5230', 2.4]} />
-      <ambientLight intensity={0.55} color="#6E80A8" />
+      {/* LUZ DE FIM DE TARDE, não de noite. Céu azul por cima, chão quente
+          por baixo, os dois FORTES — é essa diferença que dá cor à cena sem
+          precisar de uma fonte por objeto. */}
+      <hemisphereLight args={['#9CC0E8', '#C89A64', 3.4]} />
+      <ambientLight intensity={1.1} color="#C8D4E8" />
       {/* Uma direcional fria e fraca, vinda de cima e do lado, só para as
           quinas dos telhados existirem. Nunca forte: duas fontes fortes
           brigando é o erro mais comum numa cena noturna. */}
-      <directionalLight position={[-16, 22, 10]} intensity={0.9} color="#A8BCE0" />
+      {/* O SOL BAIXO, vindo do horizonte atrás do casario — é ele que dá o
+          contra-luz quente nos telhados e a sombra longa no chão, e é o que
+          mais rápido diz "fim de tarde" numa cena 3D. */}
+      <directionalLight
+        position={[-26, 20, 6]}
+        intensity={2.9}
+        color="#FFB870"
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+      />
       {/* Um enchimento QUENTE e fraco vindo de baixo e da frente, na direcao
           da praca. Representa o somatorio das barracas, das janelas e dos
           varais acesos — luz que existe na foto e que nenhuma fonte pontual
           da cena cobre. Sem ele o casario fica com a base no breu, o que le
           como cidade abandonada em vez de arraial cheio. */}
-      <directionalLight position={[2, 4, 16]} intensity={0.5} color="#FFB870" />
+      <directionalLight position={[10, 12, 18]} intensity={0.7} color="#DCE8FF" />
     </>
   )
 }
