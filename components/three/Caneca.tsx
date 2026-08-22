@@ -32,10 +32,24 @@ const SEGMENTOS = 56
  *  que 2π de propósito, para sobrar a abertura que embutimos no corpo. */
 const ALCA = { raioMaior: 0.32, raioTubo: 0.068, arco: Math.PI * 1.62 }
 
-/** rad/s do giro automático — uma volta a cada ~16s. Devagar o bastante para
- *  ler como vitrine girando sozinha, rápido o bastante para não parecer
- *  parado num modal que só fica aberto por alguns segundos. */
-const VELOCIDADE = (Math.PI * 2) / 16
+/**
+ * A caneca OSCILA, não dá a volta.
+ *
+ * O giro contínuo anterior (uma volta a cada 16s) brigava com a única coisa
+ * que este modal existe para mostrar. A marca é impressa numa faixa de 32%
+ * da circunferência (`FAIXA_LARGURA` em `caneca-textura.ts`), impressa UMA
+ * vez: de um cilindro só se lê bem o arco central de frente, então a cada
+ * volta de 16s o nome ficava inteiro e legível por volta de 5 — nos outros
+ * ~11 estava de perfil, cortado na silhueta ou escondido atrás. Verificado
+ * em captura: "Aurora Eventos" saía cortado no "s" em 1440×900 e em 390×844.
+ *
+ * Repetir a faixa em volta resolveria o corte e criaria outro problema — dar
+ * a volta com a marca é adesivo de caneca de brinde barato, exatamente o que
+ * a peça não pode parecer. Então o movimento é que cede: um balanço curto em
+ * torno do repouso mantém o volume e o brilho especular vivos (é o que diz
+ * "isto é 3D, não uma figura") sem nunca tirar o nome do campo de leitura.
+ */
+const OSCILACAO = { amplitude: 0.22, periodoS: 7 }
 
 /**
  * Ângulo de repouso: o instante inicial, e o único ângulo sob
@@ -51,13 +65,25 @@ const VELOCIDADE = (Math.PI * 2) / 16
  * `theta=π` — o ponto `(0, y, -raio)`, o FUNDO da caneca. Sem `Math.PI`
  * aqui, a marca nasceria olhando para o lado errado.
  *
- * Por cima disso, um desvio menor que a metade da própria largura da faixa
- * (`FAIXA_LARGURA` em `caneca-textura.ts`, 0,32 da volta ⇒ meia-largura
- * ≈ 1,0 rad) gira a caneca para uma pose de três quartos — a marca ainda
- * inteira no quadro, a alça entrando de lado — em vez de um plano frontal
- * chapado.
+ * Por cima disso, um desvio pequeno gira a caneca para uma pose de três
+ * quartos — a alça entrando de lado — em vez de um plano frontal chapado.
+ *
+ * QUANTO ESSE DESVIO PODE SER, e por que ele era grande demais. A versão
+ * anterior o limitava à metade da largura da faixa (`FAIXA_LARGURA` = 0,32
+ * da volta ⇒ meia-faixa ≈ 1,0 rad) e usava 0,5. Essa é a conta errada: ela
+ * pergunta se o desvio cabe DENTRO da faixa, quando o que decide é se a
+ * faixa cabe dentro do que o olho ALCANÇA. De um cilindro só se vê o arco de
+ * ±90° em torno da frente, então a borda da faixa fica visível enquanto
+ * `|desvio| + meia-faixa ≤ 90°`, ou seja `|desvio| ≤ 90° − 57,6° = 32,4°`
+ * (0,566 rad). Somando o repouso antigo (28,6°) à oscilação, o total passava
+ * de 48° — e o nome saía cortado na silhueta, como as capturas em 1440×900 e
+ * 390×844 mostraram.
+ *
+ * Aqui o repouso gasta 17°, a oscilação gasta no máximo 12,6°, e a soma
+ * (29,6°) fica abaixo do teto de 32,4° com folga — a pose continua de três
+ * quartos e o nome nunca encosta na borda.
  */
-const ANGULO_REPOUSO = Math.PI - 0.5
+const ANGULO_REPOUSO = Math.PI - 0.3
 
 /**
  * `prefers-reduced-motion`, lido dentro da própria cena — mesmo motivo do
@@ -91,10 +117,17 @@ function Corpo({ corMarca, nomeMarca }: { corMarca: string; nomeMarca: string })
   const textura = useMemo(() => criarTexturaCaneca({ corMarca, nomeMarca }), [corMarca, nomeMarca])
   useEffect(() => () => textura.dispose(), [textura])
 
-  useFrame((_, delta) => {
+  // Ângulo ABSOLUTO a cada quadro, nunca `+=`: o acumulado dependia da soma
+  // de todos os `delta` anteriores, então uma aba em segundo plano (que
+  // segura os quadros) ou um quadro longo deixava a caneca numa pose
+  // diferente da de outra sessão. Aqui a pose é função do relógio, então
+  // qualquer instante do balanço é reprodutível e o repouso é sempre o mesmo.
+  useFrame((estado) => {
     if (reduzido) return
     const grupo = grupoRef.current
-    if (grupo) grupo.rotation.y += delta * VELOCIDADE
+    if (!grupo) return
+    const fase = (estado.clock.elapsedTime / OSCILACAO.periodoS) * Math.PI * 2
+    grupo.rotation.y = ANGULO_REPOUSO + Math.sin(fase) * OSCILACAO.amplitude
   })
 
   return (
@@ -165,7 +198,17 @@ export function Caneca({ corMarca, nomeMarca }: { corMarca: string; nomeMarca: s
       <Environment resolution={128} frames={1}>
         <Lightformer form="rect" color="#F5F3EF" intensity={3.2} scale={[6, 4]} position={[-1.4, 3, 2]} />
         <Lightformer form="rect" color="#F5F3EF" intensity={2.2} scale={[3, 5]} position={[2.6, 1, 1.6]} />
-        <Lightformer form="rect" color="#38BDF8" intensity={0.9} scale={[4, 4]} position={[-2.6, -1, -2]} />
+        {/* A luz de contorno fria, que separa a cerâmica clara do painel escuro.
+            INTENSIDADE BAIXA DE PROPÓSITO: a 0,9 ela não lia como luz, lia
+            como um caco azul de borda dura atrás da alça — visível nas duas
+            capturas. A causa é a soma de três coisas, e nenhuma delas é um
+            defeito sozinho: o mapa de ambiente tem 128px, a cerâmica é lisa
+            (`roughness` 0,24 com `clearcoat` 1) e um plano emissivo pequeno
+            e saturado. Superfície lisa + mapa de baixa resolução devolve o
+            retângulo do `Lightformer` quase espelhado, em vez de um borrão.
+            Baixar a intensidade é o que conserta sem endurecer o brilho da
+            cerâmica, que é justamente o que faz a peça parecer esmaltada. */}
+        <Lightformer form="rect" color="#38BDF8" intensity={0.32} scale={[5, 5]} position={[-3.1, -1, -2.4]} />
       </Environment>
       <directionalLight castShadow position={[2.4, 3.2, 2.8]} intensity={1.8} />
       <ambientLight intensity={0.22} />

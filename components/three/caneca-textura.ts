@@ -32,17 +32,6 @@ export const TEXTURA = { largura: 1024, altura: 512 } as const
  *  cena (ver `Caneca.tsx`, onde o `clearcoat` termina o trabalho). */
 export const COR_CERAMICA = '#F1ECE4'
 
-/** Tinta do contorno do nome. Fixa, nunca a cor da marca: é o que garante
- *  leitura em cima de QUALQUER cor que o visitante escolher — inclusive um
- *  amarelo claro quase invisível sobre `COR_CERAMICA` sem contorno nenhum.
- *  Um contorno escuro funciona contra cor clara E contra cor escura (a
- *  própria cor por cima do contorno é que garante a identidade), enquanto
- *  medir contraste e trocar de estratégia por cor exigiria a mesma conta que
- *  `needsPanel`/`drawPanel` fazem em `portico-textures.ts` — overhead que a
- *  caneca não precisa: aqui não existe uma "chapa" cuja cor de fundo possa
- *  brigar com a marca, só a base cerâmica clara e fixa. */
-const COR_CONTORNO = '#20242B'
-
 /** Fração da largura da textura (= fração da circunferência inteira) que a
  *  faixa impressa ocupa, centrada. Não é a textura inteira DE PROPÓSITO: uma
  *  caneca de brinde real tem a marca impressa numa FACE, não dando a volta
@@ -142,9 +131,9 @@ const NOME_RESERVA = 'MARCA'
 
 /**
  * Gera a textura completa da caneca: base cerâmica, friso de cor perto da
- * boca e da base, e o nome da marca impresso na faixa central — contorno
- * escuro primeiro, preenchimento na cor da marca por cima (ver o comentário
- * de `COR_CONTORNO`).
+ * boca e da base, e o nome da marca impresso na faixa central — uma tinta
+ * chapada na cor da marca, sem contorno (ver o comentário no desenho do
+ * nome).
  *
  * `document.createElement('canvas')`, nunca `<canvas>` do JSX: o mesmo padrão
  * de toda textura procedural deste projeto (`surface()` em
@@ -194,10 +183,14 @@ export function criarTexturaCaneca({ corMarca, nomeMarca }: EntradaTexturaCaneca
   const cx = largura / 2
   const cy = altura * ((FAIXA_Y0 + FAIXA_Y1) / 2)
 
-  ctx.lineJoin = 'round'
-  ctx.lineWidth = Math.max(2, tamanho * 0.1)
-  ctx.strokeStyle = COR_CONTORNO
-  ctx.strokeText(nome, cx, cy)
+  // SEM CONTORNO. A versão anterior traçava o nome com `strokeText` numa
+  // linha de 10% do corpo da fonte antes de preencher — dois tons por letra,
+  // que é exatamente o vocabulário de WordArt e a razão de a caneca ler como
+  // brinde de camelô em vez de impressão de verdade. Tampografia em cerâmica
+  // deposita UMA tinta chapada; a borda que se vê num brinde real é o próprio
+  // limite da tinta, não um segundo tom desenhado por fora. Sobre o creme do
+  // corpo (`COR_CORPO`) qualquer cor de marca escolhível já tem contraste
+  // sobrando, então o contorno também não estava comprando legibilidade.
   ctx.fillStyle = corMarca
   ctx.fillText(nome, cx, cy)
 
