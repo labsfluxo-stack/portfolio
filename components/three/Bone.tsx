@@ -33,13 +33,21 @@ const SEGMENTOS_ALTURA = 24
 
 /**
  * Quanto da esfera vira copa, medido do polo (topo) para baixo. `Math.PI`
- * inteiro seria a esfera completa; um boné cobre até pouco depois do
- * "equador" da cabeça — não até o polo oposto. 0,58π (≈104°) deixa a borda
- * de baixo (a aba entra ali, ver `PALA`) um pouco ABAIXO do equador da
- * esfera (`cos(104°) < 0`), que é onde a aba de um boné real fica: a copa
- * já começou a fechar de volta para dentro antes da aba começar.
+ * inteiro seria a esfera completa; um boné cobre até mais ou menos o
+ * "equador" da cabeça.
+ *
+ * ONDE A BORDA PARA DECIDE A SILHUETA. Em 0,58π (≈104°) a calota passava do
+ * equador e voltava a fechar para dentro antes de terminar: o ponto mais
+ * largo ficava ACIMA da borda, e um corpo que é mais largo em cima do que
+ * embaixo lê como cogumelo, não como copa apoiada numa cabeça. Foi o que as
+ * capturas mostraram — a peça parecia um domo, não um boné.
+ *
+ * 0,52π (≈94°) põe a borda praticamente no equador: a largura cresce
+ * monotonicamente de cima para baixo, que é a silhueta de qualquer coisa
+ * que se enfia na cabeça. Os poucos graus além de 90° dão à borda uma
+ * dobrinha para dentro em vez de um corte a prumo.
  */
-const THETA_COPA = 0.58 * Math.PI
+const THETA_COPA = 0.52 * Math.PI
 
 /**
  * A copa não é uma esfera perfeita — um `scale` não-uniforme no MESH (não
@@ -50,7 +58,10 @@ const THETA_COPA = 0.58 * Math.PI
  * comprida de frente para trás do que de lado a lado — `z` maior que `x`
  * reproduz isso sem inventar geometria nova.
  */
-const ESCALA_COPA = { x: 1, y: 0.94, z: 1.08 }
+// `y` SUBIU de 0,94 para 1,08 junto com a mudança de `THETA_COPA`: uma
+// calota que para no equador é naturalmente mais rasa que uma que passa
+// dele, e sem compensar a altura o boné ficaria achatado como um disco.
+const ESCALA_COPA = { x: 1, y: 1.08, z: 1.08 }
 
 /** O botão do topo — o detalhe de boné mais barato de fazer e mais caro de
  *  esquecer: sem ele, o ápice da copa é um ponto liso demais, e o olho
@@ -78,14 +89,20 @@ const PALA = {
    *  papel do `enterrado` da alça da caneca e da ecobag: o suficiente para
    *  não sobrar uma emenda visível entre copa e pala. */
   embutido: 0.025,
-  /** Quanto a pala projeta para a frente, a partir da borda da copa. */
-  projecao: 0.3,
+  /** Quanto a pala projeta para a frente, a partir da borda da copa.
+   *
+   *  GRANDE. A pala é a única peça do boné que nenhum outro objeto tem —
+   *  copa redonda existe em gorro, em capacete, em domo. Nas primeiras
+   *  capturas ela media 0,3 contra um raio de copa de 0,42 e sumia atrás da
+   *  própria silhueta: sem ela em evidência, o olho não tinha como decidir
+   *  que aquilo era um boné. */
+  projecao: 0.46,
   /** Largura da pala na base (onde encosta na copa). */
-  larguraBase: 0.5,
-  espessura: 0.032,
+  larguraBase: 0.62,
+  espessura: 0.036,
   /** Inclinação para baixo, em radianos — sem ela a pala fica na horizontal,
    *  que lê como pá de ventilador, não como bico de boné. */
-  inclinacao: 0.32,
+  inclinacao: 0.34,
 }
 
 /**
@@ -129,11 +146,32 @@ const PALA = {
  * mostrou começar a apertar.
  */
 const ANGULO_REPOUSO_BASE = -Math.PI / 2
-/** Desvio menor que o original (0,12): aquele número foi calibrado com a
- *  faixa na coroa, onde a superfície aponta para cima e o desvio quase não
- *  custava leitura. Com a faixa no painel frontal, todo grau de desvio sai
- *  direto do arco legível do nome. */
-const ANGULO_REPOUSO_DESVIO = 0.06
+/**
+ * POSE DE TRÊS QUARTOS, e agora dá para pagar por ela.
+ *
+ * De frente, a pala projeta na direção da câmera e encurta até virar uma aba
+ * caída — lê como bico apontado para o chão, não como pala. Boné se
+ * reconhece de perfil: é ali que a pala mostra o comprimento que nenhum
+ * outro objeto redondo tem.
+ *
+ * O orçamento existe porque a faixa da marca mudou de latitude. Perto do
+ * polo o arco legível era estreito e cada grau de desvio custava caro; no
+ * painel frontal (equador) a faixa de 0,24 da circunferência ocupa 86° e a
+ * meia-faixa mede 43°.
+ *
+ * A CONTA GEOMÉTRICA DÁ FOLGA DEMAIS, E ELA MENTE. O limite de |desvio| =
+ * 90° − 43° = 47° supõe câmera ortográfica; com uma perspectiva a distância
+ * finita, o arco de fato visível de um corpo redondo é MENOR que ±90°, e a
+ * borda chega antes. Verificado em captura: a 0,5 rad o nome já encostava
+ * na silhueta, com a fórmula prometendo folga de sobra.
+ *
+ * 0,36 é medido, não derivado — gira o bastante para a pala mostrar
+ * comprimento (que é o que faz o olho dizer "boné") e deixa o nome inteiro
+ * na face visível. A mesma armadilha já tinha sido registrada quando esta
+ * cena foi escrita; a fórmula da caneca, que é um cilindro, não transfere
+ * para uma calota.
+ */
+const ANGULO_REPOUSO_DESVIO = 0.36
 const OSCILACAO = { amplitude: 0.1, periodoS: 7 }
 
 /** Mesmo hook de `Caneca.tsx`/`Ecobag.tsx`, duplicado pelo mesmo motivo. */
@@ -246,8 +284,15 @@ function Corpo({ corMarca, nomeMarca }: { corMarca: string; nomeMarca: string })
           ponta (ver a derivação em `ANGULO_REPOUSO_BASE`, mesma regra da
           mão direita, agora em torno de Z); negativo abaixa. */}
       <group position={encaixePala} rotation={[0, 0, -PALA.inclinacao]}>
+        {/* A PALA SAI NA COR DA MARCA, não na sarja crua. Boné promocional
+            de verdade quase sempre traz a cor em contraste na pala, e aqui
+            ela resolve um problema concreto: a marca impressa é pequena e
+            só se lê de perto, então até conseguir ler o nome a peça não
+            parecia marcada. Um bloco grande de cor dá a leitura "isto é da
+            minha marca" na primeira olhada, que é o que o modal existe para
+            entregar. */}
         <mesh castShadow geometry={geometriaPala}>
-          <meshStandardMaterial color={COR_SARJA} roughness={0.82} metalness={0} />
+          <meshStandardMaterial color={corMarca} roughness={0.82} metalness={0} />
         </mesh>
       </group>
     </group>

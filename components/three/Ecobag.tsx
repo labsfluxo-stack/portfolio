@@ -176,14 +176,19 @@ function Corpo({ corMarca, nomeMarca }: { corMarca: string; nomeMarca: string })
         <meshStandardMaterial attach="material-5" color={COR_LONA} {...TECIDO} />
       </mesh>
 
-      {/* As duas alças. */}
+      {/* As duas alças, NA COR DA MARCA e não na lona crua. Mesma razão da
+          pala do boné: o nome impresso é pequeno e só se lê de perto, então
+          até conseguir ler a peça não parecia marcada. Um elemento grande na
+          cor entrega "isto é da minha marca" na primeira olhada — e alça em
+          contraste é o acabamento mais comum numa ecobag promocional de
+          verdade, então a escolha não custa verossimilhança. */}
       <mesh castShadow>
         <tubeGeometry args={[curvaAlcaFrente, 48, ALCA.raioTubo, 10, false]} />
-        <meshStandardMaterial color={COR_LONA} {...TECIDO} />
+        <meshStandardMaterial color={corMarca} {...TECIDO} />
       </mesh>
       <mesh castShadow>
         <tubeGeometry args={[curvaAlcaCostas, 48, ALCA.raioTubo, 10, false]} />
-        <meshStandardMaterial color={COR_LONA} {...TECIDO} />
+        <meshStandardMaterial color={corMarca} {...TECIDO} />
       </mesh>
     </group>
   )
