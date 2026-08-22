@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { rasterizarBandeiraPublica } from '@/components/ativacoes/temas/junino'
 import {
+  texturaChita,
   texturaPalha,
   texturaParalelepipedo,
   texturaReboco,
@@ -48,10 +49,10 @@ import {
  * fundo. Escurecer a fotografia inteira para caber uma legenda é o erro que
  * eu estava repetindo.
  */
-const COR_CEU_ALTO = '#2E5C8A'
-const COR_CEU_MEIO = '#7E86A2'
-const COR_CEU_HORIZONTE = '#E8A868'
-const COR_NEVOA = '#B79A88'
+const COR_CEU_ALTO = '#05070E'
+const COR_CEU_MEIO = '#0C1018'
+const COR_CEU_HORIZONTE = '#2A1A12'
+const COR_NEVOA = '#150F12'
 
 /** As fachadas do casario, já no tom de noite. Nunca preto: silhueta preta diz
  *  "prédio", cor de fachada diz "cidade do interior". */
@@ -60,11 +61,11 @@ const FACHADAS = [
  *  rosa, azul, verde-água — com telha vermelha. As versões anteriores eram
  *  esses mesmos matizes escurecidos para a noite, e escurecer pastel dá
  *  marrom: era por isso que o casario nunca tinha a cor da referência. */
-  { parede: '#E8D9B8', telha: '#B4543A' },
-  { parede: '#E4B8B4', telha: '#B4543A' },
-  { parede: '#A8C4D8', telha: '#A84E34' },
-  { parede: '#B4D0BC', telha: '#B4543A' },
-  { parede: '#EFC98E', telha: '#A84E34' },
+  { parede: '#8A7358', telha: '#8E4430' },
+  { parede: '#8A6266', telha: '#8E4430' },
+  { parede: '#556E84', telha: '#83402C' },
+  { parede: '#5E8272', telha: '#8E4430' },
+  { parede: '#8E7A5C', telha: '#83402C' },
 ] as const
 
 /** Pseudoaleatório determinístico. A cena é montada uma vez e não pode mudar
@@ -88,8 +89,7 @@ function Ceu() {
     if (!p) return null
     const g = p.createLinearGradient(0, 0, 0, 256)
     g.addColorStop(0, COR_CEU_ALTO)
-    g.addColorStop(0.5, COR_CEU_MEIO)
-    g.addColorStop(0.82, '#F0C489')
+    g.addColorStop(0.62, COR_CEU_MEIO)
     g.addColorStop(1, COR_CEU_HORIZONTE)
     p.fillStyle = g
     p.fillRect(0, 0, 4, 256)
@@ -107,6 +107,33 @@ function Ceu() {
   )
 }
 
+/** As estrelas, só na metade de cima da abóbada — perto do horizonte a luz
+ *  do arraial as apagaria, e desenhá-las ali contradiria o gradiente. */
+function Estrelas() {
+  const geometria = useMemo(() => {
+    const pontos: number[] = []
+    for (let i = 0; i < 220; i++) {
+      const theta = aleatorio(i * 3 + 1) * Math.PI * 2
+      const phi = aleatorio(i * 5 + 2) * 0.62
+      const r = 84
+      pontos.push(
+        r * Math.sin(phi) * Math.cos(theta),
+        r * Math.cos(phi),
+        r * Math.sin(phi) * Math.sin(theta),
+      )
+    }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pontos, 3))
+    return g
+  }, [])
+  useEffect(() => () => geometria.dispose(), [geometria])
+  return (
+    <points geometry={geometria}>
+      <pointsMaterial color="#E2E8F4" size={0.22} sizeAttenuation transparent opacity={0.75} />
+    </points>
+  )
+}
+
 /** O chão da praça. Um plano grande, escuro, levemente reflexivo — é ele que
  *  recebe a luz da fogueira, e é essa poça de luz no chão que mais diz "há uma
  *  fogueira acesa aqui" numa cena noturna. */
@@ -119,7 +146,7 @@ function Chao() {
       {/* A pedra é o que dá ESCALA à praça: é por ela que o olho mede o
           tamanho da fogueira e da barraca. Um plano de cor única fazia a cena
           parecer estúdio com fundo infinito. */}
-      <meshStandardMaterial color="#C4B2A4" map={textura} roughness={0.94} metalness={0} />
+      <meshStandardMaterial color="#5A4A44" map={textura} roughness={0.94} metalness={0} />
     </mesh>
   )
 }
@@ -159,6 +186,72 @@ function Janela({
         <boxGeometry args={[largura * 0.4, altura * 0.94, 0.05]} />
         <meshStandardMaterial color="#2E4A44" roughness={0.86} />
       </mesh>
+    </group>
+  )
+}
+
+/**
+ * Um telhado de duas águas.
+ *
+ * Dois planos inclinados encontrando numa cumeeira, mais a cumeeira em si e
+ * os dois oitões (as paredes triangulares das pontas). Cada peça é uma caixa
+ * ou um plano — nada de geometria custom — e o conjunto fica ONDE SE MANDA,
+ * que é o que o prisma girado da versão anterior não fazia.
+ */
+function Telhado({
+  largura,
+  profundidade,
+  alturaBase,
+  cor,
+  textura,
+}: {
+  largura: number
+  profundidade: number
+  alturaBase: number
+  cor: string
+  textura: THREE.CanvasTexture | null
+}) {
+  // Inclinação baixa, como manda telhado colonial. O prisma anterior subia
+  // um terço da altura da casa e lia como cabana alpina.
+  const alturaTelhado = profundidade * 0.3
+  const beiralX = largura * 0.08
+  const beiralZ = profundidade * 0.12
+  const larguraAgua = largura + beiralX * 2
+  const meiaProf = profundidade / 2 + beiralZ
+  // O comprimento da água pelo caimento (hipotenusa), não pela projeção —
+  // usar a projeção deixaria uma fresta na cumeeira.
+  const comprimentoAgua = Math.hypot(meiaProf, alturaTelhado)
+  const inclinacao = Math.atan2(alturaTelhado, meiaProf)
+
+  return (
+    <group position={[0, alturaBase, 0]}>
+      {[1, -1].map((lado) => (
+        <mesh
+          key={lado}
+          position={[0, alturaTelhado / 2, (lado * meiaProf) / 2]}
+          rotation={[lado * inclinacao, 0, 0]}
+          castShadow
+          receiveShadow
+        >
+          <boxGeometry args={[larguraAgua, 0.12, comprimentoAgua]} />
+          <meshStandardMaterial color={cor} map={textura} roughness={0.92} metalness={0} />
+        </mesh>
+      ))}
+      {/* A CUMEEIRA: a fileira de telhas que fecha o encontro das duas águas.
+          Sem ela sobra uma linha escura no topo que lê como fresta. */}
+      <mesh position={[0, alturaTelhado + 0.05, 0]} castShadow>
+        <boxGeometry args={[larguraAgua, 0.16, 0.3]} />
+        <meshStandardMaterial color={cor} roughness={0.9} />
+      </mesh>
+      {/* Os OITÕES: as paredes triangulares das duas pontas, que fecham o
+          vão sob o telhado. Sem eles a casa fica com um buraco por onde se vê
+          o céu do outro lado. */}
+      {[1, -1].map((lado) => (
+        <mesh key={lado} position={[(lado * largura) / 2, alturaTelhado / 2, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <planeGeometry args={[profundidade, alturaTelhado]} />
+          <meshStandardMaterial color="#2A2018" roughness={1} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
     </group>
   )
 }
@@ -269,23 +362,27 @@ function Casa({
         </group>
       ) : null}
 
-      {/* O TELHADO. RASO, não pontudo: o prisma anterior subia um terço da
-          altura da casa e lia como cabana alpina. Telhado colonial é de
-          pouca inclinação e beiral bem saliente. A textura de telha é o que
-          o transforma de tampa em telhado. */}
-      <mesh
-        position={[0, altura + altura * 0.055, 0]}
-        rotation={[0, Math.PI / 2, Math.PI / 2]}
-        castShadow
-      >
-        <cylinderGeometry args={[altura * 0.15, altura * 0.15, largura * 1.16, 3, 1]} />
-        <meshStandardMaterial
-          color={fachada.telha}
-          map={texturaTelhado}
-          roughness={0.92}
-          metalness={0}
-        />
-      </mesh>
+      {/* O TELHADO: DUAS ÁGUAS de verdade, dois planos inclinados que se
+          encontram numa cumeeira.
+
+          A versão anterior era um prisma de `cylinderGeometry` com 3 lados,
+          girado — e girado ERRADO: o eixo do prisma acabava atravessado, e o
+          que aparecia era um triângulo vermelho apontando para o LADO da
+          casa em vez de um telhado cobrindo ela. Prisma girado é economia
+          falsa: dois planos custam a mesma coisa, ficam onde se manda, e
+          aceitam a textura de telha na orientação certa (a telha corre no
+          sentido do caimento, nunca atravessada).
+
+          `beiralX`/`beiralZ` fazem o telhado passar da parede nos quatro
+          lados — beiral saliente é o que faz o olho ler telhado, e não
+          tampa. */}
+      <Telhado
+        largura={largura}
+        profundidade={profundidade}
+        alturaBase={altura}
+        cor={fachada.telha}
+        textura={texturaTelhado}
+      />
     </group>
   )
 }
@@ -369,23 +466,69 @@ function Fogueira({ posicao }: { posicao: [number, number, number] }) {
     }
   })
 
+  // NOVE toras, de comprimentos e inclinações diferentes, mais um leito de
+  // achas caídas na base. Cinco toras iguais em círculo perfeito liam como
+  // uma tenda de índio; uma fogueira de verdade é lenha EMPILHADA, com peça
+  // grande embaixo e graveto por cima, e nenhuma peça igual à vizinha.
   const toras = useMemo(
     () =>
-      [0, 1, 2, 3, 4].map((i) => {
-        const ang = (i / 5) * Math.PI * 2
+      Array.from({ length: 9 }, (_, i) => {
+        const ang = (i / 9) * Math.PI * 2 + aleatorio(i * 7 + 1) * 0.5
+        const raio = 0.42 + aleatorio(i * 11 + 3) * 0.22
+        const comprimento = 1.5 + aleatorio(i * 13 + 5) * 0.7
         return {
-          pos: [Math.cos(ang) * 0.5, 0.58, Math.sin(ang) * 0.5] as [number, number, number],
-          rot: [Math.cos(ang) * 0.42, 0, -Math.sin(ang) * 0.42] as [number, number, number],
+          pos: [Math.cos(ang) * raio, comprimento * 0.36, Math.sin(ang) * raio] as [
+            number,
+            number,
+            number,
+          ],
+          rot: [Math.cos(ang) * 0.46, ang, -Math.sin(ang) * 0.46] as [number, number, number],
+          comprimento,
+          espessura: 0.1 + aleatorio(i * 17 + 7) * 0.06,
         }
       }),
     [],
   )
 
+  /** As achas caídas em volta, e as brasas no leito. É o que faz a fogueira
+   *  ter PÉ no chão em vez de brotar dele. */
+  const leito = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => ({
+        pos: [
+          (aleatorio(i * 19 + 2) - 0.5) * 2.4,
+          0.07,
+          (aleatorio(i * 23 + 4) - 0.5) * 2.4,
+        ] as [number, number, number],
+        giro: aleatorio(i * 29 + 6) * Math.PI,
+        comprimento: 0.5 + aleatorio(i * 31 + 8) * 0.6,
+      })),
+    [],
+  )
+
   return (
     <group position={posicao}>
+      {/* O LEITO: achas caídas e brasas, antes das toras em pé. */}
+      {leito.map((a, i) => (
+        <mesh key={`a${i}`} position={a.pos} rotation={[0, a.giro, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[0.075, 0.09, a.comprimento, 6]} />
+          <meshStandardMaterial color="#2A1A0A" roughness={0.98} />
+        </mesh>
+      ))}
+      {/* As BRASAS: um disco quente no chão sob a pilha. É ele que faz o fogo
+          ter base — chama saindo direto da pedra lê como efeito colado. */}
+      <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.78, 16]} />
+        <meshBasicMaterial color="#C4441A" transparent opacity={0.85} />
+      </mesh>
+      <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.42, 14]} />
+        <meshBasicMaterial color="#FF8A2E" transparent opacity={0.9} />
+      </mesh>
+
       {toras.map((t, i) => (
         <mesh key={i} position={t.pos} rotation={t.rot} castShadow>
-          <cylinderGeometry args={[0.13, 0.16, 1.5, 7]} />
+          <cylinderGeometry args={[t.espessura * 0.82, t.espessura, t.comprimento, 7]} />
           <meshStandardMaterial color="#33200E" roughness={0.95} metalness={0} />
         </mesh>
       ))}
@@ -406,50 +549,139 @@ function Fogueira({ posicao }: { posicao: [number, number, number] }) {
   )
 }
 
-/** Uma barraca: telhado de palha em duas águas sobre esteios, frente de chita.
- *  São elas que emolduram a praça na foto de referência. */
+/**
+ * A BARRACA do arraial.
+ *
+ * A primeira montagem era três caixas: dois esteios, um bloco de frente e um
+ * prisma de palha em cima. Lia como caixote com chapéu. Uma barraca de
+ * verdade tem MERCADORIA — é ela que diz que a barraca está funcionando, e
+ * barraca vazia num arraial cheio lê como feira depois que fechou.
+ *
+ * O que entrou: pano de chita ESTAMPADO no lugar do vermelho liso, milho e
+ * potes sobre o balcão, placa pendurada, travessas de madeira sob o telhado,
+ * e a lâmpada que já existia agora com o próprio bulbo à vista.
+ */
 function Barraca({ posicao, giro }: { posicao: [number, number, number]; giro: number }) {
   const texturaTelhadoPalha = useMemo(() => texturaPalha(), [])
-  useEffect(() => () => texturaTelhadoPalha?.dispose(), [texturaTelhadoPalha])
+  const panoChita = useMemo(() => texturaChita(), [])
+  useEffect(
+    () => () => {
+      texturaTelhadoPalha?.dispose()
+      panoChita?.dispose()
+    },
+    [texturaTelhadoPalha, panoChita],
+  )
+
+  /** A mercadoria sobre o balcão. Posições fixas: a cena é montada uma vez e
+   *  não pode mudar entre visitas. */
+  const mercadoria = useMemo(
+    () => [
+      { x: -1.25, tipo: 'milho' as const },
+      { x: -0.72, tipo: 'milho' as const },
+      { x: -0.18, tipo: 'pote' as const },
+      { x: 0.42, tipo: 'bolo' as const },
+      { x: 1.05, tipo: 'pote' as const },
+      { x: 1.5, tipo: 'milho' as const },
+    ],
+    [],
+  )
+
   return (
     <group position={posicao} rotation={[0, giro, 0]}>
-      {[-1.5, 1.5].map((x) => (
-        <mesh key={x} position={[x, 1.1, 0]} castShadow>
-          <boxGeometry args={[0.16, 2.2, 0.16]} />
-          <meshStandardMaterial color="#33241A" roughness={0.95} />
+      {/* Os esteios, agora quatro: dois na frente e dois atrás. Com dois só,
+          o telhado pairava sem apoio visível do lado de trás. */}
+      {[
+        [-1.6, 1.7],
+        [1.6, 1.7],
+        [-1.6, -0.5],
+        [1.6, -0.5],
+      ].map(([x, z]) => (
+        <mesh key={`${x},${z}`} position={[x!, 1.1, z!]} castShadow>
+          <boxGeometry args={[0.15, 2.2, 0.15]} />
+          <meshStandardMaterial color="#3A2A1C" roughness={0.96} />
         </mesh>
       ))}
-      {/* A frente de chita — pano estampado cobrindo o corpo da barraca. */}
-      <mesh position={[0, 0.62, 0.9]} castShadow>
+
+      {/* A FRENTE DE CHITA. Estampada, não vermelha lisa — chita não é uma
+          cor, é um padrão, e é ele que o olho reconhece antes de qualquer
+          outro detalhe da barraca. */}
+      <mesh position={[0, 0.62, 0.92]} castShadow receiveShadow>
         <boxGeometry args={[3.4, 1.24, 1.9]} />
-        <meshStandardMaterial color="#6A2A24" roughness={0.92} />
+        <meshStandardMaterial color="#FFFFFF" map={panoChita} roughness={0.94} />
       </mesh>
-      {/* O balcão. */}
-      <mesh position={[0, 1.3, 0.95]} castShadow>
+
+      {/* O BALCÃO, com o tampo saliente e um friso na borda. */}
+      <mesh position={[0, 1.3, 0.96]} castShadow receiveShadow>
         <boxGeometry args={[3.7, 0.14, 2.1]} />
-        <meshStandardMaterial color="#3B2A1C" roughness={0.9} />
+        <meshStandardMaterial color="#5A3E28" roughness={0.9} />
       </mesh>
-      {/* O TELHADO DE PALHA. Prisma triangular, mesma técnica do telhado das
-          casas, com beiral bem saliente — telhado de palha de barraca sempre
-          passa muito da estrutura. */}
-      <mesh position={[0, 2.5, 0.4]} rotation={[0, Math.PI / 2, Math.PI / 2]} castShadow>
-        <cylinderGeometry args={[1.15, 1.15, 4.4, 3, 1]} />
-        <meshStandardMaterial color="#B89A62" map={texturaTelhadoPalha} roughness={1} />
+      <mesh position={[0, 1.24, 2]}>
+        <boxGeometry args={[3.7, 0.08, 0.1]} />
+        <meshStandardMaterial color="#3A2618" roughness={0.9} />
       </mesh>
+
+      {/* A MERCADORIA. Milho em pé, potes e bolo — as três coisas que toda
+          barraca de São João tem em cima do balcão. */}
+      {mercadoria.map((m) => (
+        <group key={m.x} position={[m.x, 1.44, 1.24]}>
+          {m.tipo === 'milho' ? (
+            <mesh rotation={[0.18, 0, 0.12]} castShadow>
+              <cylinderGeometry args={[0.1, 0.07, 0.42, 8]} />
+              <meshStandardMaterial color="#E0B23C" roughness={0.85} />
+            </mesh>
+          ) : m.tipo === 'pote' ? (
+            <mesh castShadow>
+              <cylinderGeometry args={[0.13, 0.11, 0.26, 10]} />
+              <meshStandardMaterial color="#8A5A32" roughness={0.7} />
+            </mesh>
+          ) : (
+            <mesh castShadow>
+              <boxGeometry args={[0.34, 0.18, 0.26]} />
+              <meshStandardMaterial color="#C88A4A" roughness={0.9} />
+            </mesh>
+          )}
+        </group>
+      ))}
+
+      {/* As TRAVESSAS sob o telhado: as ripas em que a palha se apoia. Sem
+          elas o telhado encosta no ar. */}
+      {[-1, 0, 1].map((k) => (
+        <mesh key={k} position={[k * 1.2, 2.24, 0.6]} castShadow>
+          <boxGeometry args={[0.1, 0.1, 2.6]} />
+          <meshStandardMaterial color="#3A2A1C" roughness={0.96} />
+        </mesh>
+      ))}
+
+      {/* O TELHADO DE PALHA, em duas águas como o das casas. O prisma girado
+          da versão anterior tinha o mesmo defeito do telhado das casas: eixo
+          atravessado, e o que aparecia era uma cunha e não um telhado. */}
+      <Telhado
+        largura={4.2}
+        profundidade={3.2}
+        alturaBase={2.34}
+        cor="#B89A62"
+        textura={texturaTelhadoPalha}
+      />
+
+      {/* A PLACA pendurada na frente do balcão. Sem texto: texto em canvas
+          3D não é lido por ninguém e a regra desta página é que informação
+          mora em DOM. Aqui ela é só a tábua, que é o que se vê de longe. */}
+      <mesh position={[0, 1.92, 1.96]} rotation={[0.12, 0, 0]} castShadow>
+        <boxGeometry args={[1.7, 0.44, 0.06]} />
+        <meshStandardMaterial color="#E8D9B8" roughness={0.9} />
+      </mesh>
+
       {/* A LÂMPADA da barraca. Toda barraca de arraial tem uma pendurada sob
           o telhado, e sem ela a barraca fica no escuro por estar longe da
-          fogueira — que foi exatamente o que aconteceu na primeira montagem.
-          O alcance é curto de propósito: é lâmpada de barraca, não
-          holofote de praça. */}
-      <pointLight position={[0, 2, 1.1]} color="#FFC878" intensity={9} distance={9} decay={1.8} />
-      <mesh position={[0, 2, 1.1]}>
+          fogueira. O alcance é curto: é lâmpada de barraca, não holofote. */}
+      <pointLight position={[0, 2.05, 1.1]} color="#FFC878" intensity={11} distance={10} decay={1.8} />
+      <mesh position={[0, 2.05, 1.1]}>
         <sphereGeometry args={[0.09, 8, 6]} />
         <meshBasicMaterial color="#FFE6B4" />
       </mesh>
     </group>
   )
 }
-
 /**
  * UM VARAL de bandeirinhas: uma catenária de ponta a ponta, com bandeiras
  * penduradas e lâmpadas entre elas.
@@ -576,11 +808,12 @@ function Cena() {
     <>
       <Camera />
       <Ceu />
+      <Estrelas />
       {/* A NÉVOA começa longe e fecha rápido: é ela que apaga o casario ao
           fundo e dá a sensação de ar entre a praça e as casas. Sem névoa uma
           cena noturna fica com tudo no mesmo plano, por mais que a
           perspectiva esteja certa. */}
-      <fog attach="fog" args={[COR_NEVOA, 34, 110]} />
+      <fog attach="fog" args={[COR_NEVOA, 30, 96]} />
       <Chao />
       <Casario />
       <Fogueira posicao={[0.5, 0, -11]} />
@@ -618,27 +851,21 @@ function Cena() {
       {/* LUZ DE FIM DE TARDE, não de noite. Céu azul por cima, chão quente
           por baixo, os dois FORTES — é essa diferença que dá cor à cena sem
           precisar de uma fonte por objeto. */}
-      <hemisphereLight args={['#9CC0E8', '#C89A64', 3.4]} />
-      <ambientLight intensity={1.1} color="#C8D4E8" />
+      <hemisphereLight args={['#5E76A6', '#7A5230', 2.4]} />
+      <ambientLight intensity={0.55} color="#6E80A8" />
       {/* Uma direcional fria e fraca, vinda de cima e do lado, só para as
           quinas dos telhados existirem. Nunca forte: duas fontes fortes
           brigando é o erro mais comum numa cena noturna. */}
       {/* O SOL BAIXO, vindo do horizonte atrás do casario — é ele que dá o
           contra-luz quente nos telhados e a sombra longa no chão, e é o que
           mais rápido diz "fim de tarde" numa cena 3D. */}
-      <directionalLight
-        position={[-26, 20, 6]}
-        intensity={2.9}
-        color="#FFB870"
-        castShadow
-        shadow-mapSize={[1024, 1024]}
-      />
+      <directionalLight position={[-16, 22, 10]} intensity={0.9} color="#A8BCE0" />
       {/* Um enchimento QUENTE e fraco vindo de baixo e da frente, na direcao
           da praca. Representa o somatorio das barracas, das janelas e dos
           varais acesos — luz que existe na foto e que nenhuma fonte pontual
           da cena cobre. Sem ele o casario fica com a base no breu, o que le
           como cidade abandonada em vez de arraial cheio. */}
-      <directionalLight position={[10, 12, 18]} intensity={0.7} color="#DCE8FF" />
+      <directionalLight position={[2, 4, 16]} intensity={0.5} color="#FFB870" />
     </>
   )
 }

@@ -150,3 +150,40 @@ export function texturaPalha(): THREE.CanvasTexture | null {
   }
   return finalizar(p, 5, 3)
 }
+
+/**
+ * CHITA. O pano estampado que forra a frente de toda barraca de arraial.
+ *
+ * Flores miúdas em cores fortes sobre fundo saturado. Pano liso na barraca é o
+ * que fazia a peça ler como caixote pintado: chita não é uma cor, é um PADRÃO,
+ * e é ele que o olho reconhece antes de qualquer outro detalhe da barraca.
+ */
+export function texturaChita(): THREE.CanvasTexture | null {
+  const p = telaDe(64, 64)
+  if (!p) return null
+  p.fillStyle = '#B4272A'
+  p.fillRect(0, 0, 64, 64)
+  const flores = [
+    { x: 16, y: 16, cor: '#F2C43C' },
+    { x: 48, y: 24, cor: '#F5F1E6' },
+    { x: 24, y: 46, cor: '#2E86C1' },
+    { x: 54, y: 54, cor: '#F2C43C' },
+    { x: 6, y: 38, cor: '#1E8F5F' },
+  ]
+  for (const flor of flores) {
+    // Cinco pétalas em volta de um miolo — a flor de chita mais comum, e a
+    // menor que ainda lê como flor num pano de 64px.
+    for (let k = 0; k < 5; k++) {
+      const ang = (k * Math.PI * 2) / 5
+      p.fillStyle = flor.cor
+      p.beginPath()
+      p.arc(flor.x + Math.cos(ang) * 4.2, flor.y + Math.sin(ang) * 4.2, 3, 0, Math.PI * 2)
+      p.fill()
+    }
+    p.fillStyle = '#3A1A16'
+    p.beginPath()
+    p.arc(flor.x, flor.y, 2.2, 0, Math.PI * 2)
+    p.fill()
+  }
+  return finalizar(p, 3, 2)
+}
