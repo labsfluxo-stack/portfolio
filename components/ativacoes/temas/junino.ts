@@ -429,18 +429,149 @@ function pseudoAleatorio01(semente: number): number {
  * dicaspraticas.com.br/moldes-de-bandeirinhas-para-festa-junina e
  * terra.com.br (como fazer bandeirinha de festa junina).
  */
+/**
+ * As estampas de chita das bandeirinhas.
+ *
+ * A referência fotográfica em `public/` não tem UMA bandeira lisa: são todas
+ * de pano estampado — estrela grande, sol, bolinhas, listras, retalhos
+ * geométricos — e várias com recorte VAZADO, onde o desenho é o buraco e não
+ * a tinta. Cor chapada, que era o que este arquivo desenhava, é bandeirola
+ * de plástico de posto, não bandeirinha de São João.
+ */
+type EstampaBandeira = 'estrela' | 'sol' | 'bolinhas' | 'listras' | 'retalhos' | 'vazado'
+/** Sete estampas contra cinco cores: comprimento primo em relação ao da
+ *  paleta, então a combinação cor+estampa só se repete a cada 35 bandeiras —
+ *  mais que cabe em qualquer fileira, e é o que impede a fileira de ler como
+ *  padrão que se repete. */
+const ESTAMPAS_BANDEIRA: readonly EstampaBandeira[] = [
+  'estrela',
+  'bolinhas',
+  'sol',
+  'retalhos',
+  'listras',
+  'vazado',
+  'bolinhas',
+]
+
 function caminhoBandeira(largura: number, altura: number): string {
   const m = largura / 2
   // O corte sobe até 62% da altura: fundo demais come a bandeira inteira,
   // raso demais lê como retângulo com um arranhão.
-  return `M ${-m} 0 L ${m} 0 L ${m} ${altura} L 0 ${altura * 0.62} L ${-m} ${altura} Z`
+  return `M ${-m} 0 L ${m} 0 L ${m} ${altura} L 0 ${altura * 0.68} L ${-m} ${altura} Z`
 }
 
-/** Proporção do molde tradicional, 10×15cm. Era 1,3 quando a bandeira ainda
- *  era um triângulo. */
-const PROPORCAO_BANDEIRA = 1.5
+/**
+ * Proporção altura:largura de uma bandeira.
+ *
+ * QUASE QUADRADA. Passou por 1,3 (triângulo) e 1,5 (molde de papel 10×15) —
+ * mas a bandeirinha de pano que uma festa de verdade pendura é larga: na
+ * referência fotográfica em `public/` elas são tão largas quanto altas, e é
+ * essa largura que dá lugar para a estampa aparecer. Bandeira estreita não
+ * tem onde estampar, e foi por isso que a versão anterior acabou lisa.
+ */
+const PROPORCAO_BANDEIRA = 1.08
 
-function rasterizarBandeira(larguraPx: number, cor: string, dpr: number): HTMLCanvasElement | null {
+function desenharEstampaBandeira(
+  pincel: CanvasRenderingContext2D,
+  estampa: EstampaBandeira,
+  largura: number,
+  altura: number,
+  tinta: string,
+): void {
+  const m = largura / 2
+  pincel.save()
+  pincel.fillStyle = tinta
+
+  if (estampa === 'estrela' || estampa === 'vazado') {
+    // Estrela de cinco pontas, grande, no meio do pano. Em `vazado` ela é
+    // RECORTE: o desenho vira buraco e o que aparece é o que está atrás —
+    // é o que a referência faz nas bandeiras vermelha e verde, e o que mais
+    // diz "pano cortado à mão" em vez de "impresso".
+    if (estampa === 'vazado') pincel.globalCompositeOperation = 'destination-out'
+    const r = Math.min(largura, altura) * 0.3
+    const cy = altura * 0.42
+    pincel.beginPath()
+    for (let k = 0; k < 10; k++) {
+      const ang = (k * Math.PI) / 5 - Math.PI / 2
+      const rr = k % 2 === 0 ? r : r * 0.42
+      const px = Math.cos(ang) * rr
+      const py = cy + Math.sin(ang) * rr
+      if (k === 0) pincel.moveTo(px, py)
+      else pincel.lineTo(px, py)
+    }
+    pincel.closePath()
+    pincel.fill()
+    pincel.restore()
+    return
+  }
+
+  if (estampa === 'sol') {
+    const cy = altura * 0.42
+    const r = Math.min(largura, altura) * 0.16
+    pincel.beginPath()
+    pincel.arc(0, cy, r, 0, Math.PI * 2)
+    pincel.fill()
+    pincel.strokeStyle = tinta
+    pincel.lineWidth = Math.max(0.8, r * 0.34)
+    pincel.lineCap = 'round'
+    for (let k = 0; k < 8; k++) {
+      const ang = (k * Math.PI) / 4
+      pincel.beginPath()
+      pincel.moveTo(Math.cos(ang) * r * 1.55, cy + Math.sin(ang) * r * 1.55)
+      pincel.lineTo(Math.cos(ang) * r * 2.15, cy + Math.sin(ang) * r * 2.15)
+      pincel.stroke()
+    }
+    pincel.restore()
+    return
+  }
+
+  if (estampa === 'bolinhas') {
+    const passoX = largura / 4
+    const passoY = altura / 4
+    for (let i = 0; i < 4; i++) {
+      for (let j = 0; j < 4; j++) {
+        pincel.beginPath()
+        pincel.arc(-m + passoX * (i + 0.5), passoY * (j + 0.5), passoX * 0.18, 0, Math.PI * 2)
+        pincel.fill()
+      }
+    }
+    pincel.restore()
+    return
+  }
+
+  if (estampa === 'listras') {
+    const passo = altura / 7
+    for (let j = 1; j < 7; j += 2) pincel.fillRect(-m, passo * j, largura, passo)
+    pincel.restore()
+    return
+  }
+
+  // retalhos: triângulos alternados, o padrão de bandeira feita de sobras
+  const passoX = largura / 3
+  const passoY = altura / 3
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      if ((i + j) % 2) continue
+      const x0 = -m + passoX * i
+      const y0 = passoY * j
+      pincel.beginPath()
+      pincel.moveTo(x0, y0)
+      pincel.lineTo(x0 + passoX, y0)
+      pincel.lineTo(x0, y0 + passoY)
+      pincel.closePath()
+      pincel.fill()
+    }
+  }
+  pincel.restore()
+}
+
+function rasterizarBandeira(
+  larguraPx: number,
+  cor: string,
+  estampa: EstampaBandeira,
+  tinta: string,
+  dpr: number,
+): HTMLCanvasElement | null {
   if (typeof document === 'undefined' || typeof Path2D === 'undefined') return null
   if (larguraPx <= 0) return null
   const alturaPx = larguraPx * PROPORCAO_BANDEIRA
@@ -455,6 +586,12 @@ function rasterizarBandeira(larguraPx: number, cor: string, dpr: number): HTMLCa
   const caminho = new Path2D(caminhoBandeira(larguraPx, alturaPx))
   pincel.fillStyle = cor
   pincel.fill(caminho)
+
+  // A estampa, recortada no pano.
+  pincel.save()
+  pincel.clip(caminho)
+  desenharEstampaBandeira(pincel, estampa, larguraPx, alturaPx, tinta)
+  pincel.restore()
 
   // A ABA DOBRADA sobre o barbante. Uma bandeirinha de papel de seda é
   // pendurada dobrando a borda de cima por cima do fio e colando — então
@@ -473,26 +610,47 @@ function rasterizarBandeira(larguraPx: number, cor: string, dpr: number): HTMLCa
   return tela
 }
 
-/** Um sprite por COR (5, não por fileira) — a fileira de trás reaproveita os
- *  mesmos sprites, só pede um tamanho de destino menor no `drawImage` (62%,
- *  ver `LINHA_FUNDO.escala`); reescalar um raster já pronto é de graça
- *  comparado a rasterizar um segundo conjunto. */
-let spritesBandeiraCache: { larguraPx: number; dpr: number; porCor: Map<string, HTMLCanvasElement> } | null = null
-function garantirSpriteBandeira(larguraPx: number, cor: string, dpr: number): HTMLCanvasElement | null {
+/**
+ * Um sprite por ESTILO — a combinação de cor e estampa —, não mais um por
+ * cor. São 5 cores × 7 estampas possíveis, mas só as combinações que a
+ * fileira de fato usa entram no mapa, então na prática são tantas quanto
+ * bandeiras distintas houver na tela.
+ *
+ * A fileira de trás reaproveita os mesmos sprites, só pede um tamanho de
+ * destino menor no `drawImage` (62%, ver `LINHA_FUNDO.escala`); reescalar um
+ * raster já pronto é de graça comparado a rasterizar um segundo conjunto.
+ */
+let spritesBandeiraCache: {
+  larguraPx: number
+  dpr: number
+  porEstilo: Map<string, HTMLCanvasElement>
+} | null = null
+function garantirSpriteBandeira(
+  larguraPx: number,
+  cor: string,
+  estampa: EstampaBandeira,
+  tinta: string,
+  dpr: number,
+): HTMLCanvasElement | null {
   if (
     !spritesBandeiraCache ||
     spritesBandeiraCache.larguraPx !== larguraPx ||
     spritesBandeiraCache.dpr !== dpr
   ) {
-    spritesBandeiraCache = { larguraPx, dpr, porCor: new Map() }
+    spritesBandeiraCache = { larguraPx, dpr, porEstilo: new Map() }
   }
   const cache = spritesBandeiraCache
-  const existente = cache.porCor.get(cor)
+  const chave = `${cor}|${estampa}|${tinta}`
+  const existente = cache.porEstilo.get(chave)
   if (existente) return existente
-  const nova = rasterizarBandeira(larguraPx, cor, dpr)
-  if (nova) cache.porCor.set(cor, nova)
+  const nova = rasterizarBandeira(larguraPx, cor, estampa, tinta, dpr)
+  if (nova) cache.porEstilo.set(chave, nova)
   return nova
 }
+
+/** Sisal. Ver o comentário no traçado do barbante. */
+const COR_BARBANTE = '#A9855A'
+const LARGURA_BARBANTE = 2.2
 
 /** Amplitude do balanço de CADA bandeira, em grau — a régua pede 4–6°. */
 const AMPLITUDE_BALANCO_BANDEIRA_RAD = (5 * Math.PI) / 180
@@ -534,7 +692,7 @@ type ConfigFileiraBandeirinha = {
 
 const LINHA_FRENTE: ConfigFileiraBandeirinha = {
   fracaoAlturaFio: 0.09,
-  fracaoSag: 0.14,
+  fracaoSag: 0.2,
   opacidade: 0.55,
   escala: 1,
   deslocamentoCor: 0,
@@ -542,7 +700,7 @@ const LINHA_FRENTE: ConfigFileiraBandeirinha = {
 }
 const LINHA_FUNDO: ConfigFileiraBandeirinha = {
   fracaoAlturaFio: 0.02,
-  fracaoSag: 0.16,
+  fracaoSag: 0.24,
   opacidade: 0.38,
   escala: 0.62,
   deslocamentoCor: 2,
@@ -567,14 +725,20 @@ function desenharFileiraBandeirinhas(
   // do quadro — maior que os balões, que são o jogo. Bandeirinha pendurada
   // longe também é pequena no olho: encolher é ao mesmo tempo a correção de
   // hierarquia e a leitura correta de profundidade.
-  const larguraBandeiraFrente = Math.min(23, Math.max(14, largura * 0.033))
+  // MAIORES. Com a bandeira quase quadrada (PROPORCAO_BANDEIRA) o pano
+// encolheu em altura, e estampa em pano pequeno vira sujeira. Na referencia
+// fotografica a bandeira e um objeto de bom tamanho na cena, nao um confete.
+const larguraBandeiraFrente = Math.min(30, Math.max(18, largura * 0.042))
   const larguraBandeira = larguraBandeiraFrente * config.escala
   const alturaBandeira = larguraBandeira * PROPORCAO_BANDEIRA
   // O PASSO usa a largura da PRÓPRIA fileira — é o que preserva a razão de
   // 18% de vão entre bandeiras (medida real, régua §4) em qualquer escala,
   // em vez de a fileira de trás ficar mais apertada ou mais espaçada que a
   // de frente por acidente de conta.
-  const passo = larguraBandeira * 1.18
+  // VAO DE 40%, nao de 18%. Bandeirinha pendurada tem espaco entre uma e
+// outra, e e nesse vao que o BARBANTE aparece cedendo — sem ele a fileira
+// vira uma faixa continua de cor, que e o que a versao anterior parecia.
+const passo = larguraBandeira * 1.4
   const yFio = altura * config.fracaoAlturaFio
   const nBandeiras = Math.ceil(largura / passo) + 1
 
@@ -585,8 +749,14 @@ function desenharFileiraBandeirinhas(
   // si NÃO balança (só as bandeiras penduradas nele) — manter o traço
   // parado é o que garante a coluna central sem NENHUM movimento sem
   // precisar recortar o caminho no meio do vão.
-  pincel.strokeStyle = CORES_BANDEIRINHA[4]
-  pincel.lineWidth = 1
+  // BARBANTE, não um fio de um pixel. Na referência fotográfica em `public/`
+  // a corda é grossa, cor de sisal, e é ela que segura visualmente a fileira
+  // — um traço branco fino lê como arame, e bandeirinha não se pendura em
+  // arame. A cor não sai de `CORES_BANDEIRINHA` de propósito: sisal não é
+  // uma cor de bandeira, é a cor de uma corda.
+  pincel.strokeStyle = COR_BARBANTE
+  pincel.lineWidth = LARGURA_BARBANTE * config.escala
+  pincel.lineCap = 'round'
   pincel.beginPath()
   pincel.moveTo(0, yFio)
   for (let x = passo; x <= largura + passo; x += passo) {
@@ -598,7 +768,15 @@ function desenharFileiraBandeirinhas(
   for (let i = 0; i < nBandeiras; i++) {
     const x = i * passo
     const cor = CORES_BANDEIRINHA[(i + config.deslocamentoCor) % CORES_BANDEIRINHA.length]!
-    const sprite = garantirSpriteBandeira(larguraBandeiraFrente, cor, dpr)
+    // A estampa avança num passo DIFERENTE do da cor (7 estampas contra 5
+    // cores), então cor e estampa não andam juntas e a fileira não vira um
+    // padrão que se repete a cada cinco bandeiras.
+    const estampa = ESTAMPAS_BANDEIRA[(i + config.deslocamentoCor) % ESTAMPAS_BANDEIRA.length]!
+    // A tinta da estampa sai da própria paleta, três posições adiante: é
+    // como pano estampado se comporta (as cores do padrão são as mesmas do
+    // resto da barraca), e impede inventar matiz fora da paleta junina.
+    const tinta = CORES_BANDEIRINHA[(i + config.deslocamentoCor + 3) % CORES_BANDEIRINHA.length]!
+    const sprite = garantirSpriteBandeira(larguraBandeiraFrente, cor, estampa, tinta, dpr)
 
     // A COLUNA CENTRAL NUNCA BALANÇA — nem sob movimento ligado. Uma
     // bandeirinha oscilando atrás do título é uma intrusão MAIOR que a
