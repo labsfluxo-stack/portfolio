@@ -53,7 +53,7 @@ const FAIXA_Y1 = 0.5
 /** Largura da faixa impressa, em fração da CIRCUNFERÊNCIA (equivalente a
  *  `FAIXA_LARGURA` da caneca) — ver `Bone.tsx` para o cálculo do arco
  *  legível que este número tem de respeitar. */
-export const FAIXA_LARGURA = 0.34
+export const FAIXA_LARGURA = 0.3
 
 export type Medidor = (fonte: string, texto: string) => number
 
