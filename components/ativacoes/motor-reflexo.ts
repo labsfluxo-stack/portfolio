@@ -33,9 +33,9 @@ export const DURACAO_MS = 15_000
  */
 type FaseRepique = { intervalo: number; vida: number; maximo: number }
 
-const REPIQUE_CHEGADA: FaseRepique = { intervalo: 760, vida: 1_400, maximo: 2 }
-const REPIQUE_PICO: FaseRepique = { intervalo: 520, vida: 1_050, maximo: 3 }
-const REPIQUE_POUSO: FaseRepique = { intervalo: 700, vida: 1_300, maximo: 2 }
+const REPIQUE_CHEGADA: FaseRepique = { intervalo: 700, vida: 1_400, maximo: 2 }
+const REPIQUE_PICO: FaseRepique = { intervalo: 300, vida: 1_000, maximo: 4 }
+const REPIQUE_POUSO: FaseRepique = { intervalo: 620, vida: 1_250, maximo: 3 }
 
 /** Fronteiras das janelas do repique, em ms decorridos desde o início da
  *  partida. Janela seguinte começa exatamente aqui — por isso as comparações
@@ -97,6 +97,27 @@ export type Partida = {
   acertos: number
   /** Soma dos tempos de reação, em ms. `mediaReacao` divide por `acertos`. */
   somaReacao: number
+  /**
+   * Acertos consecutivos. Zera num clique no vazio ou num alvo que expira.
+   *
+   * EXISTE PORQUE O JOGO NÃO PODIA SER PERDIDO. Até esta mudança a partida
+   * guardava só acertos e reação, e `tocar` devolvia a partida INALTERADA
+   * quando o clique não pegava ninguém — errar não custava nada. Uma
+   * simulação da partida inteira contra jogadores de reflexos diferentes
+   * (`.superpowers/mecanica/sim.mts`) mediu a consequência: de 180ms a
+   * 450ms de reação o resultado era IDÊNTICO — 23 acertos, zero escapes —
+   * porque todo mundo limpava a tela mais rápido do que ela enchia. A faixa
+   * inteira do desempenho humano dava o mesmo placar; não havia nada em que
+   * ser bom. A sequência é o que se tem a perder, e é ela que o fim de
+   * partida usa para decidir se o brinde foi ganho.
+   */
+  sequencia: number
+  /** Maior `sequencia` atingida na partida — o número que vale no fim. */
+  melhorSequencia: number
+  /** Cliques que não pegaram alvo nenhum. */
+  errosDeMira: number
+  /** Alvos que sumiram sem ninguém acertar. */
+  escaparam: number
   comecouEm: number
   proximoId: number
   semente: number
@@ -128,6 +149,10 @@ export function criarPartida(
     alvos: [],
     acertos: 0,
     somaReacao: 0,
+    sequencia: 0,
+    melhorSequencia: 0,
+    errosDeMira: 0,
+    escaparam: 0,
     comecouEm: agora,
     proximoId: 1,
     // `>>> 0` para semente negativa não envenenar a sequência inteira.
@@ -274,9 +299,18 @@ export function avancar(partida: Partida, agora: number, fantasma = true): Parti
     return { ...partida, fase: 'fim', alvos: [] }
   }
 
+  const sobreviventes = partida.alvos.filter(
+    (alvo) => agora - alvo.nascidoEm < vidaDoAlvo(partida, alvo),
+  )
+  // ESCAPAR QUEBRA A SEQUÊNCIA, e só durante a partida de verdade: no modo
+  // atrativo quem deixa alvo expirar é o fantasma, e o placar dele não pode
+  // virar placar de ninguém.
+  const perdidos = partida.fase === 'jogando' ? partida.alvos.length - sobreviventes.length : 0
   let estado: Partida = {
     ...partida,
-    alvos: partida.alvos.filter((alvo) => agora - alvo.nascidoEm < vidaDoAlvo(partida, alvo)),
+    alvos: sobreviventes,
+    escaparam: partida.escaparam + perdidos,
+    sequencia: perdidos > 0 ? 0 : partida.sequencia,
   }
 
   if (estado.fase === 'atrativo' && fantasma) {
@@ -314,6 +348,10 @@ export function tocar(partida: Partida, x: number, y: number, agora: number): Pa
       fase: 'jogando',
       acertos: 0,
       somaReacao: 0,
+      sequencia: 0,
+      melhorSequencia: 0,
+      errosDeMira: 0,
+      escaparam: 0,
       comecouEm: agora,
       // Os alvos em tela FICAM: apagá-los aqui daria um quadro vazio bem no
       // instante em que a pessoa acabou de decidir participar.
@@ -325,13 +363,20 @@ export function tocar(partida: Partida, x: number, y: number, agora: number): Pa
     const dy = alvo.y - y
     return Math.hypot(dx, dy) <= alvo.raio * TOLERANCIA
   })
-  if (!atingido) return partida
+  // ERRAR CUSTA. Antes desta linha um clique no vazio devolvia a partida
+  // inalterada — mirar não valia nada, e clicar em pânico era gratuito.
+  if (!atingido) {
+    return { ...partida, sequencia: 0, errosDeMira: partida.errosDeMira + 1 }
+  }
 
+  const sequencia = partida.sequencia + 1
   return {
     ...partida,
     alvos: partida.alvos.filter((alvo) => alvo.id !== atingido.id),
     acertos: partida.acertos + 1,
     somaReacao: partida.somaReacao + (agora - atingido.nascidoEm),
+    sequencia,
+    melhorSequencia: Math.max(partida.melhorSequencia, sequencia),
   }
 }
 
@@ -372,17 +417,35 @@ export function acertarAlvoAtivo(partida: Partida, agora: number): Partida {
   // `tocar`, isso acontece mesmo que não haja alvo nenhum na tela agora.
   const estado: Partida =
     partida.fase === 'atrativo'
-      ? { ...partida, fase: 'jogando', acertos: 0, somaReacao: 0, comecouEm: agora }
+      ? {
+          ...partida,
+          fase: 'jogando',
+          acertos: 0,
+          somaReacao: 0,
+          sequencia: 0,
+          melhorSequencia: 0,
+          errosDeMira: 0,
+          escaparam: 0,
+          comecouEm: agora,
+        }
       : partida
 
   const alvo = alvoAtivo(estado)
   if (!alvo) return estado
 
+  // Sem par de "errou" aqui de propósito: o teclado sempre mira o alvo
+  // ativo, então não existe acionamento que erre. Quem não tem alvo na tela
+  // sai no `if (!alvo)` acima sem penalidade nenhuma — perder sequência por
+  // apertar espaço num instante sem alvo seria punir o teclado por uma falta
+  // que o ponteiro não comete.
+  const sequencia = estado.sequencia + 1
   return {
     ...estado,
     alvos: estado.alvos.filter((a) => a.id !== alvo.id),
     acertos: estado.acertos + 1,
     somaReacao: estado.somaReacao + (agora - alvo.nascidoEm),
+    sequencia,
+    melhorSequencia: Math.max(estado.melhorSequencia, sequencia),
   }
 }
 

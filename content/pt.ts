@@ -817,7 +817,11 @@ export const pt: Dictionary = {
       // Zero é plural: "0 acertos", nunca "0 acerto". Só a contagem
       // EXATAMENTE 1 usa `um` — ver o comentário em content/types.ts antes
       // de "corrigir" isto ao contrário.
-      placar: { acertos: { um: 'acerto', varios: 'acertos' }, reacao: 'ms de reação' },
+      placar: {
+        acertos: { um: 'acerto', varios: 'acertos' },
+        reacao: 'ms de reação',
+        sequencia: 'seguidos',
+      },
       fim: {
         titulo: 'Acabou o tempo.',
         resultado: {
@@ -827,6 +831,9 @@ export const pt: Dictionary = {
         cta: 'Essa mecânica, com a marca da sua agência, no seu evento.',
         reiniciar: 'Jogar de novo',
         brinde: 'Ver o brinde com a marca',
+        brindeGanho: 'Sequência fechada — o brinde é seu.',
+        brindeFaltou:
+          'Sua melhor sequência foi de {melhor} seguidos. São {alvo} para levar o brinde.',
       },
       qr: 'Jogue no celular',
       acessibilidade: {

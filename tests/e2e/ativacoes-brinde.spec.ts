@@ -25,12 +25,63 @@ async function chegarAoFimEAbrirBotaoDoBrinde(page: Page) {
   await page.goto('/pt/ativacoes/')
   const dobra = await page.locator('canvas').boundingBox()
   expect(dobra, 'não achou o canvas da capa').not.toBeNull()
-  await page.mouse.click(dobra!.x + dobra!.width / 2, dobra!.y + dobra!.height / 2)
+
+  // JOGA DE VERDADE, pelo TECLADO. Antes bastava um clique no meio do
+  // canvas e esperar os 15s, porque o botão do brinde aparecia para
+  // qualquer um. Agora ele é ganho: o fim de partida só o mostra com
+  // `melhorSequencia >= SEQUENCIA_PARA_BRINDE` (ver CapaJogo.tsx).
+  //
+  // O teclado é o caminho DETERMINÍSTICO para isso: `acertarAlvoAtivo`
+  // sempre mira o alvo mais velho vivo, então espaço nunca erra — não
+  // depende de achar o alvo por diferença de quadros, que é a técnica
+  // frágil que `ativacoes.spec.ts` precisa usar para provar o PONTEIRO.
+  // Aqui o ponteiro não é o assunto; o modal é.
+  await page.locator('canvas').focus()
+  await page.keyboard.press('Space')
+  const ate = Date.now() + 16_000
+  while (Date.now() < ate) {
+    await page.keyboard.press('Space')
+    await page.waitForTimeout(110)
+    if (await page.getByText('Acabou o tempo.').isVisible().catch(() => false)) break
+  }
+
   await expect(page.getByText('Acabou o tempo.')).toBeVisible({ timeout: 25_000 })
   const botao = page.getByRole('button', { name: 'Ver o brinde com a marca' })
-  await expect(botao).toBeVisible()
+  await expect(
+    botao,
+    'o brinde não foi liberado — a sequência jogada pelo teclado ficou abaixo do portão',
+  ).toBeVisible()
   return botao
 }
+
+/**
+ * O PORTÃO BARRANDO. Os testes do modal abaixo provam que o brinde aparece
+ * para quem ganhou; sem este aqui, o portão só estaria provado numa direção
+ * — um `SEQUENCIA_PARA_BRINDE` acidentalmente zerado passaria em todos eles.
+ * Este é o teste que quebra se o brinde voltar a ser dado de graça.
+ */
+test('quem não fecha a sequência não ganha o brinde', async ({ page }) => {
+  test.setTimeout(40_000)
+  await page.goto('/pt/ativacoes/')
+  const dobra = await page.locator('canvas').boundingBox()
+  expect(dobra, 'não achou o canvas da capa').not.toBeNull()
+
+  // UM clique, no meio, e depois nada: começa a partida (sai do modo
+  // atrativo) e deixa os quinze segundos passarem sem jogar.
+  await page.mouse.click(dobra!.x + dobra!.width / 2, dobra!.y + dobra!.height / 2)
+  await expect(page.getByText('Acabou o tempo.')).toBeVisible({ timeout: 25_000 })
+
+  await expect(
+    page.getByRole('button', { name: 'Ver o brinde com a marca' }),
+    'o brinde apareceu para quem não jogou — o portão não está barrando',
+  ).toHaveCount(0)
+
+  // E a página DIZ o que faltou: um portão silencioso é indistinguível de
+  // um botão quebrado.
+  await expect(page.getByText(/melhor sequência foi de/i)).toBeVisible()
+  // "Jogar de novo" continua lá — a saída de quem não ganhou é jogar mais.
+  await expect(page.getByRole('button', { name: 'Jogar de novo' })).toBeVisible()
+})
 
 test.describe('modal do brinde', () => {
   // Cada `test` desta suíte reabre a partida do zero e espera 15s até o fim

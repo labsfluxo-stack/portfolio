@@ -693,7 +693,11 @@ export const en: Dictionary = {
       // Zero is plural: "0 hits", never "0 hit". Only the count of EXACTLY
       // 1 uses `um` — see the comment in content/types.ts before "fixing"
       // this the other way around.
-      placar: { acertos: { um: 'hit', varios: 'hits' }, reacao: 'ms reaction' },
+      placar: {
+        acertos: { um: 'hit', varios: 'hits' },
+        reacao: 'ms reaction',
+        sequencia: 'in a row',
+      },
       fim: {
         titulo: "Time's up.",
         resultado: {
@@ -703,6 +707,9 @@ export const en: Dictionary = {
         cta: "This mechanic, under your agency's brand, at your event.",
         reiniciar: 'Play again',
         brinde: 'See the branded giveaway',
+        brindeGanho: 'Streak complete — the giveaway is yours.',
+        brindeFaltou:
+          'Your best streak was {melhor} in a row. It takes {alvo} to win the giveaway.',
       },
       qr: 'Play on your phone',
       acessibilidade: {

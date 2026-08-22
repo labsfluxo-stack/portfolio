@@ -340,22 +340,22 @@ describe('motor de reflexo', () => {
 // em 1-2 do segundo 1 ao 14, sem curva nenhuma.
 describe('faseDoRepique', () => {
   it('fase chegada vale do início até (sem incluir) 5s', () => {
-    expect(faseDoRepique(0)).toEqual({ intervalo: 760, vida: 1400, maximo: 2 })
-    expect(faseDoRepique(4_999)).toEqual({ intervalo: 760, vida: 1400, maximo: 2 })
+    expect(faseDoRepique(0)).toEqual({ intervalo: 700, vida: 1400, maximo: 2 })
+    expect(faseDoRepique(4_999)).toEqual({ intervalo: 700, vida: 1400, maximo: 2 })
   })
 
   it('fase pico vale de 5s até (sem incluir) 11s', () => {
-    expect(faseDoRepique(5_000)).toEqual({ intervalo: 520, vida: 1050, maximo: 3 })
-    expect(faseDoRepique(10_999)).toEqual({ intervalo: 520, vida: 1050, maximo: 3 })
+    expect(faseDoRepique(5_000)).toEqual({ intervalo: 300, vida: 1000, maximo: 4 })
+    expect(faseDoRepique(10_999)).toEqual({ intervalo: 300, vida: 1000, maximo: 4 })
   })
 
   it('fase pouso vale de 11s em diante, inclusive além do fim de uma partida', () => {
-    expect(faseDoRepique(11_000)).toEqual({ intervalo: 700, vida: 1300, maximo: 2 })
-    expect(faseDoRepique(14_999)).toEqual({ intervalo: 700, vida: 1300, maximo: 2 })
+    expect(faseDoRepique(11_000)).toEqual({ intervalo: 620, vida: 1250, maximo: 3 })
+    expect(faseDoRepique(14_999)).toEqual({ intervalo: 620, vida: 1250, maximo: 3 })
     // `avancar` já teria devolvido `fim` antes de chegar aqui, mas a função
     // pura não sabe disso e não deve nem explodir nem voltar para `chegada`
     // — fica em `pouso`, a última fase que existiu.
-    expect(faseDoRepique(20_000)).toEqual({ intervalo: 700, vida: 1300, maximo: 2 })
+    expect(faseDoRepique(20_000)).toEqual({ intervalo: 620, vida: 1250, maximo: 3 })
   })
 })
 
@@ -390,7 +390,7 @@ describe('curva de repique (Mudança 1)', () => {
     }
     expect(nascimentos.length).toBeGreaterThan(0)
     for (let i = 1; i < nascimentos.length; i++) {
-      expect(nascimentos[i]! - nascimentos[i - 1]!).toBeGreaterThanOrEqual(760)
+      expect(nascimentos[i]! - nascimentos[i - 1]!).toBeGreaterThanOrEqual(700)
     }
   })
 })
@@ -405,7 +405,7 @@ describe('vidaDoAlvo', () => {
     const noPico = simular(jogando, 0, 375) // 375 * 16ms = 6000ms, dentro do pico
     const alvoDoPico = noPico.alvos.find((a) => a.nascidoEm >= 5_000 && a.nascidoEm < 11_000)
     expect(alvoDoPico).toBeDefined()
-    expect(vidaDoAlvo(noPico, alvoDoPico!)).toBe(1_050)
+    expect(vidaDoAlvo(noPico, alvoDoPico!)).toBe(1_000)
   })
 
   it('em modo atrativo todo alvo tem a vida de chegada', () => {
@@ -539,5 +539,106 @@ describe('acertarAlvoAtivo e alvoAtivo (Mudança 3)', () => {
     const depois = acertarAlvoAtivo(comAlvos, antes!.nascidoEm + 100)
     expect(depois.alvos.some((a) => a.id === antes!.id)).toBe(false)
     expect(alvoAtivo(depois)?.id).not.toBe(antes!.id)
+  })
+})
+
+
+// ── Sequência: o que o jogador tem a PERDER ───────────────────────────
+//
+// Antes desta mudança a partida guardava três coisas — acertos, soma das
+// reações e quando começou — e um clique no vazio devolvia a partida
+// INALTERADA. Não havia erro, não havia nada em risco, e uma simulação da
+// partida inteira (`.superpowers/mecanica/sim.mts`) mediu o efeito disso:
+// de 180ms a 450ms de tempo de reação o resultado era idêntico — 23
+// acertos, zero escapes — porque todo jogador limpava a tela mais rápido
+// do que ela enchia. A faixa inteira do desempenho humano dava o mesmo
+// placar. O jogo não podia ser perdido.
+describe('sequência de acertos', () => {
+  /** Partida já em jogo, com um alvo plantado em posição conhecida. */
+  function comAlvo(agora = 0): Partida {
+    const base = criarPartida(1, agora)
+    return {
+      ...base,
+      fase: 'jogando',
+      comecouEm: agora,
+      alvos: [{ id: 1, x: 0.5, y: 0.5, raio: 0.05, nascidoEm: agora }],
+    }
+  }
+
+  it('começa zerada e sobe a cada acerto', () => {
+    const p = comAlvo()
+    expect(p.sequencia).toBe(0)
+    const depois = tocarEm(p, 0.5, 0.5, 200)
+    expect(depois.sequencia).toBe(1)
+    expect(depois.melhorSequencia).toBe(1)
+  })
+
+  it('um clique no vazio zera a sequência e conta erro de mira', () => {
+    const acertou = tocarEm(comAlvo(), 0.5, 0.5, 200)
+    expect(acertou.sequencia).toBe(1)
+    // Longe de qualquer alvo — e não há mais alvo nenhum em tela.
+    const errou = tocarEm(acertou, 0.02, 0.02, 300)
+    expect(errou.sequencia).toBe(0)
+    expect(errou.errosDeMira).toBe(1)
+    expect(errou.acertos).toBe(1)
+  })
+
+  it('um alvo que expira zera a sequência e conta escape', () => {
+    const p = comAlvo()
+    const acertou = tocarEm(
+      { ...p, alvos: [...p.alvos, { id: 2, x: 0.9, y: 0.9, raio: 0.05, nascidoEm: 0 }] },
+      0.5, 0.5, 200,
+    )
+    expect(acertou.sequencia).toBe(1)
+    // Passa da vida do alvo 2 sem ninguém tocar nele.
+    const depois = avancar(acertou, VIDA_ALVO_MS + 50, false)
+    expect(depois.escaparam).toBe(1)
+    expect(depois.sequencia).toBe(0)
+  })
+
+  it('a melhor sequência guarda o pico mesmo depois de zerar', () => {
+    let p = comAlvo()
+    p = tocarEm(p, 0.5, 0.5, 100)
+    p = { ...p, alvos: [{ id: 9, x: 0.5, y: 0.5, raio: 0.05, nascidoEm: 100 }] }
+    p = tocarEm(p, 0.5, 0.5, 200)
+    expect(p.sequencia).toBe(2)
+    const errou = tocarEm(p, 0.02, 0.02, 300)
+    expect(errou.sequencia).toBe(0)
+    expect(errou.melhorSequencia).toBe(2)
+  })
+
+  it('o primeiro toque zera a sequência junto com o placar do fantasma', () => {
+    const atrativo: Partida = {
+      ...criarPartida(1, 0),
+      acertos: 7, sequencia: 7, melhorSequencia: 7, errosDeMira: 2, escaparam: 3,
+    }
+    const primeiro = tocarEm(atrativo, 0.5, 0.5, 500)
+    expect(primeiro.fase).toBe('jogando')
+    expect(primeiro.sequencia).toBe(0)
+    expect(primeiro.melhorSequencia).toBe(0)
+    expect(primeiro.errosDeMira).toBe(0)
+    expect(primeiro.escaparam).toBe(0)
+  })
+
+  it('reiniciar zera tudo', () => {
+    const suja: Partida = {
+      ...criarPartida(1, 0),
+      acertos: 9, sequencia: 4, melhorSequencia: 9, errosDeMira: 5, escaparam: 6,
+    }
+    const nova = reiniciar(suja, 1_000)
+    expect(nova.sequencia).toBe(0)
+    expect(nova.melhorSequencia).toBe(0)
+    expect(nova.errosDeMira).toBe(0)
+    expect(nova.escaparam).toBe(0)
+  })
+
+  it('em modo atrativo nada do que o fantasma faz vira sequência', () => {
+    // O fantasma acerta ao longo do modo atrativo; a sequência mostrada a
+    // quem ainda não jogou tem de ficar em zero, senão o placar do
+    // demo vira o placar de ninguém.
+    const depois = simular(criarPartida(3, 0), 0, 400)
+    expect(depois.fase).toBe('atrativo')
+    expect(depois.sequencia).toBe(0)
+    expect(depois.melhorSequencia).toBe(0)
   })
 })

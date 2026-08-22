@@ -148,6 +148,18 @@ const POOL_ESTOUROS = 4
  *  os `Path2D` dos gomos em vez de um sprite pré-rasterizado. */
 const VIDA_ESTOURO_MS = 500
 
+/**
+ * Acertos seguidos que liberam o brinde.
+ *
+ * Escolhido contra a simulação da partida (`.superpowers/mecanica/sim.mts`),
+ * que roda a partida inteira contra jogadores de reflexos diferentes: o
+ * jogador mediano (reação 340ms) fecha a melhor sequência em ~15 e o lento
+ * (450ms) em ~9. Dez fica no meio — quem está de fato jogando ganha, quem
+ * está de passagem não. Um portão que ninguém passa não é prêmio, é
+ * frustração; um que todo mundo passa não foi ganho.
+ */
+const SEQUENCIA_PARA_BRINDE = 10
+
 export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const partidaRef = useRef<Partida | null>(null)
@@ -157,7 +169,7 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
   // a chama. Sem isso, o botão precisaria de um `useState` para o laço inteiro,
   // e cada quadro voltaria a passar pelo React.
   const reiniciarRef = useRef<(() => void) | null>(null)
-  const [placar, setPlacar] = useState({ acertos: 0, reacao: 0 })
+  const [placar, setPlacar] = useState({ acertos: 0, reacao: 0, sequencia: 0, melhorSequencia: 0 })
   const [fase, setFase] = useState<Fase>('atrativo')
   // Id estável para ligar o `aria-describedby` do canvas ao parágrafo de
   // instrução (job 3) — `useId`, não uma string fixa, porque nada impede
@@ -302,7 +314,7 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
 
     let visivel = true
     let quadro = 0
-    let ultimoPlacar = { acertos: -1, reacao: -1 }
+    let ultimoPlacar = { acertos: -1, reacao: -1, sequencia: -1, melhorSequencia: -1 }
     let ultimaFase: Fase | null = null
     // Só existe para o laço de desenho saber se marca o alvo em foco (job 3)
     // — não controla nada do motor, só o que é pintado.
@@ -467,8 +479,17 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
         }
       }
 
-      const atual = { acertos: estado.acertos, reacao: mediaReacao(estado) }
-      if (atual.acertos !== ultimoPlacar.acertos || atual.reacao !== ultimoPlacar.reacao) {
+      const atual = {
+        acertos: estado.acertos,
+        reacao: mediaReacao(estado),
+        sequencia: estado.sequencia,
+        melhorSequencia: estado.melhorSequencia,
+      }
+      if (
+        atual.acertos !== ultimoPlacar.acertos ||
+        atual.reacao !== ultimoPlacar.reacao ||
+        atual.sequencia !== ultimoPlacar.sequencia
+      ) {
         ultimoPlacar = atual
         setPlacar(atual)
       }
@@ -510,7 +531,7 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
       partidaRef.current = reiniciar(estado, performance.now())
       ultimaFase = 'jogando'
       setFase('jogando')
-      ultimoPlacar = { acertos: 0, reacao: 0 }
+      ultimoPlacar = { acertos: 0, reacao: 0, sequencia: 0, melhorSequencia: 0 }
       setPlacar(ultimoPlacar)
       // Não remede a zona aqui: o bloco de fim ainda está no DOM neste
       // instante (o React só troca a árvore depois deste evento), e é o
@@ -537,6 +558,30 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
       ligar()
     }
 
+    /**
+     * UM quadro avulso quando o laço já parou.
+     *
+     * `medir()` reatribui `canvas.width`, e reatribuir a largura de um canvas
+     * APAGA o conteúdo dele — é assim que a plataforma funciona, não é bug
+     * daqui. Enquanto a partida roda isso é invisível: o quadro seguinte
+     * repinta tudo. Depois de `fim` o laço para de propósito (ver o
+     * comentário do estado terminal em `desenhar`), então qualquer
+     * redimensionamento a partir daí deixava a dobra PRETA.
+     *
+     * E ele acontece sempre: o bloco de fim de partida é mais alto que o
+     * placar ao vivo que ele substitui, a seção cresce, o `ResizeObserver`
+     * dispara. Ou seja, a cena sumia exatamente no instante de maior atenção
+     * da página — quem acabou de jogar lendo o próprio resultado.
+     *
+     * `desenhar` já devolve sozinha depois de pintar quando a fase é `fim`,
+     * então um `requestAnimationFrame` avulso repinta uma vez e não reabre
+     * laço nenhum. Não mexe em `quadro` por isso mesmo.
+     */
+    const repintarParado = () => {
+      if (partidaRef.current?.fase !== 'fim') return
+      requestAnimationFrame(desenhar)
+    }
+
     let redimensionador: ResizeObserver | null = null
     if (typeof ResizeObserver === 'function') {
       redimensionador = new ResizeObserver(() => {
@@ -545,6 +590,7 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
         // passagem de layout — remedir a zona aqui cobre o "recompute on
         // resize" sem precisar de um segundo observador para isto.
         atualizarZonas()
+        repintarParado()
       })
       redimensionador.observe(canvas)
     }
@@ -559,7 +605,10 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
     // "Jogar de novo" devolve o placar ao vivo no lugar dele).
     let observadorDom: MutationObserver | null = null
     if (secao && typeof MutationObserver === 'function') {
-      observadorDom = new MutationObserver(atualizarZonas)
+      observadorDom = new MutationObserver(() => {
+        atualizarZonas()
+        repintarParado()
+      })
       observadorDom.observe(secao, { childList: true, subtree: true })
     }
 
@@ -779,6 +828,17 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
                     .replace('{reacao}', String(placar.reacao))}
                 </span>
               </p>
+              {/* O QUE FALTOU. Um portão sem explicação lê como bug: quem não
+                * ganhou precisa saber que existia algo a ganhar e quanto
+                * faltou, senão a ausência do botão é indistinguível de erro.
+                * Quem ganhou vê a confirmação, que é metade do prêmio. */}
+              <p className="text-[17px] leading-relaxed text-muted">
+                {placar.melhorSequencia >= SEQUENCIA_PARA_BRINDE
+                  ? capa.fim.brindeGanho
+                  : capa.fim.brindeFaltou
+                      .replace('{melhor}', String(placar.melhorSequencia))
+                      .replace('{alvo}', String(SEQUENCIA_PARA_BRINDE))}
+              </p>
               <p className="text-[17px] leading-relaxed text-muted">{capa.fim.cta}</p>
               {/* `<button type="button">`, e não um `<div onClick>`: focável
                 * pelo teclado, acionável por Enter e por espaço, anunciado como
@@ -799,11 +859,19 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
                 >
                   {capa.fim.reiniciar}
                 </button>
-                {/* O modal do brinde 3D: uma caneca girando com a marca do
-                  * visitante aplicada. Só existe aqui, ao lado de "Jogar de
-                  * novo" — ver BrindeModal.tsx para a razão de o chunk de
-                  * three.js só carregar depois deste botão ser clicado. */}
-                <BrindeModal dict={dict} />
+                {/* O BRINDE É GANHO, NÃO DADO. Ele aparecia para todo mundo,
+                  * igual para quem acertou dezoito e para quem não encostou na
+                  * tela — o que é o contrário do que uma ativação de verdade
+                  * faz, e esta página vende exatamente esse modelo. O portão é
+                  * a MELHOR sequência da partida, não o total de acertos:
+                  * total premia quem ficou clicando, sequência premia quem
+                  * mirou e não deixou escapar.
+                  *
+                  * Ver BrindeModal.tsx para a razão de o chunk de three.js só
+                  * carregar depois deste botão ser clicado. */}
+                {placar.melhorSequencia >= SEQUENCIA_PARA_BRINDE ? (
+                  <BrindeModal dict={dict} />
+                ) : null}
               </div>
             </div>
           ) : (
@@ -840,6 +908,17 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
               <span className="text-[17px] tabular-nums text-muted">
                 {placar.reacao} {capa.placar.reacao}
               </span>
+              {/* A SEQUÊNCIA AO VIVO. Só aparece a partir do segundo acerto
+                * seguido: mostrar "1 seguido" a cada acerto isolado faria o
+                * número piscar o tempo todo e não significaria nada. É a
+                * única informação da tela que pode CAIR, e é por isso que ela
+                * merece estar à vista — sem ver o que se tem, não se sente o
+                * que se perde. */}
+              {placar.sequencia >= 2 ? (
+                <span className="text-[17px] font-semibold tabular-nums text-data">
+                  {placar.sequencia} {capa.placar.sequencia}
+                </span>
+              ) : null}
             </div>
           )}
           {/* O QR fica FORA do ternário: ele não é status de partida, é o

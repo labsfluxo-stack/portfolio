@@ -551,7 +551,14 @@ export type Dictionary = {
        * isso errado depois. Quem escolhe entre as duas formas é
        * `formaContagem`, em `CapaJogo.tsx`.
        */
-      placar: { acertos: { um: string; varios: string }; reacao: string }
+      placar: {
+        acertos: { um: string; varios: string }
+        reacao: string
+        /** Rótulo da sequência ao vivo — o número de acertos seguidos. Não
+         *  leva `um`/`varios`: só aparece a partir de 2, então nunca há a
+         *  forma singular para escolher. */
+        sequencia: string
+      }
       /** Fim de partida (spec §4.3): resultado, convite e o botão de recomeçar,
        *  tudo em DOM real — o canvas terminal não fala com ninguém.
        *
@@ -571,6 +578,13 @@ export type Dictionary = {
          *  aparece na tela — o mesmo raciocínio de `reiniciar` já morar em
          *  `fim` em vez de num bloco próprio. */
         brinde: string
+        /** Confirmação de que o brinde foi ganho — aparece junto do botão. */
+        brindeGanho: string
+        /** O que faltou para ganhar. Carrega `{melhor}` (a melhor sequência
+         *  da partida) e `{alvo}` (quantos seguidos liberam o brinde), ambos
+         *  substituídos no render: número no dicionário é número que
+         *  envelhece sozinho e passa a mentir. */
+        brindeFaltou: string
       }
       /** Legenda visível do QR (job 5, spec redesign 2026-08): antes ele
        *  aparecia sem dizer o que era — só quem já soubesse que era um QR de
