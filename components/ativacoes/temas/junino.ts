@@ -1,7 +1,7 @@
 import type { Tema } from './tipos'
 import {
   ALTURA_TOTAL,
-  FAIXAS,
+  CORES_PAINEL_PUBLICAS,
   LARGURA_CORPO,
   desenharBalaoDeReserva,
   desenharCacosDeFaixa,
@@ -78,11 +78,12 @@ const PALETA = {
  * estivessem escritos à mão aqui.
  */
 export const CORES_CONTRASTE = {
-  faixaVermelha: FAIXAS[0]!.cor,
-  faixaCreme: FAIXAS[1]!.cor,
-  faixaVerde: FAIXAS[2]!.cor,
-  losango: FAIXAS[2]!.losango!,
-  faixaAzul: FAIXAS[4]!.cor,
+  painelVermelho: CORES_PAINEL_PUBLICAS[0]!,
+  painelAmarelo: CORES_PAINEL_PUBLICAS[1]!,
+  painelAzul: CORES_PAINEL_PUBLICAS[2]!,
+  painelCreme: CORES_PAINEL_PUBLICAS[3]!,
+  painelVerde: CORES_PAINEL_PUBLICAS[4]!,
+  painelLaranja: CORES_PAINEL_PUBLICAS[5]!,
   acento: PALETA.destaque,
 } as const
 
@@ -198,7 +199,12 @@ function easeOutBack(t: number): number {
  * `tests/unit/ativacoes-tema.test.ts` prende esse número por varredura, não
  * por amostra pontual — ver `extensaoElemento`/`escalaPopDoNascimento`
  * abaixo, as mesmas funções que o teste chama. */
-const FATOR_LARGURA = 1.3
+// Baixou de 1,3 quando o balao virou LANTERNA: a lanterna e bem mais alta
+// que larga (1,8 contra 1,3 do desenho anterior), e a extensao desenhada
+// tem de caber na tolerancia de acerto com folga — ver o teste de
+// tolerancia em tests/unit/ativacoes-tema.test.ts, que mede a extensao
+// RENDERIZADA e nao uma formula reescrita a parte.
+const FATOR_LARGURA = 1.24
 
 /** `easeOutBack` aplicada ao `nascimento`, e travada em 0 por baixo — a
  *  MESMA conta que `desenharElemento` usa pra achar a escala do pop.
