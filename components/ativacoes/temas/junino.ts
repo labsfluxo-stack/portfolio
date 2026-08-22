@@ -1081,30 +1081,92 @@ const FOGUEIRA_RAIO_FRAC = 0.05
 
 const COR_TRONCO = '#3D2A1C'
 const COR_TRONCO_CLARO = '#5A4028'
+/** O topo cortado da tora: mais claro que a casca, porque e madeira nova
+ *  exposta, e e o contraste entre os dois que le como corte. */
+const COR_GRAO_CLARO = '#8A6242'
+const COR_GRAO_ESCURO = '#4A2E1E'
 
 /** Duas toras cruzadas — a leitura mais rápida de "fogueira" sem uma pilha
  *  inteira de caminhos por um ganho de reconhecimento que a régua §5 item 2
  *  já não credita a mais que isso. `ellipse` nativo, sem `Path2D` — nunca
  *  precisa de fallback porque não depende de nada que falte em Node/jsdom
  *  além do próprio `getContext`, que quem chama já garantiu. */
-function desenharToras(pincel: CanvasRenderingContext2D, raio: number): void {
-  const rx = raio * 0.85
-  const ry = raio * 0.19
-  pincel.save()
-  pincel.rotate(-0.26)
-  pincel.fillStyle = COR_TRONCO
-  pincel.beginPath()
-  pincel.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2)
-  pincel.fill()
-  pincel.restore()
+/** Uma CAMADA da lenha por chamada, para o fogo poder ser desenhado ENTRE as
+ *  duas. Com as toras todas antes das chamas, as linguas nasciam por cima da
+ *  pilha e a fogueira lia como "fogo apoiado em cima de um tronco"; sai de
+ *  DENTRO quando a tora da frente passa na frente da base da chama. */
+function desenharTora(
+  pincel: CanvasRenderingContext2D,
+  raio: number,
+  camada: 'tras' | 'frente',
+): void {
+  // TRACO COM PONTA REDONDA, nao elipse. Duas elipses achatadas cruzadas
+  // liam como um oval marrom unico -- sem espessura, sem separacao entre as
+  // pecas. Uma tora so se separa da outra se tiver corpo e se as PONTAS
+  // aparecerem para fora do encontro.
+  const meia = raio * 0.92
+  const espessura = raio * 0.34
+  // CRUZAMENTO FRANCO. Na primeira versao as duas quase se sobrepunham e o
+  // par lia como uma viga horizontal so; o 'X' precisa de altura diferente
+  // nas duas pontas para o olho separar as pecas.
+  const traseira = camada === 'tras'
+  const y0 = raio * (traseira ? 0.3 : 0.34)
+  const y1 = raio * (traseira ? -0.16 : -0.2)
+  const sinal = traseira ? -1 : 1
+  const xInicio = sinal * meia
+  const xFim = -sinal * meia * 0.82
 
   pincel.save()
-  pincel.rotate(0.22)
-  pincel.fillStyle = COR_TRONCO_CLARO
+  pincel.lineCap = 'round'
+  pincel.lineWidth = espessura
+  pincel.strokeStyle = traseira ? COR_TRONCO : COR_TRONCO_CLARO
   pincel.beginPath()
-  pincel.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2)
-  pincel.fill()
+  pincel.moveTo(xInicio, y0)
+  pincel.lineTo(xFim, y1)
+  pincel.stroke()
   pincel.restore()
+
+  // Topo cortado: dois circulos na ponta que fica virada para quem olha. E
+  // este detalhe que faz o olho ler MADEIRA em vez de traco marrom.
+  const grao = espessura * 0.42
+  pincel.fillStyle = traseira ? COR_TRONCO : COR_GRAO_CLARO
+  pincel.beginPath()
+  pincel.arc(xInicio, y0, grao, 0, Math.PI * 2)
+  pincel.fill()
+  pincel.fillStyle = COR_GRAO_ESCURO
+  pincel.beginPath()
+  pincel.arc(xInicio, y0, grao * 0.46, 0, Math.PI * 2)
+  pincel.fill()
+}
+
+
+/** Raio da auréola em múltiplos do raio da fogueira. CURTO de propósito —
+ *  ver o comentário da auréola em `desenharFogueira`. */
+const RAIO_AUREOLA_FRAC = 1.55
+
+/** A auréola assada num sprite: um gradiente radial quente, opaco no centro
+ *  e caindo a zero na borda, para nunca ter o corte seco que o `arc` de alfa
+ *  uniforme tinha. Assada uma vez por (dpr, raio) e só escalada por quadro. */
+let spriteAureolaCache: { chave: string; tela: HTMLCanvasElement } | null = null
+function garantirSpriteAureola(dpr: number, raio: number): HTMLCanvasElement | null {
+  if (typeof document === 'undefined') return null
+  const lado = Math.max(1, Math.ceil(raio * RAIO_AUREOLA_FRAC * 2 * dpr))
+  const chave = `${dpr}:${lado}`
+  if (spriteAureolaCache && spriteAureolaCache.chave === chave) return spriteAureolaCache.tela
+  const tela = document.createElement('canvas')
+  tela.width = lado
+  tela.height = lado
+  const p = tela.getContext('2d')
+  if (!p) return null
+  const meio = lado / 2
+  const g = p.createRadialGradient(meio, meio, 0, meio, meio, meio)
+  g.addColorStop(0, 'rgba(255, 138, 43, 0.55)')
+  g.addColorStop(0.45, 'rgba(232, 84, 47, 0.18)')
+  g.addColorStop(1, 'rgba(232, 84, 47, 0)')
+  p.fillStyle = g
+  p.fillRect(0, 0, lado, lado)
+  spriteAureolaCache = { chave, tela }
+  return tela
 }
 
 /** Sprite de UMA língua de chama — reaproveita `caminhoPetala`, a MESMA
@@ -1126,12 +1188,24 @@ function rasterizarLinguaChama(dpr: number): HTMLCanvasElement | null {
   const pincel = tela.getContext('2d')
   if (!pincel) return null
   pincel.scale(escala, escala)
-  pincel.translate(largura / 2, altura)
+  // A ORIGEM VAI PARA O TOPO DO SPRITE, não para o rodapé.
+  //
+  // `caminhoPetala` desenha de `M 0 0` PARA BAIXO, até `0 altura` (é a mesma
+  // função que `desenharBico` usa para pendurar o rabicho ABAIXO do corpo do
+  // balão). Com a origem no rodapé (`translate(largura/2, altura)`), a pétala
+  // caía inteira fora do canvas — de `y=altura` a `y=2·altura` — e era
+  // descartada no recorte. O que sobrava visível era só a lasca de baixo do
+  // núcleo claro, que é por que a fogueira lia como "três tiquinhos amarelos"
+  // por mais que se aumentasse `alturaChama`: o sprite chegava ~86% cortado
+  // antes de qualquer escala.
+  pincel.translate(largura / 2, 0)
   const caminho = caminhoPetala(largura * 0.85, altura)
   pincel.fillStyle = PALETA.brasa
   pincel.fill(new Path2D(caminho))
   pincel.save()
-  pincel.translate(0, -altura * 0.14)
+  // O núcleo quente mora na METADE DE BAIXO da língua: é onde o fogo é mais
+  // claro. Deslocado para dentro para não vazar pelo topo do sprite.
+  pincel.translate(0, altura * 0.2)
   pincel.scale(0.58, 0.6)
   pincel.fillStyle = PALETA.destaque
   pincel.fill(new Path2D(caminho))
@@ -1184,19 +1258,31 @@ function desenharFogueira(
   pincel.save()
   pincel.translate(cx, cy)
 
-  // AURÉOLA — mesma técnica aditiva das brasas (`arc`+`rgba`, sem gradiente
-  // por quadro): ancora visualmente a luz-de-baixo que o balão já assume.
-  // Sob `parado`, trava num ponto médio do pulso — nunca lê `agora`.
+  // AURÉOLA. Era um `arc` preenchido com rgba de alfa uniforme, raio 2,5× o
+  // fogo. Alfa uniforme somado sobre #08090C dá o MESMO tom em toda a área e
+  // termina num corte seco: o resultado não lia como luz, lia como um disco
+  // marrom de borda dura — mancha, não brilho. Luz de verdade cai com a
+  // distância, então precisa de gradiente; e o raio precisa ser CURTO com o
+  // centro forte, senão a energia se espalha fina demais para levantar o
+  // preto do fundo (um disco largo de alfa 0,15 soma ~38 no vermelho e
+  // resolve para algo como rgb(46,25,16) — mais escuro que a própria brasa
+  // que ele deveria estar iluminando).
+  //
+  // O sprite é assado UMA vez e só escalado por quadro, o que preserva o
+  // motivo de o código antigo evitar gradiente: nada de `createRadialGradient`
+  // dentro do laço de animação.
   const tAureola = parado ? 0.5 : (Math.sin(agora / 900) + 1) / 2
-  pincel.save()
-  pincel.globalCompositeOperation = 'lighter'
-  pincel.beginPath()
-  pincel.arc(0, -raio * 0.3, raio * (2.1 + tAureola * 0.4), 0, Math.PI * 2)
-  pincel.fillStyle = `rgba(255, 107, 53, ${(0.12 + tAureola * 0.06).toFixed(3)})`
-  pincel.fill()
-  pincel.restore()
+  const aureola = garantirSpriteAureola(dpr, raio)
+  if (aureola) {
+    const escala = 1 + tAureola * 0.12
+    const lado = raio * RAIO_AUREOLA_FRAC * 2 * escala
+    pincel.save()
+    pincel.globalCompositeOperation = 'lighter'
+    pincel.drawImage(aureola, -lado / 2, -raio * 0.3 - lado / 2, lado, lado)
+    pincel.restore()
+  }
 
-  desenharToras(pincel, raio)
+  desenharTora(pincel, raio, 'tras')
 
   const sprite = garantirSpriteLinguaChama(dpr)
   for (const lingua of LINGUAS_CHAMA) {
@@ -1207,11 +1293,19 @@ function desenharFogueira(
     const escalaY = lingua.escala * (0.85 + oscilacao * 0.3)
     const angulo = parado ? 0 : ((3 * Math.PI) / 180) * Math.sin(agora / (periodoTremulacao(lingua.indice) * 0.6) + faseTremulacao(lingua.indice))
 
-    const larguraChama = raio * 0.78 * lingua.escala
-    const alturaChama = raio * 1.55 * lingua.escala
+    // MAIOR que a lenha, nao menor. Na proporcao anterior as tres linguas
+    // somavam uma fracao pequena da area da aureola e a fogueira lia como
+    // "disco marrom com tres tiquinhos amarelos em cima". Numa fogueira o
+    // fogo e o assunto; a lenha e o que sobra embaixo dele.
+    const larguraChama = raio * 0.82 * lingua.escala
+    const alturaChama = raio * 1.7 * lingua.escala
 
     pincel.save()
-    pincel.translate(raio * lingua.deslocamentoXFrac, -raio * 0.1)
+    // A base desce para DENTRO da pilha (y positivo = abaixo do centro): a
+    // tora da frente, desenhada depois, cobre esse pedaço e a chama parece
+    // brotar de entre as lenhas. Em -0,1 ela começava acima da lenha inteira;
+    // em +0,24 a tora engolia a língua quase toda.
+    pincel.translate(raio * lingua.deslocamentoXFrac, raio * 0.06)
     pincel.rotate(angulo)
     pincel.scale(1, escalaY)
     if (sprite) {
@@ -1228,6 +1322,11 @@ function desenharFogueira(
     }
     pincel.restore()
   }
+
+  // A tora da FRENTE só agora, por cima da base das chamas — é o que faz o
+  // fogo sair de dentro da lenha em vez de repousar sobre ela.
+  desenharTora(pincel, raio, 'frente')
+
 
   pincel.restore()
 }
