@@ -1,4 +1,12 @@
 import type { Tema } from './tipos'
+import {
+  ALTURA_TOTAL,
+  FAIXAS,
+  LARGURA_CORPO,
+  desenharBalaoDeReserva,
+  desenharCacosDeFaixa,
+  desenharCorpoBalao,
+} from './junino-balao'
 
 /**
  * O balão de São João: lanterna de papel em gomos, afunilada nas DUAS pontas.
@@ -57,358 +65,27 @@ const PALETA = {
   brasa: '#FF6B35',
 } as const
 
-// ── Geometria do corpo, em unidades locais (nunca pixel de tela) ─────────
-//
-// `LARGURA_CORPO = 100` é a unidade: tudo abaixo é fração dela. A conversão
-// para pixel de verdade só acontece na rasterização (`ESCALA_RASTER × dpr`)
-// e, no desenho por quadro, num único fator de escala derivado do `raio` que
-// o motor manda — nunca geometria recalculada.
-
-const LARGURA_CORPO = 100
-/** Só o corpo (gomos), excluindo nó e bico — largura:altura 0,72:1, ajustado
- *  de um molde real (~0,52:1) para legibilidade a 24px. Ver
- *  `docs/superpowers/referencias/2026-08-20-arte-junina.md` §2. */
-const PROPORCAO_CORPO = 0.72
-const ALTURA_CORPO = LARGURA_CORPO / PROPORCAO_CORPO
-/** Onde o gomo incha mais. 42%, não 50% — centro exato lê como balão de
- *  látex; um pouco alto lê como tecido/papel gathered. */
-const ALTURA_EQUADOR = 0.42 * ALTURA_CORPO
-/** Nó do topo, onde os gomos se juntam — o que distingue "papel colado" de
- *  uma cúpula lisa de borracha. */
-const ALTURA_NO = 0.06 * ALTURA_CORPO
-const LARGURA_NO = 0.08 * LARGURA_CORPO
-/** Bico do balão, o apliqué decorativo — NUNCA labareda (ver cabeçalho). */
-const ALTURA_RABICHO = 0.18 * ALTURA_CORPO
-const ALTURA_TOTAL = ALTURA_NO + ALTURA_CORPO + ALTURA_RABICHO
-/** Centro vertical da caixa inteira (nó + corpo + rabicho), em unidades
- *  locais com origem no ponto onde os gomos se juntam (y=0). Como o canvas
- *  de rasterização mede exatamente `ALTURA_TOTAL` de altura, o pixel central
- *  dele cai exatamente aqui — é essa igualdade que faz `drawImage` centrado
- *  bater com o centro do elemento sem nenhuma conta extra por quadro. */
-const CENTRO_Y = (ALTURA_CORPO + ALTURA_RABICHO - ALTURA_NO) / 2
-
 /**
- * Seis gomos não são um revolve 3D — são um leque 2D, e a curvatura que
- * "engana" o olho vem de projetar os meridianos de uma esfera (longitude de
- * -90° a 90°) num plano: `sin(longitude)` dá o deslocamento horizontal de
- * cada costura. A costura central (longitude 0°) desce reta; as duas
- * costuras da silhueta (±90°) SÃO a borda esquerda/direita do balão inteiro.
- * O efeito colateral é o que
- * `docs/superpowers/referencias/2026-08-20-arte-junina.md` pediu à mão
- * (gomos da borda mais estreitos que os do centro) sair de graça da
- * trigonometria, sem tabela chutada por gomo: a diferença entre senos
- * consecutivos já encolhe perto das pontas.
- */
-const N_GOMOS = 6
-function seloEm(indice: number): number {
-  const longitude = (indice / N_GOMOS - 0.5) * Math.PI
-  return Math.sin(longitude) * (LARGURA_CORPO / 2)
-}
-/** As 7 costuras que delimitam os 6 gomos — `SELOS[i]`/`SELOS[i+1]` são as
- *  bordas esquerda/direita do gomo `i`. */
-const SELOS = Array.from({ length: N_GOMOS + 1 }, (_, i) => seloEm(i))
-
-/**
- * Caminho SVG de UM gomo: duas curvas quadráticas partindo do mesmo ponto
- * (o nó, topo) e chegando no mesmo ponto (o bico, base) — uma vesica, não um
- * revolve. `Q` (quadrática) e não a cúbica que
- * `docs/superpowers/referencias/2026-08-20-arte-junina.md` sugeriu: o
- * ponto de controle único tem solução fechada para "a curva passa por
- * (bulge, ALTURA_EQUADOR) na metade do trajeto" — `cy = 2·ALTURA_EQUADOR −
- * 0,5·ALTURA_CORPO`, a mesma álgebra de Bézier quadrática de sempre — e sem
- * a folga extra de dois pontos de controle não há como a curva "escorregar"
- * do equador pretendido.
- */
-const CY_CONTROLE = 2 * ALTURA_EQUADOR - 0.5 * ALTURA_CORPO
-function caminhoGomo(bulgeEsquerda: number, bulgeDireita: number): string {
-  return (
-    `M 0 0 ` +
-    `Q ${2 * bulgeEsquerda} ${CY_CONTROLE} 0 ${ALTURA_CORPO} ` +
-    `Q ${2 * bulgeDireita} ${CY_CONTROLE} 0 0 Z`
-  )
-}
-/** Centro horizontal aproximado do gomo `i` — usado como eixo de giro no
- *  estouro e como sinal (esquerda/direita) do espalhamento. */
-function centroXGomo(indice: number): number {
-  return (SELOS[indice]! + SELOS[indice + 1]!) / 2
-}
-/** Ordem de preenchimento, de trás para frente: os dois gomos da borda
- *  (mais estreitos, mais em sombra) primeiro, os dois quase-frontais depois,
- *  os dois de frente por último — a mesma ordem que uma pintura de objeto
- *  redondo usa, e o que faz a costura do gomo de frente sobrepor a do
- *  vizinho em vez do contrário. */
-const ORDEM_DESENHO = [0, 5, 1, 4, 2, 3] as const
-
-// ── Cor de cada gomo ───────────────────────────────────────────────────
-//
-// Vermelho, dourado, verde, vermelho, azul-casa, dourado — 2× vermelho, 2×
-// dourado, 1× verde, 1× azul, a paleta culturalmente codificada de festa
-// junina (nunca roxo, rosa ou neon). O azul é o único ponto frio, a amarração
-// de marca deliberada e rara — não mais um primário.
-
-type FamiliaCor = { sombra: string; base: string; destaque: string }
-const VERMELHO: FamiliaCor = { sombra: '#5C1A12', base: '#D93A2B', destaque: '#F08A63' }
-const DOURADO: FamiliaCor = { sombra: '#7A4A08', base: '#FFB020', destaque: '#FFE08A' }
-const VERDE: FamiliaCor = { sombra: '#0E4A30', base: '#1E8F5F', destaque: '#6FD9A6' }
-const AZUL: FamiliaCor = { sombra: '#155F80', base: '#38BDF8', destaque: '#A8E4FF' }
-const FAMILIA_POR_GOMO: readonly FamiliaCor[] = [VERMELHO, DOURADO, VERDE, VERMELHO, AZUL, DOURADO]
-/** 1 = totalmente de frente, mais claro; menos que 1 = gomo da borda, um
- *  pouco puxado para a própria sombra — a superfície curva se afasta da luz
- *  e do olho ao mesmo tempo. Não é o gomo mais escuro do desenho (isso
- *  continua sendo o topo de cada gradiente, ver `gradienteGomo`) — é só o
- *  gomo, como um todo, mais próximo da própria sombra que da própria luz. */
-const FRONTALIDADE_POR_GOMO = [0.55, 0.8, 1, 1, 0.8, 0.55] as const
-
-/**
- * Cores REALMENTE desenhadas nos dois gomos centrais — índices 2 (verde) e 3
- * (vermelho) em `FAMILIA_POR_GOMO`, os únicos com `FRONTALIDADE_POR_GOMO`
- * igual a 1 — mais o acento do tema (`PALETA.destaque`, usado no apliqué do
- * bico, na marca do alvo em foco e na rajada de acerto). Frontalidade 1
- * significa escurecimento de borda ZERO (`(1 − 1⁵) × FATOR_ESCURECIMENTO_BORDA
- * = 0`, ver `gradienteGomo`), então `.base` destes dois gomos é o hex puro da
- * família — nenhuma mistura escondida entre este export e o pixel de tela.
+ * Cores REALMENTE desenhadas no balão — hoje as faixas de `junino-balao.ts`,
+ * lidas de lá em vez de copiadas para cá.
  *
  * EXPORTADO só para `tests/unit/contraste.test.ts` medir as cores que o
- * balão de fato desenha, em vez de copiar hex para dentro do teste — uma
- * cópia sai de sincronia se a paleta mudar de novo (foi exatamente esse
- * descompasso, com `#FFB020` e o extinto `#1F232B`, que deixou o gate de
- * contraste da WCAG 1.4.11 descrevendo uma peça que não existe mais).
+ * balão de fato pinta. Ler do desenho em vez de copiar hex é o que impede o
+ * gate de contraste de continuar descrevendo uma versão velha da peça — foi
+ * exatamente esse descompasso que já deixou este gate falando de um balão
+ * que não existia mais, e o redesenho para a forma real (faixas e boca
+ * acesa, no lugar de gomos verticais) teria repetido o erro se estes hexes
+ * estivessem escritos à mão aqui.
  */
 export const CORES_CONTRASTE = {
-  gomoCentralVerde: VERDE.base,
-  gomoCentralVermelho: VERMELHO.base,
+  faixaVermelha: FAIXAS[0]!.cor,
+  faixaCreme: FAIXAS[1]!.cor,
+  faixaVerde: FAIXAS[2]!.cor,
+  losango: FAIXAS[2]!.losango!,
+  faixaAzul: FAIXAS[4]!.cor,
   acento: PALETA.destaque,
 } as const
 
-function paraRgb(hex: string): [number, number, number] {
-  const n = Number.parseInt(hex.slice(1), 16)
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-}
-function paraHex([r, g, b]: readonly [number, number, number]): string {
-  const canal = (v: number) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')
-  return `#${canal(r)}${canal(g)}${canal(b)}`
-}
-/** Interpola dois hex — usada só para puxar os gomos da borda em direção à
- *  própria sombra (`FRONTALIDADE_POR_GOMO`). Sem biblioteca de cor: o
- *  repositório não tem uma, e a conta inteira é três linhas. */
-function misturar(a: string, b: string, t: number): string {
-  const [ar, ag, ab] = paraRgb(a)
-  const [br, bg, bb] = paraRgb(b)
-  return paraHex([ar + (br - ar) * t, ag + (bg - ag) * t, ab + (bb - ab) * t])
-}
-
-/**
- * Pra onde a borda escurece — um neutro quase-preto, não a sombra do PRÓPRIO
- * matiz de cada gomo.
- *
- * ACHADO DA REVISÃO (rodada de correção 1): a versão anterior misturava cada
- * stop com `familia.sombra` — a sombra do PRÓPRIO matiz. A sombra do
- * dourado (`#7A4A08`) já é clara comparada com a sombra do verde
- * (`#0E4A30`), então misturar dourado com a sombra dele mesmo mantinha
- * dourado claro não importa a frontalidade — o matiz dominava a leitura de
- * brilho, a posição não. Medido pela revisão: vermelho central ~85 de
- * luminância, verde central ~110, contra dourado da borda ~161–167 — mais
- * claro que os DOIS centrais, o oposto do que a régua pede. Misturar com um
- * neutro escuro em vez da sombra do próprio matiz é o que faz a borda
- * escurecer por IGUAL não importa a cor embaixo.
- */
-const NEUTRO_ESCURO_BORDA = '#120D09'
-/**
- * Curva de escurecimento por posição — côncava (`frontalidade⁹`), não
- * linear, e calibrada por medição de pixel de verdade, não só a olho.
- *
- * A primeira tentativa (`(1 − frontalidade) × 1,3`, linear) escureceu os
- * dois gomos MAIS extremos (frontalidade 0,55) o bastante, mas deixou os
- * dois quase-frontais (frontalidade 0,8, o dourado "edge-adjacent" que a
- * revisão mediu em ~161–167) praticamente intocados — a fração linear em
- * 0,8 é pequena demais (0,2) pra vencer o quanto o dourado já nasce claro.
- * Medido depois do primeiro ajuste: dourado em frontalidade 0,8 ainda saía
- * a ~144 de luminância, mais claro que os DOIS gomos centrais (verde ~130,
- * vermelho ~103) — o defeito persistia, só um degrau mais fraco.
- *
- * A curva côncava (`frontalidade³` na época) resolveu ISSO: mesmo o gomo
- * quase-frontal (0,8) já levava uma fração substancial do escurecimento
- * máximo. Mas o EXPOENTE 5 + FATOR 0,85 que saiu dali ficou bom demais —
- * escureceu a MISTURA inteira até um ponto em que a maioria dos pixels do
- * balão passou a cair mais perto do stop `sombra` de QUALQUER família do
- * que do `base`, não só do próprio: o diagnóstico de densidade
- * (`docs/superpowers/referencias/2026-08-20-junina-diagnostico.md` §4)
- * mediu ~73% dos pixels do balão mais perto de sombra contra ~26% de base —
- * a pista de volume sobreviveu, mas o objeto inteiro passou a ler como
- * mancha escura, o oposto de "vivid and contrasting"
- * (`docs/superpowers/referencias/2026-08-20-arte-junina.md` §1).
- *
- * ACHADO DA RODADA DE DENSIDADE (2026-08): script de medição descartável
- * (`scripts/_tmp-medir-balao.mts`, rodado num Chromium real — Path2D e
- * gradiente de verdade, não jsdom) isolou a causa: o próprio gradiente
- * vertical, mesmo SEM nenhum escurecimento de borda, já lê ~27,5% "sombra"
- * por POSIÇÃO — o stop `base` só existia num único ponto (55%) da barra em
- * vez de ocupar uma faixa. Duas mudanças resolvem os dois problemas juntas:
- * `EXPOENTE_FRONTALIDADE` subiu de 5 para 9 (curva ainda mais íngreme perto
- * de frontalidade=1 — os quatro gomos não-centrais continuam escurecendo o
- * bastante pra ficar abaixo dos dois centrais, com MAIS folga que antes, não
- * menos) e `FATOR_ESCURECIMENTO_BORDA` desceu de 0,85 para 0,75 (o pico de
- * mistura é mais raso). A segunda mudança — `PONTO_BASE_INICIO`/
- * `PONTO_BASE_FIM` abaixo, um platô em vez de um único ponto — é quem faz a
- * diferença de verdade: o hex `base` (sem mistura nenhuma nos dois gomos
- * centrais) passa a valer por 70% da altura do corpo em vez de um instante
- * só, então mesmo um gomo central sem NENHUM escurecimento de borda lê como
- * "cor vívida" na maior parte da própria extensão, não só numa linha fina no
- * meio de uma rampa contínua sombra→destaque.
- *
- * MEDIDO DEPOIS (mesmo script, 4 famílias × 3 stops, todo pixel do balão
- * classificado pelo stop DECLARADO mais próximo — a mesma metodologia do
- * diagnóstico): sombra 50,3% / base 48,7% / destaque 1,1% — de "3 em 4
- * pixels em sombra" para praticamente meio a meio. A pista de volume não só
- * sobreviveu como GANHOU folga: vermelho central (o mais escuro dos dois
- * centrais) mede ~92 de luminância contra dourado borda-adjacente (o mais
- * claro dos quatro não-centrais) em ~73 — 19 pontos de margem, quase o
- * DOBRO dos ~9 pontos que a configuração antiga tinha entre dourado
- * borda-adjacente (~77) e vermelho central (~86). Ver o relatório da tarefa
- * para a tabela completa de candidatos testados.
- *
- * POR QUE ISSO TUDO DEU 9 E POR QUE 9 ESTAVA ERRADO (2026-08-21). Subir o
- * expoente de 5 para 9 nao "escurece os nao-centrais com mais folga": deixa
- * o penhasco mais ingreme, e `frontalidade ** 9` some para qualquer gomo que
- * nao esteja quase de frente. Na pratica quatro dos seis gomos ficavam ~75%
- * misturados no neutro, e dourado #FFB020 chegava a tela como oliva, azul
- * #38BDF8 como petroleo. O commit que fez isso se chamava "balao le vivido,
- * nao mais mancha de sombra"; ele aprofundou exatamente a mancha que dizia
- * remover.
- *
- * A medicao nao pegou porque media a coisa errada. Classificar cada pixel
- * pelo stop DECLARADO mais proximo descreve o FORMATO do gradiente, nao a
- * cor que chega na tela: o escurecimento e aplicado aos tres stops, entao um
- * pixel pode estar coladinho no stop `base` enquanto o proprio `base` ja foi
- * misturado 75% em marrom. "Meio a meio entre sombra e base" e um numero
- * saudavel num balao lavado e num balao vivido igualmente -- ele nao
- * distingue os dois casos, que e justamente o que se queria saber.
- *
- * Havia um sintoma independente apontando para ca e ele foi lido como
- * problema de teste: `acharAlvoEmZonaProibida` (tests/e2e/ativacoes.spec.ts)
- * parou de conseguir achar alvo nenhum porque o #FFB020 renderizado media
- * rgb(64,44,13). Aquilo nao era um detector mal calibrado. Era a arte sendo
- * esmagada, medida em pixel, por um teste que estava certo.
- *
- * O criterio que vale daqui pra frente e OLHAR: a peca isolada em varios
- * tamanhos E a cena inteira no raio de jogo, sobre o fundo real. Nenhum
- * agregado de pixel classificado por proximidade de stop substitui isso.
- */
-const EXPOENTE_FRONTALIDADE = 2.2
-/** Fração de mistura no ponto mais escuro (`frontalidade→0`). Não é 1
- *  (misturaria até o neutro puro) — sobra um pouco da cor original mesmo no
- *  limite, pra nenhum gomo virar uma silhueta lisa sem matiz nenhum. Descido
- *  de 0,85 pra 0,75 na rodada de densidade — ver o comentário de
- *  `EXPOENTE_FRONTALIDADE` acima para a medição completa. */
-const FATOR_ESCURECIMENTO_BORDA = 0.32
-/** Quanto a borda ACENDE — ver `calorBorda` em `gradienteGomo`. */
-const CALOR_BORDA = 0.3
-/** O ambar do papel aceso por tras. Nunca branco: branco leria plastico. */
-const AMBAR_TRANSLUCIDO = '#FFC061'
-/** Onde o platô do stop `base` COMEÇA e TERMINA, fração da altura do corpo
- *  (nó=0, bico=1). Era um único ponto (55%) — um gradiente contínuo de
- *  sombra a destaque passando por UM instante de cor pura. Virou uma faixa
- *  plana (10%–80%): a cor declarada da família aparece sem NENHUMA mistura
- *  ao longo de 70% da altura do gomo, e só os dois extremos (perto do nó,
- *  perto do bico) continuam em transição — mais parede lisa de cor vívida,
- *  menos rampa contínua. Ver `EXPOENTE_FRONTALIDADE` acima para a medição
- *  que motivou a troca. */
-const PONTO_BASE_INICIO = 0.1
-const PONTO_BASE_FIM = 0.8
-
-/**
- * O gradiente de UM gomo — vertical, nó (topo) a bico (base). NÃO é o
- * gradiente esquerda-direita que uma primeira leitura de
- * `docs/superpowers/referencias/2026-08-20-arte-junina.md` sugeriria:
- * aquele documento supõe luz vindo de cima-esquerda, e a decisão
- * que rege ESTA tarefa (a régua do briefing, que é quem manda aqui) é outra
- * — fonte de luz única, de BAIXO, porque o calor do balão é o brilho interno
- * do papel, não um sol. Duas fontes de luz brigando é o segundo erro mais
- * comum que a régua cita, então a escolha é: o topo (mais longe do brilho)
- * fica na própria sombra, a base (mais perto do bico, onde o brilho mora)
- * fica no tom mais claro — nunca o inverso, e nunca as duas ao mesmo tempo.
- *
- * O escurecimento de borda (posição) e o gradiente vertical (luz) são dois
- * eixos independentes, aplicados um por cima do outro nos três stops — ver
- * `NEUTRO_ESCURO_BORDA` acima pra por que o primeiro não pode ser "misturar
- * com a própria sombra".
- */
-function gradienteGomo(
-  pincel: CanvasRenderingContext2D,
-  familia: FamiliaCor,
-  frontalidade: number,
-): CanvasGradient {
-  const gradiente = pincel.createLinearGradient(0, 0, 0, ALTURA_CORPO)
-  const escurecimento = (1 - frontalidade ** EXPOENTE_FRONTALIDADE) * FATOR_ESCURECIMENTO_BORDA
-  // LUZ de borda, nao SOMBRA de borda.
-  //
-  // O balao lia como lama, e a causa era aritmetica. Com expoente 9,
-  // `frontalidade ** 9` some para qualquer gomo que nao esteja quase de
-  // frente: quatro dos seis ficavam ~75% misturados no neutro escuro, e as
-  // cores-base (dourado #FFB020, azul #38BDF8) chegavam a tela como oliva e
-  // petroleo. Nunca foi paleta ruim -- a paleta nao chegava a tela.
-  //
-  // O sinal tambem estava invertido. Escurecer a silhueta e sombreamento de
-  // fundo CLARO; sobre #08090C ele dissolve o balao no ceu. Papel com fogo
-  // dentro faz o contrario: a borda que se afasta fica FINA e acende por
-  // transparencia. Dai o gomo de borda ganhar calor em vez de perder luz.
-  const calorBorda = (1 - frontalidade) ** 1.6 * CALOR_BORDA
-  const q = (cor: string): string =>
-    misturar(misturar(cor, NEUTRO_ESCURO_BORDA, escurecimento), AMBAR_TRANSLUCIDO, calorBorda)
-  const sombraAjustada = q(familia.sombra)
-  const baseAjustada = q(familia.base)
-  const destaqueAjustado = q(familia.destaque)
-  gradiente.addColorStop(0, sombraAjustada)
-  gradiente.addColorStop(PONTO_BASE_INICIO, baseAjustada)
-  // Mesmo stop de cor, um segundo ponto mais adiante — é o que abre o platô
-  // (ver o comentário de `PONTO_BASE_INICIO`/`PONTO_BASE_FIM` acima). Entre
-  // os dois pontos o Canvas 2D não interpola nada: é o mesmo valor dos dois
-  // lados, então a cor fica CHAPADA nessa faixa em vez de continuar em rampa
-  // até o próximo stop.
-  gradiente.addColorStop(PONTO_BASE_FIM, baseAjustada)
-  gradiente.addColorStop(1, destaqueAjustado)
-  return gradiente
-}
-
-// ── Bico (apliqué decorativo — nunca chama, ver cabeçalho) ───────────────
-
-function caminhoPetala(largura: number, altura: number): string {
-  const meiaLargura = largura / 2
-  return `M 0 0 Q ${meiaLargura} ${altura * 0.4} 0 ${altura} Q ${-meiaLargura} ${altura * 0.4} 0 0 Z`
-}
-
-/**
- * ACHADO DA REVISÃO (rodada de correção 1): a camada interna usava
- * `PALETA.destaque` (`#FFB020`) — um salto de ~140 de luminância sobre a
- * camada externa. Duas camadas, a de fora escura e a de dentro num dourado
- * bem mais claro, é exatamente o vocabulário visual de "brasa com núcleo
- * quente" — não importa que a régua peça só duas camadas planas sem
- * labareda: o CONTRASTE entre elas é que lê como fogo, e o dourado cheio
- * tinha esse contraste. Aqui a camada interna é uma variação morna da
- * própria externa — mistura, não salto de matiz —, então o par de camadas
- * para de compor um núcleo quente e volta a ler como o apliqué de papel
- * dessaturado que a régua pede. */
-const BICO_EXTERNO = '#B23A1F'
-const BICO_INTERNO = misturar(BICO_EXTERNO, '#D9855A', 0.55)
-
-function desenharBico(pincel: CanvasRenderingContext2D): void {
-  const largura = LARGURA_CORPO * 0.3
-  const altura = ALTURA_RABICHO
-  pincel.save()
-  pincel.translate(0, ALTURA_CORPO)
-  // 15° fora do prumo — twist artesanal, não peça de vetor perfeitamente
-  // centrada.
-  pincel.rotate((15 * Math.PI) / 180)
-  pincel.fillStyle = BICO_EXTERNO // dessaturado de propósito: NÃO é o tom de uma chama acesa
-  pincel.fill(new Path2D(caminhoPetala(largura, altura)))
-  pincel.save()
-  pincel.translate(0, -altura * 0.12)
-  pincel.scale(0.55, 0.55)
-  pincel.fillStyle = BICO_INTERNO // morno, não brilhante — ver o comentário acima
-  pincel.fill(new Path2D(caminhoPetala(largura, altura)))
-  pincel.restore()
-  pincel.restore()
-}
 
 // ── Sprite do balão: rasterizado uma vez, reaproveitado por `drawImage` ──
 
@@ -427,7 +104,7 @@ function dprAtual(): number {
 function rasterizarBalao(dpr: number): HTMLCanvasElement | null {
   // Sem `document` (SSR) ou sem `Path2D` (Node/jsdom de teste — ver
   // cabeçalho do arquivo): não há como rasterizar. Quem chama cai para o
-  // traçado vetorial direto.
+  // traçado de reserva.
   if (typeof document === 'undefined' || typeof Path2D === 'undefined') return null
 
   const escala = ESCALA_RASTER * dpr
@@ -438,89 +115,10 @@ function rasterizarBalao(dpr: number): HTMLCanvasElement | null {
   if (!pincel) return null
 
   pincel.scale(escala, escala)
-  // Origem em (0,0) = o ponto onde os gomos se juntam em cima. Tudo abaixo
-  // desenha em torno disso; nó fica em y negativo, bico em y > ALTURA_CORPO.
-  pincel.translate(LARGURA_CORPO / 2, ALTURA_NO)
-
-  // BRILHO INTERNO — luz de baixo, parada, nunca tremulante (ver cabeçalho:
-  // isto substitui a chama, não a imita). Um radial simples, sem
-  // `shadowBlur`: o gradiente já é o "borrão".
-  //
-  // RAIO CONTIDO DE PROPÓSITO (ciclo de olhar original): 0,6×ALTURA_CORPO
-  // vazava até a borda dura do canvas de rasterização e lia como "esqueceu
-  // de limpar o fundo".
-  //
-  // CENTRO AFASTADO DO BICO (ACHADO DA REVISÃO, rodada de correção 1): a
-  // versão anterior centrava em 0,97×ALTURA_CORPO — praticamente em cima do
-  // bico — com alpha 0,45. A dupla "halo quente" + "apliqué de duas cores
-  // logo atrás dele" lia como brasa ou vela acesa, mesmo cada peça sozinha
-  // respeitando a letra da régua (duas camadas planas, sem terceira camada
-  // de chama). O par é que compunha o problema, não uma peça isolada. Aqui
-  // o centro sobe pro corpo (0,80×ALTURA_CORPO, bem acima da junção com o
-  // bico em 1,0×ALTURA_CORPO) e o raio/alpha encolhem — o brilho passa a
-  // reforçar o gradiente vertical dos próprios gomos (que já escurece pro
-  // topo e clareia pro bico, ver `gradienteGomo`) como uma segunda pincelada
-  // suave, em vez de formar um ponto de luz separado bem onde o bico está.
-  // Verificado a olho em raio=24 e raio=48 — ver relatório da tarefa.
-  const brilho = pincel.createRadialGradient(
-    0, ALTURA_CORPO * 0.8, 0,
-    0, ALTURA_CORPO * 0.8, ALTURA_CORPO * 0.1,
-  )
-  brilho.addColorStop(0, 'rgba(255, 200, 145, 0.22)')
-  brilho.addColorStop(1, 'rgba(255, 200, 145, 0)')
-  pincel.fillStyle = brilho
-  pincel.beginPath()
-  pincel.arc(0, ALTURA_CORPO * 0.8, ALTURA_CORPO * 0.1, 0, Math.PI * 2)
-  pincel.fill()
-
-  for (const indice of ORDEM_DESENHO) {
-    const caminho = new Path2D(caminhoGomo(SELOS[indice]!, SELOS[indice + 1]!))
-    pincel.fillStyle = gradienteGomo(pincel, FAMILIA_POR_GOMO[indice]!, FRONTALIDADE_POR_GOMO[indice]!)
-    pincel.fill(caminho)
-  }
-
-  // Costuras: tom quente escuro a 45% — NUNCA preto puro, que é a marca de
-  // contorno de clipart sobre papel-e-cola (ver régua do briefing). Era 70%
-  // até o segundo ciclo do olhar (relatório da tarefa): ampliado, o balão
-  // lia como se tivesse contorno duro demais, quase preto, em toda costura
-  // — o mesmo tell que a régua pede pra evitar, só que com uma cor que não
-  // é literalmente `#000`. 45% deixa a linha companheira do gradiente, não
-  // competindo com ele.
-  pincel.strokeStyle = 'rgba(42, 23, 16, 0.45)'
-  pincel.lineWidth = 0.9
-  for (let i = 0; i <= N_GOMOS; i++) {
-    pincel.stroke(new Path2D(`M 0 0 Q ${2 * SELOS[i]!} ${CY_CONTROLE} 0 ${ALTURA_CORPO}`))
-  }
-
-  // LUZ DE DENTRO. O brilho de cima e desenhado ANTES dos gomos, entao eles o
-  // cobrem por inteiro e ele so aparece FORA do corpo: aquilo e auroela, nunca
-  // luz interna. Este aqui e recortado na silhueta e SOMADO por cima -- e o
-  // que faz o papel acender, que e a coisa mais caracteristica de um balao
-  // junino e, sobre fundo escuro, o que separa o balao do ceu.
-  pincel.save()
-  pincel.clip(new Path2D(caminhoGomo(SELOS[0]!, SELOS[N_GOMOS]!)))
-  pincel.globalCompositeOperation = 'lighter'
-  const luz = pincel.createRadialGradient(
-    0, ALTURA_CORPO * 0.86, 0,
-    0, ALTURA_CORPO * 0.86, ALTURA_CORPO * 0.62,
-  )
-  luz.addColorStop(0, 'rgba(255, 184, 100, 0.55)')
-  luz.addColorStop(0.45, 'rgba(255, 146, 64, 0.22)')
-  luz.addColorStop(1, 'rgba(255, 120, 40, 0)')
-  pincel.fillStyle = luz
-  pincel.fillRect(-LARGURA_CORPO, -ALTURA_CORPO, LARGURA_CORPO * 2, ALTURA_CORPO * 2.4)
-  pincel.restore()
-
-  // Nó do topo: o gomo mais longe do brilho, sem gradiente — é o ponto mais
-  // em sombra do balão inteiro, e é ele (não uma cúpula lisa) que diz
-  // "papel amarrado", não "borracha".
-  pincel.fillStyle = '#2A1710'
-  pincel.beginPath()
-  pincel.ellipse(0, -ALTURA_NO * 0.5, LARGURA_NO / 2, ALTURA_NO * 0.5, 0, 0, Math.PI * 2)
-  pincel.fill()
-
-  desenharBico(pincel)
-
+  // A origem vai para o ÁPICE do corpo, no meio da largura — é o sistema
+  // em que `junino-balao.ts` desenha (ver o comentário de `caminhoCorpo`).
+  pincel.translate(LARGURA_CORPO / 2, 0)
+  desenharCorpoBalao(pincel)
   return tela
 }
 
@@ -532,34 +130,15 @@ function garantirSpriteBalao(dpr: number): HTMLCanvasElement | null {
   return tela
 }
 
-/** Os 6 `Path2D` dos gomos, sozinhos — memorizados uma vez e reaproveitados
- *  pelo estouro (ver cabeçalho: "reaproveitando os próprios caminhos de
- *  gomo"). `undefined` = ainda não tentou; `null` = tentou e o ambiente não
- *  tem `Path2D` (mesma defesa de `rasterizarBalao`). */
-let caminhosGomosCache: readonly Path2D[] | null | undefined
-function obterCaminhosGomos(): readonly Path2D[] | null {
-  if (caminhosGomosCache !== undefined) return caminhosGomosCache
-  if (typeof Path2D === 'undefined') {
-    caminhosGomosCache = null
-    return null
-  }
-  caminhosGomosCache = Array.from({ length: N_GOMOS }, (_, i) =>
-    new Path2D(caminhoGomo(SELOS[i]!, SELOS[i + 1]!)),
-  )
-  return caminhosGomosCache
-}
 
 // ── Traçado vetorial de reserva (sem `Path2D`/contexto — ver cabeçalho) ──
 
-function desenharBalaoVetorial(pincel: CanvasRenderingContext2D, largura: number, altura: number): void {
-  const meiaLargura = largura / 2
-  pincel.beginPath()
-  pincel.moveTo(0, -altura / 2)
-  pincel.quadraticCurveTo(meiaLargura, -altura * 0.1, 0, altura / 2)
-  pincel.quadraticCurveTo(-meiaLargura, -altura * 0.1, 0, -altura / 2)
-  pincel.closePath()
-  pincel.fillStyle = PALETA.elemento
-  pincel.fill()
+function desenharBalaoVetorial(
+  pincel: CanvasRenderingContext2D,
+  largura: number,
+  altura: number,
+): void {
+  desenharBalaoDeReserva(pincel, largura, altura)
 }
 
 // ── Balanço ────────────────────────────────────────────────────────────
@@ -722,95 +301,43 @@ function desenharAlvoAtivo(
 
 // ── Estouro: a costura se separando ───────────────────────────────────
 
-/** Um giro final distinto por gomo — nunca a mesma velocidade angular em
- *  todos, que é a marca de "um sprite reaproveitado seis vezes" em vez de
- *  seis cacos de verdade (ver
- *  `docs/superpowers/referencias/2026-08-20-arte-junina.md` §4).
+/**
+ * O ESTOURO: as próprias FAIXAS do balão se separando.
  *
- *  Ajustado no segundo ciclo do olhar (relatório da tarefa): a primeira
- *  versão girava cada gomo em torno do PRÓPRIO centro, mas o gomo inteiro
- *  atravessa quase toda a altura do corpo — a ponta mais distante do centro
- *  fica a ~80 unidades dele —, então até um giro modesto varria um arco
- *  enorme na ponta e o estouro já parecia totalmente espalhado em 10% do
- *  progresso. Os ângulos aqui saíram pela metade do que estavam, e passam a
- *  crescer com `progresso²` (ver `desenharEstouro`), não `progresso` — o
- *  giro começa quase parado e acelera, em vez de já nascer girando rápido. */
-const ANGULOS_QUEDA = [-2.0, 1.3, -2.6, 2.3, -1.5, 2.0] as const
-/** Quão longe cada gomo se espalha, em fração da própria distância ao eixo
- *  central — os gomos da borda, mais longe do eixo, voam mais longe. */
-const FATOR_ESPALHAR = 0.9
-/** Queda em fração de `ALTURA_CORPO`, crescendo com o quadrado do progresso
- *  — aceleração, não velocidade constante. */
-const FATOR_QUEDA = 0.55
-/** Cada caco encolhe um pouco ao cair (para 68% no fim) — reforça a leitura
- *  de fragmento se afastando da câmera, e reduz ainda mais o alcance visual
- *  da ponta longe do pivô que motivou o ajuste acima. */
-const ENCOLHIMENTO_CACO = 0.32
-
-function desenharEstouroVetorial(pincel: CanvasRenderingContext2D, raio: number, alpha: number, p: number): void {
-  for (let i = 0; i < N_GOMOS; i++) {
-    const sinal = i < N_GOMOS / 2 ? -1 : 1
-    const x = sinal * raio * 0.5 * p
-    const y = raio * 0.6 * p * p
-    pincel.beginPath()
-    pincel.arc(x, y, raio * 0.18, 0, Math.PI * 2)
-    pincel.globalAlpha = alpha
-    pincel.fillStyle = FAMILIA_POR_GOMO[i]!.base
-    pincel.fill()
-  }
-}
-
-function desenharEstouro(pincel: CanvasRenderingContext2D, raio: number, progresso: number): void {
+ * O estouro anterior despedaçava o balão em gomos verticais, porque era
+ * essa a forma que o balão tinha. Um balão de faixas se rasga em faixas —
+ * e é isso que amarra o efeito ao objeto, em vez de ser uma explosão
+ * genérica desenhada por cima de qualquer coisa.
+ *
+ * A geometria dos cacos mora em `junino-balao.ts`, junto do desenho de onde
+ * eles saem: se as faixas mudarem, o estouro muda junto sem ninguém
+ * precisar lembrar de sincronizar dois arquivos.
+ */
+function desenharEstouro(
+  pincel: CanvasRenderingContext2D,
+  raio: number,
+  progresso: number,
+): void {
   const p = limitar01(progresso)
   // Some a partir de 60% do trajeto — os cacos dissolvem no ar; nunca
-  // "pousam" (ver `docs/superpowers/referencias/2026-08-20-arte-junina.md`
-  // §4: sem plano de chão, sem colisão).
+  // "pousam" (sem plano de chão, não há em que pousar).
   const alpha = p < 0.6 ? 1 : Math.max(0, 1 - (p - 0.6) / 0.4)
   if (alpha <= 0) return
-
-  const caminhos = obterCaminhosGomos()
-  if (!caminhos) {
-    desenharEstouroVetorial(pincel, raio, alpha, p)
-    return
-  }
-
-  const escala = (raio * FATOR_LARGURA) / LARGURA_CORPO
-
-  for (let i = 0; i < N_GOMOS; i++) {
-    const centroX = centroXGomo(i)
-    const centroY = ALTURA_EQUADOR
-    const sinal = centroX === 0 ? (i < N_GOMOS / 2 ? -1 : 1) : Math.sign(centroX)
-    // `p ** 1.3`: o espalhamento horizontal também começa um pouco contido
-    // (velocidade de saída não é instantânea) em vez de saltar de 0 a pleno
-    // vapor entre o primeiro e o segundo quadro.
-    const deslocX = sinal * Math.abs(centroX) * FATOR_ESPALHAR * p ** 1.3
-    const deslocY = FATOR_QUEDA * ALTURA_CORPO * p * p
-    // Progresso ao quadrado — ver o comentário de `ANGULOS_QUEDA`: o giro
-    // precisa nascer quase parado, não já em velocidade máxima.
-    const angulo = ANGULOS_QUEDA[i]! * p * p
-    const escalaCaco = 1 - ENCOLHIMENTO_CACO * p
-
-    pincel.save()
-    pincel.scale(escala, escala)
-    // Recentra a caixa inteira (nó+corpo+bico) na origem — o mesmo ponto
-    // que `drawImage` usa para o balão parado, para o estouro começar
-    // exatamente onde o balão estava, não um quadro adiante.
-    pincel.translate(0, -CENTRO_Y)
-    pincel.translate(deslocX, deslocY)
-    // Gira (e encolhe) em torno do próprio centro do gomo, não do nó —
-    // senão cada caco balançaria pendurado pela ponta, não voaria como
-    // fragmento solto.
-    pincel.translate(centroX, centroY)
-    pincel.rotate(angulo)
-    pincel.scale(escalaCaco, escalaCaco)
-    pincel.translate(-centroX, -centroY)
-    pincel.globalAlpha = alpha
-    pincel.fillStyle = FAMILIA_POR_GOMO[i]!.base
-    pincel.fill(caminhos[i]!)
-    pincel.restore()
-  }
+  desenharCacosDeFaixa(pincel, raio, p, alpha)
 }
 
+/**
+ * Vesica (pétala) — a forma das línguas de chama da fogueira.
+ *
+ * Vivia no apliqué do bico do balão, que deixou de existir quando o balão
+ * ganhou a BOCA aberta que um balão junino de verdade tem. A função ficou:
+ * a chama sempre foi o outro consumidor dela, e é dela que a fogueira
+ * depende (ver `rasterizarLinguaChama`).
+ */
+function caminhoPetala(largura: number, altura: number): string {
+  const meiaLargura = largura / 2
+  return `M 0 0 Q ${meiaLargura} ${altura * 0.4} 0 ${altura} Q ${-meiaLargura} ${altura * 0.4} 0 0 Z`
+}
 // ── Fundo: bandeirinhas em duas fileiras, fogueira, xadrez, chapéu, brasas ──
 //
 // Reescrito na rodada de densidade (2026-08): o diagnóstico
