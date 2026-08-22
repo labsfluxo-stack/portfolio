@@ -204,7 +204,7 @@ function easeOutBack(t: number): number {
 // tem de caber na tolerancia de acerto com folga — ver o teste de
 // tolerancia em tests/unit/ativacoes-tema.test.ts, que mede a extensao
 // RENDERIZADA e nao uma formula reescrita a parte.
-const FATOR_LARGURA = 1.24
+const FATOR_LARGURA = 1.2
 
 /** `easeOutBack` aplicada ao `nascimento`, e travada em 0 por baixo — a
  *  MESMA conta que `desenharElemento` usa pra achar a escala do pop.
