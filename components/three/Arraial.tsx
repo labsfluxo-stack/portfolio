@@ -3,6 +3,12 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { rasterizarBandeiraPublica } from '@/components/ativacoes/temas/junino'
+import {
+  texturaPalha,
+  texturaParalelepipedo,
+  texturaReboco,
+  texturaTelha,
+} from './arraial-texturas'
 
 /**
  * O ARRAIAL EM 3D — o cenário da dobra de ativações.
@@ -110,15 +116,68 @@ function Estrelas() {
  *  recebe a luz da fogueira, e é essa poça de luz no chão que mais diz "há uma
  *  fogueira acesa aqui" numa cena noturna. */
 function Chao() {
+  const textura = useMemo(() => texturaParalelepipedo(), [])
+  useEffect(() => () => textura?.dispose(), [textura])
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
       <planeGeometry args={[200, 200]} />
-      <meshStandardMaterial color="#2E2422" roughness={0.9} metalness={0} />
+      {/* A pedra é o que dá ESCALA à praça: é por ela que o olho mede o
+          tamanho da fogueira e da barraca. Um plano de cor única fazia a cena
+          parecer estúdio com fundo infinito. */}
+      <meshStandardMaterial color="#5A4A44" map={textura} roughness={0.92} metalness={0} />
     </mesh>
   )
 }
 
-/** Uma casa colonial: corpo, telhado de duas águas e janelas acesas. */
+/** Um vidro aceso, com moldura e veneziana. */
+function Janela({
+  posicao,
+  largura,
+  altura,
+  acesa,
+}: {
+  posicao: [number, number, number]
+  largura: number
+  altura: number
+  acesa: boolean
+}) {
+  return (
+    <group position={posicao}>
+      {/* A MOLDURA, em cal branca e SALIENTE. Numa casa colonial a verruma
+          da janela é sempre pintada de branco e sobressai do reboco — é ela,
+          e não o vidro, que faz a janela existir de longe. A versão anterior
+          era um retângulo aceso colado na parede, que lê como buraco. */}
+      <mesh position={[0, 0, 0.06]}>
+        <boxGeometry args={[largura * 1.28, altura * 1.2, 0.12]} />
+        <meshStandardMaterial color="#D8CDBA" roughness={0.9} />
+      </mesh>
+      {/* O vão: aceso ou escuro. `meshBasicMaterial` no aceso porque luz de
+          janela não obedece à iluminação da cena — ela É a iluminação. */}
+      <mesh position={[0, 0, 0.14]}>
+        <planeGeometry args={[largura, altura]} />
+        <meshBasicMaterial color={acesa ? '#FFC46E' : '#0B0D14'} />
+      </mesh>
+      {/* A VENEZIANA, encostada de um lado. Meia folha só: as duas fechadas
+          tapariam o vão, e casa com todas as janelas fechadas não lê como
+          casa habitada. */}
+      <mesh position={[-largura * 0.42, 0, 0.16]}>
+        <boxGeometry args={[largura * 0.4, altura * 0.94, 0.05]} />
+        <meshStandardMaterial color="#2E4A44" roughness={0.86} />
+      </mesh>
+    </group>
+  )
+}
+
+/**
+ * Uma casa colonial.
+ *
+ * A primeira montagem era uma CAIXA com um prisma em cima e retângulos
+ * acesos colados na frente. A foto de referência tem outra coisa: fachada
+ * com embasamento e cornija, janelas altas de moldura branca e veneziana,
+ * porta no térreo, sacada no andar de cima, e telhado de TELHA — raso, não
+ * pontudo. Cada um desses elementos é barato sozinho, e é a soma deles que
+ * separa "casario" de "blocos".
+ */
 function Casa({
   posicao,
   largura,
@@ -126,6 +185,8 @@ function Casa({
   profundidade,
   fachada,
   semente,
+  texturaParede,
+  texturaTelhado,
 }: {
   posicao: [number, number, number]
   largura: number
@@ -133,50 +194,106 @@ function Casa({
   profundidade: number
   fachada: (typeof FACHADAS)[number]
   semente: number
+  texturaParede: THREE.CanvasTexture | null
+  texturaTelhado: THREE.CanvasTexture | null
 }) {
   const janelas = useMemo(() => {
     const lista: { x: number; y: number; acesa: boolean }[] = []
-    const colunas = largura > 5 ? 3 : 2
-    for (let andar = 0; andar < 2; andar++) {
-      for (let c = 0; c < colunas; c++) {
-        lista.push({
-          x: (largura / (colunas + 1)) * (c + 1) - largura / 2,
-          y: altura * (0.3 + andar * 0.36),
-          acesa: aleatorio(semente * 31 + andar * 7 + c * 3) > 0.42,
-        })
-      }
+    const colunas = largura > 5.4 ? 3 : 2
+    for (let c = 0; c < colunas; c++) {
+      lista.push({
+        x: (largura / (colunas + 1)) * (c + 1) - largura / 2,
+        y: altura * 0.72,
+        acesa: aleatorio(semente * 31 + c * 3) > 0.42,
+      })
     }
     return lista
   }, [largura, altura, semente])
 
+  const larguraJanela = largura * 0.13
+  const alturaJanela = altura * 0.17
+
   return (
     <group position={posicao}>
+      {/* O CORPO. A textura de reboco entra no lugar da cor plana: parede
+          lisa demais faz a casa parecer papelão. */}
       <mesh position={[0, altura / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[largura, altura, profundidade]} />
-        <meshStandardMaterial color={fachada.parede} roughness={0.94} metalness={0} />
+        <meshStandardMaterial
+          color={fachada.parede}
+          map={texturaParede}
+          roughness={0.96}
+          metalness={0}
+        />
       </mesh>
-      {/* O TELHADO de duas águas: um prisma triangular. `cylinderGeometry` com
-          3 lados radiais é a forma mais barata de um prisma no catálogo padrão
-          — sem geometria custom, sem arquivo externo. O beiral passa da parede
-          nos dois lados, que é o que faz o olho ler telhado e não tampa. */}
+
+      {/* EMBASAMENTO: a faixa escura na base, que toda casa de rua tem
+          porque é a parte que a chuva suja. Sem ela a parede parece brotar
+          do chão. */}
+      <mesh position={[0, altura * 0.055, profundidade / 2 + 0.02]}>
+        <boxGeometry args={[largura * 1.01, altura * 0.11, 0.06]} />
+        <meshStandardMaterial color="#3A2E26" roughness={0.95} />
+      </mesh>
+
+      {/* CORNIJA: a moldura saliente logo abaixo do telhado. É o detalhe
+          que mais rápido diz "colonial" e custa uma caixa. */}
+      <mesh position={[0, altura * 0.955, profundidade / 2 + 0.03]}>
+        <boxGeometry args={[largura * 1.06, altura * 0.07, 0.14]} />
+        <meshStandardMaterial color="#D8CDBA" roughness={0.9} />
+      </mesh>
+
+      {/* A PORTA, no térreo e no meio. */}
+      <mesh position={[0, altura * 0.2, profundidade / 2 + 0.04]}>
+        <boxGeometry args={[largura * 0.16, altura * 0.34, 0.08]} />
+        <meshStandardMaterial color="#4A2E1C" roughness={0.9} />
+      </mesh>
+
+      {janelas.map((j, i) => (
+        <Janela
+          key={i}
+          posicao={[j.x, j.y, profundidade / 2]}
+          largura={larguraJanela}
+          altura={alturaJanela}
+          acesa={j.acesa}
+        />
+      ))}
+
+      {/* A SACADA do andar de cima: um piso saliente e o gradil. Aparece só
+          nas casas maiores, como na foto — sacada em toda casa vira padrão
+          repetido em vez de rua. */}
+      {largura > 5.4 ? (
+        <group position={[0, altura * 0.6, profundidade / 2 + 0.2]}>
+          <mesh>
+            <boxGeometry args={[largura * 0.66, 0.1, 0.4]} />
+            <meshStandardMaterial color="#D8CDBA" roughness={0.9} />
+          </mesh>
+          <mesh position={[0, 0.24, 0.18]}>
+            <boxGeometry args={[largura * 0.66, 0.38, 0.05]} />
+            <meshStandardMaterial color="#2E2A26" roughness={0.8} />
+          </mesh>
+        </group>
+      ) : null}
+
+      {/* O TELHADO. RASO, não pontudo: o prisma anterior subia um terço da
+          altura da casa e lia como cabana alpina. Telhado colonial é de
+          pouca inclinação e beiral bem saliente. A textura de telha é o que
+          o transforma de tampa em telhado. */}
       <mesh
-        position={[0, altura + altura * 0.11, 0]}
+        position={[0, altura + altura * 0.055, 0]}
         rotation={[0, Math.PI / 2, Math.PI / 2]}
         castShadow
       >
-        <cylinderGeometry args={[altura * 0.3, altura * 0.3, largura * 1.12, 3, 1]} />
-        <meshStandardMaterial color={fachada.telha} roughness={0.9} metalness={0} flatShading />
+        <cylinderGeometry args={[altura * 0.15, altura * 0.15, largura * 1.16, 3, 1]} />
+        <meshStandardMaterial
+          color={fachada.telha}
+          map={texturaTelhado}
+          roughness={0.92}
+          metalness={0}
+        />
       </mesh>
-      {janelas.map((j, i) => (
-        <mesh key={i} position={[j.x, j.y, profundidade / 2 + 0.01]}>
-          <planeGeometry args={[largura * 0.11, altura * 0.16]} />
-          <meshBasicMaterial color={j.acesa ? '#FFC46E' : '#0B0D14'} />
-        </mesh>
-      ))}
     </group>
   )
 }
-
 /** A fileira de casario ao fundo, com a rua se afastando para os dois lados. */
 function Casario() {
   const casas = useMemo(() => {
@@ -188,11 +305,15 @@ function Casario() {
       fachada: (typeof FACHADAS)[number]
       semente: number
     }[] = []
-    let x = -46
+    let x = -52
     let n = 0
-    while (x < 46) {
-      const largura = 4 + aleatorio(n * 13 + 7) * 3.4
-      const altura = 4.2 + aleatorio(n * 17 + 11) * 3.6
+    while (x < 52) {
+      // Uma casa GRANDE perto do centro, como o sobrado que domina a praça
+      // na foto. Fileira toda do mesmo porte lê como conjunto habitacional,
+      // não como centro histórico.
+      const central = Math.abs(x) < 7
+      const largura = central ? 9.5 : 3.6 + aleatorio(n * 13 + 7) * 3
+      const altura = central ? 8.6 : 4 + aleatorio(n * 17 + 11) * 3
       lista.push({
         posicao: [x + largura / 2, 0, -26 - aleatorio(n * 19 + 3) * 3],
         largura,
@@ -206,10 +327,24 @@ function Casario() {
     }
     return lista
   }, [])
+  // As texturas nascem UMA vez e são compartilhadas por todas as casas. Uma
+  // por casa seria dezenas de canvases idênticos na memória, e o casario
+  // inteiro usa o mesmo reboco e a mesma telha de qualquer forma — o que
+  // muda entre as casas é a COR do material, não o desenho da textura.
+  const texturaParede = useMemo(() => texturaReboco('#FFFFFF'), [])
+  const texturaTelhado = useMemo(() => texturaTelha('#FFFFFF', 6, 3), [])
+  useEffect(
+    () => () => {
+      texturaParede?.dispose()
+      texturaTelhado?.dispose()
+    },
+    [texturaParede, texturaTelhado],
+  )
+
   return (
     <group>
       {casas.map((c, i) => (
-        <Casa key={i} {...c} />
+        <Casa key={i} {...c} texturaParede={texturaParede} texturaTelhado={texturaTelhado} />
       ))}
     </group>
   )
@@ -279,6 +414,8 @@ function Fogueira({ posicao }: { posicao: [number, number, number] }) {
 /** Uma barraca: telhado de palha em duas águas sobre esteios, frente de chita.
  *  São elas que emolduram a praça na foto de referência. */
 function Barraca({ posicao, giro }: { posicao: [number, number, number]; giro: number }) {
+  const texturaTelhadoPalha = useMemo(() => texturaPalha(), [])
+  useEffect(() => () => texturaTelhadoPalha?.dispose(), [texturaTelhadoPalha])
   return (
     <group position={posicao} rotation={[0, giro, 0]}>
       {[-1.5, 1.5].map((x) => (
@@ -302,7 +439,7 @@ function Barraca({ posicao, giro }: { posicao: [number, number, number]; giro: n
           passa muito da estrutura. */}
       <mesh position={[0, 2.5, 0.4]} rotation={[0, Math.PI / 2, Math.PI / 2]} castShadow>
         <cylinderGeometry args={[1.15, 1.15, 4.4, 3, 1]} />
-        <meshStandardMaterial color="#8A6E3C" roughness={1} flatShading />
+        <meshStandardMaterial color="#B89A62" map={texturaTelhadoPalha} roughness={1} />
       </mesh>
       {/* A LÂMPADA da barraca. Toda barraca de arraial tem uma pendurada sob
           o telhado, e sem ela a barraca fica no escuro por estar longe da
@@ -471,12 +608,18 @@ function Cena() {
           faz: céu frio por cima, chão quente por baixo. É essa diferença que
           impede tudo de ficar da mesma cor e é o jeito mais barato de a cena
           parecer iluminada por um AMBIENTE e não por uma lâmpada só. */}
-      <hemisphereLight args={['#4C5E86', '#5A3A22', 1.35]} />
-      <ambientLight intensity={0.34} color="#5A6A90" />
+      <hemisphereLight args={['#5E76A6', '#7A5230', 2.4]} />
+      <ambientLight intensity={0.55} color="#6E80A8" />
       {/* Uma direcional fria e fraca, vinda de cima e do lado, só para as
           quinas dos telhados existirem. Nunca forte: duas fontes fortes
           brigando é o erro mais comum numa cena noturna. */}
-      <directionalLight position={[-16, 22, 10]} intensity={0.62} color="#9AB0D8" />
+      <directionalLight position={[-16, 22, 10]} intensity={0.9} color="#A8BCE0" />
+      {/* Um enchimento QUENTE e fraco vindo de baixo e da frente, na direcao
+          da praca. Representa o somatorio das barracas, das janelas e dos
+          varais acesos — luz que existe na foto e que nenhuma fonte pontual
+          da cena cobre. Sem ele o casario fica com a base no breu, o que le
+          como cidade abandonada em vez de arraial cheio. */}
+      <directionalLight position={[2, 4, 16]} intensity={0.5} color="#FFB870" />
     </>
   )
 }
