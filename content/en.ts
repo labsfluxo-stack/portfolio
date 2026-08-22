@@ -725,7 +725,9 @@ export const en: Dictionary = {
       rotuloNome: 'Brand name',
       nomePadrao: 'Your Brand',
       fechar: 'Close',
-      legenda: 'Mug with the brand "{marca}".',
+      legenda: '{peca} with the "{marca}" brand.',
+      rotuloPeca: 'Item',
+      pecas: { caneca: 'Mug', ecobag: 'Tote bag', bone: 'Cap' },
       semWebgl:
         "Your browser can't run the 3D preview — the brand below is already what gets printed.",
     },

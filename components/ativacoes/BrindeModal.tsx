@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import type { Dictionary } from '@/content/types'
-import { CanecaSlot } from '@/components/three/CanecaSlot'
+import { BrindeSlot, PECAS, type Peca } from '@/components/three/BrindeSlot'
+import { hasWebGL } from '@/components/three/BrindeSlot'
 
 /**
  * O modal que abre no fim de partida: uma caneca em 3D com a marca do
@@ -45,6 +46,15 @@ export function BrindeModal({ dict }: { dict: Dictionary }) {
   const [aberto, setAberto] = useState(false)
   const [corMarca, setCorMarca] = useState(COR_PADRAO)
   const [nomeMarca, setNomeMarca] = useState(brinde.nomePadrao)
+  const [peca, setPeca] = useState<Peca>('caneca')
+  // O seletor só existe se houver WebGL: sem ele o slot cai num plano em
+  // DOM que é sempre a caneca (ver BrindeSlot.tsx), e oferecer três opções
+  // que devolvem a mesma figura seria prometer uma escolha que não existe.
+  // `null` até o efeito rodar, mesma disciplina do slot.
+  const [temWebgl, setTemWebgl] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (aberto && temWebgl === null) setTemWebgl(hasWebGL())
+  }, [aberto, temWebgl])
   const idTitulo = useId()
   const idDescricao = useId()
 
@@ -164,13 +174,50 @@ export function BrindeModal({ dict }: { dict: Dictionary }) {
               `<dialog>` fechado: é ISTO que garante que ninguém busca o
               chunk de three.js sem clicar — ver o cabeçalho do arquivo. */}
           <div className="aspect-[4/3] w-full overflow-hidden rounded-md border border-border bg-surface-2">
-            {aberto && <CanecaSlot corMarca={corMarca} nomeMarca={nomeExibido} />}
+            {aberto && <BrindeSlot peca={peca} corMarca={corMarca} nomeMarca={nomeExibido} />}
           </div>
           {/* A legenda em DOM real — o canvas WebGL acima é decoração
               (`aria-hidden`, ver `Caneca.tsx`), então é esta linha, e não a
               cena, que carrega a informação "qual marca está sendo
               mostrada" para quem usa leitor de tela. */}
-          <p className="text-[17px] text-muted">{brinde.legenda.replace('{marca}', nomeExibido)}</p>
+          <p className="text-[17px] text-muted">
+            {brinde.legenda.replace('{peca}', brinde.pecas[peca]).replace('{marca}', nomeExibido)}
+          </p>
+
+          {/* O SELETOR DE PEÇA. `radiogroup` de verdade, com `<input
+              type="radio">` reais escondidos visualmente mas não do leitor
+              de tela: é o controle nativo que já dá navegação por setas,
+              anúncio de "1 de 3" e o estado marcado — coisas que um punhado
+              de `<button aria-pressed>` teria que reimplementar pior.
+
+              Escondido sem WebGL: ver o comentário do estado `temWebgl`. */}
+          {temWebgl ? (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="text-[17px] text-text">{brinde.rotuloPeca}</legend>
+              <div className="flex flex-wrap gap-2">
+                {PECAS.map((chave) => (
+                  <label
+                    key={chave}
+                    className={`inline-flex min-h-12 cursor-pointer items-center rounded-md border px-4 text-[17px] transition-opacity hover:opacity-80 ${
+                      peca === chave
+                        ? 'border-data text-text'
+                        : 'border-border text-muted'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="brinde-peca"
+                      value={chave}
+                      checked={peca === chave}
+                      onChange={() => setPeca(chave)}
+                      className="sr-only"
+                    />
+                    {brinde.pecas[chave]}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-[17px] text-text">

@@ -129,7 +129,11 @@ const PALA = {
  * mostrou começar a apertar.
  */
 const ANGULO_REPOUSO_BASE = -Math.PI / 2
-const ANGULO_REPOUSO_DESVIO = 0.12
+/** Desvio menor que o original (0,12): aquele número foi calibrado com a
+ *  faixa na coroa, onde a superfície aponta para cima e o desvio quase não
+ *  custava leitura. Com a faixa no painel frontal, todo grau de desvio sai
+ *  direto do arco legível do nome. */
+const ANGULO_REPOUSO_DESVIO = 0.06
 const OSCILACAO = { amplitude: 0.1, periodoS: 7 }
 
 /** Mesmo hook de `Caneca.tsx`/`Ecobag.tsx`, duplicado pelo mesmo motivo. */

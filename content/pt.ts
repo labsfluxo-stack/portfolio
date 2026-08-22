@@ -849,7 +849,9 @@ export const pt: Dictionary = {
       rotuloNome: 'Nome da marca',
       nomePadrao: 'Sua Marca',
       fechar: 'Fechar',
-      legenda: 'Caneca com a marca “{marca}”.',
+      legenda: '{peca} com a marca “{marca}”.',
+      rotuloPeca: 'Peça',
+      pecas: { caneca: 'Caneca', ecobag: 'Ecobag', bone: 'Boné' },
       semWebgl:
         'Seu navegador não roda a pré-visualização em 3D — a marca abaixo já é a que sai impressa.',
     },

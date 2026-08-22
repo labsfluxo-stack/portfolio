@@ -620,7 +620,19 @@ export type Dictionary = {
        *  digitado — mesma convenção de `{producao}`/`{acertos}`/`{reacao}`
        *  em outras chaves deste dicionário: nenhum dado do visitante entra
        *  no dicionário, só o molde da frase. */
+      /** Legenda em DOM real da pré-visualização. Carrega `{peca}` (o nome
+       *  da peça escolhida, de `pecas` abaixo) e `{marca}`. Antes dizia
+       *  "Caneca" fixo, o que passou a mentir quando o modal ganhou ecobag
+       *  e boné — e mentia justamente para quem depende dela, que é quem usa
+       *  leitor de tela: o canvas é `aria-hidden`, então esta linha é a
+       *  única fonte de "o que está sendo mostrado". */
       legenda: string
+      /** Rótulo do grupo que escolhe a peça. */
+      rotuloPeca: string
+      /** Nome de cada peça. As chaves são as mesmas de `PECAS` em
+       *  `BrindeSlot.tsx` — um identificador só para as duas coisas, para
+       *  não existir tradução de identificador em lugar nenhum. */
+      pecas: { caneca: string; ecobag: string; bone: string }
       /** Exibida no lugar da cena 3D quando `hasWebGL()` (`CanecaSlot.tsx`)
        *  devolve falso — nunca um modal vazio. */
       semWebgl: string

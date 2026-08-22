@@ -42,18 +42,40 @@ const GOMOS = 6
 
 /** Onde a faixa da marca vive, em fração da ALTURA da textura (V=0 topo da
  *  copa/botão, V=1 aba/base — ver a derivação completa em `Bone.tsx`,
- *  comentário de `ANGULO_REPOUSO_BASE`). Nem perto do botão (gomos convergem
- *  ali, ficaria espremido) nem perto da aba (onde a copa já começa a curvar
- *  para longe da câmera) — a mesma lógica do "meio do corpo" que rege
- *  `FAIXA_Y0`/`FAIXA_Y1` da caneca, adaptada à proporção de um boné real,
- *  cujo bordado fica no painel frontal, não na copa inteira. */
-const FAIXA_Y0 = 0.32
-const FAIXA_Y1 = 0.5
+ *  comentário de `ANGULO_REPOUSO_BASE`).
+ *
+ *  BAIXO NA COPA, NÃO NO MEIO DELA.
+ *
+ *  A conta, para não errar o sinal de novo. `SphereGeometry` emite
+ *  `uv.y = 1 − v` com `theta = v · thetaLength`, e `CanvasTexture` nasce com
+ *  `flipY`, então `uv.y = 1` amostra o TOPO do canvas. Compondo: uma fração
+ *  `f` medida do topo da textura cai em `theta = f · THETA_COPA`. Ou seja
+ *  `f` cresce JUNTO com a distância ao polo — fração pequena é a coroa,
+ *  fração grande é a borda.
+ *
+ *  A primeira versão usava 0,32–0,50, o raciocínio do "meio do corpo" da
+ *  caneca transplantado — e cilindro e esfera não se comportam igual: num
+ *  cilindro toda a altura encara a câmera na mesma medida, numa calota a
+ *  latitude decide para ONDE a superfície aponta. 0,32–0,50 dá 33°–52° do
+ *  polo: a COROA, virada para cima. Numa captura do modal a marca aparecia
+ *  como um borrão laranja no alto da cúpula.
+ *
+ *  0,70–0,90 dá 73°–94°, que é o painel frontal — a faixa mais larga da
+ *  calota, logo acima da pala, e a única latitude que encara de frente quem
+ *  olha na horizontal. É onde o bordado de um boné de verdade fica.
+ */
+const FAIXA_Y0 = 0.7
+const FAIXA_Y1 = 0.9
 
 /** Largura da faixa impressa, em fração da CIRCUNFERÊNCIA (equivalente a
  *  `FAIXA_LARGURA` da caneca) — ver `Bone.tsx` para o cálculo do arco
  *  legível que este número tem de respeitar. */
-export const FAIXA_LARGURA = 0.3
+/** ESTREITA. Em 0,30 a faixa ocupa 108° da circunferência, então mesmo
+ *  centrada as pontas do nome caem a ±54° da frente, onde a superfície já
+ *  se afasta o bastante para comprimir as letras — numa captura do modal
+ *  "Eventos" chegava espremido na borda. 0,24 traz as pontas para ±43°, e a
+ *  perda de tamanho da fonte compra mais do que devolve em legibilidade. */
+export const FAIXA_LARGURA = 0.24
 
 export type Medidor = (fonte: string, texto: string) => number
 

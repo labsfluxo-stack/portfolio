@@ -23,6 +23,16 @@ import { CanecaFallback } from './CanecaFallback'
  * carregamento — não há "carregamento" com que competir.
  */
 const Caneca = dynamic(() => import('./Caneca').then((mod) => mod.Caneca), { ssr: false })
+const Ecobag = dynamic(() => import('./Ecobag').then((mod) => mod.Ecobag), { ssr: false })
+const Bone = dynamic(() => import('./Bone').then((mod) => mod.Bone), { ssr: false })
+
+/** As peças do brinde. O valor é a chave no dicionário e o identificador
+ *  no seletor do modal — um só nome para as duas coisas, para não existir
+ *  tradução de identificador em lugar nenhum. */
+export const PECAS = ['caneca', 'ecobag', 'bone'] as const
+export type Peca = (typeof PECAS)[number]
+
+const CENAS: Record<Peca, typeof Caneca> = { caneca: Caneca, ecobag: Ecobag, bone: Bone }
 
 /** Não confiar em user-agent: pede o contexto e vê o que volta — a mesma
  *  técnica de `hasWebGL()` em `PorticoSlot.tsx`, reescrita aqui (e não
@@ -37,7 +47,15 @@ export function hasWebGL(): boolean {
   }
 }
 
-export function CanecaSlot({ corMarca, nomeMarca }: { corMarca: string; nomeMarca: string }) {
+export function BrindeSlot({
+  peca,
+  corMarca,
+  nomeMarca,
+}: {
+  peca: Peca
+  corMarca: string
+  nomeMarca: string
+}) {
   // `null` inicial, não `false`: o estado de repouso antes do efeito rodar
   // não pode depender de uma API só-de-navegador (mesma regra que rege
   // `PorticoSlot` e, antes dele, `Counter.tsx`) — mas como este componente
@@ -52,9 +70,15 @@ export function CanecaSlot({ corMarca, nomeMarca }: { corMarca: string; nomeMarc
   }, [])
 
   if (suportado === null) return null
-  return suportado ? (
-    <Caneca corMarca={corMarca} nomeMarca={nomeMarca} />
-  ) : (
-    <CanecaFallback corMarca={corMarca} nomeMarca={nomeMarca} />
-  )
+  if (!suportado) {
+    // SEM WEBGL, UMA PEÇA SÓ, e é a caneca. O plano em DOM existe para o
+    // modal nunca ficar vazio; desenhar três versões planas seria triplicar
+    // um caminho de exceção que quase ninguém percorre. Quem cai aqui não vê
+    // o seletor (`BrindeModal.tsx` o esconde), então não há promessa de
+    // escolha sendo quebrada — o que apareceria seria uma caneca rotulada
+    // como boné, que é pior do que não escolher.
+    return <CanecaFallback corMarca={corMarca} nomeMarca={nomeMarca} />
+  }
+  const Cena = CENAS[peca]
+  return <Cena corMarca={corMarca} nomeMarca={nomeMarca} />
 }

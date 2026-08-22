@@ -62,23 +62,28 @@ const TECIDO = { roughness: 0.86, metalness: 0 }
  * aqui, o formato correto, não uma versão incompleta do formato certo.
  *
  * Os dois pontos de ancoragem de cada alça ficam em Z OPOSTOS (uma perto da
- * frente, outra perto das costas), não lado a lado na mesma face. É a
- * mesma alça de uma ecobag real: a fita cruza por CIMA da abertura, presa
- * na frente de um lado e nas costas do outro — por isso o arco, visto de
- * três quartos, mostra profundidade em vez de ficar achatado contra o
- * painel frontal (mais uma defesa contra o "flat card" que o brief avisa).
+ * NO PLANO DO PAINEL, NÃO ATRAVESSANDO A PROFUNDIDADE.
+ *
+ * A primeira versão ancorava cada alça com um pé na frente e o outro nas
+ * costas, cruzando por cima da abertura. A intenção era mostrar
+ * profundidade, mas um arco que anda em Z projeta como uma LINHA quando
+ * visto de frente: numa captura do modal as duas alças apareciam como dois
+ * toquinhos verticais, e a peça lia como uma caixa branca com antenas.
+ *
+ * Ecobag de verdade tem DUAS alças, uma costurada no painel da frente e
+ * outra no de trás, e cada uma arca na LARGURA — os dois pés na mesma face,
+ * separados em X. É esse arco, e o vão de luz debaixo dele, que diz "isto
+ * se pendura no ombro".
  */
 const ALCA = {
-  /** Deslocamento em X do centro de cada alça a partir do meio do corpo. */
-  centroX: 0.16,
-  /** Distância entre os dois pontos de ancoragem de UMA alça, na base. */
-  vao: 0.1,
-  /** Quanto o ponto de ancoragem afunda abaixo da borda de cima — o
-   *  suficiente para a alça parecer costurada, não pousada em cima. */
+  /** Metade da distância entre os dois pés de uma alça, em X. */
+  vao: 0.3,
+  /** Quanto o pé afunda abaixo da borda de cima — o suficiente para a alça
+   *  parecer costurada, não pousada em cima. */
   enterrado: 0.015,
   /** Altura do topo do arco acima da borda de cima do corpo. */
-  altura: 0.17,
-  raioTubo: 0.02,
+  altura: 0.2,
+  raioTubo: 0.019,
 }
 
 /**
@@ -139,8 +144,8 @@ function Corpo({ corMarca, nomeMarca }: { corMarca: string; nomeMarca: string })
   // As curvas das duas alças. `useMemo` com `[]`: os pontos de controle são
   // constantes (`ALCA`), então a curva não precisa ser recalculada a cada
   // troca de cor ou nome — só a textura do painel frontal muda com isso.
-  const curvaAlcaEsquerda = useMemo(() => construirCurvaAlca(-ALCA.centroX), [])
-  const curvaAlcaDireita = useMemo(() => construirCurvaAlca(ALCA.centroX), [])
+  const curvaAlcaFrente = useMemo(() => construirCurvaAlca(PROFUNDIDADE * 0.34), [])
+  const curvaAlcaCostas = useMemo(() => construirCurvaAlca(-PROFUNDIDADE * 0.34), [])
 
   // Ângulo ABSOLUTO a cada quadro, nunca `+=` — mesma razão de `Caneca.tsx`:
   // o acumulado dependeria de todo `delta` anterior, e uma aba em segundo
@@ -173,11 +178,11 @@ function Corpo({ corMarca, nomeMarca }: { corMarca: string; nomeMarca: string })
 
       {/* As duas alças. */}
       <mesh castShadow>
-        <tubeGeometry args={[curvaAlcaEsquerda, 48, ALCA.raioTubo, 10, false]} />
+        <tubeGeometry args={[curvaAlcaFrente, 48, ALCA.raioTubo, 10, false]} />
         <meshStandardMaterial color={COR_LONA} {...TECIDO} />
       </mesh>
       <mesh castShadow>
-        <tubeGeometry args={[curvaAlcaDireita, 48, ALCA.raioTubo, 10, false]} />
+        <tubeGeometry args={[curvaAlcaCostas, 48, ALCA.raioTubo, 10, false]} />
         <meshStandardMaterial color={COR_LONA} {...TECIDO} />
       </mesh>
     </group>
@@ -185,20 +190,19 @@ function Corpo({ corMarca, nomeMarca }: { corMarca: string; nomeMarca: string })
 }
 
 /**
- * Os cinco pontos de controle de UMA alça, centrada em `centroX`. Ver o
- * comentário de `ALCA` para o porquê da ancoragem em Z opostos (frente e
- * costas) em vez de lado a lado.
+ * Os cinco pontos de controle de UMA alça, na face `z`. O arco anda em X e
+ * Y e mantém Z constante — ver o comentário de `ALCA` para por que a versão
+ * anterior, que andava em Z, virava uma linha vista de frente.
  */
-function construirCurvaAlca(centroX: number): THREE.CatmullRomCurve3 {
+function construirCurvaAlca(z: number): THREE.CatmullRomCurve3 {
   const topoY = ALTURA / 2
-  const frenteZ = PROFUNDIDADE * 0.4
   const vaoX = ALCA.vao / 2
   return new THREE.CatmullRomCurve3([
-    new THREE.Vector3(centroX - vaoX, topoY - ALCA.enterrado, frenteZ),
-    new THREE.Vector3(centroX - vaoX * 0.6, topoY + ALCA.altura * 0.75, frenteZ * 0.4),
-    new THREE.Vector3(centroX, topoY + ALCA.altura, 0),
-    new THREE.Vector3(centroX + vaoX * 0.6, topoY + ALCA.altura * 0.75, -frenteZ * 0.4),
-    new THREE.Vector3(centroX + vaoX, topoY - ALCA.enterrado, -frenteZ),
+    new THREE.Vector3(-vaoX, topoY - ALCA.enterrado, z),
+    new THREE.Vector3(-vaoX * 0.82, topoY + ALCA.altura * 0.66, z),
+    new THREE.Vector3(0, topoY + ALCA.altura, z),
+    new THREE.Vector3(vaoX * 0.82, topoY + ALCA.altura * 0.66, z),
+    new THREE.Vector3(vaoX, topoY - ALCA.enterrado, z),
   ])
 }
 
