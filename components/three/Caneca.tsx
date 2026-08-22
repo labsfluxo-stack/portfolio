@@ -28,9 +28,27 @@ const RAIO = 0.42
 const ALTURA = 0.92
 const SEGMENTOS = 56
 
-/** A alça: raio maior do laço, raio do tubo, e o arco em radianos — menor
- *  que 2π de propósito, para sobrar a abertura que embutimos no corpo. */
-const ALCA = { raioMaior: 0.32, raioTubo: 0.068, arco: Math.PI * 1.62 }
+/**
+ * A alça: raio do laço, raio do tubo, quanto o laço é esticado na vertical,
+ * e quanto dele fica ENTERRADO na parede do corpo.
+ *
+ * TORO INTEIRO, não mais um arco de 1,62π. O arco parcial existia para
+ * "sobrar a abertura que embutimos no corpo", mas isso deixava duas pontas
+ * cortadas que apareciam sempre que a abertura não caísse exatamente contra
+ * a parede. Um laço fechado, com um pedaço dentro do cilindro opaco, resolve
+ * a mesma coisa sem ponta nenhuma para orientar errado.
+ *
+ * O laço também era grande demais e mal posicionado: raio 0,32 centrado em
+ * x≈0,444 punha o anel entre x=0,056 e x=0,832 contra uma parede em
+ * `RAIO`=0,42 — quase metade do laço enterrada, e o que sobrava de fora lia
+ * como um coto grudado, não como alça.
+ *
+ * `esticoY` existe porque um toro tem o laço CIRCULAR: alto e fundo na mesma
+ * medida. Alça de caneca de verdade é mais alta do que é funda, então o laço
+ * é esticado na vertical — sem isso, ou a alça fica baixa demais para o dedo,
+ * ou funda demais para a caneca.
+ */
+const ALCA = { raioMaior: 0.17, raioTubo: 0.055, esticoY: 1.5, enterrado: 0.05 }
 
 /**
  * A caneca OSCILA, não dá a volta.
@@ -152,18 +170,21 @@ function Corpo({ corMarca, nomeMarca }: { corMarca: string; nomeMarca: string })
         />
       </mesh>
 
-      {/* A alça: um toro parcial (arco < 2π) alinhado para que o EIXO DO
-          FURO aponte na direção radial (X) — é a orientação em que, olhando
-          da lateral da caneca, o laço aparece de perfil, exatamente como
-          uma alça de verdade. Partindo do toro padrão do three.js (furo no
-          eixo Z, laço no plano XY), a rotação em Y de 90° troca o eixo do
-          furo de Z para X. */}
+      {/* A alça. O toro padrão do three.js já nasce com o laço no plano XY e
+          o furo no eixo Z — que é exatamente a orientação de uma alça, já que
+          o corpo é um cilindro de eixo Y. A versão anterior girava a malha em
+          X e em Y (90° cada), o que tirava o laço do plano que contém o eixo
+          da caneca: a alça deixava de ser vista de perfil e virava uma foice
+          atravessada. Aqui não há rotação nenhuma, de propósito.
+
+          O X posiciona o laço de forma que só `ALCA.enterrado` entre na
+          parede; o resto fica de fora, que é o que faz o dedo caber. */}
       <mesh
         castShadow
-        position={[RAIO + ALCA.raioTubo * 0.35, 0, 0]}
-        rotation={[Math.PI / 2, Math.PI / 2, 0]}
+        position={[RAIO - ALCA.enterrado + ALCA.raioMaior + ALCA.raioTubo, 0, 0]}
+        scale={[1, ALCA.esticoY, 1]}
       >
-        <torusGeometry args={[ALCA.raioMaior, ALCA.raioTubo, 14, 48, ALCA.arco]} />
+        <torusGeometry args={[ALCA.raioMaior, ALCA.raioTubo, 16, 64]} />
         <meshPhysicalMaterial
           color={COR_CERAMICA}
           roughness={0.24}
