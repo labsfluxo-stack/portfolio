@@ -563,6 +563,27 @@ function desenharEstampaBandeira(
   pincel.restore()
 }
 
+/**
+ * O sprite de UMA bandeirinha — silhueta, aba dobrada e estampa de chita.
+ *
+ * EXPORTADO para o cenário 3D (`components/three/Arraial.tsx`) usar a MESMA
+ * arte como textura das bandeiras da cena. Sem isso existiriam duas
+ * bandeirinhas no projeto, desenhadas por código diferente, e a do 3D
+ * ficaria para trás a cada ajuste feito nesta — que é exatamente o tipo de
+ * divergência que os comentários deste arquivo passam o tempo todo
+ * tentando evitar.
+ */
+export function rasterizarBandeiraPublica(
+  larguraPx: number,
+  indice: number,
+  dpr: number,
+): HTMLCanvasElement | null {
+  const cor = CORES_BANDEIRINHA[indice % CORES_BANDEIRINHA.length]!
+  const estampa = ESTAMPAS_BANDEIRA[indice % ESTAMPAS_BANDEIRA.length]!
+  const tinta = CORES_BANDEIRINHA[(indice + 3) % CORES_BANDEIRINHA.length]!
+  return rasterizarBandeira(larguraPx, cor, estampa, tinta, dpr)
+}
+
 function rasterizarBandeira(
   larguraPx: number,
   cor: string,

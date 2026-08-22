@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { Dictionary, Locale } from '@/content/types'
 import { BotaoWhatsapp } from '@/components/landing/Botao'
 import { BrindeModal } from './BrindeModal'
+import { ArraialSlot } from '@/components/three/ArraialSlot'
 import {
   acertarAlvoAtivo,
   alvoAtivo,
@@ -213,6 +214,24 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
   // e cada quadro voltaria a passar pelo React.
   const reiniciarRef = useRef<(() => void) | null>(null)
   const [placar, setPlacar] = useState({ acertos: 0, reacao: 0, sequencia: 0, melhorSequencia: 0 })
+  /**
+   * O cenário 3D assumiu o fundo?
+   *
+   * Quando sim, o canvas do jogo para de PINTAR o fundo e passa a LIMPAR o
+   * quadro, para a cena atrás dele aparecer. Quando não — sem WebGL, ou antes
+   * de o chunk carregar — o fundo em canvas continua exatamente como era. Os
+   * dois caminhos desenham o mesmo arraial; o 3D só o desenha com perspectiva
+   * e luz de verdade.
+   *
+   * Em ref ALÉM de estado porque o laço de desenho vive dentro de um efeito
+   * que não pode reiniciar só porque o fundo trocou de dono: recriar o laço
+   * perderia a partida em andamento.
+   */
+  const [cenario3d, setCenario3d] = useState(false)
+  const cenario3dRef = useRef(false)
+  useEffect(() => {
+    cenario3dRef.current = cenario3d
+  }, [cenario3d])
   const [fase, setFase] = useState<Fase>('atrativo')
   // Id estável para ligar o `aria-describedby` do canvas ao parágrafo de
   // instrução (job 3) — `useId`, não uma string fixa, porque nada impede
@@ -386,7 +405,15 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
       // quadro inteiro de novo.
       pincel.fillStyle = COR_FUNDO
       pincel.fillRect(0, 0, largura, altura)
-      TEMA_ATIVO.desenharFundo(pincel, largura, altura, agora, menosMovimento)
+      if (cenario3dRef.current) {
+        // O cenário 3D está atrás: o canvas do jogo precisa ficar
+        // TRANSPARENTE, senão ele pinta por cima da cena inteira. `clearRect`
+        // e não um preenchimento translúcido — meio-tom aqui escureceria o
+        // arraial a cada quadro até ele sumir.
+        pincel.clearRect(0, 0, largura, altura)
+      } else {
+        TEMA_ATIVO.desenharFundo(pincel, largura, altura, agora, menosMovimento)
+      }
 
       const menorLado = Math.min(largura, altura)
 
@@ -806,6 +833,11 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
 
   return (
     <section className="relative isolate overflow-hidden border-b border-border">
+      {/* O ARRAIAL EM 3D, atrás do canvas do jogo (`-z-20` contra `-z-10`).
+        * É cenário: os alvos, o estouro e o relógio seguem no canvas 2D por
+        * cima. Ver o cabeçalho de `Arraial.tsx` para por que o jogo não vai
+        * junto para o 3D. */}
+      <ArraialSlot aoDecidir={setCenario3d} />
       {/* O canvas é fundo absoluto; o conteúdo vem por cima em fluxo normal.
         *
         * `touch-manipulation`, NÃO `touch-none`. `touch-action: none` entrega
@@ -838,7 +870,9 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
         tabIndex={0}
         aria-label={capa.acessibilidade.rotulo}
         aria-describedby={instrucaoId}
-        className="jogo-canvas absolute inset-0 -z-10 h-full w-full touch-manipulation bg-bg"
+        className={`jogo-canvas absolute inset-0 -z-10 h-full w-full touch-manipulation ${
+          cenario3d ? '' : 'bg-bg'
+        }`}
       />
       {/* `sr-only`: instrução curta para quem usa leitor de tela ou navega só
         * por teclado. Visível para tecnologia assistiva, invisível na tela —

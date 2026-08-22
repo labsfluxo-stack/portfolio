@@ -118,7 +118,7 @@ test('taxa de quadros da dobra de ativações com CPU 4x (tema junino)', async (
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 })
 
   await page.goto('/pt/ativacoes/')
-  const canvas = page.locator('canvas')
+  const canvas = page.locator('canvas.jogo-canvas')
   await expect(canvas).toBeVisible({ timeout: 30_000 })
 
   // Aquecimento: os primeiros quadros rasterizam o sprite do balão e o das

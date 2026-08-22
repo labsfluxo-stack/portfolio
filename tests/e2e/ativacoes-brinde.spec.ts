@@ -23,7 +23,7 @@ import { test, expect, type Page } from '@playwright/test'
  *  `ativacoes.spec.ts`. Devolve o `locator` do botão que abre o modal. */
 async function chegarAoFimEAbrirBotaoDoBrinde(page: Page) {
   await page.goto('/pt/ativacoes/')
-  const dobra = await page.locator('canvas').boundingBox()
+  const dobra = await page.locator('canvas.jogo-canvas').boundingBox()
   expect(dobra, 'não achou o canvas da capa').not.toBeNull()
 
   // JOGA DE VERDADE, pelo TECLADO. Antes bastava um clique no meio do
@@ -36,7 +36,7 @@ async function chegarAoFimEAbrirBotaoDoBrinde(page: Page) {
   // depende de achar o alvo por diferença de quadros, que é a técnica
   // frágil que `ativacoes.spec.ts` precisa usar para provar o PONTEIRO.
   // Aqui o ponteiro não é o assunto; o modal é.
-  await page.locator('canvas').focus()
+  await page.locator('canvas.jogo-canvas').focus()
   await page.keyboard.press('Space')
   const ate = Date.now() + 16_000
   while (Date.now() < ate) {
@@ -63,7 +63,7 @@ async function chegarAoFimEAbrirBotaoDoBrinde(page: Page) {
 test('quem não fecha a sequência não ganha o brinde', async ({ page }) => {
   test.setTimeout(40_000)
   await page.goto('/pt/ativacoes/')
-  const dobra = await page.locator('canvas').boundingBox()
+  const dobra = await page.locator('canvas.jogo-canvas').boundingBox()
   expect(dobra, 'não achou o canvas da capa').not.toBeNull()
 
   // UM clique, no meio, e depois nada: começa a partida (sai do modo

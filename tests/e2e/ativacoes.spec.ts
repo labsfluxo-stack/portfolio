@@ -336,7 +336,7 @@ test('um clique marca ponto no celular — a dobra é jogável de verdade', asyn
   // O clique cai no MEIO da dobra, onde moram o `<h1>` e o subtítulo — não
   // numa calha lateral. É onde um visitante de celular toca de verdade, e a
   // 390px é o único lugar que existe: o conteúdo cobre a dobra inteira.
-  const dobra = await page.locator('canvas').boundingBox()
+  const dobra = await page.locator('canvas.jogo-canvas').boundingBox()
   expect(dobra, 'não achou o canvas da capa').not.toBeNull()
   await page.mouse.click(dobra!.x + dobra!.width / 2, dobra!.y + dobra!.height / 2)
 
@@ -439,7 +439,7 @@ test('no fim da partida o resultado é DOM, e dá para jogar de novo', async ({ 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/pt/ativacoes/')
 
-  const dobra = await page.locator('canvas').boundingBox()
+  const dobra = await page.locator('canvas.jogo-canvas').boundingBox()
   expect(dobra, 'não achou o canvas da capa').not.toBeNull()
   await page.mouse.click(dobra!.x + dobra!.width / 2, dobra!.y + dobra!.height / 2)
 
@@ -515,7 +515,7 @@ test('nenhum alvo nasce sob um bloco de DOM que intercepta o clique', async ({ p
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/pt/ativacoes/')
 
-  const canvas = page.locator('canvas')
+  const canvas = page.locator('canvas.jogo-canvas')
   await expect(canvas).toBeVisible()
   // Prova de que o teste testou alguma coisa: sem isto, uma página que nunca
   // marcasse zona nenhuma passaria pela razão errada.
