@@ -266,14 +266,45 @@ const NEUTRO_ESCURO_BORDA = '#120D09'
  * DOBRO dos ~9 pontos que a configuração antiga tinha entre dourado
  * borda-adjacente (~77) e vermelho central (~86). Ver o relatório da tarefa
  * para a tabela completa de candidatos testados.
+ *
+ * POR QUE ISSO TUDO DEU 9 E POR QUE 9 ESTAVA ERRADO (2026-08-21). Subir o
+ * expoente de 5 para 9 nao "escurece os nao-centrais com mais folga": deixa
+ * o penhasco mais ingreme, e `frontalidade ** 9` some para qualquer gomo que
+ * nao esteja quase de frente. Na pratica quatro dos seis gomos ficavam ~75%
+ * misturados no neutro, e dourado #FFB020 chegava a tela como oliva, azul
+ * #38BDF8 como petroleo. O commit que fez isso se chamava "balao le vivido,
+ * nao mais mancha de sombra"; ele aprofundou exatamente a mancha que dizia
+ * remover.
+ *
+ * A medicao nao pegou porque media a coisa errada. Classificar cada pixel
+ * pelo stop DECLARADO mais proximo descreve o FORMATO do gradiente, nao a
+ * cor que chega na tela: o escurecimento e aplicado aos tres stops, entao um
+ * pixel pode estar coladinho no stop `base` enquanto o proprio `base` ja foi
+ * misturado 75% em marrom. "Meio a meio entre sombra e base" e um numero
+ * saudavel num balao lavado e num balao vivido igualmente -- ele nao
+ * distingue os dois casos, que e justamente o que se queria saber.
+ *
+ * Havia um sintoma independente apontando para ca e ele foi lido como
+ * problema de teste: `acharAlvoEmZonaProibida` (tests/e2e/ativacoes.spec.ts)
+ * parou de conseguir achar alvo nenhum porque o #FFB020 renderizado media
+ * rgb(64,44,13). Aquilo nao era um detector mal calibrado. Era a arte sendo
+ * esmagada, medida em pixel, por um teste que estava certo.
+ *
+ * O criterio que vale daqui pra frente e OLHAR: a peca isolada em varios
+ * tamanhos E a cena inteira no raio de jogo, sobre o fundo real. Nenhum
+ * agregado de pixel classificado por proximidade de stop substitui isso.
  */
-const EXPOENTE_FRONTALIDADE = 9
+const EXPOENTE_FRONTALIDADE = 2.2
 /** Fração de mistura no ponto mais escuro (`frontalidade→0`). Não é 1
  *  (misturaria até o neutro puro) — sobra um pouco da cor original mesmo no
  *  limite, pra nenhum gomo virar uma silhueta lisa sem matiz nenhum. Descido
  *  de 0,85 pra 0,75 na rodada de densidade — ver o comentário de
  *  `EXPOENTE_FRONTALIDADE` acima para a medição completa. */
-const FATOR_ESCURECIMENTO_BORDA = 0.75
+const FATOR_ESCURECIMENTO_BORDA = 0.32
+/** Quanto a borda ACENDE — ver `calorBorda` em `gradienteGomo`. */
+const CALOR_BORDA = 0.3
+/** O ambar do papel aceso por tras. Nunca branco: branco leria plastico. */
+const AMBAR_TRANSLUCIDO = '#FFC061'
 /** Onde o platô do stop `base` COMEÇA e TERMINA, fração da altura do corpo
  *  (nó=0, bico=1). Era um único ponto (55%) — um gradiente contínuo de
  *  sombra a destaque passando por UM instante de cor pura. Virou uma faixa
@@ -309,9 +340,24 @@ function gradienteGomo(
 ): CanvasGradient {
   const gradiente = pincel.createLinearGradient(0, 0, 0, ALTURA_CORPO)
   const escurecimento = (1 - frontalidade ** EXPOENTE_FRONTALIDADE) * FATOR_ESCURECIMENTO_BORDA
-  const sombraAjustada = misturar(familia.sombra, NEUTRO_ESCURO_BORDA, escurecimento)
-  const baseAjustada = misturar(familia.base, NEUTRO_ESCURO_BORDA, escurecimento)
-  const destaqueAjustado = misturar(familia.destaque, NEUTRO_ESCURO_BORDA, escurecimento)
+  // LUZ de borda, nao SOMBRA de borda.
+  //
+  // O balao lia como lama, e a causa era aritmetica. Com expoente 9,
+  // `frontalidade ** 9` some para qualquer gomo que nao esteja quase de
+  // frente: quatro dos seis ficavam ~75% misturados no neutro escuro, e as
+  // cores-base (dourado #FFB020, azul #38BDF8) chegavam a tela como oliva e
+  // petroleo. Nunca foi paleta ruim -- a paleta nao chegava a tela.
+  //
+  // O sinal tambem estava invertido. Escurecer a silhueta e sombreamento de
+  // fundo CLARO; sobre #08090C ele dissolve o balao no ceu. Papel com fogo
+  // dentro faz o contrario: a borda que se afasta fica FINA e acende por
+  // transparencia. Dai o gomo de borda ganhar calor em vez de perder luz.
+  const calorBorda = (1 - frontalidade) ** 1.6 * CALOR_BORDA
+  const q = (cor: string): string =>
+    misturar(misturar(cor, NEUTRO_ESCURO_BORDA, escurecimento), AMBAR_TRANSLUCIDO, calorBorda)
+  const sombraAjustada = q(familia.sombra)
+  const baseAjustada = q(familia.base)
+  const destaqueAjustado = q(familia.destaque)
   gradiente.addColorStop(0, sombraAjustada)
   gradiente.addColorStop(PONTO_BASE_INICIO, baseAjustada)
   // Mesmo stop de cor, um segundo ponto mais adiante — é o que abre o platô
@@ -445,6 +491,25 @@ function rasterizarBalao(dpr: number): HTMLCanvasElement | null {
   for (let i = 0; i <= N_GOMOS; i++) {
     pincel.stroke(new Path2D(`M 0 0 Q ${2 * SELOS[i]!} ${CY_CONTROLE} 0 ${ALTURA_CORPO}`))
   }
+
+  // LUZ DE DENTRO. O brilho de cima e desenhado ANTES dos gomos, entao eles o
+  // cobrem por inteiro e ele so aparece FORA do corpo: aquilo e auroela, nunca
+  // luz interna. Este aqui e recortado na silhueta e SOMADO por cima -- e o
+  // que faz o papel acender, que e a coisa mais caracteristica de um balao
+  // junino e, sobre fundo escuro, o que separa o balao do ceu.
+  pincel.save()
+  pincel.clip(new Path2D(caminhoGomo(SELOS[0]!, SELOS[N_GOMOS]!)))
+  pincel.globalCompositeOperation = 'lighter'
+  const luz = pincel.createRadialGradient(
+    0, ALTURA_CORPO * 0.86, 0,
+    0, ALTURA_CORPO * 0.86, ALTURA_CORPO * 0.62,
+  )
+  luz.addColorStop(0, 'rgba(255, 184, 100, 0.55)')
+  luz.addColorStop(0.45, 'rgba(255, 146, 64, 0.22)')
+  luz.addColorStop(1, 'rgba(255, 120, 40, 0)')
+  pincel.fillStyle = luz
+  pincel.fillRect(-LARGURA_CORPO, -ALTURA_CORPO, LARGURA_CORPO * 2, ALTURA_CORPO * 2.4)
+  pincel.restore()
 
   // Nó do topo: o gomo mais longe do brilho, sem gradiente — é o ponto mais
   // em sombra do balão inteiro, e é ele (não uma cúpula lisa) que diz
