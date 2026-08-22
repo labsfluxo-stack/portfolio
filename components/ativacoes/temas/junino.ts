@@ -937,6 +937,14 @@ function faseBalancoBandeira(indice: number): number {
 }
 
 type ConfigFileiraBandeirinha = {
+  /**
+   * Quanto a fileira RECUA. Não é enfeite de opacidade: é perspectiva
+   * atmosférica. A bandeirinha é cenário parado e distante; o balão é o
+   * jogo, aceso e perto. Com as duas em saturação cheia a decoração vencia
+   * o objeto interativo, que é a hierarquia exatamente invertida — o que
+   * grita na tela deve ser aquilo em que se clica.
+   */
+  opacidade: number
   /** Fração da altura do canvas onde o fio (sem vão) fica. */
   fracaoAlturaFio: number
   /** Quanto o vão do fio cede no meio, fração do passo entre bandeiras. */
@@ -958,6 +966,7 @@ type ConfigFileiraBandeirinha = {
 const LINHA_FRENTE: ConfigFileiraBandeirinha = {
   fracaoAlturaFio: 0.09,
   fracaoSag: 0.14,
+  opacidade: 0.55,
   escala: 1,
   deslocamentoCor: 0,
   deslocamentoIndice: 0,
@@ -965,6 +974,7 @@ const LINHA_FRENTE: ConfigFileiraBandeirinha = {
 const LINHA_FUNDO: ConfigFileiraBandeirinha = {
   fracaoAlturaFio: 0.02,
   fracaoSag: 0.16,
+  opacidade: 0.38,
   escala: 0.62,
   deslocamentoCor: 2,
   deslocamentoIndice: 1000,
@@ -979,7 +989,16 @@ function desenharFileiraBandeirinhas(
   agora: number,
   parado: boolean,
 ): void {
-  const larguraBandeiraFrente = Math.min(34, Math.max(20, largura * 0.05))
+  // A fileira inteira num só `save`/`restore`: recuar bandeira por bandeira
+  // custaria o mesmo e deixaria as sobreposições do vão com alfa dobrado.
+  pincel.save()
+  pincel.globalAlpha = config.opacidade
+  // MENOR que antes (era min 34 / max 20 / 5% da largura). Duas fileiras de
+  // bandeira grande ocupavam o topo inteiro e, somadas, eram o maior objeto
+  // do quadro — maior que os balões, que são o jogo. Bandeirinha pendurada
+  // longe também é pequena no olho: encolher é ao mesmo tempo a correção de
+  // hierarquia e a leitura correta de profundidade.
+  const larguraBandeiraFrente = Math.min(23, Math.max(14, largura * 0.033))
   const larguraBandeira = larguraBandeiraFrente * config.escala
   const alturaBandeira = larguraBandeira * PROPORCAO_BANDEIRA
   // O PASSO usa a largura da PRÓPRIA fileira — é o que preserva a razão de
@@ -1044,6 +1063,7 @@ function desenharFileiraBandeirinhas(
     }
     pincel.restore()
   }
+  pincel.restore()
 }
 
 function desenharBandeirinhas(
@@ -1341,7 +1361,13 @@ function desenharFogueira(
 // deles, e animar um xadrez é a própria régua chamando de "moiré" (§5
 // item 1).
 
-const XADREZ_LARGURA_FRAC = 0.045
+/** Mais estreita que antes (era 0,045). Ver `OPACIDADE_XADREZ`. */
+const XADREZ_LARGURA_FRAC = 0.028
+/** O xadrez recua pelo mesmo motivo da bandeirinha: uma coluna de altura
+ *  inteira, em contraste máximo e quadros de 9px, era o segundo objeto mais
+ *  barulhento do quadro e não se clica nela. Recuada, ela continua dando a
+ *  pista de "toalha junina" sem disputar com o alvo. */
+const OPACIDADE_XADREZ = 0.45
 const XADREZ_QUADRO_PX = 9
 const COR_XADREZ_A = PALETA.elemento
 const COR_XADREZ_B = CORES_BANDEIRINHA[4]
@@ -1389,6 +1415,8 @@ function rasterizarAcentosDireita(larguraPx: number, alturaPx: number, dpr: numb
   const xXadrez = larguraPx - larguraXadrez
   const nColunas = Math.max(1, Math.ceil(larguraXadrez / XADREZ_QUADRO_PX))
   const nLinhas = Math.max(1, Math.ceil(alturaPx / XADREZ_QUADRO_PX))
+  pincel.save()
+  pincel.globalAlpha = OPACIDADE_XADREZ
   for (let linha = 0; linha < nLinhas; linha++) {
     for (let coluna = 0; coluna < nColunas; coluna++) {
       pincel.fillStyle = (linha + coluna) % 2 === 0 ? COR_XADREZ_A : COR_XADREZ_B!
@@ -1400,6 +1428,7 @@ function rasterizarAcentosDireita(larguraPx: number, alturaPx: number, dpr: numb
       )
     }
   }
+  pincel.restore()
 
   // Chapéu: ancorado embaixo-à-direita, à esquerda da tira de xadrez —
   // nunca sobrepõe o QR (que vive dentro da coluna de conteúdo, terminando
