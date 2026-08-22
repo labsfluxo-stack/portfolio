@@ -409,18 +409,30 @@ function pseudoAleatorio01(semente: number): number {
 // já era assim antes, e é o que permite a fileira de trás ceder mais que a
 // de frente sem precisar de dois caminhos de fio guardados.
 
+/**
+ * A bandeirinha: RETÂNGULO com um "V" invertido recortado na base.
+ *
+ * Era um triângulo de ápice para baixo — que é a forma de bandeirola
+ * genérica de festa, não de bandeirinha de São João. A brasileira clássica
+ * é um retângulo de papel de seda (molde tradicional: 10×15cm) com um "V"
+ * recortado embaixo, e é esse recorte, com as duas pontas laterais
+ * sobrando, que o olho reconhece de longe. Um triângulo não tem pontas
+ * laterais: ele tem UMA ponta.
+ *
+ * Fonte da forma: molde tradicional descrito em
+ * dicaspraticas.com.br/moldes-de-bandeirinhas-para-festa-junina e
+ * terra.com.br (como fazer bandeirinha de festa junina).
+ */
 function caminhoBandeira(largura: number, altura: number): string {
-  // Triângulo ápice-para-baixo, um pouco mais alto que largo (1,3:1) — lê
-  // como pano cortado na diagonal; um triângulo equilátero lê como ícone de
-  // bandeirola genérico
-  // (`docs/superpowers/referencias/2026-08-20-arte-junina.md` §3).
-  const meiaLargura = largura / 2
-  return `M ${-meiaLargura} 0 L ${meiaLargura} 0 L 0 ${altura} Z`
+  const m = largura / 2
+  // O corte sobe até 62% da altura: fundo demais come a bandeira inteira,
+  // raso demais lê como retângulo com um arranhão.
+  return `M ${-m} 0 L ${m} 0 L ${m} ${altura} L 0 ${altura * 0.62} L ${-m} ${altura} Z`
 }
 
-/** Proporção altura:largura de UMA bandeira — igual pras duas fileiras, só
- *  o tamanho muda (`ConfigFileiraBandeirinha.escala`). */
-const PROPORCAO_BANDEIRA = 1.3
+/** Proporção do molde tradicional, 10×15cm. Era 1,3 quando a bandeira ainda
+ *  era um triângulo. */
+const PROPORCAO_BANDEIRA = 1.5
 
 function rasterizarBandeira(larguraPx: number, cor: string, dpr: number): HTMLCanvasElement | null {
   if (typeof document === 'undefined' || typeof Path2D === 'undefined') return null
@@ -434,8 +446,24 @@ function rasterizarBandeira(larguraPx: number, cor: string, dpr: number): HTMLCa
   if (!pincel) return null
   pincel.scale(escala, escala)
   pincel.translate(larguraPx / 2, 0)
+  const caminho = new Path2D(caminhoBandeira(larguraPx, alturaPx))
   pincel.fillStyle = cor
-  pincel.fill(new Path2D(caminhoBandeira(larguraPx, alturaPx)))
+  pincel.fill(caminho)
+
+  // A ABA DOBRADA sobre o barbante. Uma bandeirinha de papel de seda é
+  // pendurada dobrando a borda de cima por cima do fio e colando — então
+  // aquela faixa tem papel DUPLO e fica mais fechada que o resto. É esse
+  // detalhe, e não a cor, que separa "papel pendurado" de "triângulo
+  // impresso": sem ele a bandeira flutua sem estar presa a nada.
+  pincel.save()
+  pincel.clip(caminho)
+  pincel.fillStyle = 'rgba(0,0,0,0.26)'
+  pincel.fillRect(-larguraPx, 0, larguraPx * 2, alturaPx * 0.15)
+  // O vinco da dobra: uma linha clara logo abaixo da aba, onde o papel
+  // volta a ser simples e pega luz.
+  pincel.fillStyle = 'rgba(255,255,255,0.16)'
+  pincel.fillRect(-larguraPx, alturaPx * 0.15, larguraPx * 2, alturaPx * 0.02)
+  pincel.restore()
   return tela
 }
 
@@ -591,7 +619,9 @@ function desenharFileiraBandeirinhas(
       pincel.beginPath()
       pincel.moveTo(-meiaLargura, 0)
       pincel.lineTo(meiaLargura, 0)
-      pincel.lineTo(0, alturaBandeira)
+      pincel.lineTo(meiaLargura, alturaBandeira)
+      pincel.lineTo(0, alturaBandeira * 0.62)
+      pincel.lineTo(-meiaLargura, alturaBandeira)
       pincel.closePath()
       pincel.fillStyle = cor
       pincel.fill()
@@ -634,64 +664,83 @@ const FOGUEIRA_Y_FRAC = 0.93
  *  mediu nas brasas isoladas, §3 do diagnóstico). */
 const FOGUEIRA_RAIO_FRAC = 0.05
 
-const COR_TRONCO = '#3D2A1C'
-const COR_TRONCO_CLARO = '#5A4028'
+// Escuras e QUENTES. Antes eram #3D2A1C/#5A4028, marrons pouco saturados —
+// cercados pela auréola laranja da própria fogueira, o olho lia aquele
+// marrom como cinza por contraste simultâneo, e a pilha parecia de pedra.
+// Lenha retroiluminada é escura e puxa para o vermelho, nunca para o neutro.
+const COR_TRONCO = '#33200E'
+const COR_TRONCO_CLARO = '#4E2F14'
 /** O topo cortado da tora: mais claro que a casca, porque e madeira nova
  *  exposta, e e o contraste entre os dois que le como corte. */
-const COR_GRAO_CLARO = '#8A6242'
-const COR_GRAO_ESCURO = '#4A2E1E'
+/** O topo cortado. MENOR e menos claro que antes: em raio de tela pequeno
+ *  dois círculos claros num traço escuro liam como parafuso, não como
+ *  corte de madeira. */
+const COR_GRAO_CLARO = '#6E4826'
+const COR_GRAO_ESCURO = '#2A1808'
 
 /** Duas toras cruzadas — a leitura mais rápida de "fogueira" sem uma pilha
  *  inteira de caminhos por um ganho de reconhecimento que a régua §5 item 2
  *  já não credita a mais que isso. `ellipse` nativo, sem `Path2D` — nunca
  *  precisa de fallback porque não depende de nada que falte em Node/jsdom
  *  além do próprio `getContext`, que quem chama já garantiu. */
-/** Uma CAMADA da lenha por chamada, para o fogo poder ser desenhado ENTRE as
- *  duas. Com as toras todas antes das chamas, as linguas nasciam por cima da
- *  pilha e a fogueira lia como "fogo apoiado em cima de um tronco"; sai de
- *  DENTRO quando a tora da frente passa na frente da base da chama. */
+/**
+ * A FOGUEIRA É UMA PIRÂMIDE DE TORAS EM PÉ.
+ *
+ * O que havia aqui eram duas toras DEITADAS cruzadas — fogueira de
+ * acampamento, não fogueira de São João. A junina se monta empilhando lenha
+ * em pirâmide, toras maiores na base, encostadas umas nas outras com espaço
+ * para o ar circular; o fogo sobe por DENTRO da pilha. É a silhueta
+ * triangular que faz o objeto ser reconhecido de longe, e era exatamente
+ * ela que faltava.
+ *
+ * Fontes da montagem: decorfacil.com/fogueira-festa-junina e
+ * ruraltectv.com.br (como fazer uma fogueira com segurança).
+ *
+ * `camada` divide a pilha em duas para o fogo poder ser desenhado ENTRE
+ * elas — com a lenha toda antes das chamas, o fogo nascia por cima da pilha
+ * em vez de de dentro dela.
+ */
 function desenharTora(
   pincel: CanvasRenderingContext2D,
   raio: number,
   camada: 'tras' | 'frente',
 ): void {
-  // TRACO COM PONTA REDONDA, nao elipse. Duas elipses achatadas cruzadas
-  // liam como um oval marrom unico -- sem espessura, sem separacao entre as
-  // pecas. Uma tora so se separa da outra se tiver corpo e se as PONTAS
-  // aparecerem para fora do encontro.
-  const meia = raio * 0.92
-  const espessura = raio * 0.34
-  // CRUZAMENTO FRANCO. Na primeira versao as duas quase se sobrepunham e o
-  // par lia como uma viga horizontal so; o 'X' precisa de altura diferente
-  // nas duas pontas para o olho separar as pecas.
+  const base = raio * 0.1
+  const altura = raio * 1.35
+  const espessura = raio * 0.3
+  // Cinco toras: as três de trás abrem mais e são mais escuras, as duas da
+  // frente fecham o V e pegam a luz do fogo. Ímpar de propósito — pilha par
+  // fica simétrica e lê como estrutura montada, não como lenha jogada.
   const traseira = camada === 'tras'
-  const y0 = raio * (traseira ? 0.3 : 0.34)
-  const y1 = raio * (traseira ? -0.16 : -0.2)
-  const sinal = traseira ? -1 : 1
-  const xInicio = sinal * meia
-  const xFim = -sinal * meia * 0.82
+  const pes = traseira ? [-1, 0.35, 1] : [-0.55, 0.62]
+  const topos = traseira ? [0.22, -0.1, -0.3] : [-0.18, 0.14]
 
   pincel.save()
   pincel.lineCap = 'round'
   pincel.lineWidth = espessura
   pincel.strokeStyle = traseira ? COR_TRONCO : COR_TRONCO_CLARO
-  pincel.beginPath()
-  pincel.moveTo(xInicio, y0)
-  pincel.lineTo(xFim, y1)
-  pincel.stroke()
+  pes.forEach((pe, k) => {
+    pincel.beginPath()
+    pincel.moveTo(pe * raio * 0.95, base)
+    pincel.lineTo(topos[k]! * raio * 0.55, base - altura)
+    pincel.stroke()
+  })
   pincel.restore()
 
-  // Topo cortado: dois circulos na ponta que fica virada para quem olha. E
-  // este detalhe que faz o olho ler MADEIRA em vez de traco marrom.
-  const grao = espessura * 0.42
-  pincel.fillStyle = traseira ? COR_TRONCO : COR_GRAO_CLARO
-  pincel.beginPath()
-  pincel.arc(xInicio, y0, grao, 0, Math.PI * 2)
-  pincel.fill()
-  pincel.fillStyle = COR_GRAO_ESCURO
-  pincel.beginPath()
-  pincel.arc(xInicio, y0, grao * 0.46, 0, Math.PI * 2)
-  pincel.fill()
+  // Topo cortado em cada tora que encosta no chão. É este detalhe que faz o
+  // olho ler MADEIRA em vez de traço marrom, e ele custa dois `arc`.
+  const grao = espessura * 0.3
+  pes.forEach((pe) => {
+    const gx = pe * raio * 0.95
+    pincel.fillStyle = traseira ? COR_TRONCO : COR_GRAO_CLARO
+    pincel.beginPath()
+    pincel.arc(gx, base, grao, 0, Math.PI * 2)
+    pincel.fill()
+    pincel.fillStyle = COR_GRAO_ESCURO
+    pincel.beginPath()
+    pincel.arc(gx, base, grao * 0.46, 0, Math.PI * 2)
+    pincel.fill()
+  })
 }
 
 
