@@ -699,14 +699,22 @@ function desenharAlvoAtivo(
   // eram duas leituras igualmente válidas do tipo antigo até esta função
   // fixar qual delas vale.
   const respiro = parado ? 0 : Math.sin(agora / 500) * 0.06
-  const raioMarca = raio * (1.7 + respiro)
+  // COLADO NO ALVO, não orbitando longe dele. Em 1,7 o anel media quase o
+  // triplo do balão e, em traço cheio na cor de destaque, virava o objeto
+  // mais barulhento do quadro — numa captura da partida ele dominava a tela
+  // e fazia o balão parecer pequeno. Uma marca de foco existe para DIZER
+  // onde o foco está, não para disputar atenção com aquilo que ela aponta.
+  const raioMarca = raio * (1.22 + respiro)
 
   pincel.save()
   pincel.beginPath()
   pincel.arc(0, 0, raioMarca, 0, Math.PI * 2)
   pincel.strokeStyle = PALETA.destaque
-  pincel.lineWidth = 2
-  pincel.setLineDash([5, 4])
+  // Traço mais fino e translúcido pelo mesmo motivo do raio. O tracejado
+  // fica: é ele que separa "marca de interface" de "parte do desenho".
+  pincel.globalAlpha = 0.75
+  pincel.lineWidth = 1.5
+  pincel.setLineDash([4, 3])
   pincel.stroke()
   pincel.setLineDash([])
   pincel.restore()

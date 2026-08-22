@@ -9,6 +9,7 @@ import {
   alvoAtivo,
   avancar,
   criarPartida,
+  DURACAO_MS,
   mediaReacao,
   reiniciar,
   tocar,
@@ -73,6 +74,37 @@ const COR_FUNDO = '#08090C'
  *  pontuação. Não é do tema porque a onda de erro nem sempre tem alvo por
  *  perto — ela marca o TOQUE, e o toque não é um elemento do jogo. */
 const COR_ONDA_RGB = '245,243,239'
+/** A brasa do tema em `r,g,b`, para compor alfa em `rgba()`. Derivada do
+ *  tema e não escrita à mão: trocar de tema tem de trocar esta cor junto,
+ *  senão a onda de erro continuaria laranja num tema que não tem laranja. */
+const corBrasaRgb = (() => {
+  const hex = TEMA_ATIVO.paleta.brasa.replace('#', '')
+  const n = parseInt(hex.length === 3 ? hex.replace(/(.)/g, '$1$1') : hex, 16)
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`
+})()
+/**
+ * O RELÓGIO. Altura da barra que drena no rodapé da dobra, e quanto tempo
+ * antes do fim ela esquenta.
+ *
+ * A partida sempre durou 15 segundos e NUNCA disse isso. Sem relógio os
+ * quinze segundos não têm forma: não dá para saber se vale acelerar, se dá
+ * tempo de fechar a sequência, nem sequer que existe um fim chegando — e
+ * desde que o brinde passou a depender da sequência, essa é justamente a
+ * informação que decide como jogar.
+ *
+ * Barra, e não números: número obriga a ler, barra se entende de canto de
+ * olho, que é a única atenção que sobra enquanto se acerta balão.
+ *
+ * NO TOPO, e não no rodapé, onde ela nasceu. Medido: numa janela de 700px
+ * a dobra mede 710 e o rodapé do canvas cai ABAIXO do que se vê — a barra
+ * era pintada corretamente (amostra do pixel: rgba(255,176,32,255) nos 5px
+ * de baixo) e mesmo assim nenhum jogador jamais a veria. O topo é a única
+ * borda com garantia de estar em quadro: a página abre nele, e é para ele
+ * que olha quem está jogando.
+ */
+const RELOGIO_ALTURA_PX = 7
+const RELOGIO_AVISO_MS = 3_500
+
 /** Acima de 2 o ganho é invisível e o custo de preenchimento dobra. */
 const DPR_MAX = 2
 
@@ -127,7 +159,13 @@ const VIDA_PARTICULA_MS = 380
 
 /** A onda de "não tinha nada aí" (job 4) — o reconhecimento de erro. Pool bem
  *  menor que o de partículas: só nasce uma por toque, nunca uma rajada. */
-type Onda = { ativa: boolean; x: number; y: number; nascidoEm: number }
+/** `custou` = este clique no vazio QUEBROU uma sequência que existia. A onda
+ *  é a única resposta visual a errar, e desde que errar passou a custar
+ *  (ver `sequencia` em motor-reflexo.ts) ela precisava distinguir os dois
+ *  casos: "não tinha nada aí" e "você acabou de perder o que tinha". A
+ *  mesma onda neutra para os dois escondia justamente a tensão que a
+ *  mecânica passou a ter. */
+type Onda = { ativa: boolean; x: number; y: number; nascidoEm: number; custou: boolean }
 const POOL_ONDAS = 4
 const VIDA_ONDA_MS = 420
 
@@ -151,14 +189,19 @@ const VIDA_ESTOURO_MS = 500
 /**
  * Acertos seguidos que liberam o brinde.
  *
- * Escolhido contra a simulação da partida (`.superpowers/mecanica/sim.mts`),
- * que roda a partida inteira contra jogadores de reflexos diferentes: o
- * jogador mediano (reação 340ms) fecha a melhor sequência em ~15 e o lento
- * (450ms) em ~9. Dez fica no meio — quem está de fato jogando ganha, quem
- * está de passagem não. Um portão que ninguém passa não é prêmio, é
- * frustração; um que todo mundo passa não foi ganho.
+ * A simulação da partida (`.superpowers/mecanica/sim.mts`) mede a melhor
+ * sequência por perfil de jogador: rápido ~32, mediano (reação 340ms) ~15,
+ * lento (450ms) ~9. Cinco fica abaixo até do lento — é uma escolha do dono
+ * do site, e a direção é deliberada.
+ *
+ * O portão não existe para separar bons de ruins; existe para o brinde ser
+ * GANHO em vez de dado, que é o modelo que esta página vende. Cinco ainda
+ * exige jogar de verdade (quem toca uma vez e assiste termina em zero, e o
+ * teste e2e do portão prova isso), mas não transforma a demonstração numa
+ * prova de reflexo — numa landing de venda, um visitante frustrado é pior
+ * negócio do que um visitante que ganhou fácil.
  */
-const SEQUENCIA_PARA_BRINDE = 10
+const SEQUENCIA_PARA_BRINDE = 5
 
 export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -224,15 +267,17 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
       x: 0,
       y: 0,
       nascidoEm: 0,
+      custou: false,
     }))
     let proximaOnda = 0
-    const emitirOnda = (x: number, y: number, agora: number) => {
+    const emitirOnda = (x: number, y: number, agora: number, custou: boolean) => {
       const o = ondas[proximaOnda]!
       proximaOnda = (proximaOnda + 1) % POOL_ONDAS
       o.ativa = true
       o.x = x
       o.y = y
       o.nascidoEm = agora
+      o.custou = custou
     }
 
     const estouros: Estouro[] = Array.from({ length: POOL_ESTOUROS }, () => ({
@@ -402,10 +447,30 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
       if (focado) {
         const ativo = alvoAtivo(estado)
         if (ativo) {
+          // A MARCA NASCE JUNTO COM O ALVO. O anel saía em tamanho cheio no
+          // primeiro quadro do alvo, enquanto o elemento ainda estava no pop
+          // de nascimento perto de escala zero — o resultado, visto numa
+          // captura, era um anel tracejado VAZIO apontando para nada. Uma
+          // marca de foco que aparece antes daquilo que ela marca é pior que
+          // marca nenhuma: ela manda mirar onde não há alvo.
+          //
+          // Mesma conta de `nascimento` do laço de elementos acima, e o anel
+          // acompanha em escala e em opacidade. `menosMovimento` pula a
+          // entrada: quem pediu menos movimento recebe a marca já pronta, o
+          // que é o mesmo que o tema faz com o pop do próprio elemento.
+          const nascimentoAtivo = menosMovimento
+            ? 1
+            : Math.min(1, (agora - ativo.nascidoEm) / POP_MS)
           const raioBase = ativo.raio * menorLado
           pincel.save()
           pincel.translate(ativo.x * largura, ativo.y * altura)
-          TEMA_ATIVO.desenharAlvoAtivo(pincel, raioBase, agora, menosMovimento)
+          pincel.globalAlpha = nascimentoAtivo
+          TEMA_ATIVO.desenharAlvoAtivo(
+            pincel,
+            raioBase * (0.55 + 0.45 * nascimentoAtivo),
+            agora,
+            menosMovimento,
+          )
           pincel.restore()
         }
       }
@@ -446,11 +511,18 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
             continue
           }
           const progresso = idadeOnda / VIDA_ONDA_MS
-          const raioOnda = progresso * 0.05 * menorLado
+          // A onda que CUSTOU sequência é maior, mais opaca e sai na cor de
+          // brasa do tema; a que não custou nada segue discreta e neutra,
+          // como sempre foi. O volume do aviso acompanha o tamanho do
+          // prejuízo — gritar igual nos dois casos ensinaria a ignorar os
+          // dois.
+          const raioOnda = progresso * (o.custou ? 0.085 : 0.05) * menorLado
           pincel.beginPath()
           pincel.arc(o.x * largura, o.y * altura, raioOnda, 0, Math.PI * 2)
-          pincel.strokeStyle = `rgba(${COR_ONDA_RGB},${(1 - progresso) * 0.3})`
-          pincel.lineWidth = 1.5
+          pincel.strokeStyle = o.custou
+            ? `rgba(${corBrasaRgb},${(1 - progresso) * 0.85})`
+            : `rgba(${COR_ONDA_RGB},${(1 - progresso) * 0.3})`
+          pincel.lineWidth = o.custou ? 2.5 : 1.5
           pincel.stroke()
         }
 
@@ -477,6 +549,32 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
           TEMA_ATIVO.desenharEstouro(pincel, e.raio * menorLado, progresso)
           pincel.restore()
         }
+      }
+
+      // O RELÓGIO, por último no passe: nada pode passar por cima dele, e é
+      // a única coisa aqui que informa em vez de decorar. Só na partida de
+      // verdade — no modo atrativo não há relógio correndo, e uma barra
+      // drenando ali prometeria um fim que não existe.
+      //
+      // Desenhado mesmo sob `menosMovimento`: quem pediu menos movimento
+      // pediu para não ser sacudido, não para jogar sem saber quanto falta.
+      // Uma barra que encolhe devagar não é o tipo de movimento que a
+      // preferência endereça (é a mesma leitura que faz a barra de progresso
+      // de um download continuar existindo).
+      if (estado.fase === 'jogando') {
+        const restanteMs = Math.max(0, DURACAO_MS - (agora - estado.comecouEm))
+        const fracao = restanteMs / DURACAO_MS
+        const aviso = restanteMs <= RELOGIO_AVISO_MS
+        pincel.save()
+        // O trilho apagado atrás mostra QUANTO já se foi; sem ele a barra
+        // encurtando não tem contra o que ser comparada.
+        pincel.fillStyle = `rgba(${COR_ONDA_RGB},0.08)`
+        pincel.fillRect(0, 0, largura, RELOGIO_ALTURA_PX)
+        pincel.fillStyle = aviso
+          ? `rgba(${corBrasaRgb},0.95)`
+          : TEMA_ATIVO.paleta.destaque
+        pincel.fillRect(0, 0, largura * fracao, RELOGIO_ALTURA_PX)
+        pincel.restore()
       }
 
       const atual = {
@@ -649,7 +747,10 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
           // `tocar` ignora hit-test nesse caso, ver motor-reflexo.ts — e
           // mostrar "não tinha nada aí" nele seria mentir sobre o que
           // aconteceu.
-          emitirOnda(nx, ny, agora)
+          // A sequência ANTES do toque é quem diz se houve prejuízo: depois
+          // do toque ela já foi zerada por `tocar`, e comparar com zero não
+          // distinguiria "perdeu dez" de "já estava em zero".
+          emitirOnda(nx, ny, agora, antesDoToque.sequencia >= 2)
         }
       }
     }
