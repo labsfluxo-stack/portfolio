@@ -690,6 +690,51 @@ function Barraca({ posicao, giro }: { posicao: [number, number, number]; giro: n
  * corda — é a gravidade, e inclinar a bandeira junto com o varal é o erro que
  * mais denuncia uma bandeirinha desenhada.
  */
+/**
+ * Uma LANTERNA pendurada no varal.
+ *
+ * A foto do arraial tem lanternas penduradas entre as bandeirinhas, e elas
+ * são o mesmo objeto que o jogador estoura no canvas por cima — ter as duas
+ * coisas na tela é o que amarra o jogo ao cenário em vez de deixar os alvos
+ * parecendo colados por fora.
+ *
+ * Aqui ela é o corpo facetado com a armação escura e uma luz fraca por
+ * dentro; a franja e a estampa dos painéis ficam para o desenho 2D, que é
+ * quem o visitante vê de perto.
+ */
+function LanternaPendurada({
+  posicao,
+  cor,
+  escala = 1,
+}: {
+  posicao: [number, number, number]
+  cor: string
+  escala?: number
+}) {
+  return (
+    <group position={posicao} scale={escala}>
+      {/* O fio que a prende no varal. */}
+      <mesh position={[0, 0.34, 0]}>
+        <cylinderGeometry args={[0.015, 0.015, 0.68, 4]} />
+        <meshBasicMaterial color="#A9855A" />
+      </mesh>
+      {/* O corpo: dois troncos de cone encostados pela base larga — é a
+          silhueta facetada da lanterna, com o equador em ponta. */}
+      <mesh position={[0, -0.16, 0]}>
+        <cylinderGeometry args={[0.1, 0.34, 0.42, 6]} />
+        <meshBasicMaterial color={cor} />
+      </mesh>
+      <mesh position={[0, -0.62, 0]}>
+        <cylinderGeometry args={[0.34, 0.12, 0.5, 6]} />
+        <meshBasicMaterial color={cor} />
+      </mesh>
+      {/* A luz de dentro, fraca e de alcance curto: lanterna de papel
+          ilumina a si mesma, não a praça. */}
+      <pointLight position={[0, -0.4, 0]} color="#FFCE86" intensity={2.2} distance={3.4} decay={2} />
+    </group>
+  )
+}
+
 function Varal({
   de,
   ate,
@@ -729,6 +774,18 @@ function Varal({
         <primitive object={geometriaFio} attach="geometry" />
         <lineBasicMaterial color="#A9855A" />
       </line>
+      {/* Uma lanterna a cada sete bandeiras. Mais que isso e o varal deixa de
+          ser varal de bandeirinha para virar cordão de lanternas. */}
+      {bandeiras
+        .filter((_, i) => i % 7 === 3)
+        .map((b, i) => (
+          <LanternaPendurada
+            key={`l${i}`}
+            posicao={[b.pos[0], b.pos[1] - 0.2, b.pos[2]]}
+            cor={['#E23B2E', '#2E86C1', '#1E8F5F', '#FFC93C'][i % 4]!}
+            escala={0.9}
+          />
+        ))}
       {bandeiras.map((b, i) => (
         <group key={i} position={b.pos}>
           {/* A bandeira fica SEMPRE na vertical, qualquer que seja a
@@ -802,6 +859,65 @@ function Camera() {
   return null
 }
 
+/**
+ * Um par dançando quadrilha.
+ *
+ * A praça estava VAZIA, e praça vazia num arraial lê como festa que acabou.
+ * As figuras são simples de propósito — a esta distância ninguém vê rosto, e
+ * o que se reconhece é a SILHUETA: o vestido rodado da dama e o chapéu de
+ * palha do cavalheiro. Detalhar mais custaria polígono sem mudar a leitura.
+ */
+function Par({ posicao, giro, corVestido, corCamisa }: {
+  posicao: [number, number, number]
+  giro: number
+  corVestido: string
+  corCamisa: string
+}) {
+  return (
+    <group position={posicao} rotation={[0, giro, 0]}>
+      {/* A dama: saia rodada (cone largo), tronco e cabeça. */}
+      <group position={[-0.34, 0, 0]}>
+        <mesh position={[0, 0.36, 0]} castShadow>
+          <coneGeometry args={[0.34, 0.72, 10]} />
+          <meshStandardMaterial color={corVestido} roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0.88, 0]} castShadow>
+          <cylinderGeometry args={[0.11, 0.14, 0.34, 8]} />
+          <meshStandardMaterial color={corVestido} roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 1.14, 0]} castShadow>
+          <sphereGeometry args={[0.11, 10, 8]} />
+          <meshStandardMaterial color="#6A4632" roughness={0.95} />
+        </mesh>
+      </group>
+      {/* O cavalheiro: calça, camisa e o chapéu de palha, que é o que o
+          identifica de longe. */}
+      <group position={[0.34, 0, 0]}>
+        <mesh position={[0, 0.34, 0]} castShadow>
+          <cylinderGeometry args={[0.14, 0.17, 0.68, 8]} />
+          <meshStandardMaterial color="#2E3A52" roughness={0.92} />
+        </mesh>
+        <mesh position={[0, 0.86, 0]} castShadow>
+          <cylinderGeometry args={[0.13, 0.16, 0.4, 8]} />
+          <meshStandardMaterial color={corCamisa} roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 1.14, 0]} castShadow>
+          <sphereGeometry args={[0.11, 10, 8]} />
+          <meshStandardMaterial color="#7A5238" roughness={0.95} />
+        </mesh>
+        <mesh position={[0, 1.22, 0]} castShadow>
+          <cylinderGeometry args={[0.28, 0.28, 0.03, 12]} />
+          <meshStandardMaterial color="#C4A05C" roughness={0.95} />
+        </mesh>
+        <mesh position={[0, 1.28, 0]} castShadow>
+          <cylinderGeometry args={[0.13, 0.15, 0.12, 10]} />
+          <meshStandardMaterial color="#C4A05C" roughness={0.95} />
+        </mesh>
+      </group>
+    </group>
+  )
+}
+
 function Cena() {
   const texturas = useTexturasBandeira(12)
   return (
@@ -821,6 +937,12 @@ function Cena() {
           frente cortadas pela borda do quadro. É o corte que faz a cena
           continuar para fora da tela em vez de terminar nela — a foto de
           referência tem barraca encostada nas duas bordas. */}
+      {/* A QUADRILHA em volta da fogueira. Praça vazia lê como festa que
+          acabou; são as pessoas que dizem que ela está acontecendo agora. */}
+      <Par posicao={[-3.4, 0, -7.5]} giro={0.7} corVestido='#D8434A' corCamisa='#F2E2C4' />
+      <Par posicao={[4.2, 0, -8.2]} giro={-0.5} corVestido='#2E86C1' corCamisa='#E8C05A' />
+      <Par posicao={[-1.2, 0, -13]} giro={2.4} corVestido='#E8A030' corCamisa='#F2E2C4' />
+      <Par posicao={[5.8, 0, -13.5]} giro={-2.1} corVestido='#1E8F5F' corCamisa='#F2E2C4' />
       <Barraca posicao={[-8.4, 0, -9]} giro={0.55} />
       <Barraca posicao={[9, 0, -9.5]} giro={-0.6} />
       <Barraca posicao={[-15.5, 0, 1]} giro={0.85} />
@@ -866,6 +988,21 @@ function Cena() {
           da cena cobre. Sem ele o casario fica com a base no breu, o que le
           como cidade abandonada em vez de arraial cheio. */}
       <directionalLight position={[2, 4, 16]} intensity={0.5} color="#FFB870" />
+      {/* Um POSTE de luz na esquerda. A metade esquerda do quadro ficava no
+          breu porque toda fonte da cena morava do centro para a direita — a
+          fogueira, as duas barracas. Praça de verdade tem iluminação pública,
+          e é ela que resolve isto sem inventar uma fonte sem origem. */}
+      <group position={[-12, 0, -4]}>
+        <mesh position={[0, 2.6, 0]} castShadow>
+          <cylinderGeometry args={[0.09, 0.13, 5.2, 8]} />
+          <meshStandardMaterial color="#2A2622" roughness={0.95} />
+        </mesh>
+        <mesh position={[0, 5.3, 0]}>
+          <sphereGeometry args={[0.26, 10, 8]} />
+          <meshBasicMaterial color="#FFE0A8" />
+        </mesh>
+        <pointLight position={[0, 5.3, 0]} color="#FFD9A0" intensity={38} distance={26} decay={1.8} />
+      </group>
     </>
   )
 }
