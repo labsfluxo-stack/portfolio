@@ -137,17 +137,41 @@ function Estrelas() {
 /** O chão da praça. Um plano grande, escuro, levemente reflexivo — é ele que
  *  recebe a luz da fogueira, e é essa poça de luz no chão que mais diz "há uma
  *  fogueira acesa aqui" numa cena noturna. */
+/** Os tapetes pintados no chão da praça — quadrados de cor forte, como os
+ *  que aparecem no piso da foto. É decoração de chão de arraial: pintam o
+ *  calçamento onde a quadrilha dança. Ficam RENTE à pedra (0,02 acima) para
+ *  não brigar por profundidade com ela. */
+const TAPETES = [
+  { x: -3.6, z: -6.5, largura: 5, profundidade: 4.4, cor: '#B4272A' },
+  { x: 3.2, z: -8.5, largura: 4.6, profundidade: 4, cor: '#1E6F4F' },
+  { x: -0.4, z: -13, largura: 5.4, profundidade: 4.2, cor: '#B08020' },
+  { x: 6.4, z: -13.5, largura: 4, profundidade: 3.6, cor: '#2E5F86' },
+] as const
+
 function Chao() {
   const textura = useMemo(() => texturaParalelepipedo(), [])
   useEffect(() => () => textura?.dispose(), [textura])
   return (
+    <>
+      {TAPETES.map((t) => (
+        <mesh
+          key={`${t.x},${t.z}`}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[t.x, 0.02, t.z]}
+          receiveShadow
+        >
+          <planeGeometry args={[t.largura, t.profundidade]} />
+          <meshStandardMaterial color={t.cor} roughness={0.95} />
+        </mesh>
+      ))}
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
       <planeGeometry args={[200, 200]} />
       {/* A pedra é o que dá ESCALA à praça: é por ela que o olho mede o
           tamanho da fogueira e da barraca. Um plano de cor única fazia a cena
           parecer estúdio com fundo infinito. */}
       <meshStandardMaterial color="#5A4A44" map={textura} roughness={0.94} metalness={0} />
-    </mesh>
+      </mesh>
+    </>
   )
 }
 
@@ -407,7 +431,7 @@ function Casario() {
       const largura = central ? 9.5 : 3.6 + aleatorio(n * 13 + 7) * 3
       const altura = central ? 8.6 : 4 + aleatorio(n * 17 + 11) * 3
       lista.push({
-        posicao: [x + largura / 2, 0, -26 - aleatorio(n * 19 + 3) * 3],
+        posicao: [x + largura / 2, 0, -21 - aleatorio(n * 19 + 3) * 3],
         largura,
         altura,
         profundidade: 5,
@@ -561,7 +585,15 @@ function Fogueira({ posicao }: { posicao: [number, number, number] }) {
  * potes sobre o balcão, placa pendurada, travessas de madeira sob o telhado,
  * e a lâmpada que já existia agora com o próprio bulbo à vista.
  */
-function Barraca({ posicao, giro }: { posicao: [number, number, number]; giro: number }) {
+function Barraca({
+  posicao,
+  giro,
+  escala = 1,
+}: {
+  posicao: [number, number, number]
+  giro: number
+  escala?: number
+}) {
   const texturaTelhadoPalha = useMemo(() => texturaPalha(), [])
   const panoChita = useMemo(() => texturaChita(), [])
   useEffect(
@@ -587,7 +619,7 @@ function Barraca({ posicao, giro }: { posicao: [number, number, number]; giro: n
   )
 
   return (
-    <group position={posicao} rotation={[0, giro, 0]}>
+    <group position={posicao} rotation={[0, giro, 0]} scale={escala}>
       {/* Os esteios, agora quatro: dois na frente e dois atrás. Com dois só,
           o telhado pairava sem apoio visível do lado de trás. */}
       {[
@@ -760,7 +792,11 @@ function Varal({
 
   const bandeiras = useMemo(() => {
     const lista: { pos: [number, number, number]; indice: number }[] = []
-    const n = 26
+    // BEM mais bandeiras por varal. Na foto elas quase se encostam e enchem
+    // o terço superior do quadro; com 26 num varal de 70 unidades cada uma
+    // ficava sozinha no próprio pedaço de céu, e a fileira lia como varal
+    // de aniversário em vez de praça enfeitada para São João.
+    const n = 62
     for (let i = 1; i < n; i++) {
       const p = curva.getPoint(i / n)
       lista.push({ pos: [p.x, p.y, p.z], indice: i })
@@ -777,7 +813,7 @@ function Varal({
       {/* Uma lanterna a cada sete bandeiras. Mais que isso e o varal deixa de
           ser varal de bandeirinha para virar cordão de lanternas. */}
       {bandeiras
-        .filter((_, i) => i % 7 === 3)
+        .filter((_, i) => i % 15 === 7)
         .map((b, i) => (
           <LanternaPendurada
             key={`l${i}`}
@@ -793,8 +829,8 @@ function Varal({
               junto com o varal é o erro que mais denuncia bandeirinha
               desenhada. `transparent` porque o sprite tem o recorte em V e
               a aba: sem alfa a bandeira volta a ser um retângulo. */}
-          <mesh position={[0, -0.46, 0]}>
-            <planeGeometry args={[0.66, 0.72]} />
+          <mesh position={[0, -0.6, 0]}>
+            <planeGeometry args={[0.92, 1]} />
             <meshBasicMaterial
               map={texturas[b.indice % Math.max(1, texturas.length)]}
               transparent
@@ -852,8 +888,16 @@ function useTexturasBandeira(quantas: number) {
 function Camera() {
   const camera = useThree((estado) => estado.camera)
   useEffect(() => {
-    camera.position.set(0, 6.2, 23)
-    camera.lookAt(0, 4.6, -14)
+    // DENTRO da praça, não olhando de fora dela.
+    //
+    // A câmera estava alta e recuada (y=6,2 z=23) e o resultado era um
+    // observador assistindo a festa de longe. A foto de referência é o
+    // contrário: quem tirou está NO meio do arraial, na altura do olho, com
+    // barraca passando rente à câmera. É essa posição que produz o primeiro
+    // plano — e primeiro plano é o que estava faltando para a cena ter
+    // profundidade de verdade em vez de tudo na mesma distância média.
+    camera.position.set(0.5, 3.4, 11)
+    camera.lookAt(0.5, 3.1, -11)
     camera.updateProjectionMatrix()
   }, [camera])
   return null
@@ -945,8 +989,20 @@ function Cena() {
       <Par posicao={[5.8, 0, -13.5]} giro={-2.1} corVestido='#1E8F5F' corCamisa='#F2E2C4' />
       <Barraca posicao={[-8.4, 0, -9]} giro={0.55} />
       <Barraca posicao={[9, 0, -9.5]} giro={-0.6} />
-      <Barraca posicao={[-15.5, 0, 1]} giro={0.85} />
-      <Barraca posicao={[16, 0, 0]} giro={-0.9} />
+      {/* AS BARRACAS DE PRIMEIRO PLANO. Grandes, rente à câmera e CORTADAS
+          pela borda do quadro.
+
+          É a peça que mais faltava. Uma cena em que todo objeto está na
+          mesma distância média não tem profundidade por mais correta que a
+          perspectiva esteja — o olho mede profundidade comparando tamanhos,
+          e sem nada perto ele não tem com o que comparar. Cortar na borda
+          também é o que faz a praça continuar para fora da tela em vez de
+          terminar nela, que é exatamente o que a foto de referência faz nos
+          dois lados. */}
+      <Barraca posicao={[-7.2, 0, 6.5]} giro={0.62} escala={1.5} />
+      <Barraca posicao={[7.8, 0, 6]} giro={-0.7} escala={1.5} />
+      <Barraca posicao={[-13, 0, -1]} giro={0.9} escala={1.2} />
+      <Barraca posicao={[13.5, 0, -1.5]} giro={-0.95} escala={1.2} />
       {/* Os varais cruzam o céu em alturas e profundidades diferentes — é o
           cruzamento, e não a quantidade, que dá profundidade ao alto do
           quadro. */}
