@@ -49,10 +49,23 @@ import {
  * fundo. Escurecer a fotografia inteira para caber uma legenda é o erro que
  * eu estava repetindo.
  */
-const COR_CEU_ALTO = '#05070E'
-const COR_CEU_MEIO = '#0C1018'
-const COR_CEU_HORIZONTE = '#2A1A12'
-const COR_NEVOA = '#150F12'
+/**
+ * O céu do CREPÚSCULO.
+ *
+ * Escuro no zênite — que é onde o título branco da dobra vive, e a razão de
+ * o céu não poder clarear por inteiro — e esquentando forte em direção ao
+ * horizonte, onde o sol acabou de descer. É o meio-termo entre a noite
+ * fechada (que deixava a praça no breu, longe da foto) e o fim de tarde
+ * claro (que tirava o contraste do título).
+ *
+ * A praça embaixo é iluminada como a da foto; o alto do quadro segue escuro
+ * o bastante para a tipografia. Um céu com hora do dia consegue as duas
+ * coisas ao mesmo tempo justamente porque ele NÃO é uma cor só.
+ */
+const COR_CEU_ALTO = '#080C18'
+const COR_CEU_MEIO = '#22283C'
+const COR_CEU_HORIZONTE = '#8A5A3A'
+const COR_NEVOA = '#3A2A26'
 
 /** As fachadas do casario, já no tom de noite. Nunca preto: silhueta preta diz
  *  "prédio", cor de fachada diz "cidade do interior". */
@@ -61,11 +74,11 @@ const FACHADAS = [
  *  rosa, azul, verde-água — com telha vermelha. As versões anteriores eram
  *  esses mesmos matizes escurecidos para a noite, e escurecer pastel dá
  *  marrom: era por isso que o casario nunca tinha a cor da referência. */
-  { parede: '#8A7358', telha: '#8E4430' },
-  { parede: '#8A6266', telha: '#8E4430' },
-  { parede: '#556E84', telha: '#83402C' },
-  { parede: '#5E8272', telha: '#8E4430' },
-  { parede: '#8E7A5C', telha: '#83402C' },
+  { parede: '#C4AC86', telha: '#A8503A' },
+  { parede: '#C08E90', telha: '#A8503A' },
+  { parede: '#7E9AB4', telha: '#9C4A32' },
+  { parede: '#8CAE9A', telha: '#A8503A' },
+  { parede: '#C8AE84', telha: '#9C4A32' },
 ] as const
 
 /** Pseudoaleatório determinístico. A cena é montada uma vez e não pode mudar
@@ -89,7 +102,8 @@ function Ceu() {
     if (!p) return null
     const g = p.createLinearGradient(0, 0, 0, 256)
     g.addColorStop(0, COR_CEU_ALTO)
-    g.addColorStop(0.62, COR_CEU_MEIO)
+    g.addColorStop(0.55, COR_CEU_MEIO)
+    g.addColorStop(0.86, '#5E4038')
     g.addColorStop(1, COR_CEU_HORIZONTE)
     p.fillStyle = g
     p.fillRect(0, 0, 4, 256)
@@ -169,7 +183,7 @@ function Chao() {
       {/* A pedra é o que dá ESCALA à praça: é por ela que o olho mede o
           tamanho da fogueira e da barraca. Um plano de cor única fazia a cena
           parecer estúdio com fundo infinito. */}
-      <meshStandardMaterial color="#5A4A44" map={textura} roughness={0.94} metalness={0} />
+      <meshStandardMaterial color="#7E6C64" map={textura} roughness={0.94} metalness={0} />
       </mesh>
     </>
   )
@@ -962,6 +976,73 @@ function Par({ posicao, giro, corVestido, corCamisa }: {
   )
 }
 
+/**
+ * Os objetos rasteiros do primeiro plano: fardos de palha, engradados e
+ * palha solta espalhada pela pedra.
+ *
+ * Existem para o terço de baixo do quadro deixar de ser pedra vazia. Numa
+ * festa o chão perto de quem olha é sempre o mais bagunçado, e é essa
+ * bagunça rasteira que separa "praça com objetos ao fundo" de "estou no meio
+ * da festa".
+ */
+function ChaoDaFrente() {
+  const fardos = useMemo(
+    () =>
+      Array.from({ length: 6 }, (_, i) => ({
+        pos: [
+          (aleatorio(i * 13 + 5) - 0.5) * 17,
+          0.34,
+          2 + aleatorio(i * 17 + 7) * 6.5,
+        ] as [number, number, number],
+        giro: aleatorio(i * 19 + 9) * Math.PI,
+        tipo: i % 3 === 0 ? ('engradado' as const) : ('fardo' as const),
+      })),
+    [],
+  )
+  const palha = useMemo(
+    () =>
+      Array.from({ length: 40 }, (_, i) => ({
+        pos: [
+          (aleatorio(i * 23 + 3) - 0.5) * 26,
+          0.03,
+          -2 + aleatorio(i * 29 + 11) * 12,
+        ] as [number, number, number],
+        giro: aleatorio(i * 31 + 13) * Math.PI,
+        comprimento: 0.3 + aleatorio(i * 37 + 17) * 0.5,
+      })),
+    [],
+  )
+  return (
+    <group>
+      {fardos.map((b, i) => (
+        <group key={i} position={b.pos} rotation={[0, b.giro, 0]}>
+          {b.tipo === 'fardo' ? (
+            <mesh castShadow receiveShadow>
+              <boxGeometry args={[1.1, 0.68, 0.72]} />
+              <meshStandardMaterial color="#A88A4E" roughness={1} />
+            </mesh>
+          ) : (
+            <mesh castShadow receiveShadow>
+              <boxGeometry args={[0.86, 0.6, 0.66]} />
+              <meshStandardMaterial color="#6E4A2E" roughness={0.95} />
+            </mesh>
+          )}
+        </group>
+      ))}
+      {palha.map((p, i) => (
+        <mesh
+          key={`p${i}`}
+          position={p.pos}
+          rotation={[Math.PI / 2, 0, p.giro]}
+        >
+          <planeGeometry args={[p.comprimento, 0.05]} />
+          <meshBasicMaterial color="#C6A468" transparent opacity={0.5} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
 function Cena() {
   const texturas = useTexturasBandeira(12)
   return (
@@ -999,6 +1080,12 @@ function Cena() {
           também é o que faz a praça continuar para fora da tela em vez de
           terminar nela, que é exatamente o que a foto de referência faz nos
           dois lados. */}
+      {/* O CHÃO DA FRENTE. O terço inferior do quadro estava vazio: só pedra
+          escura. Numa festa o chão perto de quem olha é o mais bagunçado —
+          fardo de palha para sentar, engradado da barraca, palha solta. São
+          esses objetos rasteiros que dão pé à cena e completam a leitura de
+          profundidade que as barracas de primeiro plano começaram. */}
+      <ChaoDaFrente />
       <Barraca posicao={[-7.2, 0, 6.5]} giro={0.62} escala={1.5} />
       <Barraca posicao={[7.8, 0, 6]} giro={-0.7} escala={1.5} />
       <Barraca posicao={[-13, 0, -1]} giro={0.9} escala={1.2} />
@@ -1029,21 +1116,28 @@ function Cena() {
       {/* LUZ DE FIM DE TARDE, não de noite. Céu azul por cima, chão quente
           por baixo, os dois FORTES — é essa diferença que dá cor à cena sem
           precisar de uma fonte por objeto. */}
-      <hemisphereLight args={['#5E76A6', '#7A5230', 2.4]} />
-      <ambientLight intensity={0.55} color="#6E80A8" />
+      {/* Céu ainda frio por cima, chão já quente por baixo, os dois bem mais
+          fortes que na versão noturna. É essa diferença de temperatura entre
+          cima e baixo que dá cor à cena sem precisar de uma fonte por
+          objeto — e é o que uma noite fechada não consegue ter. */}
+      <hemisphereLight args={['#7C93C4', '#A87448', 3.2]} />
+      <ambientLight intensity={0.9} color="#93A6C8" />
       {/* Uma direcional fria e fraca, vinda de cima e do lado, só para as
           quinas dos telhados existirem. Nunca forte: duas fontes fortes
           brigando é o erro mais comum numa cena noturna. */}
       {/* O SOL BAIXO, vindo do horizonte atrás do casario — é ele que dá o
           contra-luz quente nos telhados e a sombra longa no chão, e é o que
           mais rápido diz "fim de tarde" numa cena 3D. */}
-      <directionalLight position={[-16, 22, 10]} intensity={0.9} color="#A8BCE0" />
+      <directionalLight position={[-16, 22, 10]} intensity={1.5} color="#B8CCEC" />
       {/* Um enchimento QUENTE e fraco vindo de baixo e da frente, na direcao
           da praca. Representa o somatorio das barracas, das janelas e dos
           varais acesos — luz que existe na foto e que nenhuma fonte pontual
           da cena cobre. Sem ele o casario fica com a base no breu, o que le
           como cidade abandonada em vez de arraial cheio. */}
-      <directionalLight position={[2, 4, 16]} intensity={0.5} color="#FFB870" />
+      {/* O último sol, raso e quente, vindo de trás do casario. É ele que
+          põe o contra-luz nos telhados e diz que o dia acabou de acabar. */}
+      <directionalLight position={[-14, 5, -26]} intensity={1.6} color="#FF9E52" />
+      <directionalLight position={[2, 4, 16]} intensity={0.7} color="#FFC48A" />
       {/* Um POSTE de luz na esquerda. A metade esquerda do quadro ficava no
           breu porque toda fonte da cena morava do centro para a direita — a
           fogueira, as duas barracas. Praça de verdade tem iluminação pública,
