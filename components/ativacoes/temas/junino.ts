@@ -1,4 +1,5 @@
 import type { Tema } from './tipos'
+import { rasterizarCenario } from './junino-cenario'
 import {
   ALTURA_TOTAL,
   CORES_PAINEL_PUBLICAS,
@@ -671,6 +672,47 @@ function garantirSpriteBandeira(
 const COR_BARBANTE = '#A9855A'
 const LARGURA_BARBANTE = 2.2
 
+/**
+ * A LÂMPADA DO VARAL, assada num sprite.
+ *
+ * Era um `createRadialGradient` por lâmpada POR QUADRO — com quatro varais
+ * de uma dúzia de lâmpadas cada, cerca de sessenta gradientes construídos a
+ * cada 16ms, mais sessenta preenchimentos aditivos. Este arquivo tem um
+ * comentário, na auréola da fogueira, dizendo para não fazer exatamente
+ * isso, e eu fiz assim mesmo ao acrescentar as luzinhas.
+ *
+ * Assado, o mesmo desenho vira um `drawImage` por lâmpada. O bulbo vem
+ * junto no sprite: separar os dois custaria um segundo desenho por lâmpada
+ * para ganhar nada.
+ */
+let spriteLampadaCache: { chave: string; tela: HTMLCanvasElement } | null = null
+function garantirSpriteLampada(raio: number, dpr: number): HTMLCanvasElement | null {
+  if (typeof document === 'undefined') return null
+  // O raio é arredondado antes de virar chave: sem isso um `escala`
+  // fracionário geraria um sprite novo por varal, e o cache não pegaria.
+  const r = Math.max(1, Math.round(raio * 2) / 2)
+  const chave = `${dpr}:${r}`
+  if (spriteLampadaCache && spriteLampadaCache.chave === chave) return spriteLampadaCache.tela
+  const lado = Math.max(1, Math.ceil(r * 8 * dpr))
+  const tela = document.createElement('canvas')
+  tela.width = lado
+  tela.height = lado
+  const p = tela.getContext('2d')
+  if (!p) return null
+  const meio = lado / 2
+  const g = p.createRadialGradient(meio, meio, 0, meio, meio, meio)
+  g.addColorStop(0, 'rgba(255,206,132,0.5)')
+  g.addColorStop(1, 'rgba(255,176,80,0)')
+  p.fillStyle = g
+  p.fillRect(0, 0, lado, lado)
+  p.fillStyle = '#FFE6B4'
+  p.beginPath()
+  p.arc(meio, meio, r * dpr, 0, Math.PI * 2)
+  p.fill()
+  spriteLampadaCache = { chave, tela }
+  return tela
+}
+
 /** Amplitude do balanço de CADA bandeira, em grau — a régua pede 4–6°. */
 const AMPLITUDE_BALANCO_BANDEIRA_RAD = (5 * Math.PI) / 180
 const PERIODO_BALANCO_BANDEIRA_MIN_MS = 1600
@@ -850,20 +892,14 @@ const passo = larguraBandeira * 1.4
     const r = LARGURA_BARBANTE * 0.9 * config.escala
     // O halo primeiro, aditivo: é ele que faz a lâmpada ACENDER em vez de
     // ser um ponto amarelo pousado no fio.
-    pincel.save()
-    pincel.globalCompositeOperation = 'lighter'
-    const halo = pincel.createRadialGradient(meioVao, yLuz, 0, meioVao, yLuz, r * 4)
-    halo.addColorStop(0, 'rgba(255,206,132,0.5)')
-    halo.addColorStop(1, 'rgba(255,176,80,0)')
-    pincel.fillStyle = halo
-    pincel.beginPath()
-    pincel.arc(meioVao, yLuz, r * 4, 0, Math.PI * 2)
-    pincel.fill()
-    pincel.restore()
-    pincel.fillStyle = '#FFE6B4'
-    pincel.beginPath()
-    pincel.arc(meioVao, yLuz, r, 0, Math.PI * 2)
-    pincel.fill()
+    const luz = garantirSpriteLampada(r, dpr)
+    if (luz) {
+      const lado = r * 8
+      pincel.save()
+      pincel.globalCompositeOperation = 'lighter'
+      pincel.drawImage(luz, meioVao - lado / 2, yLuz - lado / 2, lado, lado)
+      pincel.restore()
+    }
   }
 
   for (let i = 0; i < nBandeiras; i++) {
@@ -1224,132 +1260,7 @@ function desenharFogueira(
 // ── Xadrez + chapéu de palha: acentos estáticos na margem direita ────────
 //
 
-/**
- * A BARRACA, na margem direita.
- *
- * O que havia aqui eram duas invenções minhas que a foto do arraial não
- * tem: uma tira de xadrez vertical de altura inteira e um chapéu de palha
- * flutuando no ar. Nenhum arraial tem um chapéu pairando, e a toalha xadrez
- * é toalha de MESA — em pé, encostada na borda da tela, ela lia como padrão
- * de teste.
- *
- * O que a foto tem nas laterais é BARRACA: telhado de palha em duas águas,
- * balcão de madeira e frente forrada de chita. É o objeto que emoldura a
- * praça, e ele traz junto a palha e o pano estampado que eu estava tentando
- * enfiar na cena por outros meios.
- */
-const COR_PALHA_TELHADO = '#4A3A20'
-const COR_PALHA_LUZ = '#6B5430'
-const COR_MADEIRA_BARRACA = '#33241A'
-const COR_CHITA_BARRACA = '#5A2320'
 
-function rasterizarAcentosDireita(larguraPx: number, alturaPx: number, dpr: number): HTMLCanvasElement | null {
-  if (typeof document === 'undefined') return null
-  if (larguraPx <= 0 || alturaPx <= 0) return null
-  const tela = document.createElement('canvas')
-  tela.width = Math.max(1, Math.ceil(larguraPx * dpr))
-  tela.height = Math.max(1, Math.ceil(alturaPx * dpr))
-  const pincel = tela.getContext('2d')
-  if (!pincel) return null
-  pincel.scale(dpr, dpr)
-
-  // A barraca fica ENCOSTADA na borda e cortada por ela — é assim que uma
-  // barraca aparece numa foto de praça: você vê a que está no seu caminho,
-  // não a barraca inteira centralizada. Cortar no quadro é o que faz a cena
-  // continuar para fora da tela.
-  const larguraBarraca = Math.min(larguraPx * 0.16, alturaPx * 0.3)
-  const xDir = larguraPx + larguraBarraca * 0.18
-  const xEsq = xDir - larguraBarraca
-  const yChao = alturaPx * PISO_FRAC
-  const alturaBalcao = (alturaPx - yChao) + alturaPx * 0.1
-  const yBalcao = yChao - alturaPx * 0.1
-  const yTelhado = yBalcao - alturaPx * 0.16
-
-  // A frente de chita: pano estampado cobrindo o corpo da barraca.
-  pincel.fillStyle = COR_CHITA_BARRACA
-  pincel.fillRect(xEsq, yBalcao, larguraBarraca, alturaBalcao)
-  pincel.fillStyle = 'rgba(226,200,150,0.16)'
-  for (let k = 0; k < 5; k++) {
-    for (let m = 0; m < 3; m++) {
-      const px = xEsq + (larguraBarraca / 5) * (k + 0.5)
-      const py = yBalcao + (alturaBalcao / 3) * (m + 0.5)
-      pincel.beginPath()
-      pincel.arc(px, py, larguraBarraca * 0.035, 0, Math.PI * 2)
-      pincel.fill()
-    }
-  }
-
-  // O balcão de madeira, saliente.
-  pincel.fillStyle = COR_MADEIRA_BARRACA
-  pincel.fillRect(xEsq - larguraBarraca * 0.05, yBalcao, larguraBarraca * 1.1, alturaPx * 0.022)
-
-  // O TELHADO DE PALHA, em duas águas, com o beiral bem saliente. A palha é
-  // desenhada em traços curtos e desiguais: é o que a diferencia de um
-  // triângulo marrom.
-  pincel.save()
-  pincel.beginPath()
-  pincel.moveTo(xEsq - larguraBarraca * 0.14, yBalcao)
-  pincel.lineTo(xEsq + larguraBarraca * 0.5, yTelhado)
-  pincel.lineTo(xDir + larguraBarraca * 0.14, yBalcao)
-  pincel.closePath()
-  pincel.fillStyle = COR_PALHA_TELHADO
-  pincel.fill()
-  pincel.clip()
-  pincel.strokeStyle = COR_PALHA_LUZ
-  pincel.lineWidth = 1
-  for (let k = 0; k < 46; k++) {
-    const t = pseudoAleatorio01(k * 19 + 3)
-    const px = xEsq - larguraBarraca * 0.14 + larguraBarraca * 1.28 * t
-    const py = yBalcao - (yBalcao - yTelhado) * pseudoAleatorio01(k * 23 + 5) * 0.9
-    pincel.beginPath()
-    pincel.moveTo(px, py)
-    pincel.lineTo(px + 1.5, py + 4 + pseudoAleatorio01(k * 29 + 7) * 5)
-    pincel.stroke()
-  }
-  pincel.restore()
-
-  // Os esteios de madeira, aparecendo sob o beiral.
-  pincel.fillStyle = COR_MADEIRA_BARRACA
-  pincel.fillRect(xEsq - larguraBarraca * 0.1, yBalcao, alturaPx * 0.008, alturaPx - yBalcao)
-
-  return tela
-}
-
-let spriteAcentosDireitaCache: { larguraPx: number; alturaPx: number; dpr: number; tela: HTMLCanvasElement } | null = null
-function garantirSpriteAcentosDireita(larguraPx: number, alturaPx: number, dpr: number): HTMLCanvasElement | null {
-  const cache = spriteAcentosDireitaCache
-  if (cache && cache.larguraPx === larguraPx && cache.alturaPx === alturaPx && cache.dpr === dpr) return cache.tela
-  const tela = rasterizarAcentosDireita(larguraPx, alturaPx, dpr)
-  if (tela) spriteAcentosDireitaCache = { larguraPx, alturaPx, dpr, tela }
-  return tela
-}
-
-// ── Vinheta morna: undertone sobre o preto quase puro ─────────────────────
-//
-// Régua §2/§3: o problema do `#08090C` não é ser escuro, é ser
-// FOTOGRAFICAMENTE neutro — sem nada por perto estabelecendo calor, ele lê
-// "boate/dashboard" antes de "arraiá ao entardecer". A correção NÃO troca o
-// hex (decisão de sistema de design inteiro por um problema de uma
-// página) — é uma vinheta radial, grande e quase transparente, pintada por
-// cima. O `CanvasGradient` é cacheado por tamanho de tela e reaproveitado
-// como `fillStyle` em todo quadro — construí-lo dentro do laço de desenho é
-// exatamente a classe "cara" que a régua §3 pede pra evitar
-// (`createRadialGradient` por quadro); reconstruí-lo só quando o tamanho
-// muda é a mesma disciplina que todo sprite deste arquivo já segue.
-let vinhetaCache: { largura: number; altura: number; gradiente: CanvasGradient } | null = null
-function obterVinheta(pincel: CanvasRenderingContext2D, largura: number, altura: number): CanvasGradient | null {
-  const cache = vinhetaCache
-  if (cache && cache.largura === largura && cache.altura === altura) return cache.gradiente
-  if (largura <= 0 || altura <= 0) return null
-  const gradiente = pincel.createRadialGradient(
-    largura * 0.5, altura * 0.85, 0,
-    largura * 0.5, altura * 0.85, Math.max(largura, altura) * 0.75,
-  )
-  gradiente.addColorStop(0, 'rgba(255, 107, 53, 0.05)')
-  gradiente.addColorStop(1, 'rgba(255, 107, 53, 0)')
-  vinhetaCache = { largura, altura, gradiente }
-  return gradiente
-}
 
 type SementeBrasa = {
   xFrac: number
@@ -1498,150 +1409,28 @@ function desenharBrasas(pincel: CanvasRenderingContext2D, largura: number, altur
  * algumas janelas acesas. Não é decoração: é ela que transforma a metade de
  * baixo de "vazio escuro" em "a praça continua depois da fogueira".
  */
-const COR_CEU_ALTO = '#05070E'
-const COR_CEU_MEIO = '#0D1018'
-const COR_CEU_HORIZONTE = '#241812'
 /** Fração da altura onde a silhueta dos telhados começa. */
-const HORIZONTE_FRAC = 0.9
 /** Onde o chão de paralelepípedo começa. Logo abaixo da base do casario:
  *  as casas ficam PLANTADAS no piso, não pairando sobre ele. */
-const PISO_FRAC = 0.955
 
-let ceuCache: { largura: number; altura: number; tela: HTMLCanvasElement } | null = null
-function garantirCeu(largura: number, altura: number, dpr: number): HTMLCanvasElement | null {
-  if (typeof document === 'undefined') return null
-  if (largura <= 0 || altura <= 0) return null
-  if (ceuCache && ceuCache.largura === largura && ceuCache.altura === altura) return ceuCache.tela
-  const tela = document.createElement('canvas')
-  tela.width = Math.max(1, Math.ceil(largura * dpr))
-  tela.height = Math.max(1, Math.ceil(altura * dpr))
-  const p = tela.getContext('2d')
-  if (!p) return null
-  p.scale(dpr, dpr)
-
-  const ceu = p.createLinearGradient(0, 0, 0, altura)
-  ceu.addColorStop(0, COR_CEU_ALTO)
-  ceu.addColorStop(0.55, COR_CEU_MEIO)
-  ceu.addColorStop(1, COR_CEU_HORIZONTE)
-  p.fillStyle = ceu
-  p.fillRect(0, 0, largura, altura)
-
-  // ESTRELAS, só no terço de cima — perto do horizonte o brilho do arraial
-  // as apagaria, e desenhá-las ali seria contradizer o próprio gradiente.
-  // Posições pseudoaleatórias determinísticas: o céu é assado uma vez, e
-  // duas rasterizações têm de dar o mesmo desenho.
-  for (let i = 0; i < 90; i++) {
-    const x = pseudoAleatorio01(i * 3 + 1) * largura
-    const y = pseudoAleatorio01(i * 5 + 2) * altura * 0.42
-    const brilho = 0.12 + pseudoAleatorio01(i * 7 + 3) * 0.4
-    // Somem de baixo para cima: quanto mais perto do horizonte, mais
-    // apagada — é o que a luz da festa faz com o céu de verdade.
-    const desbotar = 1 - y / (altura * 0.42)
-    p.fillStyle = `rgba(226,232,244,${(brilho * desbotar).toFixed(3)})`
-    p.beginPath()
-    p.arc(x, y, 0.6 + pseudoAleatorio01(i * 11 + 5) * 0.7, 0, Math.PI * 2)
-    p.fill()
-  }
-
-  // O CASARIO. Fachadas coloniais, não silhuetas pretas.
-  //
-  // A versão anterior desenhava caixotes quase pretos, e a foto do arraial
-  // mostra o contrário: casario de dois pavimentos em tons pastéis — creme,
-  // rosa, azul, verde-água — com TELHA vermelha, portas e janelas altas de
-  // verruma. À noite esses tons ficam abafados, mas não somem: é a cor da
-  // fachada que diz "cidade do interior", e uma silhueta preta diz só
-  // "prédio".
-  //
-  // Os tons aqui já saem escurecidos para a hora da noite; não há camada de
-  // sombra por cima, senão o casario voltaria a virar silhueta.
-  const FACHADAS = [
-    { parede: '#3A3026', telha: '#4A2318' },
-    { parede: '#3A2A2C', telha: '#4A2318' },
-    { parede: '#26313A', telha: '#432017' },
-    { parede: '#2B3A33', telha: '#4A2318' },
-    { parede: '#3D3428', telha: '#432017' },
-  ] as const
-  const yBase = altura
-  const yTopoMax = altura * HORIZONTE_FRAC
-  let x = -largura * 0.05
-  let n = 0
-  while (x < largura * 1.05) {
-    const fachada = FACHADAS[n % FACHADAS.length]!
-    const w = largura * (0.055 + pseudoAleatorio01(n * 13 + 7) * 0.055)
-    const h = (yBase - yTopoMax) * (0.62 + pseudoAleatorio01(n * 17 + 11) * 0.62)
-    const yTopo = yBase - h
-
-    p.fillStyle = fachada.parede
-    p.fillRect(x, yTopo, w, h)
-
-    // O TELHADO de telha: uma faixa inclinada com beiral passando dos dois
-    // lados. Casa colonial tem duas águas e beiral saliente — é a linha do
-    // beiral que separa "casario" de "caixotes".
-    p.fillStyle = fachada.telha
-    p.beginPath()
-    p.moveTo(x - w * 0.09, yTopo)
-    p.lineTo(x + w * 0.5, yTopo - h * 0.17)
-    p.lineTo(x + w * 1.09, yTopo)
-    p.closePath()
-    p.fill()
-
-    // JANELAS altas, em duas fileiras. Parte acesa, parte não: casario com
-    // todas as janelas acesas vira painel de LED.
-    const colunas = w > largura * 0.075 ? 3 : 2
-    const wJanela = w / (colunas * 2 + 1)
-    for (let andar = 0; andar < 2; andar++) {
-      const yJanela = yTopo + h * (0.2 + andar * 0.38)
-      const hJanela = h * 0.22
-      if (yJanela + hJanela > yBase) continue
-      for (let c = 0; c < colunas; c++) {
-        const xJanela = x + wJanela * (c * 2 + 1)
-        const acesa = pseudoAleatorio01(n * 31 + andar * 7 + c * 3) > 0.45
-        p.fillStyle = acesa ? 'rgba(255,198,116,0.62)' : 'rgba(10,12,18,0.85)'
-        p.fillRect(xJanela, yJanela, wJanela, hJanela)
-      }
-    }
-    x += w * 1.03
-    n++
-  }
-
-  // O CHÃO. Paralelepípedo com palha por cima — na foto o piso é a única
-  // superfície grande da cena, e sem ele o casario parece flutuar sobre o
-  // gradiente do céu. Fica escuro: é chão de noite, e ainda tem de deixar o
-  // texto da dobra respirar.
-  const yChao = altura * PISO_FRAC
-  p.fillStyle = '#14100E'
-  p.fillRect(0, yChao, largura, altura - yChao)
-  // As pedras: fiadas alternadas, cada uma um pouco diferente da vizinha.
-  const alturaPedra = Math.max(3, (altura - yChao) * 0.14)
-  let fiada = 0
-  for (let y = yChao; y < altura; y += alturaPedra) {
-    const larguraPedra = alturaPedra * 1.9
-    const desloca = fiada % 2 === 0 ? 0 : larguraPedra / 2
-    for (let px = -larguraPedra + desloca; px < largura; px += larguraPedra) {
-      const tom = 0.04 + pseudoAleatorio01(fiada * 29 + Math.round(px)) * 0.06
-      p.fillStyle = `rgba(214,198,178,${tom.toFixed(3)})`
-      p.fillRect(px + 0.5, y + 0.5, larguraPedra - 1, alturaPedra - 1)
-    }
-    fiada++
-  }
-  // A PALHA espalhada, que é o que uma festa junina joga no chão.
-  for (let i = 0; i < 120; i++) {
-    const px = pseudoAleatorio01(i * 37 + 3) * largura
-    const py = yChao + pseudoAleatorio01(i * 41 + 5) * (altura - yChao)
-    const comprimento = 3 + pseudoAleatorio01(i * 43 + 7) * 5
-    const ang = pseudoAleatorio01(i * 47 + 11) * Math.PI
-    p.strokeStyle = `rgba(198,164,104,${(0.1 + pseudoAleatorio01(i * 53 + 13) * 0.18).toFixed(3)})`
-    p.lineWidth = 1
-    p.beginPath()
-    p.moveTo(px, py)
-    p.lineTo(px + Math.cos(ang) * comprimento, py + Math.sin(ang) * comprimento)
-    p.stroke()
-  }
-
-  ceuCache = { largura, altura, tela }
+/**
+ * A praça inteira, assada uma vez por tamanho de tela.
+ *
+ * O desenho mora em `junino-cenario.ts`, feito A PARTIR DA FOTO do arraial
+ * em `public/` — céu, casario colonial, calçamento em perspectiva, tapetes
+ * pintados, palha, barracas em dois planos de profundidade e a quadrilha.
+ * Aqui fica só o cache: nada dessa cena anima, e assá-la uma vez é o que
+ * permite ter essa quantidade de objeto sem pagar por ela a 60Hz.
+ */
+let cenarioCache: { largura: number; altura: number; dpr: number; tela: HTMLCanvasElement } | null =
+  null
+function garantirCenario(largura: number, altura: number, dpr: number): HTMLCanvasElement | null {
+  const c = cenarioCache
+  if (c && c.largura === largura && c.altura === altura && c.dpr === dpr) return c.tela
+  const tela = rasterizarCenario(largura, altura, dpr)
+  if (tela) cenarioCache = { largura, altura, dpr, tela }
   return tela
 }
-
 function desenharFundo(
   pincel: CanvasRenderingContext2D,
   largura: number,
@@ -1651,26 +1440,26 @@ function desenharFundo(
 ): void {
   const dpr = dprAtual()
 
-  // O céu assado entra no lugar do preenchimento chapado. `PALETA.fundo`
-  // continua sendo pintado antes dele como rede de segurança: se o sprite
-  // do céu falhar (sem `document`), a dobra fica escura, nunca transparente.
-  pincel.fillStyle = PALETA.fundo
-  pincel.fillRect(0, 0, largura, altura)
-  const ceu = garantirCeu(largura, altura, dpr)
-  if (ceu) pincel.drawImage(ceu, 0, 0, largura, altura)
-
-  const vinheta = obterVinheta(pincel, largura, altura)
-  if (vinheta) {
-    pincel.fillStyle = vinheta
+  // UMA operação de tela cheia por quadro, não três.
+  //
+  // Antes eram: preencher o fundo chapado, desenhar o sprite do cenário por
+  // cima, e aplicar a vinheta. As três cobrem o quadro inteiro — a 1200×620
+  // com densidade 2 são três passadas de 3,4 milhões de pixels cada, a cada
+  // 16ms. E as duas que sobraram eram desperdício puro: o sprite do cenário
+  // é OPACO e cobre tudo (o preenchimento embaixo dele nunca aparece), e a
+  // vinheta é estática (agora vem assada dentro do próprio sprite).
+  const cenario = garantirCenario(largura, altura, dpr)
+  if (cenario) {
+    pincel.drawImage(cenario, 0, 0, largura, altura)
+  } else {
+    // Sem `document` não há sprite: o preenchimento chapado é a rede de
+    // segurança para a dobra ficar escura, nunca transparente.
+    pincel.fillStyle = PALETA.fundo
     pincel.fillRect(0, 0, largura, altura)
   }
 
   desenharBandeirinhas(pincel, largura, altura, dpr, agora, parado)
 
-  const acentos = garantirSpriteAcentosDireita(largura, altura, dpr)
-  if (acentos) {
-    pincel.drawImage(acentos, 0, 0, largura, altura)
-  }
 
   desenharFogueira(pincel, largura, altura, dpr, agora, parado)
 

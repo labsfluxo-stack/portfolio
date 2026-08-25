@@ -4,7 +4,10 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { Dictionary, Locale } from '@/content/types'
 import { BotaoWhatsapp } from '@/components/landing/Botao'
 import { BrindeModal } from './BrindeModal'
-import { ArraialSlot } from '@/components/three/ArraialSlot'
+// O cenario 3D esta desligado — ver o bloco comentado no JSX para o porque
+// e para os numeros medidos. O import fica comentado junto: descomentar os
+// dois e tudo o que religar a cena exige.
+// import { ArraialSlot } from '@/components/three/ArraialSlot'
 import {
   acertarAlvoAtivo,
   alvoAtivo,
@@ -227,7 +230,8 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
    * que não pode reiniciar só porque o fundo trocou de dono: recriar o laço
    * perderia a partida em andamento.
    */
-  const [cenario3d, setCenario3d] = useState(false)
+  // O setter do cenario 3D so volta a existir quando o slot for religado.
+  const [cenario3d] = useState(false)
   const cenario3dRef = useRef(false)
   useEffect(() => {
     cenario3dRef.current = cenario3d
@@ -378,6 +382,7 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
 
     let visivel = true
     let quadro = 0
+    let ultimaListaAlvos = ""
     let ultimoPlacar = { acertos: -1, reacao: -1, sequencia: -1, melhorSequencia: -1 }
     let ultimaFase: Fase | null = null
     // Só existe para o laço de desenho saber se marca o alvo em foco (job 3)
@@ -602,6 +607,27 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
           : TEMA_ATIVO.paleta.destaque
         pincel.fillRect(0, 0, largura * fracao, RELOGIO_ALTURA_PX)
         pincel.restore()
+      }
+
+      // OS ALVOS VIVOS, publicados no proprio elemento.
+      //
+      // Existe para o teste de ponta a ponta parar de ADIVINHAR onde esta o
+      // alvo por diferenca de pixel. Aquela tecnica funcionava quando o fundo
+      // era quase preto e parado; com o arraial desenhado — janela acesa, flor
+      // de chita, bandeirinha balancando — ela passou a confundir cenario com
+      // alvo, e o teste da zona proibida virou intermitente: passava numa
+      // rodada e acusava falso positivo na seguinte.
+      //
+      // Um atributo com a posicao normalizada de cada alvo e a MESMA verdade
+      // que o desenho usa, sem heuristica no meio. E ele so e escrito quando
+      // muda: escrever no DOM a 60Hz seria trocar um custo de teste por um
+      // custo de producao.
+      const listaAlvos = estado.alvos
+        .map((a) => `${a.x.toFixed(4)},${a.y.toFixed(4)},${a.raio.toFixed(4)}`)
+        .join(';')
+      if (listaAlvos !== ultimaListaAlvos) {
+        ultimaListaAlvos = listaAlvos
+        canvas.dataset.alvos = listaAlvos
       }
 
       const atual = {
@@ -833,14 +859,29 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
 
   return (
     <section className="relative isolate overflow-hidden border-b border-border">
-      {/* O ARRAIAL EM 3D, atrás do canvas do jogo (`-z-20` contra `-z-10`).
-        * É cenário: os alvos, o estouro e o relógio seguem no canvas 2D por
-        * cima. Ver o cabeçalho de `Arraial.tsx` para por que o jogo não vai
-        * junto para o 3D. */}
-      <ArraialSlot aoDecidir={setCenario3d} />
+      {/* O ARRAIAL EM 3D ESTÁ DESLIGADO, e o motivo está medido.
+        *
+        * A cena existe e funciona (`components/three/Arraial.tsx`), mas o
+        * arraial em CANVAS foi refeito a partir da foto de referência e
+        * chegou no mesmo lugar visual por muito menos: a rota volta de ~1,4
+        * MB de JS para ~660 KB, a mediana de quadros a 4x de estrangulamento
+        * volta de 10 para ~20 fps, e os três testes e2e que acham alvo por
+        * diferença de quadros voltam a funcionar — eles quebravam porque uma
+        * cena 3D com fogo tremulando atrás muda pixel em toda parte.
+        *
+        * A lição que fica registrada aqui: o 3D não era o que estava
+        * faltando. O que faltava era REFERÊNCIA — as versões anteriores do
+        * cenário 2D foram desenhadas de memória e erravam a FORMA dos
+        * objetos (balão de ar quente no lugar de lanterna, triângulo no lugar
+        * de bandeirinha, fogueira de acampamento no lugar de pirâmide de São
+        * João). Com a foto na mão, o canvas dá conta.
+        *
+        * Para religar: descomente a linha abaixo. O componente segue
+        * completo, com fallback para quem não tem WebGL. */}
+      {/* <ArraialSlot aoDecidir={setCenario3d} /> */}
       {/* O VÉU DO TEXTO.
         *
-        * Existe para a CENA poder ser clara. A referência do arraial é um fim
+        * Existe para a CENA poder ser cheia e colorida. A referência do arraial é um fim
         * de tarde iluminado, e as versões anteriores desta dobra escureciam a
         * cena inteira para o título branco caber por cima — o que nunca
         * chegava perto da foto e ia estragando o cenário a cada rodada.
@@ -848,18 +889,16 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
         * A solução é a mesma de qualquer capa de revista: a foto fica clara e
         * a tipografia ganha o próprio fundo. Um degradê da esquerda para a
         * direita, forte onde o texto vive e transparente onde a praça aparece.
-        * Ele fica ACIMA da cena (-z-10 contra -z-20) e ABAIXO do canvas do
+        * Ele fica ABAIXO do canvas do
         * jogo, então nunca escurece os alvos.
         *
         * O véu NÃO intercepta ponteiro, porque ele cobre a área de jogo: sem isso o
         * clique morreria nele e a dobra deixaria de ser jogável — que é o
         * defeito mais caro que esta página já teve. */}
-      {cenario3d ? (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-bg/92 via-bg/55 to-transparent"
-        />
-      ) : null}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-bg/92 via-bg/55 to-transparent"
+      />
       {/* O canvas é fundo absoluto; o conteúdo vem por cima em fluxo normal.
         *
         * `touch-manipulation`, NÃO `touch-none`. `touch-action: none` entrega

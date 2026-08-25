@@ -82,144 +82,47 @@ test('a dobra joga sozinha e o placar sobe sem ninguém tocar', async ({ page })
 })
 
 /**
- * Acha TODOS os alvos VIVOS no canvas neste instante e devolve a coordenada
- * de página de cada um — sem conhecer a cor de nada. É a única forma honesta
- * de "saber onde está o alvo" de fora: o estado da partida vive num `ref` e
- * não atravessa para o DOM, e inventar uma posição faria o teste clicar no
- * vazio e passar por sorte.
+ * OS ALVOS VIVOS, lidos do próprio app.
  *
- * REESCRITO (ruling do controller, Task 3): a versão anterior varria o canvas
- * atrás de um pixel `#FFB020` — a cor do alvo ANTES do tema. Ela quebrou no
- * instante em que o fundo passou a ter arte de verdade: `PALETA.destaque` do
- * tema junino (`temas/junino.ts`) É `#FFB020`, e a faixa de bandeirinhas do
- * fundo pinta uma delas SÓLIDA nessa cor — a varredura (que devolve o
- * PRIMEIRO pixel que bate, de cima para baixo) sempre achava a bandeirinha,
- * nunca o balão, e o clique caía num enfeite estático. Cor nunca mais vai ser
- * um jeito seguro de identificar alvo: qualquer tema pode reusar qualquer cor
- * da própria paleta em qualquer parte do fundo, de propósito (é exatamente o
- * caso aqui — `--color-warn` reaproveitado, não coincidência).
+ * Antes esta suíte ACHAVA o alvo por diferença entre dois quadros: tirava
+ * duas capturas, comparava pixel a pixel e chamava de alvo o que tivesse
+ * mudado com brilho e pegada suficientes. Funcionava enquanto o fundo era
+ * quase preto e parado.
  *
- * A NOVA ABORDAGEM COMPARA DOIS QUADROS. Bandeirinha é `desenharFundo`
- * PARADA — pixel a pixel, byte a byte, o mesmo entre dois quadros SEMPRE (ver
- * `temas/junino.ts`: "bandeirinhas paradas + brasas em deriva"). Um alvo
- * nasce, balança, encolhe e estoura — muda de quadro a quadro em QUALQUER
- * tema futuro, porque é assim que o motor de reflexo funciona (`avancar` em
- * `motor-reflexo.ts`), não uma escolha de arte. Comparar dois quadros
- * separados por ~200ms e procurar pixels que MUDARAM é uma pergunta sobre
- * COMPORTAMENTO do jogo, não sobre a paleta do tema ativo — sobrevive a
- * qualquer redesenho de fundo.
+ * Parou de funcionar quando a dobra ganhou o arraial desenhado. Janela
+ * acesa, flor de chita e bandeirinha balançando mudam pixel em toda parte, e
+ * o detector passou a confundir cenário com alvo — o teste da zona proibida
+ * virou intermitente, passando numa rodada e acusando falso positivo na
+ * seguinte, num ponto (x=26, y=330) onde não havia alvo nenhum.
  *
- * ISSO SOZINHO AINDA PEGARIA BRASA: a brasa do fundo também se move (deriva
- * lenta, alpha em rampa) e por instantes pode mudar o bastante para passar
- * num limiar de diferença de cor. O que distingue as duas é TAMANHO: uma
- * brasa é um punhado de pixels — raio de 1,1 a 2,0px (`raioBase` em
- * `SEMENTES_BRASA`, `temas/junino.ts`); um alvo tem dezenas de pixels de
- * diâmetro (a régua do motor, `RAIO = 0,055` do lado menor da tela, ~24px
- * num canvas de 430px de largura — `motor-reflexo.ts`). Uma ordem de
- * grandeza de folga entre as duas escalas é o que sustenta os limiares
- * abaixo. Por isso um candidato só é aceito se os quatro vizinhos a
- * `RAIO_FOOTPRINT` de distância (acima, abaixo, esquerda, direita) TAMBÉM
- * mudaram — uma brasa não tem essa extensão em nenhuma das quatro direções ao
- * mesmo tempo; um alvo real tem, na maior parte da própria vida — calibrado
- * observando o jogo rodando de verdade em navegador, não só a olho na
- * fórmula.
+ * `CapaJogo` publica a posição normalizada de cada alvo vivo no atributo
+ * `data-alvos` do canvas, escrita só quando muda. Ler dali é a MESMA verdade
+ * que o desenho usa, sem heurística no meio: some a fragilidade, e de quebra
+ * some o custo de duas capturas de tela por consulta.
  *
- * DEVOLVE TODOS OS CANDIDATOS, NÃO SÓ O PRIMEIRO (achado da revisão final de
- * branch): a versão anterior parava no primeiro pixel que passasse nos dois
- * critérios e devolvia só ele. Isso bastava para "existe alvo em algum
- * lugar" (`acharAlvo`/`esperarAlvo` abaixo, que só precisam de UM), mas não
- * serve para "nenhum alvo está numa zona proibida" — essa pergunta precisa
- * checar TODOS os alvos vivos, não só o primeiro que a varredura encontrar,
- * senão um segundo ou terceiro alvo nascido dentro de uma zona passaria
- * batido sempre que o primeiro encontrado estivesse limpo. `acharAlvo` e
- * `acharAlvoEmZonaProibida` (abaixo) COMPARTILHAM este mesmo detector — cor
- * nunca vai ser um jeito seguro de identificar alvo, e reescrever a
- * comparação de quadros duas vezes neste arquivo arriscaria as duas cópias
- * divergirem e uma delas ficar com a calibração velha.
- *
- * FALHA ALTO, NÃO EM SILÊNCIO: sem nenhum candidato que passe nos dois
- * critérios (mudou E tem corpo), a função devolve array vazio — nunca uma
- * coordenada chutada. Quem chama trata array vazio como "não achei ainda" e
- * tenta de novo dentro do próprio orçamento de tempo do teste; se a janela
- * inteira passar sem achar nada, é a asserção do teste que reprova, com a
- * mensagem de sempre — não esta função inventando um clique no vazio.
+ * O que se perde: este teste não prova mais que o alvo foi PINTADO, só que
+ * ele existe no estado. Essa prova continua existindo — é o teste de
+ * tolerância em `tests/unit/ativacoes-tema.test.ts`, que mede a extensão
+ * renderizada do desenho, e os testes de clique aqui, que só marcam ponto se
+ * o alvo estiver de fato onde o atributo diz.
  */
 async function acharTodosAlvos(page: Page): Promise<Array<{ x: number; y: number }>> {
-  return page.evaluate(async () => {
-    const canvas = document.querySelector('canvas')
-    if (!canvas) return []
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return []
-    const caixa = canvas.getBoundingClientRect()
-
-    const ler = () => ctx.getImageData(0, 0, canvas.width, canvas.height).data
-    const antes = ler()
-    // ~200ms: menor que a vida de um alvo (1050-1400ms) e maior que um
-    // quadro de rAF — tempo suficiente para o balanço/encolhimento/estouro
-    // do tema (ou o nascimento/expiração de um alvo, mesmo sob
-    // `prefers-reduced-motion`, onde o desenho em si não anima) produzirem
-    // diferença real entre os dois quadros.
-    await new Promise((resolve) => setTimeout(resolve, 200))
-    const depois = ler()
-
-    const largura = canvas.width
-    const altura = canvas.height
-    // Passo de 4px: o alvo tem dezenas de pixels de diâmetro, e varrer de um
-    // em um custaria mais do que a própria janela de comparação.
-    const PASSO = 4
-    // Raio do "corpo" exigido nas quatro direções cardeais — grande o
-    // bastante para nenhuma brasa do fundo alcançar (raioBase 1,1-2,0px, ver
-    // `SEMENTES_BRASA` em `temas/junino.ts`), pequeno o bastante para caber
-    // dentro de um alvo real mesmo no instante em que ele está menor (perto
-    // de expirar) — RAIO = 0,055 do lado menor da tela em
-    // `motor-reflexo.ts`. Calibrado contra o jogo rodando de verdade em
-    // navegador.
-    const RAIO_FOOTPRINT = 6
-    // Soma das diferenças absolutas de R+G+B entre os dois quadros.
-    const LIMIAR_DIFF = 40
-    // O pixel no quadro ATUAL precisa estar aceso de verdade — descarta
-    // sombra/ruído de antialiasing que mudou um pouco mas não é nada.
-    const LIMIAR_BRILHO = 70
-
-    const indice = (px: number, py: number) => (py * largura + px) * 4
-    const mudouEAceso = (px: number, py: number): boolean => {
-      const i = indice(px, py)
-      const diferenca =
-        Math.abs(antes[i]! - depois[i]!) +
-        Math.abs(antes[i + 1]! - depois[i + 1]!) +
-        Math.abs(antes[i + 2]! - depois[i + 2]!)
-      if (diferenca <= LIMIAR_DIFF) return false
-      const brilhoAtual = Math.max(depois[i]!, depois[i + 1]!, depois[i + 2]!)
-      return brilhoAtual > LIMIAR_BRILHO
-    }
-
-    const candidatos: { x: number; y: number }[] = []
-    for (let py = RAIO_FOOTPRINT; py < altura - RAIO_FOOTPRINT; py += PASSO) {
-      for (let px = RAIO_FOOTPRINT; px < largura - RAIO_FOOTPRINT; px += PASSO) {
-        if (!mudouEAceso(px, py)) continue
-        // O CORPO: os quatro vizinhos cardeais também mudaram e estão
-        // acesos. É o que separa um alvo de verdade (dezenas de pixels) de
-        // uma brasa (poucos pixels) — ver o comentário da função.
-        if (
-          mudouEAceso(px, py - RAIO_FOOTPRINT) &&
-          mudouEAceso(px, py + RAIO_FOOTPRINT) &&
-          mudouEAceso(px - RAIO_FOOTPRINT, py) &&
-          mudouEAceso(px + RAIO_FOOTPRINT, py)
-        ) {
-          candidatos.push({
-            x: caixa.left + (px / largura) * caixa.width,
-            y: caixa.top + (py / altura) * caixa.height,
-          })
-        }
-      }
-    }
-    return candidatos
-  })
+  const caixa = await page.locator('canvas.jogo-canvas').boundingBox()
+  if (!caixa) return []
+  const bruto = await page
+    .locator('canvas.jogo-canvas')
+    .getAttribute('data-alvos')
+  if (!bruto) return []
+  return bruto
+    .split(';')
+    .filter(Boolean)
+    .map((item) => {
+      const [x, y] = item.split(',').map(Number)
+      return { x: caixa.x + (x ?? 0) * caixa.width, y: caixa.y + (y ?? 0) * caixa.height }
+    })
 }
 
-/** Atalho sobre `acharTodosAlvos` para quem só precisa de UM alvo vivo,
- *  qualquer um — o caso comum de "clicar em algo que existe" ou "provar que
- *  a dobra tem alvo na tela". */
+/** Atalho para quem só precisa de UM alvo vivo. */
 async function acharAlvo(page: Page): Promise<{ x: number; y: number } | null> {
   const candidatos = await acharTodosAlvos(page)
   return candidatos[0] ?? null
