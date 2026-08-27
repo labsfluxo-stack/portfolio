@@ -45,6 +45,7 @@
  */
 import { desenharBarraca } from './junino-barraca'
 import { desenharCasario } from './junino-casario'
+import { desenharEnfeite } from './junino-enfeite'
 import { desenharGente } from './junino-gente'
 import { desenharVegetacao } from './junino-vegetacao'
 /** A linha do horizonte, em fração da altura. Alta como na foto: o chão da
@@ -495,6 +496,12 @@ export function rasterizarCenario(
     escalaEm(y, altura),
   )
   desenharCasario(p, largura, altura, altura * (HORIZONTE + 0.035))
+  // O ENFEITE vem LOGO DEPOIS do casario e antes de qualquer coisa da praça:
+  // ele está preso às fachadas, então tem de passar por cima delas — e tem de
+  // ficar por baixo das barracas e da gente, que estão na frente.
+  desenharEnfeite(p, largura, altura, altura * (HORIZONTE + 0.035), (y) =>
+    escalaEm(y, altura),
+  )
   desenharPalco(p, largura, altura)
   desenharChao(p, largura, altura)
   desenharTapetes(p, largura, altura)
