@@ -98,6 +98,39 @@ function desenharCeu(p: CanvasRenderingContext2D, largura: number, altura: numbe
   }
 }
 
+/**
+ * OS MORROS atrás do casario.
+ *
+ * A foto tem serra verde no horizonte, à direita, e é ela que diz INTERIOR —
+ * uma cidade sem nada atrás lê como cenário recortado. Ficam muito escuros e
+ * pouco saturados: é noite, e morro distante à noite é quase silhueta.
+ */
+function desenharMorros(p: CanvasRenderingContext2D, largura: number, altura: number): void {
+  const yBase = altura * (HORIZONTE + 0.02)
+  for (const camada of [
+    { altura: 0.1, cor: '#16202A', desloca: 0 },
+    { altura: 0.07, cor: '#1C2A2E', desloca: 0.3 },
+  ]) {
+    p.fillStyle = camada.cor
+    p.beginPath()
+    p.moveTo(-largura * 0.05, yBase)
+    // Uma linha de cumes irregular, feita de arcos de larguras diferentes —
+    // cume parelho lê como onda desenhada, não como serra.
+    let x = -largura * 0.05
+    let n = 0
+    while (x < largura * 1.05) {
+      const w = largura * (0.16 + ale(n * 13 + camada.desloca * 100) * 0.2)
+      const h = altura * camada.altura * (0.5 + ale(n * 17 + camada.desloca * 50) * 0.9)
+      p.quadraticCurveTo(x + w / 2, yBase - h, x + w, yBase - h * 0.25)
+      x += w
+      n++
+    }
+    p.lineTo(largura * 1.05, yBase)
+    p.closePath()
+    p.fill()
+  }
+}
+
 // ── O chão ──────────────────────────────────────────────────────────────
 
 /**
@@ -139,36 +172,62 @@ function desenharChao(p: CanvasRenderingContext2D, largura: number, altura: numb
   }
 }
 
-/** Os tapetes pintados no calçamento, onde a quadrilha dança. Trapézios, não
- *  retângulos: em perspectiva a borda de trás é mais estreita que a da frente,
- *  e um retângulo aqui leria como adesivo colado na tela. */
+/**
+ * OS TAPETES PINTADOS no calçamento.
+ *
+ * Na foto eles são padrões geométricos FORTES — losangos e quadros em cores
+ * cheias — cobrindo boa parte da praça onde a quadrilha dança. Os meus eram
+ * três trapézios lisos em alfa baixo, que leem como mancha de luz, não como
+ * chão pintado.
+ *
+ * Trapézio, e nunca retângulo: em perspectiva a borda de trás é mais estreita
+ * que a da frente, e um retângulo aqui leria como adesivo colado na tela.
+ */
 function desenharTapetes(p: CanvasRenderingContext2D, largura: number, altura: number): void {
   const tapetes = [
-    { cx: 0.5, y: 0.66, largura: 0.3, cor: '#8E2622' },
-    { cx: 0.72, y: 0.76, largura: 0.34, cor: '#1E5F44' },
-    { cx: 0.36, y: 0.86, largura: 0.4, cor: '#8A6418' },
+    { cx: 0.44, y: 0.7, largura: 0.26, cor: '#A82A24', motivo: '#E8C05A' },
+    { cx: 0.68, y: 0.8, largura: 0.24, cor: '#1E6F4F', motivo: '#F2E2C4' },
+    { cx: 0.36, y: 0.9, largura: 0.3, cor: '#B07818', motivo: '#A82A24' },
   ]
   for (const t of tapetes) {
     const y0 = altura * t.y
     const escala0 = escalaEm(y0, altura)
-    const alturaTapete = altura * 0.075 * escala0
+    const alturaTapete = altura * 0.085 * escala0
     const y1 = y0 + alturaTapete
     const meia0 = ((largura * t.largura) / 2) * (escala0 / 1.1)
     const meia1 = ((largura * t.largura) / 2) * (escalaEm(y1, altura) / 1.1)
     const cx = largura * t.cx
-    p.fillStyle = t.cor
-    p.globalAlpha = 0.5
+
+    p.save()
     p.beginPath()
     p.moveTo(cx - meia0, y0)
     p.lineTo(cx + meia0, y0)
     p.lineTo(cx + meia1, y1)
     p.lineTo(cx - meia1, y1)
     p.closePath()
+    p.fillStyle = t.cor
+    p.globalAlpha = 0.82
     p.fill()
-    p.globalAlpha = 1
+    // O MOTIVO, recortado no próprio tapete: losangos em fileira, que é o
+    // padrão mais presente no chão pintado da referência.
+    p.clip()
+    p.fillStyle = t.motivo
+    const passo = alturaTapete * 0.44
+    for (let fy = y0; fy < y1; fy += passo) {
+      const desloca = Math.round((fy - y0) / passo) % 2 === 0 ? 0 : passo
+      for (let fx = cx - meia0; fx < cx + meia0; fx += passo * 2) {
+        p.beginPath()
+        p.moveTo(fx + desloca, fy + passo * 0.1)
+        p.lineTo(fx + desloca + passo * 0.42, fy + passo * 0.5)
+        p.lineTo(fx + desloca, fy + passo * 0.9)
+        p.lineTo(fx + desloca - passo * 0.42, fy + passo * 0.5)
+        p.closePath()
+        p.fill()
+      }
+    }
+    p.restore()
   }
 }
-
 /** Palha espalhada. É o que uma festa junina joga no chão, e é o detalhe que
  *  impede o calçamento de ler como piso de shopping. */
 function desenharPalha(p: CanvasRenderingContext2D, largura: number, altura: number): void {
@@ -299,6 +358,87 @@ function desenharCasario(p: CanvasRenderingContext2D, largura: number, altura: n
     desenharCasa(p, x, yBase, larguraCasa, alturaCasa, FACHADAS[n % FACHADAS.length]!, n)
     x += larguraCasa * 1.02
     n++
+  }
+}
+
+/**
+ * O MASTRO CENTRAL com a faixa.
+ *
+ * É o ponto focal da praça na foto: um poste alto no meio, com a faixa do
+ * São João pendurada, e é DELE que os varais saem em leque. Sem o mastro os
+ * varais não têm de onde sair, e é por isso que os meus vinham lendo como
+ * fileiras paralelas penduradas no nada.
+ *
+ * A faixa não leva texto: texto desenhado em canvas não é lido por leitor de
+ * tela, e a regra desta página é que informação mora em DOM. Aqui ela é a
+ * tábua pintada, que é o que se vê de longe.
+ */
+/** O mastro fica a DIREITA do centro: em 0,5 a faixa dele batia em cima do
+ *  titulo da dobra, e nesta pagina o texto vem antes do cenario. */
+export const MASTRO = { x: 0.63, yTopo: 0.055 } as const
+
+function desenharMastro(p: CanvasRenderingContext2D, largura: number, altura: number): void {
+  const x = largura * MASTRO.x
+  const yTopo = altura * MASTRO.yTopo
+  const yBase = altura * (HORIZONTE + 0.16)
+  const escala = escalaEm(yBase, altura)
+  const largPoste = Math.max(3, altura * 0.008 * escala)
+
+  p.fillStyle = COR_MADEIRA
+  p.fillRect(x - largPoste / 2, yTopo, largPoste, yBase - yTopo)
+  // As braçadeiras onde as cordas amarram.
+  p.fillStyle = '#5A4028'
+  for (const fr of [0.06, 0.14]) {
+    p.fillRect(x - largPoste, yTopo + (yBase - yTopo) * fr, largPoste * 2, largPoste * 0.7)
+  }
+
+  // A FAIXA, pendurada logo abaixo das braçadeiras.
+  const largFaixa = largura * 0.13
+  const altFaixa = altura * 0.055
+  const yFaixa = yTopo + (yBase - yTopo) * 0.22
+  p.fillStyle = '#1E5F44'
+  p.fillRect(x - largFaixa / 2, yFaixa, largFaixa, altFaixa)
+  p.fillStyle = '#E8D9B8'
+  p.fillRect(x - largFaixa / 2 + 3, yFaixa + 3, largFaixa - 6, altFaixa - 6)
+  p.fillStyle = '#1E5F44'
+  // Duas tarjas dentro, no lugar do texto — de longe é isso que uma faixa é.
+  p.fillRect(x - largFaixa * 0.36, yFaixa + altFaixa * 0.3, largFaixa * 0.72, altFaixa * 0.13)
+  p.fillRect(x - largFaixa * 0.26, yFaixa + altFaixa * 0.56, largFaixa * 0.52, altFaixa * 0.1)
+}
+
+/**
+ * O PALCO, à direita como na foto.
+ *
+ * Estrutura de treliça com cobertura escura, boca iluminada e caixas de som
+ * nas laterais. É o objeto que diz que a festa tem PROGRAMAÇÃO — praça com
+ * barraca e fogueira é feira; com palco é arraial.
+ */
+function desenharPalco(p: CanvasRenderingContext2D, largura: number, altura: number): void {
+  const cx = largura * 0.84
+  const yBase = altura * (HORIZONTE + 0.07)
+  const larg = largura * 0.19
+  const alt = altura * 0.115
+  const meia = larg / 2
+
+  // A boca do palco, acesa por trás: é a luz que faz o palco existir à noite.
+  p.fillStyle = '#3A2418'
+  p.fillRect(cx - meia, yBase - alt, larg, alt)
+  const g = p.createLinearGradient(cx, yBase - alt, cx, yBase)
+  g.addColorStop(0, 'rgba(255,196,110,0.5)')
+  g.addColorStop(1, 'rgba(255,140,60,0.1)')
+  p.fillStyle = g
+  p.fillRect(cx - meia * 0.86, yBase - alt * 0.86, larg * 0.86, alt * 0.7)
+
+  // A cobertura e os montantes de treliça.
+  p.fillStyle = '#16191F'
+  p.fillRect(cx - meia * 1.1, yBase - alt * 1.18, larg * 1.1, alt * 0.16)
+  for (const lado of [-1, 1]) {
+    p.fillRect(cx + lado * meia * 1.02, yBase - alt * 1.18, Math.max(3, largura * 0.006), alt * 1.18)
+  }
+  // As caixas de som.
+  p.fillStyle = '#101318'
+  for (const lado of [-1, 1]) {
+    p.fillRect(cx + lado * meia * 0.96, yBase - alt * 0.72, largura * 0.016, alt * 0.72)
   }
 }
 
@@ -489,7 +629,9 @@ export function rasterizarCenario(
   p.scale(dpr, dpr)
 
   desenharCeu(p, largura, altura)
+  desenharMorros(p, largura, altura)
   desenharCasario(p, largura, altura)
+  desenharPalco(p, largura, altura)
   desenharChao(p, largura, altura)
   desenharTapetes(p, largura, altura)
   desenharPalha(p, largura, altura)
@@ -498,8 +640,11 @@ export function rasterizarCenario(
   // grandes e CORTADAS pela borda do quadro. É o corte que faz a praça
   // continuar para fora da tela em vez de terminar nela, e é o contraste de
   // tamanho entre os dois planos que cria a profundidade.
-  desenharBarraca(p, largura * 0.14, altura * 0.66, (altura / 620) * 0.62, 1)
-  desenharBarraca(p, largura * 0.88, altura * 0.68, (altura / 620) * 0.66, 2)
+  // O mastro fica atrás das barracas e à frente do casario: é o que dá a ele
+  // a profundidade de "no meio da praça" em vez de "colado no fundo".
+  desenharMastro(p, largura, altura)
+  desenharBarraca(p, largura * 0.16, altura * 0.7, (altura / 620) * 0.6, 1)
+  desenharBarraca(p, largura * 0.86, altura * 0.72, (altura / 620) * 0.64, 2)
 
   // A quadrilha, entre os dois planos de barraca.
   desenharPar(p, largura * 0.42, altura * 0.72, escalaEm(altura * 0.72, altura) * 0.8, '#D8434A', '#F2E2C4')
@@ -507,8 +652,8 @@ export function rasterizarCenario(
   desenharPar(p, largura * 0.52, altura * 0.78, escalaEm(altura * 0.78, altura) * 0.85, '#E8A030', '#F2E2C4')
 
   // As barracas da FRENTE, cortadas pelas bordas.
-  desenharBarraca(p, -largura * 0.02, altura * 1.02, (altura / 620) * 1.5, 3)
-  desenharBarraca(p, largura * 1.03, altura * 1.05, (altura / 620) * 1.6, 4)
+  desenharBarraca(p, -largura * 0.04, altura * 1.02, (altura / 620) * 1.15, 3)
+  desenharBarraca(p, largura * 1.05, altura * 1.04, (altura / 620) * 1.2, 4)
 
   // A VINHETA entra AQUI, assada junto, e não como um terceiro
   // preenchimento de tela cheia por quadro. Ela é estática como todo o

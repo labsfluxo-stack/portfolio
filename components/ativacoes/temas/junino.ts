@@ -1,5 +1,5 @@
 import type { Tema } from './tipos'
-import { rasterizarCenario } from './junino-cenario'
+import { MASTRO, rasterizarCenario } from './junino-cenario'
 import {
   ALTURA_TOTAL,
   CORES_PAINEL_PUBLICAS,
@@ -743,7 +743,11 @@ type ConfigFileiraBandeirinha = {
    * pendurados no mesmo plano.
    */
   fracaoAlturaFim: number
-  /** Fração da altura onde o varal encosta na borda ESQUERDA. */
+  /** Fração da LARGURA onde o varal começa (o pé no mastro, ou numa borda). */
+  xInicio: number
+  /** Fração da largura onde ele termina. */
+  xFim: number
+  /** Fração da altura onde o varal encosta em `xInicio`. */
   fracaoAlturaFio: number
   /** Quanto o vão do fio cede no meio, fração do passo entre bandeiras. */
   fracaoSag: number
@@ -762,57 +766,92 @@ type ConfigFileiraBandeirinha = {
 }
 
 /**
- * OS VARAIS. Quatro, cruzando, no lugar de duas fileiras paralelas.
+ * OS VARAIS, em LEQUE a partir do mastro.
  *
- * Os dois primeiros são o fundo (menores, cedendo mais, mais apagados pela
- * distância) e os dois últimos a frente. Dentro de cada par, um sobe da
- * esquerda para a direita e o outro desce — é o cruzamento que a foto tem, e
- * é ele que faz o céu do arraial parecer um espaço em vez de um pano de
- * fundo.
+ * Esta é a correção estrutural que faltava na bandeirinha. Na foto do arraial
+ * as cordas saem todas do MESMO ponto alto — o mastro no meio da praça — e
+ * abrem em leque para os dois lados, descendo até postes e beirais nas
+ * bordas. É esse ponto de convergência que faz o céu ter um centro.
  *
- * Todos ficam no quinto de cima do quadro: mais abaixo e a bandeirinha
- * começa a competir com o título da dobra, que é o que o visitante precisa
- * ler primeiro.
+ * As versões anteriores eram fileiras que atravessavam o quadro de lado a
+ * lado, quase paralelas. Mesmo cruzando umas com as outras, elas liam como
+ * varões pendurados no nada: não havia de onde saírem, e sem origem comum a
+ * decoração vira faixa em vez de armação.
+ *
+ * Cada varal vai do mastro (`MASTRO.x`, bem alto) até uma borda, numa altura
+ * própria. Três para cada lado, com aberturas diferentes.
  */
 const VARAIS: readonly ConfigFileiraBandeirinha[] = [
+  // Os de trás: menores, mais apagados, abrindo mais.
   {
-    fracaoAlturaFio: 0.02,
-    fracaoAlturaFim: 0.095,
-    fracaoSag: 0.26,
-    opacidade: 0.3,
-    escala: 0.55,
+    xInicio: MASTRO.x,
+    xFim: -0.04,
+    fracaoAlturaFio: 0.07,
+    fracaoAlturaFim: 0.2,
+    fracaoSag: 0.22,
+    opacidade: 0.34,
+    escala: 0.62,
     deslocamentoCor: 2,
     deslocamentoIndice: 1000,
   },
   {
-    fracaoAlturaFio: 0.1,
-    fracaoAlturaFim: 0.025,
-    fracaoSag: 0.24,
+    xInicio: MASTRO.x,
+    xFim: 1.04,
+    fracaoAlturaFio: 0.07,
+    fracaoAlturaFim: 0.22,
+    fracaoSag: 0.22,
     opacidade: 0.34,
     escala: 0.62,
     deslocamentoCor: 4,
     deslocamentoIndice: 2000,
   },
+  // Os do meio.
   {
-    fracaoAlturaFio: 0.045,
-    fracaoAlturaFim: 0.125,
-    fracaoSag: 0.22,
-    opacidade: 0.62,
+    xInicio: MASTRO.x,
+    xFim: -0.04,
+    fracaoAlturaFio: 0.075,
+    fracaoAlturaFim: 0.1,
+    fracaoSag: 0.2,
+    opacidade: 0.5,
+    escala: 0.82,
+    deslocamentoCor: 1,
+    deslocamentoIndice: 3000,
+  },
+  {
+    xInicio: MASTRO.x,
+    xFim: 1.04,
+    fracaoAlturaFio: 0.075,
+    fracaoAlturaFim: 0.12,
+    fracaoSag: 0.2,
+    opacidade: 0.5,
+    escala: 0.82,
+    deslocamentoCor: 3,
+    deslocamentoIndice: 4000,
+  },
+  // Os da frente: maiores, mais opacos, quase horizontais.
+  {
+    xInicio: MASTRO.x,
+    xFim: -0.04,
+    fracaoAlturaFio: 0.08,
+    fracaoAlturaFim: 0.035,
+    fracaoSag: 0.17,
+    opacidade: 0.66,
     escala: 1,
     deslocamentoCor: 0,
     deslocamentoIndice: 0,
   },
   {
-    fracaoAlturaFio: 0.13,
-    fracaoAlturaFim: 0.055,
-    fracaoSag: 0.2,
-    opacidade: 0.55,
-    escala: 0.88,
-    deslocamentoCor: 1,
-    deslocamentoIndice: 3000,
+    xInicio: MASTRO.x,
+    xFim: 1.04,
+    fracaoAlturaFio: 0.08,
+    fracaoAlturaFim: 0.045,
+    fracaoSag: 0.17,
+    opacidade: 0.66,
+    escala: 1,
+    deslocamentoCor: 5,
+    deslocamentoIndice: 5000,
   },
 ]
-
 function desenharFileiraBandeirinhas(
   pincel: CanvasRenderingContext2D,
   largura: number,
@@ -845,12 +884,19 @@ const larguraBandeiraFrente = Math.min(30, Math.max(18, largura * 0.042))
 // outra, e e nesse vao que o BARBANTE aparece cedendo — sem ele a fileira
 // vira uma faixa continua de cor, que e o que a versao anterior parecia.
 const passo = larguraBandeira * 1.4
+  const xInicio = largura * config.xInicio
+  const xFim = largura * config.xFim
+  const vao = xFim - xInicio
+  const sentido = Math.sign(vao) || 1
   const yInicio = altura * config.fracaoAlturaFio
   const yFim = altura * config.fracaoAlturaFim
   /** A altura do varal num `x`, ANTES da barriga — a reta entre as duas
    *  pontas. A barriga entra por cima disto, em cada vão. */
-  const yFioEm = (x: number) => yInicio + ((yFim - yInicio) * x) / Math.max(1, largura)
-  const nBandeiras = Math.ceil(largura / passo) + 1
+  /** A altura do varal num `x`, ANTES da barriga — a reta entre as duas
+   *  pontas. A barriga entra por cima disto, em cada vão. */
+  const yFioEm = (x: number) =>
+    yInicio + ((yFim - yInicio) * (x - xInicio)) / (Math.abs(vao) < 1 ? 1 : vao)
+  const nBandeiras = Math.ceil(Math.abs(vao) / passo) + 1
 
   // O FIO NUNCA É RETO — cada vão cede num quadrático. Reto é "gerado", não
   // "pendurado": a gravidade é de graça para desenhar, e a ausência dela é
@@ -868,9 +914,10 @@ const passo = larguraBandeira * 1.4
   pincel.lineWidth = LARGURA_BARBANTE * config.escala
   pincel.lineCap = 'round'
   pincel.beginPath()
-  pincel.moveTo(0, yFioEm(0))
-  for (let x = passo; x <= largura + passo; x += passo) {
-    const meio = x - passo / 2
+  pincel.moveTo(xInicio, yFioEm(xInicio))
+  for (let k = 1; k <= nBandeiras; k++) {
+    const x = xInicio + sentido * passo * k
+    const meio = x - (sentido * passo) / 2
     pincel.quadraticCurveTo(meio, yFioEm(meio) + passo * config.fracaoSag, x, yFioEm(x))
   }
   pincel.stroke()
@@ -883,8 +930,8 @@ const passo = larguraBandeira * 1.4
   //
   // Uma a cada duas bandeiras: em todos os vãos vira pisca-pisca de vitrine.
   for (let i = 0; i < nBandeiras; i += 2) {
-    const meioVao = (i + 0.5) * passo
-    if (meioVao > largura) break
+    const meioVao = xInicio + sentido * (i + 0.5) * passo
+    if (meioVao < -passo || meioVao > largura + passo) break
     // A barriga do fio no meio do vão — a mesma conta da quadrática acima,
     // avaliada em t=0,5: o ponto médio de uma Bézier quadrática fica a
     // METADE da altura do ponto de controle.
@@ -903,7 +950,7 @@ const passo = larguraBandeira * 1.4
   }
 
   for (let i = 0; i < nBandeiras; i++) {
-    const x = i * passo
+    const x = xInicio + sentido * i * passo
     const cor = CORES_BANDEIRINHA[(i + config.deslocamentoCor) % CORES_BANDEIRINHA.length]!
     // A estampa avança num passo DIFERENTE do da cor (7 estampas contra 5
     // cores), então cor e estampa não andam juntas e a fileira não vira um
