@@ -46,6 +46,7 @@
 import { desenharBarraca } from './junino-barraca'
 import { desenharCasario } from './junino-casario'
 import { desenharGente } from './junino-gente'
+import { desenharVegetacao } from './junino-vegetacao'
 /** A linha do horizonte, em fração da altura. Alta como na foto: o chão da
  *  praça é o maior objeto da cena. */
 // MENOS CHAO. Em 0,52 a praca ocupava quase metade do quadro e a pedra,
@@ -487,6 +488,12 @@ export function rasterizarCenario(
 
   desenharCeu(p, largura, altura)
   desenharMorros(p, largura, altura)
+  // A VEGETAÇÃO vem ANTES do casario: as árvores estão atrás da rua, e é o
+  // casario passando na frente delas que esconde os troncos e deixa só as
+  // copas aparecendo — exatamente como na foto.
+  desenharVegetacao(p, largura, altura, altura * (HORIZONTE + 0.035), (y) =>
+    escalaEm(y, altura),
+  )
   desenharCasario(p, largura, altura, altura * (HORIZONTE + 0.035))
   desenharPalco(p, largura, altura)
   desenharChao(p, largura, altura)
