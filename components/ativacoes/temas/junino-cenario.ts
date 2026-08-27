@@ -256,13 +256,28 @@ function desenharPocasDeLuz(p: CanvasRenderingContext2D, largura: number, altura
  * que a da frente, e um retângulo aqui leria como adesivo colado na tela.
  */
 function desenharTapetes(p: CanvasRenderingContext2D, largura: number, altura: number): void {
+  // OITO tapetes, não três, e em três motivos diferentes.
+  //
+  // Na foto o calçamento pintado cobre boa parte da praça: é um mosaico de
+  // panos e pinturas encostados uns nos outros, não três retalhos soltos num
+  // chão vazio. Três tapetes num calçamento grande leem como tapete de sala;
+  // é a COBERTURA que faz o chão parecer preparado para a festa.
+  //
+  // Eles se sobrepõem de propósito, e os de baixo (mais perto) são
+  // desenhados por último: numa pilha de panos no chão o de cima é o que
+  // chegou por último, e a ordem de pintura é o que conta isso.
   const tapetes = [
-    { cx: 0.44, y: 0.7, largura: 0.26, cor: '#A82A24', motivo: '#E8C05A' },
-    { cx: 0.68, y: 0.8, largura: 0.24, cor: '#1E6F4F', motivo: '#F2E2C4' },
-    { cx: 0.36, y: 0.9, largura: 0.3, cor: '#B07818', motivo: '#A82A24' },
-  ]
-  for (const t of tapetes) {
-    const y0 = altura * t.y
+    { cx: 0.2, y: 0.665, largura: 0.22, cor: '#1E6F4F', motivo: '#F2E2C4', tipo: 'losango' },
+    { cx: 0.44, y: 0.68, largura: 0.26, cor: '#A82A24', motivo: '#E8C05A', tipo: 'losango' },
+    { cx: 0.72, y: 0.69, largura: 0.24, cor: '#2E5F86', motivo: '#F2E2C4', tipo: 'xadrez' },
+    { cx: 0.32, y: 0.755, largura: 0.28, cor: '#B07818', motivo: '#A82A24', tipo: 'faixas' },
+    { cx: 0.62, y: 0.77, largura: 0.3, cor: '#1E6F4F', motivo: '#E8C05A', tipo: 'xadrez' },
+    { cx: 0.15, y: 0.85, largura: 0.3, cor: '#A82A24', motivo: '#F2E2C4', tipo: 'faixas' },
+    { cx: 0.5, y: 0.87, largura: 0.34, cor: '#8A3A6A', motivo: '#E8C05A', tipo: 'losango' },
+    { cx: 0.85, y: 0.9, largura: 0.3, cor: '#B07818', motivo: '#1E6F4F', tipo: 'xadrez' },
+  ] as const
+  for (const tapete of tapetes) {
+    const y0 = altura * tapete.y
     const escala0 = escalaEm(y0, altura)
     // RASOS. Em 0,085 da altura eles ficavam tão fundos que a borda de trás
     // subia muito acima da da frente, e o trapézio resultante lia como RAMPA
@@ -270,9 +285,9 @@ function desenharTapetes(p: CanvasRenderingContext2D, largura: number, altura: n
     // faixa baixa — quanto mais raso o ângulo, mais achatado ele fica.
     const alturaTapete = altura * 0.042 * escala0
     const y1 = y0 + alturaTapete
-    const meia0 = ((largura * t.largura) / 2) * (escala0 / 1.1)
-    const meia1 = ((largura * t.largura) / 2) * (escalaEm(y1, altura) / 1.1)
-    const cx = largura * t.cx
+    const meia0 = ((largura * tapete.largura) / 2) * (escala0 / 1.1)
+    const meia1 = ((largura * tapete.largura) / 2) * (escalaEm(y1, altura) / 1.1)
+    const cx = largura * tapete.cx
 
     p.save()
     p.beginPath()
@@ -281,17 +296,22 @@ function desenharTapetes(p: CanvasRenderingContext2D, largura: number, altura: n
     p.lineTo(cx + meia1, y1)
     p.lineTo(cx - meia1, y1)
     p.closePath()
-    p.fillStyle = t.cor
+    p.fillStyle = tapete.cor
     p.globalAlpha = 0.82
     p.fill()
     // O MOTIVO, recortado no próprio tapete: losangos em fileira, que é o
     // padrão mais presente no chão pintado da referência.
     p.clip()
-    p.fillStyle = t.motivo
-    // O MOTIVO TAMBÉM ANDA EM PERSPECTIVA: o losango da fileira de trás é
-    // menor e mais junto que o da frente. Um padrão de tamanho constante
-    // dentro de um trapézio é o que denuncia "imagem esticada" em vez de
-    // "chão pintado visto de lado".
+    p.fillStyle = tapete.motivo
+    // O MOTIVO ANDA EM PERSPECTIVA: o desenho da fileira de trás é menor e
+    // mais junto que o da frente. Padrão de tamanho constante dentro de um
+    // trapézio é o que denuncia "imagem esticada" em vez de "chão pintado
+    // visto de lado".
+    //
+    // TRÊS MOTIVOS, não um. Losango, xadrez e faixas — os três que aparecem
+    // no chão pintado da referência. Um motivo só, repetido em oito tapetes,
+    // leria como um padrão de textura aplicado no calçamento inteiro, que é
+    // o contrário do que um mosaico de panos diferentes é.
     const filas = 3
     for (let k = 0; k < filas; k++) {
       const t = (k + 0.5) / filas
@@ -299,6 +319,26 @@ function desenharTapetes(p: CanvasRenderingContext2D, largura: number, altura: n
       const meiaAqui = meia0 + (meia1 - meia0) * t
       const passo = (alturaTapete / filas) * (0.9 + t * 0.5)
       const desloca = k % 2 === 0 ? 0 : passo
+
+      if (tapete.tipo === 'faixas') {
+        // Faixa atravessando o tapete inteiro, na direção da profundidade —
+        // é como um pano listrado se deita no chão.
+        if (k % 2 === 0) continue
+        p.fillRect(cx - meiaAqui, fy - passo * 0.3, meiaAqui * 2, passo * 0.6)
+        continue
+      }
+
+      if (tapete.tipo === 'xadrez') {
+        let n = 0
+        for (let fx = cx - meiaAqui; fx < cx + meiaAqui; fx += passo * 1.1) {
+          if ((n + k) % 2 === 0) {
+            p.fillRect(fx, fy - passo * 0.34, passo * 1.1, passo * 0.68)
+          }
+          n++
+        }
+        continue
+      }
+
       for (let fx = cx - meiaAqui; fx < cx + meiaAqui; fx += passo * 2.2) {
         p.beginPath()
         p.moveTo(fx + desloca, fy - passo * 0.42)
