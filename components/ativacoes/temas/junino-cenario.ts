@@ -144,8 +144,14 @@ function desenharMorros(p: CanvasRenderingContext2D, largura: number, altura: nu
 function desenharChao(p: CanvasRenderingContext2D, largura: number, altura: number): void {
   const yHorizonte = altura * HORIZONTE
   const g = p.createLinearGradient(0, yHorizonte, 0, altura)
-  g.addColorStop(0, '#2A2422')
-  g.addColorStop(1, '#463A34')
+  // MAIS CLARO e mais quente que antes (#2A2422 → #463A34). O calçamento
+  // ficava tão escuro entre os objetos que lia como parede de fundo, e a
+  // praça perdia o chão. Chão de arraial à noite não é preto: ele devolve a
+  // luz das barracas e da fogueira, e é essa devolução que faz a praça
+  // parecer um lugar em vez de um recorte.
+  g.addColorStop(0, '#3E3430')
+  g.addColorStop(0.45, '#54453C')
+  g.addColorStop(1, '#6E5A4C')
   p.fillStyle = g
   p.fillRect(0, yHorizonte, largura, altura - yHorizonte)
 
@@ -172,6 +178,48 @@ function desenharChao(p: CanvasRenderingContext2D, largura: number, altura: numb
   }
 }
 
+/**
+ * AS POÇAS DE LUZ no calçamento.
+ *
+ * Cada barraca e a fogueira jogam luz no chão à volta. Sem isso a pedra fica
+ * com brilho uniforme e o olho lê "textura aplicada", não "chão iluminado por
+ * fontes" — e são as fontes que dizem onde as coisas estão, mesmo quando o
+ * objeto em si é pequeno na tela.
+ *
+ * ELÍPTICAS E ACHATADAS. Luz que cai num plano visto de cima em ângulo raso
+ * espalha muito mais na horizontal do que na vertical; um círculo aqui leria
+ * como bola de luz flutuando, não como poça no chão.
+ */
+function desenharPocasDeLuz(p: CanvasRenderingContext2D, largura: number, altura: number): void {
+  const pocas = [
+    { x: 0.16, y: 0.7, r: 0.16, cor: '255,206,132', alfa: 0.3 },
+    { x: 0.86, y: 0.72, r: 0.16, cor: '255,206,132', alfa: 0.3 },
+    { x: -0.04, y: 1.02, r: 0.24, cor: '255,206,132', alfa: 0.34 },
+    { x: 1.05, y: 1.04, r: 0.24, cor: '255,206,132', alfa: 0.34 },
+    // A da fogueira é maior e mais quente: é a fonte mais forte da praça.
+    { x: 0.56, y: 0.88, r: 0.3, cor: '255,150,70', alfa: 0.42 },
+  ]
+  p.save()
+  p.globalCompositeOperation = 'lighter'
+  for (const poca of pocas) {
+    const cx = largura * poca.x
+    const cy = altura * poca.y
+    const rx = largura * poca.r
+    const g = p.createRadialGradient(cx, cy, 0, cx, cy, rx)
+    g.addColorStop(0, `rgba(${poca.cor},${poca.alfa})`)
+    g.addColorStop(1, `rgba(${poca.cor},0)`)
+    p.save()
+    p.translate(cx, cy)
+    p.scale(1, 0.34)
+    p.translate(-cx, -cy)
+    p.fillStyle = g
+    p.beginPath()
+    p.arc(cx, cy, rx, 0, Math.PI * 2)
+    p.fill()
+    p.restore()
+  }
+  p.restore()
+}
 /**
  * OS TAPETES PINTADOS no calçamento.
  *
@@ -634,6 +682,9 @@ export function rasterizarCenario(
   desenharPalco(p, largura, altura)
   desenharChao(p, largura, altura)
   desenharTapetes(p, largura, altura)
+  // As poças DEPOIS dos tapetes: a luz cai sobre o que está pintado no chão,
+  // nunca por baixo dele.
+  desenharPocasDeLuz(p, largura, altura)
   desenharPalha(p, largura, altura)
 
   // BARRACAS EM DOIS PLANOS. As de trás emolduram a praça; as da frente são

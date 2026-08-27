@@ -1025,13 +1025,21 @@ function desenharBandeirinhas(
 // nunca sob o CTA/QR (que vivem na coluna de conteúdo, à direita do canto
 // onde a fogueira mora).
 
-const FOGUEIRA_X_FRAC = 0.09
-const FOGUEIRA_Y_FRAC = 0.93
+// NO MEIO DA PRACA, nao encostada na borda. Na foto de referencia a
+// fogueira e o centro da roda: e em volta dela que a quadrilha danca, e e
+// dela que sai a luz que da hora do dia a cena. Encostada no canto
+// esquerdo ela lia como uma tocha esquecida, e ainda por cima disputava
+// espaco com o texto do heroi.
+const FOGUEIRA_X_FRAC = 0.56
+const FOGUEIRA_Y_FRAC = 0.88
 /** Raio de referência da fogueira inteira, fração do MENOR lado do canvas —
  *  pequena o bastante pra não competir com o placar/QR, grande o bastante
  *  pra ler como objeto e não como poeira (o defeito que o diagnóstico já
  *  mediu nas brasas isoladas, §3 do diagnóstico). */
-const FOGUEIRA_RAIO_FRAC = 0.05
+// MAIOR. Em 0,05 do menor lado a fogueira media menos que uma barraca, o
+// que inverte a hierarquia da praca — a fogueira e o maior objeto do chao
+// numa festa de Sao Joao, e a foto deixa isso claro.
+const FOGUEIRA_RAIO_FRAC = 0.082
 
 // Escuras e QUENTES. Antes eram #3D2A1C/#5A4028, marrons pouco saturados —
 // cercados pela auréola laranja da própria fogueira, o olho lia aquele
