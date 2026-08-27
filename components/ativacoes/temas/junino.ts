@@ -5,6 +5,7 @@ import {
   desenharFumaca,
   desenharPalhaSoprando,
 } from './junino-movimento'
+import { desenharFogos } from './junino-fogos'
 import {
   ALTURA_TOTAL,
   CORES_PAINEL_PUBLICAS,
@@ -1517,6 +1518,12 @@ function desenharFundo(
     pincel.fillStyle = PALETA.fundo
     pincel.fillRect(0, 0, largura, altura)
   }
+
+  // OS FOGOS, logo depois do céu e antes de tudo o mais: eles estão mais
+  // longe que qualquer coisa da praça, e passam POR TRÁS do casario e dos
+  // varais. Um fogo desenhado por cima do casario leria como fagulha na
+  // frente da câmera, não como fogo alto no céu.
+  desenharFogos(pincel, largura, altura, parado ? 0 : agora, parado)
 
   // OS BALÕES DISTANTES, logo depois do céu e antes de tudo o que é da
   // praça: eles estão mais longe que o casario.
