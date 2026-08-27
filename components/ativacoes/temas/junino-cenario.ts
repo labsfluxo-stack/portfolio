@@ -161,6 +161,9 @@ function desenharChao(p: CanvasRenderingContext2D, largura: number, altura: numb
   p.fillStyle = g
   p.fillRect(0, yHorizonte, largura, altura - yHorizonte)
 
+  // O ponto de fuga fica no meio da largura, na linha do horizonte — é para
+  // ele que todas as linhas do chão que correm para longe apontam.
+  const xFuga = largura * 0.5
   let y = yHorizonte
   let fila = 0
   while (y < altura) {
@@ -173,9 +176,24 @@ function desenharChao(p: CanvasRenderingContext2D, largura: number, altura: numb
     const larguraPedra = alturaFiada * 2.1
     p.fillStyle = 'rgba(20,16,15,0.5)'
     p.fillRect(0, y + alturaFiada - 1, largura, 1)
-    const desloca = fila % 2 === 0 ? 0 : larguraPedra / 2
-    for (let x = -larguraPedra + desloca; x < largura; x += larguraPedra) {
-      const tom = 0.05 + ale(fila * 29 + Math.round(x)) * 0.07
+    // AS JUNTAS VERTICAIS CONVERGEM para o ponto de fuga.
+    //
+    // Este era o defeito que fazia o calçamento ler como MURO. As fiadas já
+    // ficavam mais altas conforme desciam, mas as juntas verticais eram uma
+    // grade de espaçamento uniforme na tela — e grade uniforme é o que uma
+    // parede de tijolo tem, porque uma parede é perpendicular ao olhar. Chão
+    // é PARALELO ao olhar: as linhas que correm para longe convergem, e é
+    // essa convergência, não a altura das fiadas, que faz o piso deitar.
+    //
+    // Ancorar cada junta em `xFuga + i · passo · escala(y)` põe todas elas em
+    // retas que saem do ponto de fuga, que é literalmente o que perspectiva
+    // de um ponto significa.
+    const desloca = fila % 2 === 0 ? 0 : 0.5
+    const iMin = Math.floor((0 - xFuga) / larguraPedra) - 1
+    const iMax = Math.ceil((largura - xFuga) / larguraPedra) + 1
+    for (let i = iMin; i <= iMax; i++) {
+      const x = xFuga + (i + desloca) * larguraPedra
+      const tom = 0.05 + ale(fila * 29 + i * 7) * 0.07
       p.fillStyle = `rgba(214,198,178,${(tom * 0.5).toFixed(3)})`
       p.fillRect(x + 1, y + 1, larguraPedra - 2, alturaFiada - 2)
     }
@@ -246,7 +264,11 @@ function desenharTapetes(p: CanvasRenderingContext2D, largura: number, altura: n
   for (const t of tapetes) {
     const y0 = altura * t.y
     const escala0 = escalaEm(y0, altura)
-    const alturaTapete = altura * 0.085 * escala0
+    // RASOS. Em 0,085 da altura eles ficavam tão fundos que a borda de trás
+    // subia muito acima da da frente, e o trapézio resultante lia como RAMPA
+    // subindo. Um tapete no chão, visto de um olho quase à altura dele, é uma
+    // faixa baixa — quanto mais raso o ângulo, mais achatado ele fica.
+    const alturaTapete = altura * 0.042 * escala0
     const y1 = y0 + alturaTapete
     const meia0 = ((largura * t.largura) / 2) * (escala0 / 1.1)
     const meia1 = ((largura * t.largura) / 2) * (escalaEm(y1, altura) / 1.1)
@@ -266,15 +288,23 @@ function desenharTapetes(p: CanvasRenderingContext2D, largura: number, altura: n
     // padrão mais presente no chão pintado da referência.
     p.clip()
     p.fillStyle = t.motivo
-    const passo = alturaTapete * 0.44
-    for (let fy = y0; fy < y1; fy += passo) {
-      const desloca = Math.round((fy - y0) / passo) % 2 === 0 ? 0 : passo
-      for (let fx = cx - meia0; fx < cx + meia0; fx += passo * 2) {
+    // O MOTIVO TAMBÉM ANDA EM PERSPECTIVA: o losango da fileira de trás é
+    // menor e mais junto que o da frente. Um padrão de tamanho constante
+    // dentro de um trapézio é o que denuncia "imagem esticada" em vez de
+    // "chão pintado visto de lado".
+    const filas = 3
+    for (let k = 0; k < filas; k++) {
+      const t = (k + 0.5) / filas
+      const fy = y0 + alturaTapete * t
+      const meiaAqui = meia0 + (meia1 - meia0) * t
+      const passo = (alturaTapete / filas) * (0.9 + t * 0.5)
+      const desloca = k % 2 === 0 ? 0 : passo
+      for (let fx = cx - meiaAqui; fx < cx + meiaAqui; fx += passo * 2.2) {
         p.beginPath()
-        p.moveTo(fx + desloca, fy + passo * 0.1)
-        p.lineTo(fx + desloca + passo * 0.42, fy + passo * 0.5)
-        p.lineTo(fx + desloca, fy + passo * 0.9)
-        p.lineTo(fx + desloca - passo * 0.42, fy + passo * 0.5)
+        p.moveTo(fx + desloca, fy - passo * 0.42)
+        p.lineTo(fx + desloca + passo * 0.5, fy)
+        p.lineTo(fx + desloca, fy + passo * 0.42)
+        p.lineTo(fx + desloca - passo * 0.5, fy)
         p.closePath()
         p.fill()
       }

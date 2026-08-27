@@ -1,6 +1,11 @@
 import type { Tema } from './tipos'
 import { MASTRO, rasterizarCenario } from './junino-cenario'
 import {
+  desenharBaloesDistantes,
+  desenharFumaca,
+  desenharPalhaSoprando,
+} from './junino-movimento'
+import {
   ALTURA_TOTAL,
   CORES_PAINEL_PUBLICAS,
   LARGURA_CORPO,
@@ -1513,10 +1518,32 @@ function desenharFundo(
     pincel.fillRect(0, 0, largura, altura)
   }
 
+  // OS BALÕES DISTANTES, logo depois do céu e antes de tudo o que é da
+  // praça: eles estão mais longe que o casario.
+  desenharBaloesDistantes(pincel, largura, altura, parado ? 0 : agora, parado)
+
+  // A PALHA soprando pelo calçamento, antes das bandeirinhas — ela corre no
+  // chão, e o chão vem antes do que está pendurado no ar.
+  desenharPalhaSoprando(pincel, largura, altura, altura * 0.63, parado ? 0 : agora, parado)
+
   desenharBandeirinhas(pincel, largura, altura, dpr, agora, parado)
 
 
   desenharFogueira(pincel, largura, altura, dpr, agora, parado)
+
+  // A FUMAÇA sai da fogueira e sobe por cima dela — depois do fogo, nunca
+  // antes: fumaça que passa por trás da chama lê como névoa de fundo.
+  {
+    const menorLado = Math.min(largura, altura)
+    desenharFumaca(
+      pincel,
+      largura * FOGUEIRA_X_FRAC,
+      altura * FOGUEIRA_Y_FRAC - menorLado * FOGUEIRA_RAIO_FRAC * 1.6,
+      menorLado * FOGUEIRA_RAIO_FRAC,
+      parado ? 0 : agora,
+      parado,
+    )
+  }
 
   // `tempo` travado em 0 sob `parado` — mesma disciplina de sempre.
   desenharBrasas(pincel, largura, altura, parado ? 0 : agora)
