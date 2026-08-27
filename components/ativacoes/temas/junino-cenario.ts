@@ -28,6 +28,24 @@
  * sem pagar por ela a 60Hz.
  */
 
+/**
+ * OS OBJETOS MORAM EM MÓDULOS PRÓPRIOS.
+ *
+ * Casario, barraca e gente saíram deste arquivo para `junino-casario.ts`,
+ * `junino-barraca.ts` e `junino-gente.ts`. Não é organização por
+ * organização: cada um deles é um objeto com forma própria a estudar e
+ * detalhar, e mantê-los juntos aqui fazia um arquivo em que nenhum cabia
+ * inteiro na cabeça — o que é exatamente como se acaba desenhando de
+ * memória em vez de olhar a referência.
+ *
+ * Este arquivo passa a ser a COMPOSIÇÃO: céu, morros, chão, mastro, palco,
+ * tapetes, luz, e a ordem em que tudo entra. A ordem é a da profundidade —
+ * o que está longe primeiro, o que está perto por último — e é ela, mais a
+ * escala por altura, que faz a praça ter fundo, meio e frente.
+ */
+import { desenharBarraca } from './junino-barraca'
+import { desenharCasario } from './junino-casario'
+import { desenharGente } from './junino-gente'
 /** A linha do horizonte, em fração da altura. Alta como na foto: o chão da
  *  praça é o maior objeto da cena. */
 // MENOS CHAO. Em 0,52 a praca ocupava quase metade do quadro e a pedra,
@@ -36,20 +54,8 @@
 // da menos chao e pedra menor, que e o que faz o piso deitar.
 const HORIZONTE = 0.63
 
-/** As fachadas do casario, em tom de crepúsculo. Pastel de verdade, nunca
- *  pastel escurecido — escurecer pastel dá marrom, e foi por isso que as
- *  versões anteriores nunca tiveram a cor da referência. */
-const FACHADAS = [
-  { parede: '#8E7A5E', telha: '#7E3A28' },
-  { parede: '#8A6468', telha: '#7E3A28' },
-  { parede: '#5A7086', telha: '#743420' },
-  { parede: '#5E7E6C', telha: '#7E3A28' },
-  { parede: '#907C5C', telha: '#743420' },
-] as const
 
-const COR_PALHA_TELHADO = '#7A5F34'
 const COR_MADEIRA = '#3E2C1E'
-const COR_CHITA_FUNDO = '#8E2622'
 
 /** Determinístico: a cena é assada uma vez e não pode mudar entre visitas. */
 function ale(semente: number): number {
@@ -297,117 +303,6 @@ function desenharPalha(p: CanvasRenderingContext2D, largura: number, altura: num
 
 // ── O casario ───────────────────────────────────────────────────────────
 
-/**
- * Uma casa colonial: embasamento, cornija, janelas de moldura branca com
- * veneziana, porta, e telhado de TELHA com beiral.
- *
- * Cada peça é barata sozinha; é a soma delas que separa "casario" de "blocos".
- * A versão anterior era um retângulo com um triângulo em cima e retângulos
- * acesos colados na frente — que lê como prédio genérico, não como cidade do
- * interior.
- */
-function desenharCasa(
-  p: CanvasRenderingContext2D,
-  x: number,
-  yBase: number,
-  largura: number,
-  alturaCasa: number,
-  fachada: (typeof FACHADAS)[number],
-  semente: number,
-): void {
-  const yTopo = yBase - alturaCasa
-
-  p.fillStyle = fachada.parede
-  p.fillRect(x, yTopo, largura, alturaCasa)
-
-  // Mancha de reboco: parede de cor plana lê como papelão. Até fachada
-  // recém-pintada tem sujeira de chuva, e é a irregularidade em baixíssimo
-  // contraste que o olho lê como superfície de verdade.
-  for (let i = 0; i < 18; i++) {
-    p.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'
-    p.beginPath()
-    p.arc(
-      x + ale(semente * 13 + i) * largura,
-      yTopo + ale(semente * 17 + i * 3) * alturaCasa,
-      largura * (0.04 + ale(semente * 19 + i) * 0.09),
-      0,
-      Math.PI * 2,
-    )
-    p.fill()
-  }
-
-  // Embasamento: a faixa que a chuva suja. Sem ela a parede brota do chão.
-  p.fillStyle = 'rgba(20,14,10,0.55)'
-  p.fillRect(x, yBase - alturaCasa * 0.1, largura, alturaCasa * 0.1)
-
-  // Janelas: moldura clara SALIENTE e o vão dentro dela. Numa casa colonial a
-  // verruma é pintada de cal e sobressai do reboco — é ela, e não o vidro, que
-  // faz a janela existir de longe.
-  const colunas = largura > alturaCasa * 0.9 ? 3 : 2
-  const larguraJanela = largura / (colunas * 2.6)
-  const alturaJanela = alturaCasa * 0.24
-  for (let c = 0; c < colunas; c++) {
-    const xj = x + (largura / (colunas + 1)) * (c + 1) - larguraJanela / 2
-    const yj = yTopo + alturaCasa * 0.22
-    p.fillStyle = '#D8CDBA'
-    p.fillRect(xj - larguraJanela * 0.16, yj - alturaJanela * 0.1, larguraJanela * 1.32, alturaJanela * 1.2)
-    const acesa = ale(semente * 31 + c * 3) > 0.42
-    p.fillStyle = acesa ? '#FFC46E' : '#12141C'
-    p.fillRect(xj, yj, larguraJanela, alturaJanela)
-    // Veneziana encostada de um lado, meia folha só: as duas fechadas tapariam
-    // o vão, e casa toda fechada não lê como casa habitada.
-    p.fillStyle = '#2E4A44'
-    p.fillRect(xj, yj, larguraJanela * 0.34, alturaJanela)
-  }
-
-  // A porta.
-  p.fillStyle = '#4A2E1C'
-  p.fillRect(x + largura * 0.42, yBase - alturaCasa * 0.34, largura * 0.16, alturaCasa * 0.24)
-
-  // Cornija: a moldura saliente sob o telhado. É o detalhe que mais rápido diz
-  // "colonial" e custa um retângulo.
-  p.fillStyle = '#D8CDBA'
-  p.fillRect(x - largura * 0.02, yTopo - alturaCasa * 0.04, largura * 1.04, alturaCasa * 0.05)
-
-  // O TELHADO: duas águas rasas com beiral passando dos dois lados. Telhado
-  // pontudo lê como cabana alpina; colonial é de pouca inclinação.
-  const alturaTelhado = alturaCasa * 0.2
-  const beiral = largura * 0.09
-  p.fillStyle = fachada.telha
-  p.beginPath()
-  p.moveTo(x - beiral, yTopo - alturaCasa * 0.03)
-  p.lineTo(x + largura / 2, yTopo - alturaCasa * 0.03 - alturaTelhado)
-  p.lineTo(x + largura + beiral, yTopo - alturaCasa * 0.03)
-  p.closePath()
-  p.fill()
-  // As canaletas da telha: sem elas o telhado é uma tampa vermelha.
-  p.strokeStyle = 'rgba(0,0,0,0.28)'
-  p.lineWidth = 1
-  const passo = Math.max(3, largura * 0.055)
-  for (let xt = x - beiral; xt < x + largura + beiral; xt += passo) {
-    const t = Math.abs(xt - (x + largura / 2)) / (largura / 2 + beiral)
-    p.beginPath()
-    p.moveTo(xt, yTopo - alturaCasa * 0.03)
-    p.lineTo(x + largura / 2 + (xt - (x + largura / 2)) * 0.1, yTopo - alturaCasa * 0.03 - alturaTelhado * (1 - t))
-    p.stroke()
-  }
-}
-
-function desenharCasario(p: CanvasRenderingContext2D, largura: number, altura: number): void {
-  const yBase = altura * (HORIZONTE + 0.035)
-  let x = -largura * 0.05
-  let n = 0
-  while (x < largura * 1.05) {
-    // Um SOBRADO grande no centro, como o que domina a praça na foto. Fileira
-    // toda do mesmo porte lê como conjunto habitacional, não centro histórico.
-    const central = Math.abs(x / largura - 0.55) < 0.08
-    const larguraCasa = largura * (central ? 0.19 : 0.075 + ale(n * 13 + 7) * 0.05)
-    const alturaCasa = altura * (central ? 0.2 : 0.1 + ale(n * 17 + 11) * 0.06)
-    desenharCasa(p, x, yBase, larguraCasa, alturaCasa, FACHADAS[n % FACHADAS.length]!, n)
-    x += larguraCasa * 1.02
-    n++
-  }
-}
 
 /**
  * O MASTRO CENTRAL com a faixa.
@@ -492,165 +387,9 @@ function desenharPalco(p: CanvasRenderingContext2D, largura: number, altura: num
 
 // ── As barracas ─────────────────────────────────────────────────────────
 
-/**
- * Uma barraca: telhado de palha em duas águas, esteios, balcão e frente de
- * chita ESTAMPADA com mercadoria em cima.
- *
- * Chita não é uma cor, é um padrão — e é ele que o olho reconhece antes de
- * qualquer outro detalhe. E é a mercadoria que diz que a barraca está
- * funcionando: barraca vazia num arraial cheio lê como feira depois que fechou.
- */
-function desenharBarraca(
-  p: CanvasRenderingContext2D,
-  cx: number,
-  yBase: number,
-  escala: number,
-  semente: number,
-): void {
-  const larguraB = 190 * escala
-  const alturaCorpo = 78 * escala
-  const alturaTelhado = 62 * escala
-  const meia = larguraB / 2
-  const yBalcao = yBase - alturaCorpo
-
-  // Esteios.
-  p.fillStyle = COR_MADEIRA
-  for (const lado of [-1, 1]) {
-    p.fillRect(cx + lado * meia * 0.92 - 4 * escala, yBalcao - alturaTelhado * 0.5, 8 * escala, alturaCorpo + alturaTelhado * 0.5)
-  }
-
-  // A frente de chita.
-  p.fillStyle = COR_CHITA_FUNDO
-  p.fillRect(cx - meia, yBalcao, larguraB, alturaCorpo)
-  const flores = ['#F2C43C', '#F5F1E6', '#2E86C1', '#1E8F5F']
-  const passoFlor = 26 * escala
-  let k = 0
-  for (let fx = cx - meia + passoFlor / 2; fx < cx + meia; fx += passoFlor) {
-    for (let fy = yBalcao + passoFlor / 2; fy < yBalcao + alturaCorpo; fy += passoFlor) {
-      p.fillStyle = flores[k % flores.length]!
-      for (let q = 0; q < 5; q++) {
-        const ang = (q * Math.PI * 2) / 5
-        p.beginPath()
-        p.arc(fx + Math.cos(ang) * 4 * escala, fy + Math.sin(ang) * 4 * escala, 2.6 * escala, 0, Math.PI * 2)
-        p.fill()
-      }
-      p.fillStyle = '#3A1A16'
-      p.beginPath()
-      p.arc(fx, fy, 2 * escala, 0, Math.PI * 2)
-      p.fill()
-      k++
-    }
-  }
-
-  // O balcão, com o tampo saliente.
-  p.fillStyle = '#5A3E28'
-  p.fillRect(cx - meia * 1.06, yBalcao - 7 * escala, larguraB * 1.06, 8 * escala)
-
-  // A MERCADORIA: milho em pé, potes e bolo — as três coisas que toda barraca
-  // de São João tem no balcão.
-  const itens = 6
-  for (let i = 0; i < itens; i++) {
-    const ix = cx - meia * 0.82 + (larguraB * 0.82 * i) / (itens - 1)
-    const tipo = (i + semente) % 3
-    if (tipo === 0) {
-      p.fillStyle = '#E0B23C'
-      p.fillRect(ix - 3 * escala, yBalcao - 24 * escala, 6 * escala, 18 * escala)
-    } else if (tipo === 1) {
-      p.fillStyle = '#8A5A32'
-      p.beginPath()
-      p.ellipse(ix, yBalcao - 12 * escala, 7 * escala, 6 * escala, 0, 0, Math.PI * 2)
-      p.fill()
-    } else {
-      p.fillStyle = '#C88A4A'
-      p.fillRect(ix - 8 * escala, yBalcao - 15 * escala, 16 * escala, 9 * escala)
-    }
-  }
-
-  // O TELHADO DE PALHA, duas águas, beiral bem saliente.
-  const beiral = meia * 0.28
-  p.fillStyle = COR_PALHA_TELHADO
-  p.beginPath()
-  p.moveTo(cx - meia - beiral, yBalcao - 6 * escala)
-  p.lineTo(cx, yBalcao - 6 * escala - alturaTelhado)
-  p.lineTo(cx + meia + beiral, yBalcao - 6 * escala)
-  p.closePath()
-  p.fill()
-  // Os fios da palha: desiguais de propósito, senão vira listra.
-  p.strokeStyle = 'rgba(226,196,132,0.3)'
-  p.lineWidth = Math.max(1, escala)
-  for (let i = 0; i < 40; i++) {
-    const t = ale(semente * 19 + i)
-    const px = cx - meia - beiral + (meia + beiral) * 2 * t
-    const alturaAqui = alturaTelhado * (1 - Math.abs(px - cx) / (meia + beiral))
-    const py = yBalcao - 6 * escala - ale(semente * 23 + i) * alturaAqui
-    p.beginPath()
-    p.moveTo(px, py)
-    p.lineTo(px + 1.5 * escala, py + (4 + ale(semente * 29 + i) * 5) * escala)
-    p.stroke()
-  }
-
-  // A lâmpada sob o telhado, com halo aditivo — é ela que acende a barraca.
-  const yLampada = yBalcao - 6 * escala - alturaTelhado * 0.3
-  p.save()
-  p.globalCompositeOperation = 'lighter'
-  const halo = p.createRadialGradient(cx, yLampada, 0, cx, yLampada, 46 * escala)
-  halo.addColorStop(0, 'rgba(255,206,132,0.5)')
-  halo.addColorStop(1, 'rgba(255,176,80,0)')
-  p.fillStyle = halo
-  p.beginPath()
-  p.arc(cx, yLampada, 46 * escala, 0, Math.PI * 2)
-  p.fill()
-  p.restore()
-  p.fillStyle = '#FFE6B4'
-  p.beginPath()
-  p.arc(cx, yLampada, 3.4 * escala, 0, Math.PI * 2)
-  p.fill()
-}
 
 // ── A quadrilha ─────────────────────────────────────────────────────────
 
-/** Um par dançando. Simples de propósito: a esta distância o que se reconhece
- *  é a SILHUETA — o vestido rodado da dama e o chapéu de palha do cavalheiro. */
-function desenharPar(
-  p: CanvasRenderingContext2D,
-  cx: number,
-  yBase: number,
-  escala: number,
-  corVestido: string,
-  corCamisa: string,
-): void {
-  const h = 54 * escala
-  // Dama.
-  p.fillStyle = corVestido
-  p.beginPath()
-  p.moveTo(cx - 9 * escala, yBase)
-  p.lineTo(cx - 3 * escala, yBase - h * 0.55)
-  p.lineTo(cx + 3 * escala, yBase - h * 0.55)
-  p.lineTo(cx + 9 * escala, yBase)
-  p.closePath()
-  p.fill()
-  p.fillRect(cx - 3 * escala, yBase - h * 0.82, 6 * escala, h * 0.28)
-  p.fillStyle = '#6A4632'
-  p.beginPath()
-  p.arc(cx, yBase - h * 0.9, 4 * escala, 0, Math.PI * 2)
-  p.fill()
-  // Cavalheiro, ao lado.
-  const gx = cx + 15 * escala
-  p.fillStyle = '#2E3A52'
-  p.fillRect(gx - 4 * escala, yBase - h * 0.5, 8 * escala, h * 0.5)
-  p.fillStyle = corCamisa
-  p.fillRect(gx - 4.5 * escala, yBase - h * 0.82, 9 * escala, h * 0.34)
-  p.fillStyle = '#7A5238'
-  p.beginPath()
-  p.arc(gx, yBase - h * 0.9, 4 * escala, 0, Math.PI * 2)
-  p.fill()
-  // O chapéu de palha, que é o que o identifica de longe.
-  p.fillStyle = '#C4A05C'
-  p.beginPath()
-  p.ellipse(gx, yBase - h * 0.96, 8 * escala, 2.4 * escala, 0, 0, Math.PI * 2)
-  p.fill()
-  p.fillRect(gx - 3.4 * escala, yBase - h * 1.05, 6.8 * escala, 5 * escala)
-}
 
 // ── A cena assada ───────────────────────────────────────────────────────
 
@@ -678,7 +417,7 @@ export function rasterizarCenario(
 
   desenharCeu(p, largura, altura)
   desenharMorros(p, largura, altura)
-  desenharCasario(p, largura, altura)
+  desenharCasario(p, largura, altura, altura * (HORIZONTE + 0.035))
   desenharPalco(p, largura, altura)
   desenharChao(p, largura, altura)
   desenharTapetes(p, largura, altura)
@@ -698,9 +437,10 @@ export function rasterizarCenario(
   desenharBarraca(p, largura * 0.86, altura * 0.72, (altura / 620) * 0.64, 2)
 
   // A quadrilha, entre os dois planos de barraca.
-  desenharPar(p, largura * 0.42, altura * 0.72, escalaEm(altura * 0.72, altura) * 0.8, '#D8434A', '#F2E2C4')
-  desenharPar(p, largura * 0.63, altura * 0.7, escalaEm(altura * 0.7, altura) * 0.75, '#2E86C1', '#E8C05A')
-  desenharPar(p, largura * 0.52, altura * 0.78, escalaEm(altura * 0.78, altura) * 0.85, '#E8A030', '#F2E2C4')
+  // A gente, com a mesma escala por altura que o resto da praça usa — uma
+  // figura desenhada fora da escala da sua profundidade é o jeito mais rápido
+  // de quebrar a perspectiva de uma cena 2D.
+  desenharGente(p, largura, altura, (y) => escalaEm(y, altura))
 
   // As barracas da FRENTE, cortadas pelas bordas.
   desenharBarraca(p, -largura * 0.04, altura * 1.02, (altura / 620) * 1.15, 3)
