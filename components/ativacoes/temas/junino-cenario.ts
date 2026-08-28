@@ -99,16 +99,100 @@ function desenharCeu(p: CanvasRenderingContext2D, largura: number, altura: numbe
   p.fillStyle = g
   p.fillRect(0, 0, largura, yHorizonte)
 
-  // Estrelas só no terço de cima: perto do horizonte a luz do arraial as
-  // apagaria, e desenhá-las ali contradiria o próprio gradiente.
-  for (let i = 0; i < 110; i++) {
-    const x = ale(i * 3 + 1) * largura
-    const y = ale(i * 5 + 2) * yHorizonte * 0.5
-    const desbota = 1 - y / (yHorizonte * 0.5)
-    p.fillStyle = `rgba(226,232,244,${(0.14 + ale(i * 7 + 3) * 0.4) * desbota})`
+  // AS NUVENS, longas e finas, pegando a última luz por baixo.
+  //
+  // O céu era um degradê liso com estrelas — e degradê liso é céu de
+  // planetário, não céu de fim de tarde. O que dá hora do dia a um céu de
+  // verdade é a NUVEM iluminada por baixo pelo sol que já desceu: a barriga
+  // dela pega laranja enquanto o topo fica frio, e é esse contraste dentro
+  // da própria nuvem que o olho lê como "acabou de escurecer".
+  //
+  // Achatadas de propósito: nuvem no horizonte é vista quase de perfil, e
+  // uma nuvem redonda aqui leria como fumaça.
+  for (let i = 0; i < 9; i++) {
+    const cy = yHorizonte * (0.42 + ale(i * 31 + 3) * 0.5)
+    const cx = ale(i * 37 + 5) * largura * 1.2 - largura * 0.1
+    const larguraNuvem = largura * (0.1 + ale(i * 41 + 7) * 0.22)
+    const alturaNuvem = larguraNuvem * (0.055 + ale(i * 43 + 11) * 0.05)
+    // Quanto mais baixa, mais quente e mais forte — é a que está mais perto
+    // do sol que se pôs.
+    const baixa = cy / yHorizonte
+    const alfa = 0.1 + baixa * 0.22
+
+    p.save()
     p.beginPath()
-    p.arc(x, y, 0.6 + ale(i * 11 + 5) * 0.7, 0, Math.PI * 2)
+    p.ellipse(cx, cy, larguraNuvem / 2, alturaNuvem, 0, 0, Math.PI * 2)
+    p.ellipse(cx - larguraNuvem * 0.22, cy + alturaNuvem * 0.3, larguraNuvem * 0.3, alturaNuvem * 0.7, 0, 0, Math.PI * 2)
+    p.ellipse(cx + larguraNuvem * 0.26, cy + alturaNuvem * 0.24, larguraNuvem * 0.26, alturaNuvem * 0.62, 0, 0, Math.PI * 2)
+    p.clip()
+    const gn = p.createLinearGradient(0, cy - alturaNuvem, 0, cy + alturaNuvem)
+    gn.addColorStop(0, `rgba(84,96,124,${(alfa * 0.7).toFixed(3)})`)
+    gn.addColorStop(0.55, `rgba(140,110,102,${alfa.toFixed(3)})`)
+    gn.addColorStop(1, `rgba(226,146,84,${(alfa * 1.5).toFixed(3)})`)
+    p.fillStyle = gn
+    p.fillRect(cx - larguraNuvem, cy - alturaNuvem * 2, larguraNuvem * 2, alturaNuvem * 4)
+    p.restore()
+  }
+
+  // A LUA, baixa e pequena, do lado oposto ao da fogueira.
+  //
+  // Um só objeto definido num céu grande vale mais que cem estrelas: ele dá
+  // ESCALA. Sem nada com tamanho reconhecível lá em cima, o céu não tem
+  // tamanho — e um céu sem tamanho é um fundo, não um espaço.
+  const xLua = largura * 0.22
+  const yLua = yHorizonte * 0.3
+  const rLua = Math.max(4, altura * 0.014)
+  p.save()
+  p.globalCompositeOperation = 'lighter'
+  const halo = p.createRadialGradient(xLua, yLua, 0, xLua, yLua, rLua * 6)
+  halo.addColorStop(0, 'rgba(198,214,244,0.16)')
+  halo.addColorStop(1, 'rgba(160,180,220,0)')
+  p.fillStyle = halo
+  p.beginPath()
+  p.arc(xLua, yLua, rLua * 6, 0, Math.PI * 2)
+  p.fill()
+  p.restore()
+  p.fillStyle = '#DCE4F2'
+  p.beginPath()
+  p.arc(xLua, yLua, rLua, 0, Math.PI * 2)
+  p.fill()
+  // Minguante: um disco escuro por cima, deslocado. É a fase, e é ela que
+  // faz o olho ler LUA em vez de ponto branco grande.
+  p.fillStyle = '#0A0F1C'
+  p.beginPath()
+  p.arc(xLua - rLua * 0.55, yLua - rLua * 0.2, rLua * 0.95, 0, Math.PI * 2)
+  p.fill()
+
+  // AS ESTRELAS, agora em três grandezas.
+  //
+  // Todas do mesmo tamanho leem como ruído aplicado; um céu de verdade tem
+  // poucas estrelas fortes, algumas médias e muitas quase invisíveis, e é
+  // essa hierarquia que o olho reconhece. Só no terço de cima: perto do
+  // horizonte a luz do arraial as apagaria, e desenhá-las ali contradiria o
+  // próprio gradiente.
+  for (let i = 0; i < 190; i++) {
+    const x = ale(i * 3 + 1) * largura
+    const y = ale(i * 5 + 2) * yHorizonte * 0.62
+    const desbota = 1 - y / (yHorizonte * 0.62)
+    const grandeza = ale(i * 23 + 9)
+    const r = grandeza > 0.94 ? 1.5 : grandeza > 0.78 ? 1 : 0.55
+    const brilho = (grandeza > 0.94 ? 0.72 : grandeza > 0.78 ? 0.4 : 0.2) * desbota
+    p.fillStyle = `rgba(226,232,244,${brilho.toFixed(3)})`
+    p.beginPath()
+    p.arc(x, y, r, 0, Math.PI * 2)
     p.fill()
+    // As mais fortes ganham uma cruz de difração, que é o que uma estrela
+    // brilhante faz num olho (e numa lente).
+    if (grandeza > 0.965) {
+      p.strokeStyle = `rgba(226,232,244,${(brilho * 0.5).toFixed(3)})`
+      p.lineWidth = 0.6
+      p.beginPath()
+      p.moveTo(x - r * 3, y)
+      p.lineTo(x + r * 3, y)
+      p.moveTo(x, y - r * 3)
+      p.lineTo(x, y + r * 3)
+      p.stroke()
+    }
   }
 }
 

@@ -2,6 +2,7 @@ import type { Tema } from './tipos'
 import { MASTRO, rasterizarCenario } from './junino-cenario'
 import {
   desenharBaloesDistantes,
+  desenharFaiscas,
   desenharFumaca,
   desenharPalhaSoprando,
 } from './junino-movimento'
@@ -1542,6 +1543,16 @@ function desenharFundo(
   // antes: fumaça que passa por trás da chama lê como névoa de fundo.
   {
     const menorLado = Math.min(largura, altura)
+    // AS FAÍSCAS antes da fumaça: elas saem de dentro do fogo, e a fumaça
+    // sobe por cima delas.
+    desenharFaiscas(
+      pincel,
+      largura * FOGUEIRA_X_FRAC,
+      altura * FOGUEIRA_Y_FRAC - menorLado * FOGUEIRA_RAIO_FRAC * 0.9,
+      menorLado * FOGUEIRA_RAIO_FRAC,
+      parado ? 0 : agora,
+      parado,
+    )
     desenharFumaca(
       pincel,
       largura * FOGUEIRA_X_FRAC,

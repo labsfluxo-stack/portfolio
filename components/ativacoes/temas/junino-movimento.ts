@@ -180,3 +180,65 @@ export function desenharPalhaSoprando(
   }
   pincel.restore()
 }
+
+// ── Faíscas da fogueira ────────────────────────────────────────────────
+
+const FAISCAS_N = 26
+const FAISCA_VIDA_MS = 2600
+
+/**
+ * AS FAÍSCAS que saltam da fogueira.
+ *
+ * São o detalhe que mais rápido diz que o fogo está VIVO. Brasa que só
+ * pulsa lê como lâmpada com dimmer; fogo de verdade cospe partícula, e cada
+ * uma delas conta a mesma história em miniatura: sobe rápido, perde força,
+ * apaga.
+ *
+ * A FÍSICA. A faísca sai com velocidade e SOBE DESACELERANDO (empuxo do ar
+ * quente perdendo para a gravidade e para o arrasto), deriva de lado com a
+ * mesma corrente que leva a fumaça, e apaga esfriando — de amarelo-claro
+ * para laranja para vermelho-escuro. Faísca que sobe em velocidade constante
+ * e some num piscar é confete, não brasa.
+ *
+ * As mais altas apagam antes de chegar ao fim do trajeto: é o que acontece
+ * de verdade, e é o que impede a coluna de virar um chafariz de altura fixa.
+ */
+export function desenharFaiscas(
+  pincel: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  raio: number,
+  agora: number,
+  parado: boolean,
+): void {
+  if (parado) return
+  pincel.save()
+  pincel.globalCompositeOperation = 'lighter'
+  for (let i = 0; i < FAISCAS_N; i++) {
+    const fase = ale(i * 29 + 5)
+    const t = ((agora / FAISCA_VIDA_MS) * (0.7 + fase * 0.6) + fase) % 1
+    // Cada faísca tem o próprio teto: umas apagam na metade do caminho.
+    const teto = 0.45 + ale(i * 31 + 7) * 0.55
+    if (t > teto) continue
+    const u = t / teto
+
+    const subida = raio * 5.2 * teto * (1 - (1 - u) ** 2)
+    const deriva = Math.sin(fase * 6.28 + u * 3.1) * raio * (0.3 + u * 1.5)
+    const px = x + deriva + (ale(i * 37 + 3) - 0.5) * raio * 0.7
+    const py = y - subida
+
+    // Esfria enquanto sobe: claro perto do fogo, vermelho no fim.
+    const quente = 1 - u
+    const r = 255
+    const g = Math.round(140 + quente * 110)
+    const b = Math.round(40 + quente * 120)
+    const alfa = (1 - u) ** 1.6 * 0.9
+    const tamanho = Math.max(0.6, raio * 0.035 * (0.5 + quente))
+
+    pincel.fillStyle = `rgba(${r},${g},${b},${alfa.toFixed(3)})`
+    pincel.beginPath()
+    pincel.arc(px, py, tamanho, 0, Math.PI * 2)
+    pincel.fill()
+  }
+  pincel.restore()
+}
