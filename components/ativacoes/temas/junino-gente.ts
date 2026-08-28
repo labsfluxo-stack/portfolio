@@ -257,6 +257,44 @@ function desenharBraco(
  * são o que dá leitura de VESTIDO a 30px de altura; prega e florzinha só
  * aparecem quando há pixel sobrando para elas.
  */
+/**
+ * A ESTAMPA DE CHITA, salpicada dentro do que já estiver recortado.
+ *
+ * Na foto de referência não existe uma roupa lisa: saia e camisa são de
+ * chita florida, e é a estampa — antes da cor, antes do corte — que diz
+ * "roupa de festa junina". Cor chapada lê como fantasia de teatro escolar.
+ *
+ * NESTE TAMANHO A FLOR NÃO É UMA FLOR. Uma saia mede 20 a 40px de largura;
+ * cinco pétalas ali seriam um borrão de três pixels. O que o olho lê é o
+ * SALPICO — pontinhos claros de duas cores, densos e irregulares — e é isso
+ * que se desenha. Desenhar a flor inteira custaria dez vezes mais e daria o
+ * mesmo pixel.
+ *
+ * Some abaixo de um tamanho, pelo mesmo motivo do xadrez da camisa: um
+ * salpico de meio pixel vira sujeira, e sujeira é pior que liso.
+ */
+function salpicarChita(
+  p: CanvasRenderingContext2D,
+  x0: number,
+  y0: number,
+  largura: number,
+  altura: number,
+  tamanho: number,
+  cores: readonly string[],
+  semente: number,
+): void {
+  if (tamanho < 1) return
+  const n = Math.round((largura * altura) / (tamanho * tamanho * 14))
+  for (let i = 0; i < Math.min(n, 90); i++) {
+    const px = x0 + ale(semente * 7 + i * 3) * largura
+    const py = y0 + ale(semente * 11 + i * 5) * altura
+    p.fillStyle = cores[i % cores.length]!
+    p.beginPath()
+    p.arc(px, py, tamanho * (0.5 + ale(semente * 13 + i) * 0.5), 0, TAU)
+    p.fill()
+  }
+}
+
 function desenharSaia(
   p: CanvasRenderingContext2D,
   cx: number,
@@ -290,6 +328,33 @@ function desenharSaia(
 
   p.fillStyle = acender(saia.corpo, luz)
   leque(1)
+
+  // A ESTAMPA na camada de baixo, que é a mais larga e a que mais aparece.
+  // Recortada nela: sem o recorte o salpico vazaria para fora do pano e a
+  // saia ficaria com poeira em volta.
+  p.save()
+  p.beginPath()
+  p.moveTo(cx, yCintura)
+  for (let i = 0; i <= passos; i++) {
+    const t = i / passos
+    const ang = angA + (angB - angA) * t
+    const fa = onda(t)
+    p.lineTo(cx + Math.sin(ang) * raioH * fa, yCintura + Math.cos(ang) * raioV * fa)
+  }
+  p.closePath()
+  p.clip()
+  salpicarChita(
+    p,
+    cx - raioH,
+    yCintura,
+    raioH * 2,
+    raioV * 1.1,
+    Math.max(0, raioV * 0.055),
+    [acender(saia.vivo, luz, 0.9), acender(saia.babado, luz, 0.75)],
+    semente * 3 + 1,
+  )
+  p.restore()
+
   p.fillStyle = acender(saia.babado, luz)
   leque(0.79)
   p.fillStyle = acender(saia.corpo, luz)
@@ -534,7 +599,22 @@ function desenharCavalheiro(p: CanvasRenderingContext2D, f: Ficha): void {
   p.fill()
   // O XADREZ, recortado na própria camisa. Some abaixo de um tamanho porque
   // a essa altura ele viraria uma trama de moiré, que é pior do que nada.
-  if (a > 30) {
+  // METADE DOS CAVALHEIROS USA CHITA, não xadrez. Na foto a camisa florida
+  // aparece tanto quanto a xadrez, e uma rua inteira de xadrez lê como
+  // uniforme — numa quadrilha cada um veste o que tem.
+  if (a > 26 && ale(f.semente * 17 + 2) > 0.5) {
+    p.clip()
+    salpicarChita(
+      p,
+      xTronco - a * 0.15,
+      yOmbro - a * 0.03,
+      a * 0.3,
+      yQuadril - yOmbro + a * 0.06,
+      Math.max(0, a * 0.014),
+      ['rgba(255,240,210,0.75)', 'rgba(255,206,110,0.6)'],
+      f.semente * 19 + 4,
+    )
+  } else if (a > 30) {
     p.clip()
     p.strokeStyle = 'rgba(255,255,255,0.16)'
     p.lineWidth = Math.max(0.7, a * 0.016)

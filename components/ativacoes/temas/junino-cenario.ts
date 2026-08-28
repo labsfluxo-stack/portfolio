@@ -75,7 +75,13 @@ function ale(semente: number): number {
  */
 function escalaEm(y: number, altura: number): number {
   const t = Math.max(0, Math.min(1, (y - altura * HORIZONTE) / (altura * (1 - HORIZONTE))))
-  return 0.32 + t * 1.5
+  // A FAIXA DE ESCALA ABRIU (era 0,32 a 1,82). O detalhe das figuras e das
+  // barracas ja existia — saia com babado estampado, mercadoria no balcao,
+  // lampada — e nao aparecia porque tudo estava desenhado pequeno demais.
+  // Abrir a diferenca entre o fundo e a frente resolve duas coisas de uma
+  // vez: o que esta perto fica grande o bastante para o trabalho aparecer, e
+  // a propria diferenca de tamanho e o que o olho le como profundidade.
+  return 0.3 + t * 2.3
 }
 
 // ── O céu ───────────────────────────────────────────────────────────────
@@ -517,8 +523,8 @@ export function rasterizarCenario(
   // O mastro fica atrás das barracas e à frente do casario: é o que dá a ele
   // a profundidade de "no meio da praça" em vez de "colado no fundo".
   desenharMastro(p, largura, altura)
-  desenharBarraca(p, largura * 0.16, altura * 0.7, (altura / 620) * 0.6, 1)
-  desenharBarraca(p, largura * 0.86, altura * 0.72, (altura / 620) * 0.64, 2)
+  desenharBarraca(p, largura * 0.14, altura * 0.74, (altura / 620) * 0.85, 1)
+  desenharBarraca(p, largura * 0.87, altura * 0.76, (altura / 620) * 0.9, 2)
 
   // A quadrilha, entre os dois planos de barraca.
   // A gente, com a mesma escala por altura que o resto da praça usa — uma
@@ -527,8 +533,8 @@ export function rasterizarCenario(
   desenharGente(p, largura, altura, (y) => escalaEm(y, altura))
 
   // As barracas da FRENTE, cortadas pelas bordas.
-  desenharBarraca(p, -largura * 0.04, altura * 1.02, (altura / 620) * 1.15, 3)
-  desenharBarraca(p, largura * 1.05, altura * 1.04, (altura / 620) * 1.2, 4)
+  desenharBarraca(p, -largura * 0.06, altura * 1.06, (altura / 620) * 1.75, 3)
+  desenharBarraca(p, largura * 1.07, altura * 1.08, (altura / 620) * 1.8, 4)
 
   // A VINHETA entra AQUI, assada junto, e não como um terceiro
   // preenchimento de tela cheia por quadro. Ela é estática como todo o
