@@ -501,111 +501,180 @@ export function desenharCorpoBalao(pincel: CanvasRenderingContext2D): void {
   pincel.restore()
 }
 
+// ── Task 5 (fix round 1): as três formas do alvo, sem depender de Path2D ──
+//
+// O motor (`motor-reflexo.ts`) sorteia três tipos de alvo — normal,
+// premiado, recusa — e pontua cada um diferente, mas não desenha nada: quem
+// decide a FORMA é o tema (ver `tipos.ts`). A regra que guia as três funções
+// abaixo é comercial, não estética — 8% dos homens são daltônicos, projetor
+// de evento desloca matiz, e a paleta de um cliente de marca fria pode não
+// sobrar contraste de COR nenhum pro tema gastar. Por isso a distinção mora
+// na SILHUETA, e as três precisam ser a MESMA silhueta que o jogador vê de
+// verdade — não uma aproximação que só existe no fallback.
+//
+// REVISÃO DO FIX ROUND 1: a primeira versão desta seção assava o anel do
+// prêmio num sprite `Path2D`, com o corpo colorido INTEIRO por baixo — na
+// escala real de jogo (`raio=24`, corpo com 28,8px de largura) o traço do
+// anel media ~0,97px, e o "vazado" nunca existiu (o balão continuava sólido
+// por trás do brilho). A correção: nenhuma das três formas do alvo depende
+// de `Path2D`/sprite mais — `pontosSilhuetaFacetada` abaixo é a MESMA
+// geometria de `caminhoCorpo()` (o perfil `PERFIL`, a faixa reta no
+// equador), só como lista de pontos pura, desenhável com `moveTo`/`lineTo`
+// em qualquer canvas. Isso tem três consequências boas: (1) o anel do
+// prêmio agora é um vazado DE VERDADE — dois polígonos concêntricos com
+// `fill('evenodd')`, buraco no meio, não bola com brilho por fora; (2) o
+// fallback do normal deixa de ser um losango de 4 vértices (a MESMA família
+// do recusa!) e passa a ser o mesmo polígono facetado do sprite; (3) o
+// caminho que os testes exercitam (nenhum `Path2D` no ambiente de teste,
+// ver o cabeçalho do arquivo) é literalmente o mesmo que roda no navegador
+// — não sobra forma nenhuma sem teste.
+
 /**
- * Traçado de reserva, sem `Path2D` — nunca um espaço mudo onde deveria haver
- * balão. Silhueta facetada e armação, que são as duas coisas sem as quais a
- * peça deixa de ser reconhecível.
+ * Pontos do contorno facetado do corpo — a MESMA silhueta de `caminhoCorpo`
+ * (perfil `PERFIL`, faixa reta no equador que separa lanterna de losango),
+ * só como lista de pontos em vez de string SVG + `Path2D`. Centralizado em
+ * torno da própria origem (de `-alturaCorpo/2` a `+alturaCorpo/2`), o mesmo
+ * sistema de coordenadas que o losango de recusa já usa.
+ *
+ * A altura sai só de `largura`, pela proporção real `ALTURA_CORPO /
+ * LARGURA_CORPO` — nunca do `altura` que `desenharElemento` passa adiante
+ * (esse número inclui a folga de alça+franja, ver `ALTURA_TOTAL`, e
+ * esticaria o contorno fora da proporção verdadeira da lanterna).
+ */
+function pontosSilhuetaFacetada(largura: number): { x: number; y: number }[] {
+  const meiaLargura = largura / 2
+  const alturaCorpo = largura * (ALTURA_CORPO / LARGURA_CORPO)
+  const pontos: { x: number; y: number }[] = []
+  for (const p of PERFIL) pontos.push({ x: -meiaLargura * p.meia, y: (p.y - 0.5) * alturaCorpo })
+  pontos.push({ x: 0, y: 0.5 * alturaCorpo })
+  for (let i = PERFIL.length - 1; i >= 0; i--) {
+    const p = PERFIL[i]!
+    pontos.push({ x: meiaLargura * p.meia, y: (p.y - 0.5) * alturaCorpo })
+  }
+  return pontos
+}
+
+/**
+ * Traça um polígono fechado a partir de uma lista de pontos, SEM chamar
+ * `beginPath` — quem chama decide: o primeiro subcaminho de um desenho
+ * chama `beginPath` antes; um segundo subcaminho no MESMO caminho (o truque
+ * do anel vazado abaixo) não pode, ou apaga o primeiro.
+ */
+function tracarSubcaminho(pincel: CanvasRenderingContext2D, pontos: { x: number; y: number }[]): void {
+  pincel.moveTo(pontos[0]!.x, pontos[0]!.y)
+  for (let i = 1; i < pontos.length; i++) pincel.lineTo(pontos[i]!.x, pontos[i]!.y)
+  pincel.closePath()
+}
+
+/**
+ * O balão comum — e, a partir do fix round 1, também o traçado que roda
+ * onde não há `Path2D` (Node/jsdom, e o navegador raríssimo sem suporte):
+ * MESMA família de silhueta do sprite colorido (`desenharCorpoBalao`) —
+ * polígono facetado com faixa reta no equador — não mais o losango de 4
+ * vértices que a versão anterior desenhava (a MESMA forma que o recusa usa
+ * como forma PRINCIPAL, o oposto do que deveria distinguir os dois tipos).
  */
 export function desenharBalaoDeReserva(
   pincel: CanvasRenderingContext2D,
   largura: number,
   altura: number,
 ): void {
-  const w = largura / 2
-  const h = altura / 2
   pincel.save()
   pincel.beginPath()
-  pincel.moveTo(0, -h)
-  pincel.lineTo(w, -h * 0.1)
-  pincel.lineTo(0, h)
-  pincel.lineTo(-w, -h * 0.1)
-  pincel.closePath()
+  tracarSubcaminho(pincel, pontosSilhuetaFacetada(largura))
   pincel.fillStyle = CORES_PAINEL[0]!
   pincel.fill()
   pincel.strokeStyle = COR_ARMACAO
-  pincel.lineWidth = Math.max(1, largura * 0.05)
+  pincel.lineWidth = Math.max(1, Math.min(largura, altura) * 0.05)
   pincel.stroke()
   pincel.restore()
 }
 
-// ── Task 5: as outras duas formas do alvo ────────────────────────────────
-//
-// O motor (`motor-reflexo.ts`) sorteia três tipos de alvo — normal,
-// premiado, recusa — e pontua cada um diferente, mas não desenha nada: quem
-// decide a FORMA é o tema (ver `tipos.ts`). As duas funções abaixo são essa
-// decisão, e a regra que as guiou é comercial, não estética — 8% dos homens
-// são daltônicos, projetor de evento desloca matiz, e a paleta de um
-// cliente de marca fria pode não sobrar contraste de COR nenhum pro tema
-// gastar. Por isso a distinção mora na SILHUETA: premiado continua redondo
-// (a mesma lanterna, só com um anel de luz a mais) e recusa é o oposto
-// angular dela — nunca uma variação de tonalidade do balão comum.
+/** Metade da largura do miolo vazado, em fração do contorno externo. Na
+ *  escala real de jogo (`raio=24` → corpo com 28,8px de largura,
+ *  `FATOR_LARGURA=1,2`) isto deixa ~7,2px de espessura de anel no equador —
+ *  a conta está no relatório da Task 5. Não é "maior que zero": é grosso o
+ *  bastante pra sobreviver a projetor de evento mal calibrado. */
+const ESCALA_MIOLO_PREMIADO = 0.5
 
-/** O brilho do anel do premiado sai do próprio amarelo da lanterna — reusa
- *  paleta em vez de inventar um tom novo só pra este anel. */
+/**
+ * Espessura do anel no EQUADOR (onde `PERFIL` tem `meia = 1`, o ponto mais
+ * largo do perfil e por isso o pior caso pra "será que dá pra ver o
+ * buraco") — em pixels reais, pro `largura` (extensão renderizada) que se
+ * quiser. `largura / 2` é o raio externo no equador (`meia = 1` faz a
+ * meia-largura de `pontosSilhuetaFacetada` bater exatamente com
+ * `largura / 2`); o raio interno é o mesmo cálculo com
+ * `largura * ESCALA_MIOLO_PREMIADO`. EXPORTADA para o teste de
+ * `tests/unit/ativacoes-tema.test.ts` medir o número de VERDADE — a mesma
+ * disciplina de `extensaoElemento`/`escalaPopDoNascimento`: testar uma
+ * fórmula copiada à parte não prende a implementação real, só uma cópia
+ * dela que pode divergir com o tempo.
+ */
+export function espessuraAnelNoEquador(largura: number): number {
+  return (largura / 2) * (1 - ESCALA_MIOLO_PREMIADO)
+}
+
+/** O anel do prêmio sai do próprio amarelo da lanterna — reusa paleta em
+ *  vez de inventar um tom novo só pra ele. */
 const COR_ANEL_PREMIADO = CORES_PAINEL[1]!
 
 /**
- * O ANEL VAZADO DO PRÊMIO: o mesmo contorno facetado do corpo
- * (`caminhoCorpo`), maior e tracejado — "vazado" no sentido de treliça
- * brasileira (cobogó, tijolo vazado): um contorno com vãos, não uma faixa
- * sólida. NENHUMA GEOMETRIA NOVA — é o próprio caminho dos gomos que
- * `desenharCorpoBalao` já desenha e que `desenharCacosDeFaixa` (o estouro)
- * já reaproveita; se o perfil da lanterna mudar um dia, o anel do prêmio
- * muda junto sem ninguém precisar lembrar de sincronizar dois desenhos.
+ * O ANEL VAZADO DO PRÊMIO (fix round 1): dois polígonos concêntricos — o
+ * mesmo contorno facetado do corpo (`pontosSilhuetaFacetada`, a MESMA
+ * geometria que `desenharCorpoBalao`/`caminhoCorpo` usa e que
+ * `desenharCacosDeFaixa` — o estouro — já reaproveita), um por fora e um
+ * menor por dentro — preenchidos com `fill('evenodd')`, que faz o polígono
+ * interno virar BURACO em vez de uma segunda forma sólida por cima. O
+ * cenário atrás do alvo aparece através do miolo: é um QUADRO na forma da
+ * lanterna, não uma bola com brilho por fora — a versão anterior (round 1)
+ * era exatamente essa bola: mesma silhueta do normal, só com um traço fino
+ * (~1px na escala real) por fora, e "mesma silhueta + brilho" não é
+ * silhueta diferente.
  *
- * BRILHO POR COMPOSIÇÃO ADITIVA (`globalCompositeOperation = 'lighter'`),
- * NUNCA `shadowBlur`/`filter` — os dois caminhos lentos que este tema inteiro
- * evita. O traço tracejado por cima do próprio aditivo é o que lê como
- * "vazado" (tem vão) em vez de "assado" (sólido).
+ * DESENHADO DIRETO POR QUADRO, SEM SPRITE: dois polígonos de ~13 pontos
+ * cada (26 `lineTo` no total) custam menos que o corpo colorido de painéis
+ * (`desenharCorpoBalao`, dezenas de células com gradiente), então cabem no
+ * orçamento sem rasterizar — a mesma classe de custo que o losango de
+ * recusa já paga a cada quadro.
  *
- * CHAMADA SÓ NA RASTERIZAÇÃO (ver `garantirSpritePremiado` em `junino.ts`),
- * NUNCA POR QUADRO: um `stroke` de `Path2D` grande com traço tracejado é a
- * mesma classe de custo dos painéis do corpo, e só cabe no orçamento de
- * quadro porque — como o corpo — é assado uma vez só.
- *
- * `escala` amplia o contorno em torno do próprio meio vertical do CORPO
- * (sem a alça nem a franja) — um anel que cresce em volta do centro do
- * balão, não um eco deslocado pra um lado.
+ * O BRILHO ADITIVO (`globalCompositeOperation = 'lighter'`, nunca
+ * `shadowBlur`/`filter`) continua existindo, mas como REFORÇO por cima do
+ * anel já vazado — nunca a distinção principal. Se o brilho sozinho
+ * desaparecesse (projetor mal calibrado apaga aditivo sobre fundo escuro
+ * com facilidade), o buraco no meio ainda separa este alvo dos outros
+ * dois.
  */
-export function desenharAneloPremiado(pincel: CanvasRenderingContext2D, escala: number): void {
-  if (typeof Path2D === 'undefined') return
-  const corpo = new Path2D(caminhoCorpo())
-  const meioY = ALTURA_CORPO / 2
-  pincel.save()
-  pincel.translate(0, meioY)
-  pincel.scale(escala, escala)
-  pincel.translate(0, -meioY)
-  pincel.globalCompositeOperation = 'lighter'
-  pincel.strokeStyle = COR_ANEL_PREMIADO
-  // Compensa a escala local: a espessura e o tracejado precisam medir o
-  // mesmo tanto de papel em qualquer `escala`, não crescer junto com o anel.
-  pincel.lineWidth = (LARGURA_ARMACAO * 1.3) / escala
-  pincel.setLineDash([(LARGURA_CORPO * 0.05) / escala, (LARGURA_CORPO * 0.045) / escala])
-  pincel.stroke(corpo)
-  pincel.restore()
-}
-
-/**
- * Traçado de reserva do anel do prêmio, sem `Path2D` — usa só `arc`, que
- * existe em qualquer canvas. É o que roda em Node/jsdom (ver cabeçalho do
- * arquivo: `Path2D` não existe nesse ambiente) e no navegador raríssimo sem
- * `Path2D`. Mesma disciplina de `desenharBalaoDeReserva`: nunca um alvo
- * mudo, mesmo degradado.
- */
-export function desenharPremiadoDeReserva(
+export function desenharAneloPremiado(
   pincel: CanvasRenderingContext2D,
   largura: number,
   altura: number,
 ): void {
-  desenharBalaoDeReserva(pincel, largura, altura)
-  const raioAnel = Math.max(largura, altura) * 0.62
+  const externo = pontosSilhuetaFacetada(largura)
+  const interno = pontosSilhuetaFacetada(largura * ESCALA_MIOLO_PREMIADO)
+  const espessuraArmacao = Math.max(1, Math.min(largura, altura) * 0.045)
+
+  // 1) O ANEL EM SI — dois subcaminhos, `evenodd` faz o interno virar
+  //    buraco. É esta forma, sozinha, que precisa ler como "vazado" mesmo
+  //    sem o reforço aditivo abaixo.
+  pincel.save()
+  pincel.beginPath()
+  tracarSubcaminho(pincel, externo)
+  tracarSubcaminho(pincel, interno)
+  pincel.fillStyle = COR_ANEL_PREMIADO
+  pincel.fill('evenodd')
+  pincel.strokeStyle = COR_ARMACAO
+  pincel.lineWidth = espessuraArmacao
+  pincel.stroke()
+  pincel.restore()
+
+  // 2) O REFORÇO ADITIVO — um traço a mais sobre o contorno externo,
+  //    'lighter', nunca a única pista.
   pincel.save()
   pincel.globalCompositeOperation = 'lighter'
-  pincel.strokeStyle = COR_ANEL_PREMIADO
-  pincel.lineWidth = Math.max(1, largura * 0.05)
-  pincel.setLineDash([raioAnel * 0.35, raioAnel * 0.3])
   pincel.beginPath()
-  pincel.arc(0, 0, raioAnel, 0, Math.PI * 2)
+  tracarSubcaminho(pincel, externo)
+  pincel.strokeStyle = COR_ANEL_PREMIADO
+  pincel.lineWidth = espessuraArmacao * 1.4
   pincel.stroke()
   pincel.restore()
 }
@@ -630,9 +699,8 @@ const COR_BORDA_RECUSA = '#3A3348'
  * SEM `Path2D`, SEM SPRITE: quatro pontos e dois traçados não custam mais
  * que o traçado de reserva do balão (`desenharBalaoDeReserva`), então
  * desenhar direto por quadro — em vez de rasterizar como o corpo do balão —
- * não fura orçamento nenhum. Reaproveita a mesma ideia de losango que já
- * existe no traçado de reserva, só que como forma PRINCIPAL (recusa é
- * sempre losango, em qualquer ambiente) em vez de fallback.
+ * não fura orçamento nenhum. UM SÓ subcaminho, 4 vértices — a família mais
+ * simples das três, e a única sem faixa reta no equador nem miolo vazado.
  */
 export function desenharLosangoRecusa(
   pincel: CanvasRenderingContext2D,

@@ -5,6 +5,7 @@ import {
   escalaPopDoNascimento,
   extensaoElemento,
 } from '@/components/ativacoes/temas/junino'
+import { espessuraAnelNoEquador } from '@/components/ativacoes/temas/junino-balao'
 import { TEMA_ATIVO } from '@/components/ativacoes/temas'
 import { TOLERANCIA, type TipoAlvo } from '@/components/ativacoes/motor-reflexo'
 import { pt } from '@/content/pt'
@@ -349,6 +350,69 @@ describe('tema junino', () => {
       })
       junino.desenharElemento(alvoComEspiaoDeAtributo, 24, 0.6, 1, 1000, false, 'premiado')
       expect(visto, 'premiado nunca setou globalCompositeOperation="lighter"').toContain('lighter')
+    })
+
+    /**
+     * FIX ROUND 1 — CRÍTICO 1 da revisão: a primeira versão do anel do
+     * prêmio era um traço fino ASSADO NUM SPRITE, e na escala real de jogo
+     * (`raio = 24`) essa conta dava ~0,97px — subpixel, exatamente o que
+     * some num projetor de evento mal calibrado. Este teste prende o
+     * NÚMERO DE VERDADE (`espessuraAnelNoEquador`, a mesma fórmula que
+     * `desenharAneloPremiado` usa pra desenhar — não uma cópia à parte que
+     * poderia divergir da implementação) contra o `raio` real do jogo, não
+     * contra um `raio` de teste arbitrário.
+     *
+     * `4px` é o piso: bem acima de subpixel, e a implementação atual mede
+     * ~7,2px (ver o relatório da Task 5 pela conta completa) — folga real,
+     * não uma barra raspando o mínimo.
+     */
+    it('o anel do premiado tem espessura de VÁRIOS pixels no raio real do jogo (24px), não subpixel', () => {
+      const raioReal = 24
+      const { largura } = extensaoElemento(raioReal, 1)
+      const espessuraPx = espessuraAnelNoEquador(largura)
+      expect(
+        espessuraPx,
+        `espessura do anel em raio=${raioReal}: ${espessuraPx.toFixed(2)}px — precisa ser vários pixels, não subpixel`,
+      ).toBeGreaterThan(4)
+    })
+
+    /**
+     * IMPORTANTE 2 da revisão: um teste que olha só UM tipo isolado não
+     * prova distinção nenhuma — precisa comparar os TRÊS entre si. Aqui a
+     * comparação é por FAMÍLIA de silhueta (subcaminhos e vértices), não
+     * só "os textos JSON diferem" (isso já está coberto acima): o vazado
+     * do premiado precisa de PELO MENOS DOIS subcaminhos (externo + o
+     * buraco interno) — nem o corpo sólido do normal, nem o losango da
+     * recusa, têm isso; e o losango (poucos vértices) precisa ser
+     * estruturalmente mais simples que o polígono facetado do normal.
+     */
+    it('as três silhuetas pertencem a famílias diferentes — comparadas entre si, não isoladas', () => {
+      function contar(tipo: TipoAlvo): { subcaminhos: number; vertices: number } {
+        const p = pincelDeMentira()
+        junino.desenharElemento(p, 24, 1, 1, 1000, true, tipo)
+        return {
+          subcaminhos: p.chamadas.filter((c) => c === 'moveTo').length,
+          vertices: p.chamadas.filter((c) => c === 'lineTo').length,
+        }
+      }
+      const normal = contar('normal')
+      const premiado = contar('premiado')
+      const recusa = contar('recusa')
+
+      expect(normal.subcaminhos, 'normal deveria ser UM corpo sólido (1 subcaminho)').toBe(1)
+      expect(recusa.subcaminhos, 'recusa deveria ser UM losango sólido (1 subcaminho)').toBe(1)
+      expect(
+        premiado.subcaminhos,
+        'premiado precisa de PELO MENOS 2 subcaminhos (externo + interno) para o vazado existir',
+      ).toBeGreaterThanOrEqual(2)
+
+      // Losango (poucos vértices) e polígono facetado (faixa reta no
+      // equador, muito mais lados) são famílias diferentes de FORMA — não
+      // só "formas diferentes" por coincidência de contagem.
+      expect(
+        normal.vertices,
+        'o polígono facetado do normal precisa de mais vértices que o losango simples da recusa',
+      ).toBeGreaterThan(recusa.vertices)
     })
   })
 })
