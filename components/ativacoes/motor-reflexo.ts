@@ -81,7 +81,38 @@ export const TOLERANCIA = 1.6
  *  partida. */
 const REACAO_FANTASMA_MS = 430
 
-export type Alvo = { id: number; x: number; y: number; raio: number; nascidoEm: number }
+export type TipoAlvo = 'normal' | 'premiado' | 'recusa'
+
+/** Acerto de premiado vale isto em `acertos`. Recusa nunca subtrai — placar
+ *  negativo faz o jogador se sentir mal com a marca do cliente na tela. */
+export const PESO_PREMIADO = 3
+
+/** Fração da vida normal que o premiado dura. É o que transforma prioridade
+ *  em DECISÃO: buscá-lo custa os normais que morrem no desvio. */
+export const VIDA_PREMIADO = 0.55
+
+export type Alvo = {
+  id: number
+  x: number
+  y: number
+  raio: number
+  nascidoEm: number
+  tipo: TipoAlvo
+}
+
+/**
+ * Distribuição por fase. `chegada` é 100% normal de propósito: a spec de
+ * ativação exige curva de aprendizado zero, e cobrar discriminação antes de o
+ * jogador ter visto um alvo sequer é cobrar regra que ninguém ensinou.
+ */
+function tipoSorteado(decorridoMs: number, semente: number): { tipo: TipoAlvo; semente: number } {
+  const { valor, semente: proxima } = proximo(semente)
+  const fase = faseDoRepique(decorridoMs)
+  if (fase === REPIQUE_CHEGADA) return { tipo: 'normal', semente: proxima }
+  if (valor < 1 / 8) return { tipo: 'recusa', semente: proxima }
+  if (valor < 1 / 8 + 1 / 6) return { tipo: 'premiado', semente: proxima }
+  return { tipo: 'normal', semente: proxima }
+}
 
 /** Retângulo no mesmo espaço normalizado 0–1 dos alvos, onde nenhum alvo pode
  *  nascer. Existe porque a auditoria mediu 9,4%-15,6% dos alvos nascendo
@@ -224,6 +255,10 @@ const TENTATIVAS_NASCIMENTO = 8
 
 function nascer(partida: Partida, agora: number): Partida {
   let semente = partida.semente
+  // Mesmo tratamento de `vidaDoAlvo`/`repiqueParaNascimento`: modo atrativo
+  // trava em `chegada` — é ambiente para quem só está lendo a página, e não
+  // pode cobrar a decisão (premiado/recusa) de uma partida de verdade.
+  const decorridoMs = partida.fase === 'atrativo' ? 0 : agora - partida.comecouEm
   for (let tentativa = 0; tentativa < TENTATIVAS_NASCIMENTO; tentativa++) {
     const pos = sortearPosicao(semente)
     semente = pos.semente
@@ -232,7 +267,16 @@ function nascer(partida: Partida, agora: number): Partida {
     )
     if (emZonaProibida) continue
 
-    const alvo: Alvo = { id: partida.proximoId, x: pos.x, y: pos.y, raio: RAIO, nascidoEm: agora }
+    const sorteio = tipoSorteado(decorridoMs, semente)
+    semente = sorteio.semente
+    const alvo: Alvo = {
+      id: partida.proximoId,
+      x: pos.x,
+      y: pos.y,
+      raio: RAIO,
+      nascidoEm: agora,
+      tipo: sorteio.tipo,
+    }
     return {
       ...partida,
       alvos: [...partida.alvos, alvo],
@@ -268,8 +312,13 @@ export function vidaDoAlvo(partida: Partida, alvo: Alvo): number {
   // `comecouEm`; o decorrido dá negativo, cai no primeiro `if` de
   // `faseDoRepique` (< 5000) e ainda assim acerta em `chegada` — que é o
   // valor com que esse alvo de fato nasceu.
-  if (partida.fase === 'atrativo') return REPIQUE_CHEGADA.vida
-  return faseDoRepique(alvo.nascidoEm - partida.comecouEm).vida
+  const vidaNormal =
+    partida.fase === 'atrativo'
+      ? REPIQUE_CHEGADA.vida
+      : faseDoRepique(alvo.nascidoEm - partida.comecouEm).vida
+  // Premiado vive menos que o normal da mesma fase: é o que transforma
+  // prioridade em decisão (buscá-lo custa os normais que morrem no desvio).
+  return alvo.tipo === 'premiado' ? vidaNormal * VIDA_PREMIADO : vidaNormal
 }
 
 /**
@@ -369,11 +418,24 @@ export function tocar(partida: Partida, x: number, y: number, agora: number): Pa
     return { ...partida, sequencia: 0, errosDeMira: partida.errosDeMira + 1 }
   }
 
+  // RECUSA NUNCA TIRA PONTO. Só zera a sequência — a mesma penalidade que o
+  // erro de mira já aplica acima. Placar negativo faz o jogador se sentir mal
+  // com a marca do cliente na tela; a decisão errada já custa a sequência, e
+  // isso basta.
+  if (atingido.tipo === 'recusa') {
+    return {
+      ...partida,
+      alvos: partida.alvos.filter((alvo) => alvo.id !== atingido.id),
+      sequencia: 0,
+    }
+  }
+  const peso = atingido.tipo === 'premiado' ? PESO_PREMIADO : 1
+
   const sequencia = partida.sequencia + 1
   return {
     ...partida,
     alvos: partida.alvos.filter((alvo) => alvo.id !== atingido.id),
-    acertos: partida.acertos + 1,
+    acertos: partida.acertos + peso,
     somaReacao: partida.somaReacao + (agora - atingido.nascidoEm),
     sequencia,
     melhorSequencia: Math.max(partida.melhorSequencia, sequencia),

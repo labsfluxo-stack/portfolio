@@ -15,6 +15,7 @@ import {
   type Partida,
   type Zona,
 } from '@/components/ativacoes/motor-reflexo'
+import { PESO_PREMIADO, type TipoAlvo } from '@/components/ativacoes/motor-reflexo'
 
 /**
  * O motor é puro de propósito: recebe semente e relógio por parâmetro, nunca
@@ -561,7 +562,7 @@ describe('sequência de acertos', () => {
       ...base,
       fase: 'jogando',
       comecouEm: agora,
-      alvos: [{ id: 1, x: 0.5, y: 0.5, raio: 0.05, nascidoEm: agora }],
+      alvos: [{ id: 1, x: 0.5, y: 0.5, raio: 0.05, nascidoEm: agora, tipo: 'normal' }],
     }
   }
 
@@ -586,7 +587,7 @@ describe('sequência de acertos', () => {
   it('um alvo que expira zera a sequência e conta escape', () => {
     const p = comAlvo()
     const acertou = tocarEm(
-      { ...p, alvos: [...p.alvos, { id: 2, x: 0.9, y: 0.9, raio: 0.05, nascidoEm: 0 }] },
+      { ...p, alvos: [...p.alvos, { id: 2, x: 0.9, y: 0.9, raio: 0.05, nascidoEm: 0, tipo: 'normal' }] },
       0.5, 0.5, 200,
     )
     expect(acertou.sequencia).toBe(1)
@@ -599,7 +600,7 @@ describe('sequência de acertos', () => {
   it('a melhor sequência guarda o pico mesmo depois de zerar', () => {
     let p = comAlvo()
     p = tocarEm(p, 0.5, 0.5, 100)
-    p = { ...p, alvos: [{ id: 9, x: 0.5, y: 0.5, raio: 0.05, nascidoEm: 100 }] }
+    p = { ...p, alvos: [{ id: 9, x: 0.5, y: 0.5, raio: 0.05, nascidoEm: 100, tipo: 'normal' }] }
     p = tocarEm(p, 0.5, 0.5, 200)
     expect(p.sequencia).toBe(2)
     const errou = tocarEm(p, 0.02, 0.02, 300)
@@ -640,5 +641,60 @@ describe('sequência de acertos', () => {
     expect(depois.fase).toBe('atrativo')
     expect(depois.sequencia).toBe(0)
     expect(depois.melhorSequencia).toBe(0)
+  })
+})
+
+describe('tipos de alvo', () => {
+  /** Roda uma partida inteira e devolve todo alvo que nasceu, por tipo. */
+  function tiposNascidos(semente: number): TipoAlvo[] {
+    let p = reiniciar(criarPartida(semente, 0), 0)
+    const vistos = new Map<number, TipoAlvo>()
+    for (let i = 1; i * 16 < DURACAO_MS; i++) {
+      p = avancar(p, i * 16)
+      for (const a of p.alvos) vistos.set(a.id, a.tipo)
+    }
+    return [...vistos.values()]
+  }
+
+  it('a fase de chegada so entrega alvo normal — o jogador precisa entender antes de ser cobrado', () => {
+    let p = reiniciar(criarPartida(7, 0), 0)
+    for (let i = 1; i * 16 < 3000; i++) {
+      p = avancar(p, i * 16)
+      for (const a of p.alvos) expect(a.tipo).toBe('normal')
+    }
+  })
+
+  it('a partida inteira produz os tres tipos', () => {
+    const tipos = new Set(tiposNascidos(42))
+    expect(tipos.has('normal')).toBe(true)
+    expect(tipos.has('premiado')).toBe(true)
+    expect(tipos.has('recusa')).toBe(true)
+  })
+
+  it('premiado vale 3 e recusa nao tira ponto', () => {
+    const base = reiniciar(criarPartida(1, 0), 0)
+    const alvo = { id: 1, x: 0.5, y: 0.5, raio: 0.05, nascidoEm: 0, tipo: 'premiado' as const }
+    // `tocarEm` mira por coordenada (x, y), não por referência de alvo — daí
+    // `alvo.x, alvo.y` aqui, e não o objeto `alvo` inteiro (que quebraria a
+    // aridade de `tocarEm` e faria `agora` chegar `undefined` em `avancar`,
+    // expirando o alvo por `NaN < vida` antes do toque ser julgado).
+    const comPremiado = tocarEm({ ...base, alvos: [alvo] }, alvo.x, alvo.y, 200)
+    expect(comPremiado.acertos).toBe(PESO_PREMIADO)
+
+    const recusa = { ...alvo, tipo: 'recusa' as const }
+    const comRecusa = tocarEm({ ...base, alvos: [recusa], sequencia: 5 }, recusa.x, recusa.y, 200)
+    expect(comRecusa.acertos, 'recusa nunca tira ponto').toBe(0)
+    expect(comRecusa.sequencia, 'recusa zera a sequencia').toBe(0)
+  })
+
+  it('premiado vive menos que normal — e o que cria a decisao', () => {
+    const p = reiniciar(criarPartida(3, 0), 0)
+    const normal = { id: 1, x: 0.5, y: 0.5, raio: 0.05, nascidoEm: 0, tipo: 'normal' as const }
+    const premiado = { ...normal, tipo: 'premiado' as const }
+    expect(vidaDoAlvo(p, premiado)).toBeLessThan(vidaDoAlvo(p, normal))
+  })
+
+  it('e determinístico: mesma semente, mesmos tipos', () => {
+    expect(tiposNascidos(99)).toEqual(tiposNascidos(99))
   })
 })
