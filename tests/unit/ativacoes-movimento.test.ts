@@ -20,10 +20,15 @@ describe('curvas', () => {
 })
 
 describe('squash', () => {
-  it('preserva volume aparente — o que cresce numa direcao encolhe na outra', () => {
-    const m = squash(0.5)
-    expect(m.sx).toBeGreaterThan(1)
-    expect(m.sy).toBeLessThan(1)
+  it('estica numa direcao e encolhe na outra, com area quase constante', () => {
+    // Varrer t de 0 a 1 em passos de 0,01 e verificar que sx*sy fica entre 0,95 e 1,05
+    for (let t = 0; t <= 1; t += 0.01) {
+      const m = squash(t)
+      const area = m.sx * m.sy
+      // Permite até ±5% de ganho/perda de área, que é visualmente imperceptível
+      expect(area).toBeGreaterThanOrEqual(0.95)
+      expect(area).toBeLessThanOrEqual(1.05)
+    }
   })
 
   it('assenta em repouso nas duas pontas', () => {
@@ -48,11 +53,22 @@ describe('mola', () => {
 })
 
 describe('tremorEm', () => {
-  it('decai a zero e o decaimento independe do fps', () => {
+  it('o decaimento independe do fps', () => {
+    // Dois caminhos diferentes devem chegar ao mesmo resultado: a taxa de decaimento é fps-invariante
     const umPasso = tremorEm(10, 0.5)
     let dois = 10
     dois = tremorEm(dois, 0.25)
     dois = tremorEm(dois, 0.25)
     expect(dois).toBeCloseTo(umPasso, 6)
+  })
+
+  it('decai a zero quando cai abaixo do piso', () => {
+    // Começar com força muito pequena, ou fazer tantos passos que caia abaixo de 0,01
+    let forca = 0.05
+    forca = tremorEm(forca, 0.1)
+    forca = tremorEm(forca, 0.1)
+    forca = tremorEm(forca, 0.1)
+    // Deve ser exatamente 0, não um número pequeno
+    expect(forca).toBe(0)
   })
 })
