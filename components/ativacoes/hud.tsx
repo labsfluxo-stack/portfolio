@@ -221,12 +221,25 @@ export function PainelDeFim({
       </p>
 
       {/* 2. O número grande, contando de 0 até o valor final em ~400ms com
-        * `mola` — e o resto da mesma frase de sempre, sem repetir o dígito. */}
-      <p data-linha-fim className="flex flex-wrap items-baseline gap-x-2 leading-relaxed">
-        <span className="font-mono text-4xl font-semibold tabular-nums text-data">
+        * `mola` — e o resto da mesma frase de sempre, sem repetir o dígito.
+        *
+        * `data-linha-fim` vai nos DOIS `<span>`, não no `<p>` que os
+        * envolve — achado da revisão (fix round 1): o `<p>` em si não leva
+        * classe de cor nenhuma, só os `<span>` filhos (`text-data` e
+        * `text-muted`); marcá-lo faria o teste ler `getComputedStyle(p).color`
+        * HERDADO do painel/body, não a cor que de fato pinta o pixel. Um
+        * portão que mede cor herdada aprovaria qualquer troca de
+        * `text-muted` por `text-faint` sem nunca notar. */}
+      <p className="flex flex-wrap items-baseline gap-x-2 leading-relaxed">
+        <span
+          data-linha-fim
+          className="font-mono text-4xl font-semibold tabular-nums text-data"
+        >
           {numeroGrande}
         </span>
-        <span className="text-[17px] text-muted">{restoDaFrase}</span>
+        <span data-linha-fim className="text-[17px] text-muted">
+          {restoDaFrase}
+        </span>
       </p>
 
       {/* 3. A sequência e o brinde — o que faltou lê como bug sem
