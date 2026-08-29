@@ -6,7 +6,7 @@ import {
   extensaoElemento,
 } from '@/components/ativacoes/temas/junino'
 import { TEMA_ATIVO } from '@/components/ativacoes/temas'
-import { TOLERANCIA } from '@/components/ativacoes/motor-reflexo'
+import { TOLERANCIA, type TipoAlvo } from '@/components/ativacoes/motor-reflexo'
 import { pt } from '@/content/pt'
 import { en } from '@/content/en'
 
@@ -95,7 +95,12 @@ describe('tema junino', () => {
   // depende de um comportamento que o lint deste repositório rejeita.
   it('nenhuma função de desenho usa caminho lento de canvas', () => {
     const fabricas = [
-      (p: ReturnType<typeof pincelDeMentira>) => junino.desenharElemento(p, 24, 0.6, 1, 1000, false),
+      (p: ReturnType<typeof pincelDeMentira>) => junino.desenharElemento(p, 24, 0.6, 1, 1000, false, 'normal'),
+      // Task 5: premiado é o tipo que ganha brilho (composição aditiva) — é
+      // exatamente ele que corre o risco de tentar atalho por `shadowBlur`
+      // se alguém "otimizar" o brilho sem ler este teste primeiro.
+      (p: ReturnType<typeof pincelDeMentira>) => junino.desenharElemento(p, 24, 0.6, 1, 1000, false, 'premiado'),
+      (p: ReturnType<typeof pincelDeMentira>) => junino.desenharElemento(p, 24, 0.6, 1, 1000, false, 'recusa'),
       (p: ReturnType<typeof pincelDeMentira>) => junino.desenharAlvoAtivo(p, 24, 1000, false),
       (p: ReturnType<typeof pincelDeMentira>) => junino.desenharEstouro(p, 24, 0.5),
       (p: ReturnType<typeof pincelDeMentira>) => junino.desenharFundo(p, 800, 600, 1000, false),
@@ -110,7 +115,7 @@ describe('tema junino', () => {
 
   it('desenha alguma coisa em cada função', () => {
     const casos = [
-      ['elemento', (p: ReturnType<typeof pincelDeMentira>) => junino.desenharElemento(p, 24, 0.6, 1, 1000, false)],
+      ['elemento', (p: ReturnType<typeof pincelDeMentira>) => junino.desenharElemento(p, 24, 0.6, 1, 1000, false, 'normal')],
       ['alvo ativo', (p: ReturnType<typeof pincelDeMentira>) => junino.desenharAlvoAtivo(p, 24, 1000, false)],
       ['estouro', (p: ReturnType<typeof pincelDeMentira>) => junino.desenharEstouro(p, 24, 0.5)],
       ['fundo', (p: ReturnType<typeof pincelDeMentira>) => junino.desenharFundo(p, 800, 600, 1000, false)],
@@ -201,18 +206,18 @@ describe('tema junino', () => {
    */
   it('em modo parado o elemento não balança, e em modo ativo o balanço muda com o tempo', () => {
     const p = pincelDeMentira()
-    junino.desenharElemento(p, 24, 0.6, 1, 1000, true)
+    junino.desenharElemento(p, 24, 0.6, 1, 1000, true, 'normal')
     const q = pincelDeMentira()
-    junino.desenharElemento(q, 24, 0.6, 1, 9999, true)
+    junino.desenharElemento(q, 24, 0.6, 1, 9999, true, 'normal')
     expect(
       p.chamadasComArgumentos,
       'parado deveria desenhar exatamente igual pra `agora` diferentes',
     ).toEqual(q.chamadasComArgumentos)
 
     const r = pincelDeMentira()
-    junino.desenharElemento(r, 24, 0.6, 1, 1000, false)
+    junino.desenharElemento(r, 24, 0.6, 1, 1000, false, 'normal')
     const s = pincelDeMentira()
-    junino.desenharElemento(s, 24, 0.6, 1, 9999, false)
+    junino.desenharElemento(s, 24, 0.6, 1, 9999, false, 'normal')
     expect(
       r.chamadasComArgumentos,
       'sem parado, `agora` diferentes deveriam desenhar diferente — senão o teste não pega regressão nenhuma',
@@ -259,5 +264,91 @@ describe('tema junino', () => {
     const q = pincelDeMentira()
     junino.desenharFundo(q, 800, 600, 50_000, true)
     expect(p.chamadasComArgumentos).toEqual(q.chamadasComArgumentos)
+  })
+
+  /**
+   * TASK 5 — o tema desenha os três tipos de alvo (`TipoAlvo` da Task 4:
+   * `normal | premiado | recusa`) por FORMA, não por cor.
+   *
+   * Motivo comercial, não estético: 8% dos homens são daltônicos, um
+   * projetor de evento desloca matiz, e o tema roda em cima de paletas de
+   * cliente que a agência não escolhe. Se os três tipos só diferissem em
+   * matiz, a decisão que o motor acabou de criar (Task 4: prioridade do
+   * premiado, custo do erro na recusa) ficaria invisível pra quem joga sob
+   * qualquer uma dessas condições — a tarefa falharia mesmo com o teste
+   * verde, então o teste teve de medir FORMA (a sequência de método+
+   * argumentos do pincel), não a paleta.
+   *
+   * `pincelDeMentira` é o mesmo espião do resto do arquivo — Node/jsdom não
+   * tem `Path2D` (ver o cabeçalho de `temas/junino.ts`), então esta suíte
+   * sempre exercita o traçado vetorial de cada tipo, nunca o sprite
+   * assado; é exatamente esse traçado vetorial que precisa ramificar por
+   * tipo, e é o que este bloco prende.
+   */
+  describe('alvo por tipo — leitura por forma, não por cor', () => {
+    function assinatura(tipo: TipoAlvo): { chamadas: string[]; chave: string } {
+      const p = pincelDeMentira()
+      junino.desenharElemento(p, 24, 0.6, 1, 1000, false, tipo)
+      return { chamadas: p.chamadas, chave: JSON.stringify(p.chamadasComArgumentos) }
+    }
+
+    it('cada tipo desenha um caminho diferente — normal, premiado e recusa nunca coincidem', () => {
+      const normal = assinatura('normal')
+      const premiado = assinatura('premiado')
+      const recusa = assinatura('recusa')
+      expect(premiado.chave, 'premiado precisa diferir de normal por forma').not.toBe(normal.chave)
+      expect(recusa.chave, 'recusa precisa diferir de normal por forma').not.toBe(normal.chave)
+      expect(recusa.chave, 'recusa precisa diferir de premiado por forma').not.toBe(premiado.chave)
+    })
+
+    it('não usa shadowBlur nem filter em tipo nenhum — proibidos pelo orçamento de quadro', () => {
+      for (const tipo of ['normal', 'premiado', 'recusa'] as const) {
+        const p = pincelDeMentira()
+        junino.desenharElemento(p, 24, 0.6, 1, 1000, false, tipo)
+        expect(p.shadowBlur, `shadowBlur foi usado em ${tipo}`).toBe(0)
+        expect(p.filter, `filter foi usado em ${tipo}`).toBe('none')
+      }
+    })
+
+    /**
+     * A REGRA MAIS IMPORTANTE DA TAREFA: recusa precisa ler como ANGULAR —
+     * a silhueta oposta ao balão redondo — não só "diferente" por acaso.
+     * Nenhum `arc`/`ellipse` (as primitivas de curva do canvas) e pelo
+     * menos os quatro lados retos de um losango.
+     */
+    it('a recusa é puramente angular — nenhum arco, nenhuma curva', () => {
+      const p = pincelDeMentira()
+      junino.desenharElemento(p, 24, 0.6, 1, 1000, false, 'recusa')
+      expect(p.chamadas, 'recusa desenhou arco — devia ser só reta').not.toContain('arc')
+      expect(p.chamadas, 'recusa desenhou elipse — devia ser só reta').not.toContain('ellipse')
+      // Um losango fechado com `moveTo` + `closePath` grava só 3 `lineTo`
+      // (o quarto lado é o próprio fechamento) — 3 é o mínimo correto de um
+      // quadrilátero, não um número frouxo.
+      expect(
+        p.chamadas.filter((c) => c === 'lineTo').length,
+        'losango precisa de pelo menos 3 lados retos',
+      ).toBeGreaterThanOrEqual(3)
+    })
+
+    /**
+     * O premiado precisa da composição ADITIVA que dá o brilho (Step 3 do
+     * brief) — sem ela, o "prêmio" não se distingue de um balão qualquer
+     * quando as duas formas acontecerem de coincidir em algum ambiente sem
+     * `Path2D`. `globalCompositeOperation` é uma PROPRIEDADE escrita, não
+     * uma chamada — por isso o teste lê `p.globalCompositeOperation`
+     * diretamente, não `p.chamadas`.
+     */
+    it('o premiado usa composição aditiva (globalCompositeOperation = "lighter") em algum ponto do desenho', () => {
+      const visto: string[] = []
+      const p = pincelDeMentira()
+      const alvoComEspiaoDeAtributo = new Proxy(p, {
+        set(obj, prop, valor) {
+          if (prop === 'globalCompositeOperation') visto.push(String(valor))
+          return Reflect.set(obj, prop, valor)
+        },
+      })
+      junino.desenharElemento(alvoComEspiaoDeAtributo, 24, 0.6, 1, 1000, false, 'premiado')
+      expect(visto, 'premiado nunca setou globalCompositeOperation="lighter"').toContain('lighter')
+    })
   })
 })

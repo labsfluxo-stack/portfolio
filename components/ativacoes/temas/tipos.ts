@@ -1,3 +1,5 @@
+import type { TipoAlvo } from '../motor-reflexo'
+
 /**
  * A forma de um tema da dobra.
  *
@@ -14,6 +16,12 @@
  * (menos `desenharFundo`, que trabalha no quadro inteiro). Desenhar em torno da
  * origem, e não em coordenada absoluta, é o que permite trocar de tema sem que
  * `CapaJogo` saiba onde cada tema resolveu pôr as coisas.
+ *
+ * IMPORTA `TipoAlvo` DO MOTOR, NUNCA REDECLARA (Task 5). O fluxo é numa
+ * direção só: o motor sorteia e pontua os três tipos sem saber como eles
+ * parecem (`motor-reflexo.ts` nunca importa nada de `temas/`); o tema
+ * consome o tipo que já existe pra decidir a FORMA — isso não é o motor
+ * "sabendo" do tema, é só o tema lendo um tipo que já era público.
  */
 export type Tema = {
   /** Identificador estável. Aparece em teste e dá nome ao arquivo. */
@@ -25,6 +33,13 @@ export type Tema = {
    * Desenha UM elemento. `vida` vai de 1 (recém-nascido) a 0 (prestes a
    * expirar); `nascimento` vai de 0 a 1 durante a entrada e fica em 1 depois.
    * `parado` é `prefers-reduced-motion`: sem balanço, sem tremulação, sem pop.
+   *
+   * `tipo` (Task 5) decide a FORMA, nunca só a cor: normal, premiado e
+   * recusa precisam ler como três silhuetas diferentes à distância de um
+   * braço — 8% dos homens são daltônicos, projetor de evento desloca matiz,
+   * e a paleta do cliente nem sempre tem contraste de cor livre pra gastar.
+   * Um tema que só trocasse o `fillStyle` por tipo teria cumprido a letra
+   * da assinatura e falhado o requisito.
    */
   desenharElemento(
     pincel: CanvasRenderingContext2D,
@@ -33,6 +48,7 @@ export type Tema = {
     nascimento: number,
     agora: number,
     parado: boolean,
+    tipo: TipoAlvo,
   ): void
   /** Marca o elemento que a barra de espaço vai acertar. Vive no tema porque
    *  um anel que serve a um círculo não serve a um balão. `parado` é

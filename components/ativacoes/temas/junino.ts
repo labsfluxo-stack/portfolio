@@ -1,4 +1,5 @@
 import type { Tema } from './tipos'
+import type { TipoAlvo } from '../motor-reflexo'
 import { MASTRO, escalaEm, rasterizarCenario } from './junino-cenario'
 import { desenharGente } from './junino-gente'
 import {
@@ -12,9 +13,12 @@ import {
   ALTURA_TOTAL,
   CORES_PAINEL_PUBLICAS,
   LARGURA_CORPO,
+  desenharAneloPremiado,
   desenharBalaoDeReserva,
   desenharCacosDeFaixa,
   desenharCorpoBalao,
+  desenharLosangoRecusa,
+  desenharPremiadoDeReserva,
 } from './junino-balao'
 
 /**
@@ -140,6 +144,60 @@ function garantirSpriteBalao(dpr: number): HTMLCanvasElement | null {
   return tela
 }
 
+/**
+ * O SPRITE DO PREMIADO (Task 5): o MESMO corpo do balão comum
+ * (`desenharCorpoBalao`, sem mudar um pixel dele) mais o anel vazado
+ * (`desenharAneloPremiado`, `junino-balao.ts`) por cima — assado numa canvas
+ * PRÓPRIA, nunca a mesma do balão comum, porque o anel precisa de margem ao
+ * redor que o balão comum não usa e não deveria ganhar.
+ *
+ * `MARGEM_PREMIADO` é só essa folga: o corpo nasce e é desenhado do MESMO
+ * tamanho e na MESMA posição de sempre dentro dessa canvas maior —
+ * `desenharElemento` escala o destino do `drawImage` por `MARGEM_PREMIADO`
+ * pra compensar (ver abaixo), então o corpo do prêmio sempre mede o mesmo
+ * tanto de tela que o balão comum no mesmo `raio`. Só o anel — aditivo e
+ * translúcido — usa a margem extra; ele pode passar um pouco da borda que a
+ * varredura de tolerância de `tests/unit/ativacoes-tema.test.ts` mede sem
+ * reabrir o defeito que aquele teste existe pra prevenir, porque aquela
+ * varredura mede o CORPO clicável, e o corpo aqui não muda de tamanho nem
+ * de posição — só ganha um halo por fora dele.
+ */
+const MARGEM_PREMIADO = 1.32
+/** Quanto o anel estoura pra fora do corpo, em fração do próprio corpo —
+ *  ver `desenharAneloPremiado`. Contido dentro de `MARGEM_PREMIADO` com
+ *  folga de sobra para a canvas nunca cortar o traço tracejado. */
+const ESCALA_ANEL_PREMIADO = 1.16
+
+function rasterizarPremiado(dpr: number): HTMLCanvasElement | null {
+  if (typeof document === 'undefined' || typeof Path2D === 'undefined') return null
+
+  const escala = ESCALA_RASTER * dpr
+  const tela = document.createElement('canvas')
+  tela.width = Math.max(1, Math.ceil(LARGURA_CORPO * MARGEM_PREMIADO * escala))
+  tela.height = Math.max(1, Math.ceil(ALTURA_TOTAL * MARGEM_PREMIADO * escala))
+  const pincel = tela.getContext('2d')
+  if (!pincel) return null
+
+  pincel.scale(escala, escala)
+  // Mesma origem de `rasterizarBalao` (ápice do corpo, meio da largura), só
+  // deslocada pela folga da margem — o corpo cai exatamente centralizado
+  // na canvas maior, nunca colado numa quina (onde o anel estouraria pra
+  // fora só de um lado).
+  const folgaX = (LARGURA_CORPO * (MARGEM_PREMIADO - 1)) / 2
+  const folgaY = (ALTURA_TOTAL * (MARGEM_PREMIADO - 1)) / 2
+  pincel.translate(LARGURA_CORPO / 2 + folgaX, folgaY)
+  desenharCorpoBalao(pincel)
+  desenharAneloPremiado(pincel, ESCALA_ANEL_PREMIADO)
+  return tela
+}
+
+let spritePremiadoCache: { dpr: number; tela: HTMLCanvasElement } | null = null
+function garantirSpritePremiado(dpr: number): HTMLCanvasElement | null {
+  if (spritePremiadoCache && spritePremiadoCache.dpr === dpr) return spritePremiadoCache.tela
+  const tela = rasterizarPremiado(dpr)
+  if (tela) spritePremiadoCache = { dpr, tela }
+  return tela
+}
 
 // ── Traçado vetorial de reserva (sem `Path2D`/contexto — ver cabeçalho) ──
 
@@ -244,9 +302,8 @@ function desenharElemento(
   nascimento: number,
   agora: number,
   parado: boolean,
+  tipo: TipoAlvo,
 ): void {
-  const sprite = garantirSpriteBalao(dprAtual())
-
   // Sob `parado`: sem pop, sem encolhimento de fim de vida, sem balanço —
   // "constant radius", a mesma leitura que `CapaJogo.tsx` já dá ao alvo
   // circular sob `prefers-reduced-motion`. Nenhum dos três lê `agora`.
@@ -270,11 +327,46 @@ function desenharElemento(
   pincel.save()
   pincel.translate(deslocamento.dx, deslocamento.dy)
   pincel.globalAlpha = alpha
-  if (sprite) {
-    pincel.drawImage(sprite, -larguraDestino / 2, -alturaDestino / 2, larguraDestino, alturaDestino)
+
+  // A FORMA (Task 5) é a ÚNICA coisa que muda por `tipo` — pop, balanço,
+  // vida e alpha acima são os MESMOS pros três, então a área clicável
+  // continua garantida pela mesma varredura de tolerância de sempre
+  // (`extensaoElemento`/`escalaPopDoNascimento`, testados independente de
+  // tipo). Só o desenho final ramifica.
+  if (tipo === 'recusa') {
+    // Losango angular escuro — silhueta OPOSTA à lanterna redonda. Sem
+    // sprite: a forma é barata o bastante (quatro pontos, dois traçados)
+    // pra desenhar direto todo quadro, a mesma conta de custo que o
+    // traçado de reserva do balão comum já paga.
+    desenharLosangoRecusa(pincel, larguraDestino, alturaDestino)
+  } else if (tipo === 'premiado') {
+    const spritePremiado = garantirSpritePremiado(dprAtual())
+    if (spritePremiado) {
+      // O sprite do prêmio é `MARGEM_PREMIADO` vezes maior que o do balão
+      // comum (a folga onde o anel mora) — o destino cresce pelo mesmo
+      // fator, e o CORPO dentro dele sai exatamente do tamanho de sempre
+      // (ver o comentário de `MARGEM_PREMIADO`).
+      const larguraComMargem = larguraDestino * MARGEM_PREMIADO
+      const alturaComMargem = alturaDestino * MARGEM_PREMIADO
+      pincel.drawImage(
+        spritePremiado,
+        -larguraComMargem / 2,
+        -alturaComMargem / 2,
+        larguraComMargem,
+        alturaComMargem,
+      )
+    } else {
+      desenharPremiadoDeReserva(pincel, larguraDestino, alturaDestino)
+    }
   } else {
-    desenharBalaoVetorial(pincel, larguraDestino, alturaDestino)
+    const sprite = garantirSpriteBalao(dprAtual())
+    if (sprite) {
+      pincel.drawImage(sprite, -larguraDestino / 2, -alturaDestino / 2, larguraDestino, alturaDestino)
+    } else {
+      desenharBalaoVetorial(pincel, larguraDestino, alturaDestino)
+    }
   }
+
   pincel.restore()
 }
 

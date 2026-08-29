@@ -528,6 +528,134 @@ export function desenharBalaoDeReserva(
   pincel.restore()
 }
 
+// ── Task 5: as outras duas formas do alvo ────────────────────────────────
+//
+// O motor (`motor-reflexo.ts`) sorteia três tipos de alvo — normal,
+// premiado, recusa — e pontua cada um diferente, mas não desenha nada: quem
+// decide a FORMA é o tema (ver `tipos.ts`). As duas funções abaixo são essa
+// decisão, e a regra que as guiou é comercial, não estética — 8% dos homens
+// são daltônicos, projetor de evento desloca matiz, e a paleta de um
+// cliente de marca fria pode não sobrar contraste de COR nenhum pro tema
+// gastar. Por isso a distinção mora na SILHUETA: premiado continua redondo
+// (a mesma lanterna, só com um anel de luz a mais) e recusa é o oposto
+// angular dela — nunca uma variação de tonalidade do balão comum.
+
+/** O brilho do anel do premiado sai do próprio amarelo da lanterna — reusa
+ *  paleta em vez de inventar um tom novo só pra este anel. */
+const COR_ANEL_PREMIADO = CORES_PAINEL[1]!
+
+/**
+ * O ANEL VAZADO DO PRÊMIO: o mesmo contorno facetado do corpo
+ * (`caminhoCorpo`), maior e tracejado — "vazado" no sentido de treliça
+ * brasileira (cobogó, tijolo vazado): um contorno com vãos, não uma faixa
+ * sólida. NENHUMA GEOMETRIA NOVA — é o próprio caminho dos gomos que
+ * `desenharCorpoBalao` já desenha e que `desenharCacosDeFaixa` (o estouro)
+ * já reaproveita; se o perfil da lanterna mudar um dia, o anel do prêmio
+ * muda junto sem ninguém precisar lembrar de sincronizar dois desenhos.
+ *
+ * BRILHO POR COMPOSIÇÃO ADITIVA (`globalCompositeOperation = 'lighter'`),
+ * NUNCA `shadowBlur`/`filter` — os dois caminhos lentos que este tema inteiro
+ * evita. O traço tracejado por cima do próprio aditivo é o que lê como
+ * "vazado" (tem vão) em vez de "assado" (sólido).
+ *
+ * CHAMADA SÓ NA RASTERIZAÇÃO (ver `garantirSpritePremiado` em `junino.ts`),
+ * NUNCA POR QUADRO: um `stroke` de `Path2D` grande com traço tracejado é a
+ * mesma classe de custo dos painéis do corpo, e só cabe no orçamento de
+ * quadro porque — como o corpo — é assado uma vez só.
+ *
+ * `escala` amplia o contorno em torno do próprio meio vertical do CORPO
+ * (sem a alça nem a franja) — um anel que cresce em volta do centro do
+ * balão, não um eco deslocado pra um lado.
+ */
+export function desenharAneloPremiado(pincel: CanvasRenderingContext2D, escala: number): void {
+  if (typeof Path2D === 'undefined') return
+  const corpo = new Path2D(caminhoCorpo())
+  const meioY = ALTURA_CORPO / 2
+  pincel.save()
+  pincel.translate(0, meioY)
+  pincel.scale(escala, escala)
+  pincel.translate(0, -meioY)
+  pincel.globalCompositeOperation = 'lighter'
+  pincel.strokeStyle = COR_ANEL_PREMIADO
+  // Compensa a escala local: a espessura e o tracejado precisam medir o
+  // mesmo tanto de papel em qualquer `escala`, não crescer junto com o anel.
+  pincel.lineWidth = (LARGURA_ARMACAO * 1.3) / escala
+  pincel.setLineDash([(LARGURA_CORPO * 0.05) / escala, (LARGURA_CORPO * 0.045) / escala])
+  pincel.stroke(corpo)
+  pincel.restore()
+}
+
+/**
+ * Traçado de reserva do anel do prêmio, sem `Path2D` — usa só `arc`, que
+ * existe em qualquer canvas. É o que roda em Node/jsdom (ver cabeçalho do
+ * arquivo: `Path2D` não existe nesse ambiente) e no navegador raríssimo sem
+ * `Path2D`. Mesma disciplina de `desenharBalaoDeReserva`: nunca um alvo
+ * mudo, mesmo degradado.
+ */
+export function desenharPremiadoDeReserva(
+  pincel: CanvasRenderingContext2D,
+  largura: number,
+  altura: number,
+): void {
+  desenharBalaoDeReserva(pincel, largura, altura)
+  const raioAnel = Math.max(largura, altura) * 0.62
+  pincel.save()
+  pincel.globalCompositeOperation = 'lighter'
+  pincel.strokeStyle = COR_ANEL_PREMIADO
+  pincel.lineWidth = Math.max(1, largura * 0.05)
+  pincel.setLineDash([raioAnel * 0.35, raioAnel * 0.3])
+  pincel.beginPath()
+  pincel.arc(0, 0, raioAnel, 0, Math.PI * 2)
+  pincel.stroke()
+  pincel.restore()
+}
+
+/** Preenchimento do losango de recusa — o próprio tom da armação: a peça é
+ *  "feita só de arame", sem painel nenhum aceso por dentro. Nunca preto
+ *  puro pelo mesmo motivo de `COR_ARMACAO`: precisa se separar do fundo
+ *  `#08090C` da dobra. */
+const COR_RECUSA = COR_ARMACAO
+/** Rebordo do losango — um tom só, mais claro que o preenchimento, o
+ *  bastante pra separar a silhueta do fundo escuro sem depender de matiz
+ *  nenhum: a mesma disciplina de "leitura por forma" vale pra própria
+ *  borda. */
+const COR_BORDA_RECUSA = '#3A3348'
+
+/**
+ * O LOSANGO DE RECUSA: silhueta OPOSTA à da lanterna redonda — quatro
+ * cantos vivos, nenhuma curva, escuro em vez de aceso. Esta é a distinção
+ * que sobrevive a daltonismo e a projetor descalibrado (Task 5): angular
+ * contra redondo continua legível quando toda cor falha.
+ *
+ * SEM `Path2D`, SEM SPRITE: quatro pontos e dois traçados não custam mais
+ * que o traçado de reserva do balão (`desenharBalaoDeReserva`), então
+ * desenhar direto por quadro — em vez de rasterizar como o corpo do balão —
+ * não fura orçamento nenhum. Reaproveita a mesma ideia de losango que já
+ * existe no traçado de reserva, só que como forma PRINCIPAL (recusa é
+ * sempre losango, em qualquer ambiente) em vez de fallback.
+ */
+export function desenharLosangoRecusa(
+  pincel: CanvasRenderingContext2D,
+  largura: number,
+  altura: number,
+): void {
+  const w = largura / 2
+  const h = altura / 2
+  pincel.save()
+  pincel.beginPath()
+  pincel.moveTo(0, -h)
+  pincel.lineTo(w, 0)
+  pincel.lineTo(0, h)
+  pincel.lineTo(-w, 0)
+  pincel.closePath()
+  pincel.fillStyle = COR_RECUSA
+  pincel.fill()
+  pincel.strokeStyle = COR_BORDA_RECUSA
+  pincel.lineWidth = Math.max(1, largura * 0.045)
+  pincel.stroke()
+  pincel.restore()
+}
+
 /**
  * Os cacos do estouro: os PAINÉIS da lanterna se soltando da armação.
  *

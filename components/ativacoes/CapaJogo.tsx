@@ -459,10 +459,12 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
         // O pincel chega ao tema JÁ TRANSLADADO para o centro do elemento —
         // é o contrato de `temas/tipos.ts`: todo tema desenha em torno da
         // própria origem, e CapaJogo nunca precisa saber onde cada tema
-        // resolveu pôr gomo, brilho ou costura.
+        // resolveu pôr gomo, brilho ou costura. `alvo.tipo` (Task 4) vai
+        // junto: o motor decide QUAL tipo nasceu, o tema decide COMO ele
+        // aparece — CapaJogo só repassa.
         pincel.save()
         pincel.translate(cx, cy)
-        TEMA_ATIVO.desenharElemento(pincel, raio, vida, nascimento, agora, menosMovimento)
+        TEMA_ATIVO.desenharElemento(pincel, raio, vida, nascimento, agora, menosMovimento, alvo.tipo)
         pincel.restore()
       }
 
