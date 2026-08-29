@@ -19,4 +19,21 @@ describe('relogio do laco', () => {
     expect(r.passo(1032), 'dentro do congelamento').toBe(0)
     expect(r.passo(1080), 'depois dele').toBeGreaterThan(0)
   })
+
+  it('descongelamento recalcula dt desde o quadro real anterior, nao acumulado', () => {
+    // INVARIANTE DE ORDEM: `anterior = agora` deve vir ANTES do teste
+    // de congelamento. Se viesse depois, durante o descongelamento
+    // `anterior` estaria preso no quadro que entrou congelado, e o
+    // `bruto` acumularia o tempo de congelamento. Com a ordem certa,
+    // `anterior` avanca mesmo quando congelado, e descongelamentos
+    // recalculam dt limpo.
+    // Esse teste falha silenciosamente se a ordem for trocada — o dt seria
+    // limitado ao teto e passaria.
+    const r = criarRelogio(1000)
+    r.passo(1016) // anterior = 1016
+    r.congelar(100) // congeladoAte = 1116
+    r.passo(1050) // retorna 0, congelado; anterior = 1050
+    r.passo(1100) // retorna 0, congelado; anterior = 1100
+    expect(r.passo(1120), 'descongelado, dt limpo').toBeCloseTo(0.02, 4)
+  })
 })

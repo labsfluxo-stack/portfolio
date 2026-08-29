@@ -22,7 +22,16 @@ export function criarRelogio(agoraInicial: number) {
       if (agora < congeladoAte) return 0
       return Math.min(bruto, DT_MAXIMO)
     },
-    /** Congela a simulação. 40ms no acerto normal, 80ms no premiado. */
+    /** Congela a simulação. 40ms no acerto normal, 80ms no premiado.
+     *  INVARIANTE: `congelar` âncora em `anterior`, que é o último `agora`
+     *  passado por `passo`, não no tempo real. Se chamado fora do ciclo do laço
+     *  (antes do primeiro `passo` ou com atraso desde o último quadro), esse
+     *  atraso é descontado da janela de congelamento silenciosamente. Chame
+     *  `congelar` no mesmo ciclo em que `passo` rodou, senão a duração real
+     *  será menor que o solicitado. Exemplos: acerto no input handler síncrono
+     *  dentro do laço = OK; reação assíncrona com atraso = encurta; timeout =
+     *  pode não congelar nada. O porquê: como o relógio não acessa `Date.now`,
+     *  não há "tempo real" — só o tempo que chega via `passo`. */
     congelar(ms: number) {
       congeladoAte = anterior + ms
     },
