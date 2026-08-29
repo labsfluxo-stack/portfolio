@@ -698,3 +698,47 @@ describe('tipos de alvo', () => {
     expect(tiposNascidos(99)).toEqual(tiposNascidos(99))
   })
 })
+
+/**
+ * `acertarAlvoAtivo` é o caminho ACESSÍVEL do jogo: o canvas é focável, com
+ * nome acessível, e espaço/enter acertam o alvo ativo — é como joga quem não
+ * usa mouse. Sem esta paridade testada, um alvo `recusa` deixaria de ser
+ * distinguível por quem joga de teclado, e um `premiado` valeria 1 em vez de
+ * `PESO_PREMIADO` — não um jogo mais fácil por teclado, um jogo DIFERENTE,
+ * sem a decisão que a tarefa inteira existe para criar. Os testes abaixo
+ * rodam o MESMO cenário pelas duas portas de entrada e afirmam resultado
+ * idêntico: se algum dia alguém mudar uma regra de pontuação só em `tocar`
+ * (ou só em `acertarAlvoAtivo`), a igualdade quebra na hora.
+ */
+describe('paridade entre tocar (ponteiro) e acertarAlvoAtivo (teclado)', () => {
+  /** Partida em jogo com um único alvo do `tipo` pedido, sequência não-zero
+   *  de propósito — se a lógica de recusa esquecesse de zerar a sequência,
+   *  um teste que começasse em 0 não perceberia. */
+  function partidaComAlvo(tipo: TipoAlvo): Partida {
+    const alvo = { id: 1, x: 0.5, y: 0.5, raio: 0.05, nascidoEm: 0, tipo }
+    return { ...reiniciar(criarPartida(1, 0), 0), alvos: [alvo], sequencia: 3 }
+  }
+
+  it('alvo normal: toque e teclado dao exatamente o mesmo resultado', () => {
+    const viaPonteiro = tocar(partidaComAlvo('normal'), 0.5, 0.5, 200)
+    const viaTeclado = acertarAlvoAtivo(partidaComAlvo('normal'), 200)
+    expect(viaTeclado).toEqual(viaPonteiro)
+    expect(viaTeclado.acertos).toBe(1)
+    expect(viaTeclado.sequencia).toBe(4)
+  })
+
+  it('alvo premiado: toque e teclado valem PESO_PREMIADO igual', () => {
+    const viaPonteiro = tocar(partidaComAlvo('premiado'), 0.5, 0.5, 200)
+    const viaTeclado = acertarAlvoAtivo(partidaComAlvo('premiado'), 200)
+    expect(viaTeclado).toEqual(viaPonteiro)
+    expect(viaTeclado.acertos, 'teclado tem que valer o mesmo peso que o toque').toBe(PESO_PREMIADO)
+  })
+
+  it('alvo recusa: toque e teclado zeram a sequencia sem tirar ponto, igual', () => {
+    const viaPonteiro = tocar(partidaComAlvo('recusa'), 0.5, 0.5, 200)
+    const viaTeclado = acertarAlvoAtivo(partidaComAlvo('recusa'), 200)
+    expect(viaTeclado).toEqual(viaPonteiro)
+    expect(viaTeclado.acertos, 'recusa por teclado tambem nao pode tirar ponto').toBe(0)
+    expect(viaTeclado.sequencia, 'recusa por teclado tambem zera a sequencia').toBe(0)
+  })
+})

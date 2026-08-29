@@ -418,23 +418,40 @@ export function tocar(partida: Partida, x: number, y: number, agora: number): Pa
     return { ...partida, sequencia: 0, errosDeMira: partida.errosDeMira + 1 }
   }
 
-  // RECUSA NUNCA TIRA PONTO. Só zera a sequência — a mesma penalidade que o
-  // erro de mira já aplica acima. Placar negativo faz o jogador se sentir mal
-  // com a marca do cliente na tela; a decisão errada já custa a sequência, e
-  // isso basta.
-  if (atingido.tipo === 'recusa') {
-    return {
-      ...partida,
-      alvos: partida.alvos.filter((alvo) => alvo.id !== atingido.id),
-      sequencia: 0,
-    }
-  }
-  const peso = atingido.tipo === 'premiado' ? PESO_PREMIADO : 1
+  return contabilizarAcerto(partida, atingido, agora)
+}
 
+/**
+ * Contabiliza o acerto de UM alvo já encontrado — a regra de pontuação por
+ * tipo, compartilhada entre `tocar` (mira por coordenada, pode errar) e
+ * `acertarAlvoAtivo` (mira por teclado, sempre no alvo ativo, nunca erra).
+ *
+ * EXTRAÍDA DE PROPÓSITO, não duplicada nas duas funções: `acertarAlvoAtivo`
+ * é o caminho ACESSÍVEL — o canvas é focável, com nome acessível, e
+ * espaço/enter acertam o alvo ativo. Se a regra de `recusa` (zera sequência,
+ * não tira ponto) e de `premiado` (vale `PESO_PREMIADO`) vivesse duplicada
+ * nas duas funções, bastaria mudar uma e esquecer a outra para o teclado
+ * virar um jogo com OUTRAS regras — não mais fácil, diferente: a decisão que
+ * esta mudança inteira existe para criar deixaria de existir para quem joga
+ * sem mouse. A spec exige que `recusa` seja distinguível pelo caminho de
+ * teclado; essa paridade é acessibilidade, não only-nice-to-have.
+ */
+function contabilizarAcerto(partida: Partida, atingido: Alvo, agora: number): Partida {
+  const alvosRestantes = partida.alvos.filter((alvo) => alvo.id !== atingido.id)
+
+  // RECUSA NUNCA TIRA PONTO. Só zera a sequência — a mesma penalidade que o
+  // erro de mira já aplica em `tocar`. Placar negativo faz o jogador se
+  // sentir mal com a marca do cliente na tela; a decisão errada já custa a
+  // sequência, e isso basta.
+  if (atingido.tipo === 'recusa') {
+    return { ...partida, alvos: alvosRestantes, sequencia: 0 }
+  }
+
+  const peso = atingido.tipo === 'premiado' ? PESO_PREMIADO : 1
   const sequencia = partida.sequencia + 1
   return {
     ...partida,
-    alvos: partida.alvos.filter((alvo) => alvo.id !== atingido.id),
+    alvos: alvosRestantes,
     acertos: partida.acertos + peso,
     somaReacao: partida.somaReacao + (agora - atingido.nascidoEm),
     sequencia,
@@ -499,16 +516,10 @@ export function acertarAlvoAtivo(partida: Partida, agora: number): Partida {
   // ativo, então não existe acionamento que erre. Quem não tem alvo na tela
   // sai no `if (!alvo)` acima sem penalidade nenhuma — perder sequência por
   // apertar espaço num instante sem alvo seria punir o teclado por uma falta
-  // que o ponteiro não comete.
-  const sequencia = estado.sequencia + 1
-  return {
-    ...estado,
-    alvos: estado.alvos.filter((a) => a.id !== alvo.id),
-    acertos: estado.acertos + 1,
-    somaReacao: estado.somaReacao + (agora - alvo.nascidoEm),
-    sequencia,
-    melhorSequencia: Math.max(estado.melhorSequencia, sequencia),
-  }
+  // que o ponteiro não comete. A partir daqui a pontuação por tipo é a MESMA
+  // de `tocar` — ver `contabilizarAcerto`, e não duplicar aqui é o que
+  // garante essa igualdade continuar valendo.
+  return contabilizarAcerto(estado, alvo, agora)
 }
 
 /**
