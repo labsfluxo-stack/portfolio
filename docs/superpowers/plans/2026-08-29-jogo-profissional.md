@@ -830,12 +830,27 @@ Acrescente `reagir?(evento: EventoCena, intensidade: number): void` ao tipo do t
 
 No junino, as quatro reações da spec §5. **Nenhuma cria objeto por quadro** — todas ajustam parâmetro de desenho que já existe:
 
-| Evento | Reação |
-|---|---|
-| `acerto` | bandeirinhas balançam a partir do ponto, decaindo |
-| `sequencia` | fogueira cresce e clareia a praça |
-| `fechou` | dançarinos comemoram por ~1 s |
-| `erro` | uma bandeirinha apaga e reacende |
+| Evento | Reação | Onde |
+|---|---|---|
+| `acerto` | bandeirinhas balançam a partir do ponto, decaindo | `junino-enfeite.ts` |
+| `sequencia` | fogueira cresce e clareia a praça | `junino-fogos.ts` |
+| `fechou` | dançarinos comemoram por ~1 s | `junino-gente.ts` |
+| `erro` | uma bandeirinha apaga e reacende | `junino-enfeite.ts` |
+
+**A comemoração é quase de graça — o commit `588221e` já construiu a base.**
+`junino-gente.ts` tem repertório de `POSES`, `misturarPoses(a, b, t)` com curva, e
+`PAR_DE_POSE`. Entre as poses já existe **`palma`** ("as duas mãos juntas à frente do
+peito"). Comemorar é **enviesar a escolha de pose** para `palma` e `erguido` durante ~1 s,
+não desenhar nada novo.
+
+Respeite duas regras que aquele commit estabeleceu, e que valem como restrição desta task:
+
+- **Braço simétrico não dança.** Toda pose tem as mãos em alturas diferentes. Se você criar
+  pose nova, ela não pode ter as duas mãos na mesma altura — o olho lê hélice como objeto,
+  não como pessoa.
+- **Só a camada `'perto'` dança.** A de `'longe'` é assada no sprite do cenário e não pode
+  reagir. `desenharGente(pincel, largura, altura, escalaEm, tempo, camada)` — o viés de
+  pose só se aplica quando `camada === 'perto'`.
 
 Todas são no-op sob `prefers-reduced-motion`.
 
