@@ -3,11 +3,12 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { Dictionary, Locale } from '@/content/types'
 import { BotaoWhatsapp } from '@/components/landing/Botao'
-import { BrindeModal } from './BrindeModal'
 // O cenario 3D esta desligado — ver o bloco comentado no JSX para o porque
 // e para os numeros medidos. O import fica comentado junto: descomentar os
 // dois e tudo o que religar a cena exige.
 // import { ArraialSlot } from '@/components/three/ArraialSlot'
+import { ease } from './movimento'
+import { formaContagem, PainelDeFim } from './hud'
 import {
   acertarAlvoAtivo,
   alvoAtivo,
@@ -23,6 +24,13 @@ import {
   type Zona,
 } from './motor-reflexo'
 import { TEMA_ATIVO } from './temas'
+
+// `formaContagem` mora em `hud.tsx` agora — o placar AO VIVO (aqui) e o
+// painel de fim (lá) precisam dela, e reexportá-la evita um import circular
+// entre os dois arquivos: `hud.tsx` nunca importa nada de volta deste
+// módulo. `tests/unit/ativacoes-capa.test.tsx` continua importando
+// `formaContagem` a partir daqui — este reexport é o que a mantém válida.
+export { formaContagem }
 
 /**
  * A dobra é uma partida rodando de verdade. O visitante brinca antes de ler
@@ -122,21 +130,14 @@ const DPR_MAX = 2
  *  o desenho. */
 const POP_MS = 180
 
-/** Escolhe a forma gramatical certa para uma contagem exibida na tela —
- *  singular só quando a contagem é EXATAMENTE 1, plural para todo o resto,
- *  INCLUINDO ZERO. "0 acertos" e "2 acertos" são os dois plural; é só o 1
- *  exato que muda de forma. Regra fácil de "consertar" errado depois — quem
- *  for mexer aqui, ver o defeito que motivou esta função: o placar e o
- *  resultado de fim de partida liam "1 acertos" (e "1 hits" em inglês) com
- *  um rótulo fixo, sempre plural.
- *
- *  Função pura e exportada — não por engenharia antecipada, mas porque é a
- *  única forma de testar a fronteira 0/1/2+ sem o laço de rAF: `getContext`
- *  devolve `null` no jsdom (ver tests/setup.ts), então `placar` nunca sai de
- *  zero num teste de componente. `motor-reflexo.ts` é puro pelo mesmo motivo. */
-export function formaContagem(contagem: number, formas: { um: string; varios: string }): string {
-  return contagem === 1 ? formas.um : formas.varios
-}
+/** Duração da entrada do véu do fim de partida (tarefa 6). Ver o comentário
+ *  completo em `hud.tsx` — a mesma constante, com o mesmo valor, existe lá
+ *  para a entrada do painel; aqui ela só serve à opacidade do `fillRect`
+ *  que recua a cena. As duas nascem juntas (o véu escurece enquanto o
+ *  painel entra) mas cada arquivo tem sua própria cópia: o véu é canvas, o
+ *  painel é DOM, e não há tipo compartilhado que faça sentido importar de
+ *  um lado pro outro só por isso. */
+const VEU_MS = 220
 
 /**
  * Uma partícula da rajada de acerto (job 4) — coordenadas normalizadas 0–1,
@@ -190,22 +191,9 @@ const POOL_ESTOUROS = 4
  *  os `Path2D` dos gomos em vez de um sprite pré-rasterizado. */
 const VIDA_ESTOURO_MS = 500
 
-/**
- * Acertos seguidos que liberam o brinde.
- *
- * A simulação da partida (`.superpowers/mecanica/sim.mts`) mede a melhor
- * sequência por perfil de jogador: rápido ~32, mediano (reação 340ms) ~15,
- * lento (450ms) ~9. Cinco fica abaixo até do lento — é uma escolha do dono
- * do site, e a direção é deliberada.
- *
- * O portão não existe para separar bons de ruins; existe para o brinde ser
- * GANHO em vez de dado, que é o modelo que esta página vende. Cinco ainda
- * exige jogar de verdade (quem toca uma vez e assiste termina em zero, e o
- * teste e2e do portão prova isso), mas não transforma a demonstração numa
- * prova de reflexo — numa landing de venda, um visitante frustrado é pior
- * negócio do que um visitante que ganhou fácil.
- */
-const SEQUENCIA_PARA_BRINDE = 5
+// `SEQUENCIA_PARA_BRINDE` mora em `hud.tsx` agora — só o painel de fim
+// decide se o brinde foi ganho, e a constante (com o comentário completo
+// sobre por que é 5) foi junto com o bloco que a usa.
 
 export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -389,6 +377,86 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
     // — não controla nada do motor, só o que é pintado.
     let focado = false
 
+    /**
+     * O FIM DE PARTIDA (tarefa 6, spec §4) — véu + cena congelada.
+     *
+     * Separado de `desenhar` porque o desenho normal e o de fim não têm
+     * quase nada em comum: sem alvo (o motor já zera `estado.alvos` na
+     * transição), sem partícula, sem onda, sem relógio — só o fundo, parado,
+     * e o véu que recua por cima dele. Misturar os dois num `if` só no meio
+     * do laço de sempre deixaria este bloco cercado de código que não se
+     * aplica a ele.
+     */
+    const desenharFim = (estado: Partida, agora: number) => {
+      // O INSTANTE DO FIM sai do próprio estado, não de um `let` à parte:
+      // `avancar` (motor-reflexo.ts) só troca a fase para `fim` exatamente
+      // quando `agora - comecouEm >= DURACAO_MS`, e `comecouEm` sobrevive
+      // intacto na transição (`{ ...partida, fase: 'fim', alvos: [] }`) —
+      // então esta conta dá sempre o mesmo valor, sem precisar de um
+      // segundo relógio só para lembrar quando a partida zerou.
+      const fimEm = estado.comecouEm + DURACAO_MS
+      const t = Math.min(1, (agora - fimEm) / VEU_MS)
+
+      // FUNDO CONGELADO: `fimEm` no lugar de `agora`. `TEMA_ATIVO.desenharFundo`
+      // é função pura do tempo que recebe (sem estado interno — ver o
+      // comentário de `desenharFundo` em `temas/junino.ts`), então travar o
+      // relógio que ela recebe TRAVA o desenho: nada de brasa, bandeirinha
+      // ou balão se movendo atrás do painel de resultado, exatamente o que
+      // a nota de orçamento de quadro desta tarefa exige.
+      pincel.fillStyle = COR_FUNDO
+      pincel.fillRect(0, 0, largura, altura)
+      if (cenario3dRef.current) {
+        pincel.clearRect(0, 0, largura, altura)
+      } else {
+        TEMA_ATIVO.desenharFundo(pincel, largura, altura, fimEm, menosMovimento)
+      }
+
+      // O VÉU. NADA de `filter: blur()` nem `shadowBlur` — os dois estão
+      // fora do orçamento de quadro desta rota (ver `hud.tsx` para o
+      // relato completo do defeito que motivou isto). Um `fillRect`
+      // translúcido que cresce com `ease.outQuad` é mais barato que a cena
+      // viva que ele substitui, porque a cena PARA de ser repintada assim
+      // que o véu termina de entrar — ver o `if (t < 1)` no fim desta
+      // função.
+      pincel.fillStyle = `rgba(6, 10, 24, ${0.72 * ease.outQuad(t)})`
+      pincel.fillRect(0, 0, largura, altura)
+
+      // Mesmo contrato de sempre para o resto do laço: alvos vivos (vazio,
+      // o motor já zerou), placar e fase publicados pro React só quando
+      // mudam de valor.
+      if (ultimaListaAlvos !== '') {
+        ultimaListaAlvos = ''
+        canvas.dataset.alvos = ''
+      }
+      const atual = {
+        acertos: estado.acertos,
+        reacao: mediaReacao(estado),
+        sequencia: estado.sequencia,
+        melhorSequencia: estado.melhorSequencia,
+      }
+      if (
+        atual.acertos !== ultimoPlacar.acertos ||
+        atual.reacao !== ultimoPlacar.reacao ||
+        atual.sequencia !== ultimoPlacar.sequencia
+      ) {
+        ultimoPlacar = atual
+        setPlacar(atual)
+      }
+      if (ultimaFase !== 'fim') {
+        ultimaFase = 'fim'
+        setFase('fim')
+      }
+
+      // ESTADO TERMINAL só depois do véu terminar de entrar: enquanto
+      // `t < 1` a cor do véu ainda está mudando e o quadro seguinte precisa
+      // ser pintado; no instante em que `t` chega a 1 a cena parou de fato,
+      // e pedir mais um quadro seria queimar 60Hz de bateria para não mudar
+      // um pixel — o mesmo raciocínio que já regia o antigo estado terminal
+      // desta rota, só que agora o congelamento é visível (o véu), não uma
+      // tela preta súbita.
+      if (t < 1) quadro = requestAnimationFrame(desenhar)
+    }
+
     const desenhar = (agora: number) => {
       // Zerado ANTES do corpo: `quadro` guarda "há um quadro agendado", e a
       // partir daqui não há mais — quem agenda o próximo é o fim desta função,
@@ -402,6 +470,13 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
       // é acessibilidade, e jogo que some também não.
       const estado = avancar(anterior, agora, !menosMovimento)
       partidaRef.current = estado
+
+      // O FIM é um desenho totalmente à parte — ver `desenharFim` acima
+      // para o porquê de ele não caber no meio do laço de sempre.
+      if (estado.fase === 'fim') {
+        desenharFim(estado, agora)
+        return
+      }
 
       // Base sólida ANTES do tema — ver o comentário de `COR_FUNDO` acima.
       // `TEMA_ATIVO.desenharFundo`, logo em seguida, é quem de fato pinta o
@@ -651,21 +726,31 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
         setFase(estado.fase)
       }
 
-      // `fim` é ESTADO TERMINAL: `avancar` devolve a partida inalterada a
-      // partir daqui, e o quadro seguinte pintaria exatamente o mesmo retângulo
-      // preto. Continuar pedindo quadro seria queimar 60Hz de bateria para não
-      // mudar um pixel — o oposto do orçamento da spec §4.5. Quem religa o laço
-      // é `reiniciarPartida`, e só ela.
-      if (estado.fase === 'fim') return
-
+      // Nunca `fim` aqui embaixo: o branch logo no topo desta função já
+      // devolveu antes de chegar até aqui nesse caso (ver `desenharFim`), e
+      // é ELE quem decide se pede mais um quadro ou congela de vez.
       quadro = requestAnimationFrame(desenhar)
     }
 
     const ligar = () => {
       if (quadro) return
-      // Não ressuscita partida encerrada: voltar para a aba ou rolar a dobra de
-      // volta à tela não pode reabrir o laço num estado que não muda mais.
-      if (partidaRef.current?.fase === 'fim') return
+      const estado = partidaRef.current
+      // Não ressuscita partida encerrada: voltar para a aba ou rolar a dobra
+      // de volta à tela não pode reabrir o laço num estado que não muda mais.
+      //
+      // EXCETO se o véu ainda estava entrando: a aba pode ter sido escondida
+      // (`desligar` cancela o quadro agendado) bem no meio dos ~220ms de
+      // `desenharFim`, e sem esta ressalva o véu ficaria travado num alfa
+      // parcial pra sempre — visível, mas nunca terminando de cobrir a cena.
+      // A conta usa o mesmo `fimEm` de `desenharFim`: se já passou `VEU_MS`
+      // desde o fim, o véu está cheio de qualquer forma, e o laço segue
+      // recusando religar, como sempre.
+      if (
+        estado?.fase === 'fim' &&
+        performance.now() - (estado.comecouEm + DURACAO_MS) >= VEU_MS
+      ) {
+        return
+      }
       quadro = requestAnimationFrame(desenhar)
     }
     const desligar = () => {
@@ -859,6 +944,39 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
 
   const { capa, cta } = dict.ativacoes
 
+  // O QR, montado UMA VEZ aqui: ele aparece tanto ao lado do placar ao vivo
+  // quanto — desde a tarefa 6 — ANCORADO DENTRO do painel de fim. Uma
+  // variável só, passada como prop pros dois lugares, é o que evita duas
+  // cópias do mesmo JSX espalhadas entre este arquivo e `hud.tsx`.
+  //
+  // `hidden md:block`: no celular o QR é piada — a pessoa já está no
+  // telefone. Serve ao visitante de desktop que quer sentir a mecânica no
+  // aparelho em que ela de fato vai rodar no estande.
+  //
+  // `qr-${locale}.svg`, não `qr-pt.svg` fixo: o QR aponta para
+  // `/[locale]/ativacoes`, e um visitante em `/en` que escaneasse o SVG em
+  // português cairia na rota errada — o próprio bug que a página existe
+  // para não ter em nenhum outro lugar.
+  //
+  // `capa.qr` (job 5): o QR não tinha legenda nenhuma — só quem já soubesse
+  // que aquilo era um jogo saberia por que apontar o celular para ele. A
+  // legenda é DOM visível, não `alt` (o `alt` continua vazio: o SVG em si
+  // não carrega informação que a legenda ao lado não repita, e um leitor de
+  // tela lendo os dois seria eco).
+  const qr = (
+    <div className="hidden flex-col items-center gap-1 md:flex">
+      <img
+        src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? '/portfolio'}/ativacoes/qr-${locale}.svg`}
+        alt=""
+        aria-hidden="true"
+        width={72}
+        height={72}
+        className="hidden md:block"
+      />
+      <span className="font-mono text-xs text-faint">{capa.qr}</span>
+    </div>
+  )
+
   return (
     <section className="relative isolate overflow-hidden border-b border-border">
       {/* O ARRAIAL EM 3D ESTÁ DESLIGADO, e o motivo está medido.
@@ -992,86 +1110,19 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
         <div className="flex flex-wrap items-center gap-6">
           {fase === 'fim' ? (
             /* FIM DE PARTIDA É DOM, NUNCA CANVAS — spec §4.3, e a mesma regra
-             * que rege o resto desta página.
-             *
-             * `data-zona-jogo` (job 2): este bloco só existe enquanto a
-             * partida está parada (`avancar` não nasce alvo nenhum em `fim`),
-             * então marcá-lo não evita nascimento nenhum HOJE — mas garante
-             * que, assim que "Jogar de novo" reabrir a partida, a zona
-             * herdada por `reiniciar` já reflita o bloco certo até o
-             * `MutationObserver` remedir para o CTA/placar que voltam no
-             * lugar dele.
-             *
-             * `pointer-events-auto` porque o contêiner de conteúdo é
-             * transparente ao ponteiro; sem isto o botão não seria clicável —
-             * o mesmo defeito que fecha o C1, um andar abaixo. */
-            <div
-              className="pointer-events-auto flex max-w-xl flex-col items-start gap-3"
-              data-zona-jogo="fim"
-            >
-              <p className="text-[17px] leading-relaxed text-text">
-                <strong className="font-semibold">{capa.fim.titulo}</strong>{' '}
-                <span className="text-muted">
-                  {/* Os dígitos vêm do motor e são substituídos aqui, no mesmo
-                    * padrão de `{producao}` em `ProvaEngenharia.tsx`. O
-                    * dicionário não carrega número: número no dicionário é
-                    * número que envelhece sozinho e passa a mentir.
-                    *
-                    * `formaContagem` escolhe entre `resultado.um` e
-                    * `resultado.varios` ANTES da substituição — é este
-                    * momento de maior atenção da página, logo depois de
-                    * jogar, que lia "1 acertos" com o rótulo fixo antigo. */}
-                  {formaContagem(placar.acertos, capa.fim.resultado)
-                    .replace('{acertos}', String(placar.acertos))
-                    .replace('{reacao}', String(placar.reacao))}
-                </span>
-              </p>
-              {/* O QUE FALTOU. Um portão sem explicação lê como bug: quem não
-                * ganhou precisa saber que existia algo a ganhar e quanto
-                * faltou, senão a ausência do botão é indistinguível de erro.
-                * Quem ganhou vê a confirmação, que é metade do prêmio. */}
-              <p className="text-[17px] leading-relaxed text-muted">
-                {placar.melhorSequencia >= SEQUENCIA_PARA_BRINDE
-                  ? capa.fim.brindeGanho
-                  : capa.fim.brindeFaltou
-                      .replace('{melhor}', String(placar.melhorSequencia))
-                      .replace('{alvo}', String(SEQUENCIA_PARA_BRINDE))}
-              </p>
-              <p className="text-[17px] leading-relaxed text-muted">{capa.fim.cta}</p>
-              {/* `<button type="button">`, e não um `<div onClick>`: focável
-                * pelo teclado, acionável por Enter e por espaço, anunciado como
-                * botão. `type` explícito porque o padrão de `<button>` solto é
-                * `submit`, e um dia esta seção pode ganhar um `<form>` em volta.
-                *
-                * `min-h-12` são os 48px de alvo mínimo de toque, o mesmo piso do
-                * `BotaoWhatsapp` — e aqui vale em dobro, porque quem aperta
-                * acabou de passar quinze segundos batendo em alvo no celular. */}
-              {/* `flex-wrap`: os dois botões cabem lado a lado no desktop e
-                * empilham a 390px sem se sobrepor — o mesmo problema que o
-                * placar ao vivo (job 5, comentário abaixo) já resolveu. */}
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => reiniciarRef.current?.()}
-                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-border px-6 text-[17px] font-semibold text-text transition-opacity hover:opacity-80"
-                >
-                  {capa.fim.reiniciar}
-                </button>
-                {/* O BRINDE É GANHO, NÃO DADO. Ele aparecia para todo mundo,
-                  * igual para quem acertou dezoito e para quem não encostou na
-                  * tela — o que é o contrário do que uma ativação de verdade
-                  * faz, e esta página vende exatamente esse modelo. O portão é
-                  * a MELHOR sequência da partida, não o total de acertos:
-                  * total premia quem ficou clicando, sequência premia quem
-                  * mirou e não deixou escapar.
-                  *
-                  * Ver BrindeModal.tsx para a razão de o chunk de three.js só
-                  * carregar depois deste botão ser clicado. */}
-                {placar.melhorSequencia >= SEQUENCIA_PARA_BRINDE ? (
-                  <BrindeModal dict={dict} />
-                ) : null}
-              </div>
-            </div>
+             * que rege o resto desta página. O bloco inteiro (véu à parte —
+             * esse é canvas, em `desenharFim` acima) MOROU aqui e foi movido
+             * para `hud.tsx` na tarefa 6: o resultado ficava ilegível
+             * desenhado por cima da ilustração, e a correção — véu que
+             * congela a cena, painel com fundo sólido próprio e cada linha
+             * medida por contraste — é grande demais pra continuar inline
+             * num arquivo que já tinha mais de 1150 linhas. */
+            <PainelDeFim
+              dict={dict}
+              placar={placar}
+              aoReiniciar={() => reiniciarRef.current?.()}
+              qr={qr}
+            />
           ) : (
             /* PLACAR AO VIVO — redesenhado (job 5): a versão anterior era
              * três `<span>` soltos num `flex items-baseline` sem quebra
@@ -1087,68 +1138,44 @@ export function CapaJogo({ dict, locale }: { dict: Dictionary; locale: Locale })
              * acerto, e algarismo de largura variável faria o texto ao lado
              * saltar lateralmente a cada troca de dígito. Duas linhas
              * inteiras no pior caso (390px), nunca seis pedaços picados. */
-            <div aria-hidden="true" className="flex flex-col gap-1">
-              <p className="flex flex-wrap items-baseline gap-x-2">
-                {/* O convite muda com o tema (`TEMA_ATIVO.chaveConvite`) — o
-                  * junino diz "Estoure os balões.", não "Toque nos alvos.".
-                  * `capa.convite` sobra como RESERVA: um tema mal configurado
-                  * (chave sem tradução) degrada em texto neutro em vez de
-                  * renderizar vazio ou `undefined` na tela. */}
-                <span className="font-mono text-xs text-faint">
-                  {capa.convitesTema[TEMA_ATIVO.chaveConvite] ?? capa.convite}
+            <>
+              <div aria-hidden="true" className="flex flex-col gap-1">
+                <p className="flex flex-wrap items-baseline gap-x-2">
+                  {/* O convite muda com o tema (`TEMA_ATIVO.chaveConvite`) — o
+                    * junino diz "Estoure os balões.", não "Toque nos alvos.".
+                    * `capa.convite` sobra como RESERVA: um tema mal configurado
+                    * (chave sem tradução) degrada em texto neutro em vez de
+                    * renderizar vazio ou `undefined` na tela. */}
+                  <span className="font-mono text-xs text-faint">
+                    {capa.convitesTema[TEMA_ATIVO.chaveConvite] ?? capa.convite}
+                  </span>
+                  <span className="text-xl font-semibold tabular-nums text-data">
+                    {/* `formaContagem`: zero e dois-ou-mais são plural, só o 1
+                      * exato muda de rótulo — ver o comentário na função. */}
+                    {placar.acertos} {formaContagem(placar.acertos, capa.placar.acertos)}
+                  </span>
+                </p>
+                <span className="text-[17px] tabular-nums text-muted">
+                  {placar.reacao} {capa.placar.reacao}
                 </span>
-                <span className="text-xl font-semibold tabular-nums text-data">
-                  {/* `formaContagem`: zero e dois-ou-mais são plural, só o 1
-                    * exato muda de rótulo — ver o comentário na função. */}
-                  {placar.acertos} {formaContagem(placar.acertos, capa.placar.acertos)}
-                </span>
-              </p>
-              <span className="text-[17px] tabular-nums text-muted">
-                {placar.reacao} {capa.placar.reacao}
-              </span>
-              {/* A SEQUÊNCIA AO VIVO. Só aparece a partir do segundo acerto
-                * seguido: mostrar "1 seguido" a cada acerto isolado faria o
-                * número piscar o tempo todo e não significaria nada. É a
-                * única informação da tela que pode CAIR, e é por isso que ela
-                * merece estar à vista — sem ver o que se tem, não se sente o
-                * que se perde. */}
-              {placar.sequencia >= 2 ? (
-                <span className="text-[17px] font-semibold tabular-nums text-data">
-                  {placar.sequencia} {capa.placar.sequencia}
-                </span>
-              ) : null}
-            </div>
+                {/* A SEQUÊNCIA AO VIVO. Só aparece a partir do segundo acerto
+                  * seguido: mostrar "1 seguido" a cada acerto isolado faria o
+                  * número piscar o tempo todo e não significaria nada. É a
+                  * única informação da tela que pode CAIR, e é por isso que ela
+                  * merece estar à vista — sem ver o que se tem, não se sente o
+                  * que se perde. */}
+                {placar.sequencia >= 2 ? (
+                  <span className="text-[17px] font-semibold tabular-nums text-data">
+                    {placar.sequencia} {capa.placar.sequencia}
+                  </span>
+                ) : null}
+              </div>
+              {/* O QR: enquanto a partida roda ele fica ao lado do placar ao
+                * vivo, na mesma árvore que o painel de fim reusa no fim (ver
+                * a variável `qr`, montada uma vez lá em cima). */}
+              {qr}
+            </>
           )}
-          {/* O QR fica FORA do ternário: ele não é status de partida, é o
-            * convite para abrir a página no celular, e vale igual antes e
-            * depois do fim.
-            *
-            * `hidden md:block`: no celular o QR é piada — a pessoa já está no
-            * telefone. Serve ao visitante de desktop que quer sentir a mecânica
-            * no aparelho em que ela de fato vai rodar no estande.
-            *
-            * `qr-${locale}.svg`, não `qr-pt.svg` fixo: o QR aponta para
-            * `/[locale]/ativacoes`, e um visitante em `/en` que escaneasse o
-            * SVG em português cairia na rota errada — o próprio bug que a
-            * página existe para não ter em nenhum outro lugar.
-            *
-            * `capa.qr` (job 5): o QR não tinha legenda nenhuma — só quem já
-            * soubesse que aquilo era um jogo saberia por que apontar o
-            * celular para ele. A legenda é DOM visível, não `alt` (o `alt`
-            * continua vazio: o SVG em si não carrega informação que a
-            * legenda ao lado não repita, e um leitor de tela lendo os dois
-            * seria eco). */}
-          <div className="hidden flex-col items-center gap-1 md:flex">
-            <img
-              src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? '/portfolio'}/ativacoes/qr-${locale}.svg`}
-              alt=""
-              aria-hidden="true"
-              width={72}
-              height={72}
-              className="hidden md:block"
-            />
-            <span className="font-mono text-xs text-faint">{capa.qr}</span>
-          </div>
         </div>
       </div>
     </section>

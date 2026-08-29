@@ -113,11 +113,18 @@ export function BrindeModal({ dict }: { dict: Dictionary }) {
 
   return (
     <>
+      {/* FUNDO SÓLIDO, não contorno (tarefa 6 do redesign do painel de fim,
+        * spec §4): o botão de outline lia bem sobre o fundo escuro chapado
+        * do site, mas o painel de fim ganhou fundo próprio (`bg-surface`) e
+        * um contorno da mesma cor da borda do painel desaparecia contra ele.
+        * `bg-data`, a cor de destaque do site: é o botão do PRÊMIO, e só
+        * existe na tela depois de ganho — merece ler como o mais importante
+        * dos dois, não como um botão secundário igual ao de recomeçar. */}
       <button
         ref={gatilhoRef}
         type="button"
         onClick={() => setAberto(true)}
-        className="inline-flex min-h-12 items-center justify-center rounded-md border border-border px-6 text-[17px] font-semibold text-text transition-opacity hover:opacity-80"
+        className="inline-flex min-h-12 items-center justify-center rounded-md bg-data px-6 text-[17px] font-semibold text-bg transition-opacity hover:opacity-80"
       >
         {capa.fim.brinde}
       </button>
