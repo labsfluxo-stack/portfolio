@@ -1,5 +1,6 @@
 import type { Tema } from './tipos'
-import { MASTRO, rasterizarCenario } from './junino-cenario'
+import { MASTRO, escalaEm, rasterizarCenario } from './junino-cenario'
+import { desenharGente } from './junino-gente'
 import {
   desenharBaloesDistantes,
   desenharFaiscas,
@@ -1536,6 +1537,18 @@ function desenharFundo(
 
   desenharBandeirinhas(pincel, largura, altura, dpr, agora, parado)
 
+
+  // A QUADRILHA, desenhada por quadro porque ela DANÇA.
+  //
+  // Ela vivia no sprite assado da praça, e por isso ficava congelada no
+  // meio de um passo — que é o pior estado em que se pode congelar alguém.
+  // Sair do sprite custa desenhar as figuras a cada quadro; o custo é
+  // aceitável porque elas são pequenas e sem gradiente, e foi medido.
+  //
+  // Entra antes da fogueira: a fogueira está no meio da roda, e quem dança
+  // do lado de cá dela aparece na frente. `escalaEm` vem do cenário para a
+  // perspectiva ser exatamente a mesma do resto da praça.
+  desenharGente(pincel, largura, altura, (y) => escalaEm(y, altura), parado ? 0 : agora, 'perto')
 
   desenharFogueira(pincel, largura, altura, dpr, agora, parado)
 

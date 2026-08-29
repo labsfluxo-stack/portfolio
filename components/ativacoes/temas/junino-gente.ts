@@ -173,36 +173,321 @@ type Pose = {
   rodado: number
 }
 
+/**
+ * O REPERTÓRIO — e a regra que ele quase quebrou.
+ *
+ * BRAÇO SIMÉTRICO NÃO DANÇA. `roda` tinha as duas mãos em [±0,33, 0,42]:
+ * mesma altura, mesma distância, lados opostos. Isso desenha uma HÉLICE, e
+ * o olho lê hélice como objeto, não como pessoa. `erguido` tinha o mesmo
+ * problema com os dois braços no alto.
+ *
+ * Um corpo em movimento é assimétrico o tempo todo — um braço vai enquanto
+ * o outro volta —, e é a DIFERENÇA entre os dois lados que conta a fase do
+ * passo. Toda pose daqui tem as duas mãos em alturas diferentes; a única
+ * exceção é `palma`, e ali a simetria É o gesto.
+ *
+ * As alturas são fração da figura a partir do chão, e o ombro fica em
+ * 0,74: acima disso a mão está levantada, abaixo dela está caída.
+ */
 const POSES: Record<string, Pose> = {
-  // Mão dada, os dois inclinados um para o outro — o par da frente da foto.
-  dada: { frente: [0.34, 0.66], tras: [-0.3, 0.46], inclina: 0.07, passo: 1, rodado: 1 },
-  // Os dois braços erguidos, formando o arco por onde o outro par passa.
-  erguido: { frente: [0.26, 1], tras: [-0.24, 0.98], inclina: 0.01, passo: 0.7, rodado: 1.12 },
-  // Rodando sozinha, as duas mãos segurando a saia: abertura máxima.
-  roda: { frente: [0.33, 0.42], tras: [-0.33, 0.42], inclina: 0.02, passo: 0.45, rodado: 1.3 },
-  // Só olhando. Braços quase colados, saia em repouso — é o contraste com
-  // esta pose que faz as outras lerem como MOVIMENTO.
-  parado: { frente: [0.16, 0.44], tras: [-0.15, 0.45], inclina: 0, passo: 0.2, rodado: 0.74 },
+  // Mão dada com o par lá em cima; a de trás caída, quase solta.
+  dada: { frente: [0.34, 0.68], tras: [-0.26, 0.42], inclina: 0.07, passo: 1, rodado: 1 },
+  // O arco por onde o outro par passa: o braço da frente no alto, o de trás
+  // ainda subindo atrás dele.
+  erguido: { frente: [0.2, 1.02], tras: [-0.3, 0.82], inclina: 0.01, passo: 0.7, rodado: 1.12 },
+  // O giro: uma mão no ar, a outra segurando a saia. É a pose de quadrilha
+  // mais reconhecível que existe, e ela é assimétrica por definição.
+  roda: { frente: [0.3, 0.88], tras: [-0.16, 0.48], inclina: 0.04, passo: 0.45, rodado: 1.3 },
+  // Só olhando: uma mão na cintura, a outra pendendo. Saia em repouso — é o
+  // contraste com esta pose que faz as outras lerem como MOVIMENTO.
+  parado: { frente: [0.17, 0.5], tras: [-0.13, 0.42], inclina: 0, passo: 0.2, rodado: 0.74 },
   // Palma, as duas mãos juntas à frente do peito.
-  palma: { frente: [0.2, 0.64], tras: [0.13, 0.62], inclina: 0.03, passo: 0.25, rodado: 0.8 },
+  palma: { frente: [0.16, 0.7], tras: [0.09, 0.68], inclina: 0.03, passo: 0.25, rodado: 0.8 },
+}
+
+/**
+ * A POSE NUM INSTANTE: interpolação entre duas poses do repertório.
+ *
+ * É o que faz a quadrilha DANÇAR em vez de posar. As figuras eram assadas
+ * no sprite da cena e por isso ficavam paradas para sempre — uma praça cheia
+ * de gente congelada no meio de um passo, que é justamente o pior estado em
+ * que se pode congelar alguém.
+ *
+ * A CURVA IMPORTA MAIS QUE AS POSES. Interpolar linearmente daria um vaivém
+ * mecânico de metrônomo. Um passo de dança acelera saindo, desacelera
+ * chegando e PAUSA um instante no extremo — é a pausa que dá musicalidade, e
+ * é ela que o `sin` elevado a uma potência produz de graça.
+ */
+function misturarPoses(a: Pose, b: Pose, t: number): Pose {
+  const m = (x: number, y: number) => x + (y - x) * t
+  return {
+    frente: [m(a.frente[0], b.frente[0]), m(a.frente[1], b.frente[1])],
+    tras: [m(a.tras[0], b.tras[0]), m(a.tras[1], b.tras[1])],
+    inclina: m(a.inclina, b.inclina),
+    passo: m(a.passo, b.passo),
+    rodado: m(a.rodado, b.rodado),
+  }
+}
+
+/** O compasso da figura `i` no instante `tempo`, em 0..1 com pausa nos
+ *  extremos. Cada figura tem período e fase próprios: uma quadrilha em que
+ *  todo mundo pisa junto lê como fileira de autômatos, e não como festa. */
+function compasso(tempo: number, semente: number): number {
+  const periodo = 1500 + ale(semente * 3 + 1) * 900
+  const fase = ale(semente * 5 + 2) * TAU
+  const bruto = Math.sin((tempo / periodo) * TAU + fase)
+  // `sign(x)·|x|^0.6` estica o meio e achata os extremos: a figura passa
+  // rápido pelo centro do movimento e demora nas pontas, que é como um
+  // corpo com inércia se move.
+  const curva = Math.sign(bruto) * Math.abs(bruto) ** 0.6
+  return (curva + 1) / 2
+}
+
+/**
+ * O SALTO DO CORPO — o peso subindo e descendo dentro do passo.
+ *
+ * Sem isto a figura vira os braços e nada mais: um busto girando sobre um
+ * pedestal. Numa quadrilha o corpo INTEIRO sobe e desce, e é esse
+ * deslocamento vertical, não o braço, que se lê de longe como dança —
+ * numa multidão pequena o olho pega a altura das cabeças antes de
+ * distinguir qualquer membro.
+ *
+ * DUAS VEZES a frequência dos braços: cada balanço de braço leva dois
+ * passos, e é o descompasso entre os dois períodos que impede a figura de
+ * parecer um só pêndulo.
+ *
+ * `|sin|` em vez de `sin`: o corpo sobe e volta ao chão, nunca afunda
+ * abaixo dele. Elevado a 0.7, a subida fica rápida e a descida demora —
+ * que é a queda amortecida pelo joelho, e é o que separa um salto de uma
+ * senoide.
+ */
+function saltoDe(tempo: number, semente: number, altura: number): number {
+  const periodo = (1500 + ale(semente * 3 + 1) * 900) / 2
+  const fase = ale(semente * 5 + 2) * TAU
+  return Math.abs(Math.sin((tempo / periodo) * Math.PI + fase)) ** 0.7 * altura * 0.022
+}
+
+/** A pose companheira de cada pose: para onde a figura vai e de onde volta. */
+const PAR_DE_POSE: Record<string, string> = {
+  dada: 'erguido',
+  erguido: 'dada',
+  roda: 'palma',
+  palma: 'roda',
+  parado: 'palma',
 }
 
 // ── Peças de desenho ────────────────────────────────────────────────────
 
+/**
+ * O ROSTO.
+ *
+ * As figuras não tinham feição nenhuma: a cabeça era um círculo de pele. A
+ * esta distância isso quase passa — quase. O que falta quando falta feição
+ * não é o detalhe, é a DIREÇÃO: sem olho, a cabeça não olha para lado
+ * nenhum, e uma pessoa que não olha para nada lê como manequim.
+ *
+ * O QUE CABE NESTE TAMANHO. A cabeça mede 6 a 14px. Ali um olho é UM PIXEL,
+ * e é só isso que se desenha: dois pontos escuros no lado para onde a figura
+ * está virada, e uma boca de um traço. Acima de um tamanho entram a
+ * sobrancelha e o rubor da bochecha — e, nos cavalheiros, o bigode pintado
+ * que a quadrilha usa, que é maquiagem de festa e não pelo.
+ *
+ * Some abaixo do limiar em vez de encolher: feição de meio pixel vira
+ * sujeira na cara, e cara suja é pior que cara lisa.
+ */
+function desenharRosto(
+  p: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  virado: number,
+  luz: Luz,
+  bigode: boolean,
+  semente: number,
+): void {
+  if (r < 3.4) return
+  const olhoY = cy - r * 0.1
+  const dx = r * 0.34
+  // Os dois olhos ficam deslocados na direção do olhar: a cabeça é redonda,
+  // e é a POSIÇÃO dos olhos nela que diz para onde a pessoa está virada.
+  const centro = cx + virado * r * 0.16
+  const rOlho = Math.max(0.8, r * 0.135)
+
+  p.fillStyle = acender('#1A1014', luz)
+  for (const lado of [-1, 1]) {
+    p.beginPath()
+    p.arc(centro + lado * dx * 0.62, olhoY, rOlho, 0, TAU)
+    p.fill()
+  }
+
+  if (r >= 4.2) {
+    // A SOBRANCELHA, e ela vem antes da boca na ordem de importância.
+    //
+    // Num rosto pequeno o olho não lê olhos — lê a MANCHA ESCURA na altura
+    // dos olhos. Dois pontos sozinhos dão uma mancha fraca demais e a cara
+    // fica vazia; a sobrancelha grossa por cima é o que dá massa àquela
+    // faixa, e é por isso que todo desenho pequeno de gente tem
+    // sobrancelha marcada mesmo quando não tem nariz.
+    p.strokeStyle = acender('#241318', luz)
+    p.lineWidth = Math.max(0.7, r * 0.13)
+    p.lineCap = 'round'
+    for (const lado of [-1, 1]) {
+      p.beginPath()
+      p.moveTo(centro + lado * dx * 0.28, olhoY - r * 0.34)
+      p.lineTo(centro + lado * dx * 0.95, olhoY - r * 0.28)
+      p.stroke()
+    }
+  }
+
+  if (r >= 5) {
+    // A boca: um traço curto e curvo. Sorriso, porque a figura está numa
+    // festa — e boca reta a este tamanho lê como traço de lápis esquecido.
+    p.strokeStyle = acender('#5A2A28', luz)
+    p.lineWidth = Math.max(0.6, r * 0.09)
+    p.beginPath()
+    p.arc(centro, cy + r * 0.18, r * 0.3, Math.PI * 0.18, Math.PI * 0.82)
+    p.stroke()
+
+    // O rubor da bochecha, que é o que uma quadrilha pinta de verdade.
+    p.fillStyle = acender('#C4564C', luz, 0.4)
+    for (const lado of [-1, 1]) {
+      p.beginPath()
+      p.ellipse(centro + lado * dx, cy + r * 0.16, r * 0.2, r * 0.13, 0, 0, TAU)
+      p.fill()
+    }
+  }
+
+  if (r >= 6 && bigode && ale(semente * 7 + 3) > 0.45) {
+    // O bigode PINTADO da quadrilha: dois traços finos, exagerados, que é
+    // como a maquiagem de festa junina o desenha.
+    p.strokeStyle = acender('#1A1014', luz)
+    p.lineWidth = Math.max(0.6, r * 0.1)
+    p.lineCap = 'round'
+    for (const lado of [-1, 1]) {
+      p.beginPath()
+      p.moveTo(centro, cy + r * 0.04)
+      p.quadraticCurveTo(centro + lado * r * 0.3, cy + r * 0.02, centro + lado * r * 0.42, cy - r * 0.1)
+      p.stroke()
+    }
+  }
+}
+
+/**
+ * O TRONCO, moldado.
+ *
+ * Era um trapézio de quatro retas: ombro reto, lateral reta, cintura reta.
+ * Um trapézio não é um corpo — é uma placa, e o olho reconhece placa na
+ * hora, mesmo com 40px de altura. O que falta a um trapézio é o que todo
+ * torso humano tem:
+ *
+ * 1. OMBRO CAÍDO. A linha do ombro não é horizontal: ela desce do pescoço
+ *    para fora, e é a primeira coisa que separa uma pessoa de um boneco de
+ *    papel. Ombro reto lê como cabide.
+ * 2. CINTURA CÔNCAVA. A lateral afunila para dentro com CURVA, não com
+ *    reta: entra na cintura e volta a abrir embaixo. Uma reta ligando
+ *    ombro a cintura dá um cone, e cone não tem cintura.
+ * 3. PESCOÇO. A cabeça pousava direto no ombro. Um dedo de pescoço muda a
+ *    leitura inteira da figura — sem ele a pessoa parece encolhida de
+ *    frio, e todas ao mesmo tempo.
+ *
+ * `cinturaEm` é o quanto a lateral aperta, em fração da meia-largura do
+ * ombro: mais baixo na dama (corpete) que no cavalheiro (camisa solta).
+ */
+function desenharTronco(
+  p: CanvasRenderingContext2D,
+  xOmbro: number,
+  yOmbro: number,
+  xCintura: number,
+  yCintura: number,
+  meioOmbro: number,
+  meiaCintura: number,
+  cinturaEm: number,
+): void {
+  const h = yCintura - yOmbro
+  const caida = h * 0.07
+  p.beginPath()
+  p.moveTo(xOmbro - meioOmbro * 0.34, yOmbro - caida)
+  p.lineTo(xOmbro - meioOmbro, yOmbro + caida * 0.6)
+  p.quadraticCurveTo(xOmbro - meioOmbro * cinturaEm, yOmbro + h * 0.62, xCintura - meiaCintura, yCintura)
+  p.lineTo(xCintura + meiaCintura, yCintura)
+  p.quadraticCurveTo(xOmbro + meioOmbro * cinturaEm, yOmbro + h * 0.62, xOmbro + meioOmbro, yOmbro + caida * 0.6)
+  p.lineTo(xOmbro + meioOmbro * 0.34, yOmbro - caida)
+  p.closePath()
+  p.fill()
+}
+
+/** O PESCOÇO: um toco de pele entre o ombro e o queixo, com a sombra do
+ *  queixo por cima. Sem ele a cabeça pousa no tronco. */
+function desenharPescoco(
+  p: CanvasRenderingContext2D,
+  x: number,
+  yOmbro: number,
+  alto: number,
+  largo: number,
+  corPele: string,
+): void {
+  p.fillStyle = corPele
+  p.fillRect(x - largo / 2, yOmbro - alto, largo, alto * 1.4)
+}
+
 /** A sombra de contato. Sem ela toda figura FLUTUA — é o erro mais barato de
  *  cometer e o mais visível numa cena com chão texturado. */
-function sombraDeContato(p: CanvasRenderingContext2D, cx: number, yBase: number, raio: number): void {
-  const g = p.createRadialGradient(0, 0, 0, 0, 0, raio)
+/**
+ * A sombra é ASSADA UMA VEZ num sprite e depois só escalada.
+ *
+ * Ela era um `createRadialGradient` por figura. Isso passava despercebido
+ * enquanto a praça inteira era assada uma vez — mas a quadrilha saiu do
+ * sprite para poder dançar, e o que era um custo único virou 28 gradientes
+ * POR QUADRO. Construir gradiente é das operações mais caras do canvas 2D,
+ * e é a que mais silenciosamente derruba um quadro.
+ *
+ * Um sprite pequeno esticado dá o mesmo borrão: uma sombra de contato é
+ * justamente a coisa mais macia da cena, e macio não mostra escala.
+ */
+let spriteSombra: HTMLCanvasElement | null = null
+
+function garantirSpriteSombra(): HTMLCanvasElement | null {
+  if (spriteSombra) return spriteSombra
+  if (typeof document === 'undefined') return null
+  const lona = document.createElement('canvas')
+  const lado = 64
+  lona.width = lado
+  lona.height = lado
+  const q = lona.getContext('2d')
+  if (!q) return null
+  const g = q.createRadialGradient(lado / 2, lado / 2, 0, lado / 2, lado / 2, lado / 2)
   g.addColorStop(0, 'rgba(10,8,12,0.46)')
   g.addColorStop(0.6, 'rgba(10,8,12,0.2)')
   g.addColorStop(1, 'rgba(10,8,12,0)')
+  q.fillStyle = g
+  q.fillRect(0, 0, lado, lado)
+  spriteSombra = lona
+  return lona
+}
+
+/**
+ * A sombra APERTA quando o corpo sobe.
+ *
+ * `alto` é o quanto a figura está no ar, em fração da própria altura. Uma
+ * sombra de tamanho fixo sob um corpo que pula é o erro que mais rápido
+ * denuncia um sprite deslocado: o olho não sabe dizer o que está errado,
+ * mas para de acreditar que a pessoa tocou o chão.
+ */
+function sombraDeContato(
+  p: CanvasRenderingContext2D,
+  cx: number,
+  yBase: number,
+  raio: number,
+  alto = 0,
+): void {
+  const sprite = garantirSpriteSombra()
+  if (!sprite) return
+  // Encolhe e clareia junto: sombra longe do chão é menor E mais fraca.
+  const aperto = 1 - Math.min(0.45, alto * 9)
+  const r = raio * aperto
   p.save()
-  p.translate(cx, yBase)
-  p.scale(1, 0.3)
-  p.fillStyle = g
-  p.beginPath()
-  p.arc(0, 0, raio, 0, TAU)
-  p.fill()
+  p.globalAlpha = aperto
+  p.drawImage(sprite, cx - r, yBase - r * 0.3, r * 2, r * 0.6)
   p.restore()
 }
 
@@ -222,29 +507,66 @@ function desenharBraco(
   corManga: string,
   corPele: string,
   grossura: number,
-  curva: number,
+  lado: number,
+  alcance: number,
 ): void {
+  // O COTOVELO por dois ossos, não por uma curva decorativa.
+  //
+  // O braço era UMA curva quadrática com o controle deslocado de um valor
+  // fixo. Isso desenha uma mangueira: o arco tem sempre a mesma barriga,
+  // por mais perto ou longe que a mão esteja do ombro. Um braço de gente
+  // faz o contrário — ele DOBRA quando a mão chega perto do corpo e
+  // ESTICA quando ela se afasta, e é essa correlação, não a curvatura em
+  // si, que o olho lê como articulação.
+  //
+  // A conta é o triângulo isósceles de dois ossos iguais: com a mão a uma
+  // distância `d`, o cotovelo fica na perpendicular ao meio, a uma altura
+  // `sqrt(osso² − (d/2)²)`. Mão junto ao ombro, cotovelo lá fora; braço
+  // esticado, altura zero e os dois ossos em linha.
   const dx = mx - ox
   const dy = my - oy
   const comp = Math.hypot(dx, dy) || 1
-  const cotoveloX = (ox + mx) / 2 + (-dy / comp) * comp * curva
-  const cotoveloY = (oy + my) / 2 + (dx / comp) * comp * curva
+  const dist = Math.min(comp, alcance * 0.99)
+  const ux = dx / comp
+  const uy = dy / comp
+  const osso = alcance / 2
+  const fora = Math.sqrt(Math.max(0, osso * osso - (dist / 2) ** 2))
+  const cotoveloX = ox + ux * (dist / 2) - uy * lado * fora
+  const cotoveloY = oy + uy * (dist / 2) + ux * lado * fora
 
   p.lineCap = 'round'
   p.lineJoin = 'round'
+
+  // Antebraço primeiro, mais fino que o braço: um membro de espessura
+  // constante lê como cano, e a conicidade é de graça aqui.
   p.strokeStyle = corPele
+  p.lineWidth = grossura * 0.82
+  p.beginPath()
+  p.moveTo(cotoveloX, cotoveloY)
+  p.lineTo(mx, my)
+  p.stroke()
+
   p.lineWidth = grossura
   p.beginPath()
   p.moveTo(ox, oy)
-  p.quadraticCurveTo(cotoveloX, cotoveloY, mx, my)
+  p.lineTo(cotoveloX, cotoveloY)
   p.stroke()
 
-  // A manga curta e bufante, sobre o começo do braço.
+  // A MÃO: um ponto um pouco mais grosso que o antebraço. Braço que acaba
+  // em ponta lê como espeto — e é justamente na ponta do braço que o olho
+  // procura, porque é ali que a dança acontece.
+  p.fillStyle = corPele
+  p.beginPath()
+  p.arc(mx, my, grossura * 0.75, 0, TAU)
+  p.fill()
+
+  // A manga curta e bufante, sobre o osso de cima só — ela nunca passa do
+  // cotovelo, e é essa parada que marca onde a articulação está.
   p.strokeStyle = corManga
   p.lineWidth = grossura * 1.9
   p.beginPath()
   p.moveTo(ox, oy)
-  p.lineTo(ox + (cotoveloX - ox) * 0.42, oy + (cotoveloY - oy) * 0.42)
+  p.lineTo(ox + (cotoveloX - ox) * 0.46, oy + (cotoveloY - oy) * 0.46)
   p.stroke()
 }
 
@@ -272,6 +594,25 @@ function desenharBraco(
  *
  * Some abaixo de um tamanho, pelo mesmo motivo do xadrez da camisa: um
  * salpico de meio pixel vira sujeira, e sujeira é pior que liso.
+ *
+ * A DENSIDADE É O PREÇO, e ela muda entre as duas camadas de gente.
+ *
+ * Enquanto a praça inteira era um sprite assado uma vez, ninguém pagava
+ * por esta função. Quando a quadrilha da frente saiu do sprite para poder
+ * dançar, os arcos dela viraram custo por quadro — e a medição foi
+ * categórica: com a chita desligada o quadro voltava de 15 para 20fps sob
+ * CPU 4×, e só com ela desligada. Era o gasto inteiro, numa função só.
+ *
+ * TENTEI UM `CanvasPattern` NO LUGAR: um preenchimento em vez de noventa,
+ * o que parece obviamente melhor e não é. Mediu 12fps contra os 15 dos
+ * arcos — preencher com padrão transformado dentro de um recorte cai num
+ * caminho lento, e o "óbvio" custou mais que o ingênuo. Fica registrado
+ * para ninguém refazer a tentativa achando que descobriu algo.
+ *
+ * O que funcionou foi trivial: MENOS PONTOS em quem dança. `maximo` é o
+ * teto de salpicos — generoso na camada assada, onde eles são de graça, e
+ * apertado na camada viva. Num corpo que se mexe metade dos pontos lê
+ * igual, porque o olho não acompanha salpico em movimento.
  */
 function salpicarChita(
   p: CanvasRenderingContext2D,
@@ -282,10 +623,11 @@ function salpicarChita(
   tamanho: number,
   cores: readonly string[],
   semente: number,
+  maximo: number,
 ): void {
   if (tamanho < 1) return
   const n = Math.round((largura * altura) / (tamanho * tamanho * 14))
-  for (let i = 0; i < Math.min(n, 90); i++) {
+  for (let i = 0; i < Math.min(n, maximo); i++) {
     const px = x0 + ale(semente * 7 + i * 3) * largura
     const py = y0 + ale(semente * 11 + i * 5) * altura
     p.fillStyle = cores[i % cores.length]!
@@ -306,6 +648,7 @@ function desenharSaia(
   saia: (typeof SAIAS)[number],
   luz: Luz,
   semente: number,
+  maximoDeChita: number,
 ): void {
   const passos = 20
   // O barrado ondula: babado de verdade não termina em arco liso. Só vale
@@ -352,6 +695,7 @@ function desenharSaia(
     Math.max(0, raioV * 0.055),
     [acender(saia.vivo, luz, 0.9), acender(saia.babado, luz, 0.75)],
     semente * 3 + 1,
+    maximoDeChita,
   )
   p.restore()
 
@@ -426,11 +770,53 @@ type Ficha = {
   semente: number
   /** Onde a mão da frente encontra a do par. `null` para quem dança sozinho. */
   maoDada: { x: number; y: number } | null
+  /** Quanto o corpo está no ar neste instante, em px. Ver `saltoDe`. */
+  balanco: number
+  /** `true` na camada que dança, e por isso paga por quadro. Só governa o
+ *  quanto de estampa cabe — ver `salpicarChita`. */
+  vivo: boolean
 }
 
-/** Resolve a posição absoluta de uma mão a partir da pose. */
+/** Onde o braço da figura nasce, e até onde ele chega. As duas contas
+ *  ficam aqui porque a pose PRECISA delas: uma mão escrita fora do alcance
+ *  não é uma pose, é um braço deslocado. */
+function ombroDe(f: Ficha): { x: number; y: number; alcance: number } {
+  const dama = f.tipo === 'dama'
+  const y0 = f.y - f.balanco
+  return {
+    x: f.x + f.virado * f.pose.inclina * f.a + f.virado * f.a * (dama ? 0.09 : 0.1),
+    y: y0 - f.a * (dama ? 0.735 : 0.75),
+    alcance: f.a * (dama ? 0.34 : 0.36),
+  }
+}
+
+/**
+ * Resolve a posição absoluta de uma mão a partir da pose, SEM DEIXAR O
+ * BRAÇO ESTICAR ALÉM DO QUE UM BRAÇO ESTICA.
+ *
+ * Era só uma conversão de coordenadas, e várias poses pediam a mão a 0,41
+ * da altura do corpo de distância do ombro — mais longe do que o braço
+ * alcança. O desenho obedecia: saía uma reta rígida do ombro até lá, sem
+ * cotovelo nenhum, e o resultado era a figura empunhando uma barra.
+ *
+ * Puxar a mão para dentro do alcance conserta as duas coisas de uma vez: o
+ * braço encurta para um tamanho de braço, e o cotovelo passa a ter para
+ * onde dobrar. O 0,92 deixa a folga que vira essa dobra — no limite exato
+ * o braço fica reto de novo.
+ *
+ * Vale também para a MÃO DADA do par: ela é a média de duas mãos já
+ * puxadas para dentro, e por isso continua ao alcance dos dois.
+ */
 function ondeAMao(f: Ficha, mao: readonly [number, number]): { x: number; y: number } {
-  return { x: f.x + f.virado * mao[0] * f.a, y: f.y - mao[1] * f.a }
+  const alvoX = f.x + f.virado * mao[0] * f.a
+  const alvoY = f.y - f.balanco - mao[1] * f.a
+  const o = ombroDe(f)
+  const dx = alvoX - o.x
+  const dy = alvoY - o.y
+  const d = Math.hypot(dx, dy) || 1
+  const teto = o.alcance * 0.92
+  if (d <= teto) return { x: alvoX, y: alvoY }
+  return { x: o.x + (dx / d) * teto, y: o.y + (dy / d) * teto }
 }
 
 /**
@@ -442,17 +828,26 @@ function ondeAMao(f: Ficha, mao: readonly [number, number]): { x: number; y: num
  * flor fica na têmpora do lado para onde ela olha.
  */
 function desenharDama(p: CanvasRenderingContext2D, f: Ficha): void {
-  const { x, y, a, virado, luz } = f
+  const { x, a, virado, luz } = f
+  // O CORPO sobe com o salto; a SOMBRA fica no chão, onde o chão está. É a
+  // sombra parada sob o corpo que sobe que diz "pulou" — as duas coisas
+  // subindo juntas leriam como a câmera tremendo.
+  const y = f.y - f.balanco
   const saia = escolher(SAIAS, f.semente * 3 + 1)
   const pele = acender(escolher(PELES, f.semente * 5 + 2), luz)
   const cabelo = acender(escolher(CABELOS, f.semente * 7 + 3), luz)
   const flor = acender(escolher(FLORES, f.semente * 11 + 4), luz)
 
-  sombraDeContato(p, x, y, a * 0.4)
+  sombraDeContato(p, x, f.y, a * 0.4, f.balanco / a)
 
   const yCintura = y - a * 0.52
   const yOmbro = y - a * 0.755
-  const yCabeca = y - a * 0.865
+  // A CABEÇA SUBIU (era 0,865). Naquela altura a base do crânio ficava a um
+  // fio do ombro e engolia o pescoço inteiro: o pescoço estava desenhado
+  // e simplesmente não aparecia. Dois pixels de folga bastam — é a menor
+  // mudança deste arquivo e a que mais muda a figura, porque cabeça
+  // encaixada no ombro lê como pessoa encolhida, e todas ao mesmo tempo.
+  const yCabeca = y - a * 0.888
   const rCabeca = a * 0.082
   // A inclinação joga o tronco para o lado do par: é ela que faz a figura
   // parecer DANÇANDO com alguém em vez de posando de frente.
@@ -481,17 +876,16 @@ function desenharDama(p: CanvasRenderingContext2D, f: Ficha): void {
     saia,
     luz,
     f.semente,
+    f.vivo ? 22 : 90,
   )
 
-  // O corpete, afunilado na cintura.
+  // O PESCOÇO, antes do corpete para o corpete cobrir a base dele.
+  desenharPescoco(p, xTronco, yOmbro, a * 0.055, a * 0.045, pele)
+
+  // O CORPETE, com ombro caído e cintura côncava — ver `desenharTronco`.
+  // A dama aperta MAIS que o cavalheiro: é corpete, não camisa solta.
   p.fillStyle = acender(saia.corpo, luz)
-  p.beginPath()
-  p.moveTo(xTronco - a * 0.105, yOmbro)
-  p.lineTo(xTronco + a * 0.105, yOmbro)
-  p.lineTo(x + a * 0.085, yCintura + a * 0.02)
-  p.lineTo(x - a * 0.085, yCintura + a * 0.02)
-  p.closePath()
-  p.fill()
+  desenharTronco(p, xTronco, yOmbro, x, yCintura + a * 0.02, a * 0.105, a * 0.085, 0.6)
   if (a > 22) {
     // Decote claro e faixa de cintura contrastante: estão em quase toda dama
     // da foto, e as duas são linhas horizontais que quebram o bloco do tronco.
@@ -502,31 +896,68 @@ function desenharDama(p: CanvasRenderingContext2D, f: Ficha): void {
   }
 
   // Os braços, até o ponto de mão dada quando ele existe.
-  const grossura = Math.max(1, a * 0.042)
-  const manga = acender(saia.corpo, luz)
+  const grossura = Math.max(1, a * 0.036)
   const maoF = f.maoDada ?? ondeAMao(f, f.pose.frente)
   const maoT = ondeAMao(f, f.pose.tras)
-  desenharBraco(p, xTronco - virado * a * 0.09, yOmbro + a * 0.02, maoT.x, maoT.y, manga, pele, grossura, virado * 0.14)
-  desenharBraco(p, xTronco + virado * a * 0.09, yOmbro + a * 0.02, maoF.x, maoF.y, manga, pele, grossura, virado * 0.12)
+  const ombro = ombroDe(f)
+  // O BRAÇO DE TRÁS entra mais escuro: ele está do outro lado do corpo, e
+  // dois braços da mesma cor achatam a figura num decalque. Um terço de
+  // luz a menos é o bastante para o olho pôr um na frente do outro.
+  const sombraDoCorpo: Luz = { ...luz, ganho: luz.ganho * 0.66 }
+  desenharBraco(
+    p,
+    xTronco - virado * a * 0.09,
+    yOmbro + a * 0.02,
+    maoT.x,
+    maoT.y,
+    acender(saia.corpo, sombraDoCorpo),
+    acender(escolher(PELES, f.semente * 5 + 2), sombraDoCorpo),
+    grossura,
+    -virado,
+    ombro.alcance,
+  )
+  desenharBraco(
+    p,
+    ombro.x,
+    ombro.y,
+    maoF.x,
+    maoF.y,
+    acender(saia.corpo, luz),
+    pele,
+    grossura,
+    virado,
+    ombro.alcance,
+  )
 
   // A cabeça. O cabelo é uma massa deslocada para trás, maior que o crânio —
   // de longe é ele que dá o formato, não o rosto.
   p.fillStyle = cabelo
   p.beginPath()
-  p.ellipse(xTronco - virado * rCabeca * 0.34, yCabeca + rCabeca * 0.16, rCabeca * 1.06, rCabeca * 1.24, virado * 0.22, 0, TAU)
+  // O cabelo recuou (era 1,06 × 1,24 deslocado 0,34). Aquela massa cobria
+  // tanto do crânio que a cara virava uma nesga, e num rosto de 6px a
+  // nesga não tem onde pôr olho nenhum. Continua MAIOR que o crânio, como
+  // na foto — só que agora atrás dele, não por cima.
+  p.ellipse(xTronco - virado * rCabeca * 0.46, yCabeca + rCabeca * 0.14, rCabeca * 1, rCabeca * 1.16, virado * 0.22, 0, TAU)
   p.fill()
   if (!f.deCostas) {
     p.fillStyle = pele
     p.beginPath()
-    p.ellipse(xTronco + virado * rCabeca * 0.12, yCabeca, rCabeca * 0.82, rCabeca * 0.98, 0, 0, TAU)
+    p.ellipse(xTronco + virado * rCabeca * 0.18, yCabeca, rCabeca * 0.88, rCabeca * 1, 0, 0, TAU)
     p.fill()
     p.fillStyle = cabelo
     p.beginPath()
-    p.ellipse(xTronco, yCabeca - rCabeca * 0.52, rCabeca * 0.92, rCabeca * 0.56, 0, 0, TAU)
+    p.ellipse(xTronco - virado * rCabeca * 0.06, yCabeca - rCabeca * 0.58, rCabeca * 0.9, rCabeca * 0.5, 0, 0, TAU)
     p.fill()
   }
 
   // A FLOR, sempre — ver o comentário em FLORES.
+  // O ROSTO, e só de quem está virado para a frente: quem dança de costas
+  // não mostra cara, e desenhar olho nas costas de alguém é o tipo de erro
+  // que ninguém nomeia mas todo mundo sente.
+  if (!f.deCostas) {
+    desenharRosto(p, xTronco + virado * rCabeca * 0.1, yCabeca, rCabeca, virado, luz, false, f.semente)
+  }
+
   const xFlor = xTronco + (f.deCostas ? -virado : virado) * rCabeca * 0.72
   p.fillStyle = flor
   p.beginPath()
@@ -550,18 +981,21 @@ function desenharDama(p: CanvasRenderingContext2D, f: Ficha): void {
  * cavalheiro está com os dois pés juntos.
  */
 function desenharCavalheiro(p: CanvasRenderingContext2D, f: Ficha): void {
-  const { x, y, a, virado, luz } = f
+  const { x, a, virado, luz } = f
+  // Ver o comentário em `desenharDama`: corpo no ar, sombra no chão.
+  const y = f.y - f.balanco
   const camisa = escolher(CAMISAS, f.semente * 3 + 5)
   const calca = escolher(CALCAS, f.semente * 5 + 6)
   const pele = acender(escolher(PELES, f.semente * 7 + 7), luz)
   const cabelo = acender(escolher(CABELOS, f.semente * 11 + 8), luz)
   const lenco = escolher(LENCOS, f.semente * 13 + 9)
 
-  sombraDeContato(p, x, y, a * 0.24)
+  sombraDeContato(p, x, f.y, a * 0.24, f.balanco / a)
 
   const yQuadril = y - a * 0.46
   const yOmbro = y - a * 0.78
-  const yCabeca = y - a * 0.865
+  // Ver o comentário da altura da cabeça em `desenharDama`.
+  const yCabeca = y - a * 0.894
   const rCabeca = a * 0.075
   const xTronco = x + virado * f.pose.inclina * a
   const passo = f.pose.passo
@@ -570,16 +1004,26 @@ function desenharCavalheiro(p: CanvasRenderingContext2D, f: Ficha): void {
   p.strokeStyle = acender(calca, luz)
   p.lineWidth = Math.max(1.4, a * 0.085)
   p.lineCap = 'round'
-  const perna = (dxTopo: number, dxPe: number): void => {
+  // O JOELHO. O controle da curva ficava exatamente no meio entre quadril
+  // e pé, o que dá uma perna igualmente arqueada nos dois lados — de novo a
+  // mangueira. Num passo de dança as duas pernas fazem coisas OPOSTAS: a da
+  // frente dobra e recebe o peso, a de trás estica e empurra. `dobra` é o
+  // quanto o joelho avança do eixo da perna.
+  const perna = (dxTopo: number, dxPe: number, dobra: number): void => {
     p.beginPath()
     p.moveTo(x + dxTopo, yQuadril)
-    p.quadraticCurveTo(x + (dxTopo + dxPe) * 0.5, y - a * 0.22, x + dxPe, y - a * 0.02)
+    p.quadraticCurveTo(
+      x + (dxTopo + dxPe) * 0.5 + virado * a * dobra,
+      y - a * 0.24,
+      x + dxPe,
+      y - a * 0.02,
+    )
     p.stroke()
   }
   const peTras = -virado * a * 0.17 * passo
   const peFrente = virado * a * 0.12 * passo
-  perna(-virado * a * 0.05, peTras)
-  perna(virado * a * 0.05, peFrente)
+  perna(-virado * a * 0.05, peTras, -0.015 * passo)
+  perna(virado * a * 0.05, peFrente, 0.055 * passo)
   p.fillStyle = acender(SAPATO, luz)
   for (const dx of [peTras, peFrente]) {
     p.beginPath()
@@ -587,16 +1031,14 @@ function desenharCavalheiro(p: CanvasRenderingContext2D, f: Ficha): void {
     p.fill()
   }
 
-  // A camisa, afunilada do ombro para a cintura.
+  // O PESCOÇO, antes da camisa e do lenço, que cobrem a base dele.
+  desenharPescoco(p, xTronco, yOmbro, a * 0.05, a * 0.05, pele)
+
+  // A CAMISA, com ombro caído e lateral curva — ver `desenharTronco`. Ela
+  // aperta MENOS que o corpete da dama: camisa de homem é solta no tronco.
   p.save()
-  p.beginPath()
-  p.moveTo(xTronco - a * 0.115, yOmbro - a * 0.01)
-  p.lineTo(xTronco + a * 0.115, yOmbro - a * 0.01)
-  p.lineTo(x + a * 0.085, yQuadril + a * 0.02)
-  p.lineTo(x - a * 0.085, yQuadril + a * 0.02)
-  p.closePath()
   p.fillStyle = acender(camisa, luz)
-  p.fill()
+  desenharTronco(p, xTronco, yOmbro - a * 0.01, x, yQuadril + a * 0.02, a * 0.115, a * 0.085, 0.82)
   // O XADREZ, recortado na própria camisa. Some abaixo de um tamanho porque
   // a essa altura ele viraria uma trama de moiré, que é pior do que nada.
   // METADE DOS CAVALHEIROS USA CHITA, não xadrez. Na foto a camisa florida
@@ -613,6 +1055,7 @@ function desenharCavalheiro(p: CanvasRenderingContext2D, f: Ficha): void {
       Math.max(0, a * 0.014),
       ['rgba(255,240,210,0.75)', 'rgba(255,206,110,0.6)'],
       f.semente * 19 + 4,
+      f.vivo ? 18 : 90,
     )
   } else if (a > 30) {
     p.clip()
@@ -638,18 +1081,48 @@ function desenharCavalheiro(p: CanvasRenderingContext2D, f: Ficha): void {
   p.fillStyle = acender('#3A2617', luz)
   p.fillRect(x - a * 0.088, yQuadril - a * 0.01, a * 0.176, Math.max(0.9, a * 0.026))
 
-  const grossura = Math.max(1, a * 0.044)
-  const manga = acender(camisa, luz)
+  const grossura = Math.max(1, a * 0.04)
   const maoF = f.maoDada ?? ondeAMao(f, f.pose.frente)
   const maoT = ondeAMao(f, f.pose.tras)
-  desenharBraco(p, xTronco - virado * a * 0.1, yOmbro + a * 0.03, maoT.x, maoT.y, manga, pele, grossura, virado * 0.16)
-  desenharBraco(p, xTronco + virado * a * 0.1, yOmbro + a * 0.03, maoF.x, maoF.y, manga, pele, grossura, virado * 0.1)
+  const ombro = ombroDe(f)
+  // Ver o comentário do braço de trás em `desenharDama`.
+  const sombraDoCorpo: Luz = { ...luz, ganho: luz.ganho * 0.66 }
+  desenharBraco(
+    p,
+    xTronco - virado * a * 0.1,
+    yOmbro + a * 0.03,
+    maoT.x,
+    maoT.y,
+    acender(camisa, sombraDoCorpo),
+    acender(escolher(PELES, f.semente * 7 + 7), sombraDoCorpo),
+    grossura,
+    -virado,
+    ombro.alcance,
+  )
+  desenharBraco(
+    p,
+    ombro.x,
+    ombro.y,
+    maoF.x,
+    maoF.y,
+    acender(camisa, luz),
+    pele,
+    grossura,
+    virado,
+    ombro.alcance,
+  )
 
   // Cabeça e cabelo.
   p.fillStyle = cabelo
   p.beginPath()
   p.ellipse(xTronco, yCabeca, rCabeca * 1.02, rCabeca * 1.06, 0, 0, TAU)
   p.fill()
+
+  // O ROSTO. O cavalheiro leva o bigode pintado da quadrilha em parte dos
+  // casos — é maquiagem de festa, não pelo, e por isso ele é exagerado.
+  if (!f.deCostas) {
+    desenharRosto(p, xTronco, yCabeca, rCabeca, virado, luz, true, f.semente)
+  }
   if (!f.deCostas) {
     p.fillStyle = pele
     p.beginPath()
@@ -778,11 +1251,41 @@ const ALTURA_ADULTO = 40
  * recortes flutuando, porque a sobreposição é justamente o que informa qual
  * corpo está na frente de qual.
  */
+/**
+ * QUEM DANÇA E QUEM FICA NO SPRITE — a linha está aqui, em pixels.
+ *
+ * Tirar a quadrilha inteira do sprite assado para ela poder dançar custou
+ * um terço do quadro: 20fps caíram para 15 sob CPU 4×. Vinte e oito
+ * figuras com saia em camadas, estampa de chita e rosto, todas
+ * redesenhadas 60 vezes por segundo, é caro — e a maior parte desse gasto
+ * vai para gente de 20px no fundo da praça, cujo movimento NINGUÉM VÊ.
+ *
+ * Então a praça tem duas quadrilhas. As figuras grandes, da frente, são
+ * desenhadas por quadro e dançam. As pequenas, do fundo, voltam para o
+ * sprite, cada uma travada numa fase própria do passo — paradas, mas
+ * paradas em poses DIFERENTES, que é o que salva uma multidão congelada
+ * de parecer congelada.
+ *
+ * 36px deixa DEZOITO figuras dançando — a frente inteira da praça. O número
+ * subiu depois que a estampa de chita virou padrão assado (ver
+ * `ladrilhoDeChita`): com ela custando um preenchimento em vez de noventa,
+ * o teto de quantas figuras cabem por quadro subiu junto.
+ *
+ * Abaixo de 36px a figura tem uns 6px de tronco, e o deslocamento de um
+ * passo inteiro não chega a dois pixels — movimento que ninguém veria, pago
+ * sessenta vezes por segundo.
+ */
+const LIMIAR_DANCA_PX = 58
+
+export type CamadaDeGente = 'longe' | 'perto'
+
 export function desenharGente(
   pincel: CanvasRenderingContext2D,
   largura: number,
   altura: number,
   escalaEm: (y: number) => number,
+  tempo: number,
+  camada: CamadaDeGente,
 ): void {
   const fichas: Ficha[] = []
 
@@ -797,11 +1300,21 @@ export function desenharGente(
     const virado = g.virado ?? 1
     // `POSES[g.pose]` e seguro: `g.pose` e uma chave do proprio mapa. O `!`
     // afirma o que o tipo do elenco ja garante.
-    const pose = POSES[g.pose]!
+    // A POSE DO INSTANTE: a escrita no elenco misturada com a companheira
+    // dela, no compasso próprio desta figura. É isto que dança.
+    const poseBase = POSES[g.pose]!
+    const poseAlvo = POSES[PAR_DE_POSE[g.pose] ?? 'palma']!
+    const pose = misturarPoses(poseBase, poseAlvo, compasso(tempo, semente) * 0.55)
     // Estatura variada por figura: gente de festa não tem todo mundo do mesmo
     // tamanho, e altura repetida é metade do que faz uma multidão parecer
     // clonada.
     const base = ALTURA_ADULTO * escala * (g.tam ?? 1) * (0.9 + ale(semente * 5) * 0.2)
+
+    // O par inteiro cai do mesmo lado da linha: separar dama de cavalheiro
+    // entre as duas camadas romperia a mão dada — um dos dois congelaria
+    // no sprite enquanto o outro continuasse dançando com o braço preso.
+    const dancante = base >= LIMIAR_DANCA_PX
+    if (dancante !== (camada === 'perto')) continue
 
     if (g.tipo !== 'par') {
       fichas.push({
@@ -815,6 +1328,8 @@ export function desenharGente(
         luz: luzEm(x, y, largura, altura),
         semente,
         maoDada: null,
+        balanco: saltoDe(tempo, semente, base),
+        vivo: camada === 'perto',
       })
       continue
     }
@@ -838,6 +1353,8 @@ export function desenharGente(
       luz: luzEm(xDama, yDama, largura, altura),
       semente: semente * 2 + 1,
       maoDada: null,
+      balanco: saltoDe(tempo, semente * 2 + 1, base),
+      vivo: camada === 'perto',
     }
     const fCav: Ficha = {
       tipo: 'cavalheiro',
@@ -850,6 +1367,10 @@ export function desenharGente(
       luz: luzEm(xCav, yCav, largura, altura),
       semente: semente * 2 + 2,
       maoDada: null,
+      // O par salta JUNTO: quem dança de mãos dadas divide o compasso, e
+      // dois saltos independentes esticariam o braço entre eles.
+      balanco: saltoDe(tempo, semente * 2 + 1, base),
+      vivo: camada === 'perto',
     }
     // O PONTO DE MÃO DADA, calculado antes e imposto aos dois braços. Deixar
     // cada braço parar onde a pose sozinha mandaria daria duas mãos PERTO uma

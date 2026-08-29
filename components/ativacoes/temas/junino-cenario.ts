@@ -73,7 +73,10 @@ function ale(semente: number): number {
  * como distância. Sem isso, uma barraca no fundo e uma na frente teriam o mesmo
  * tamanho e a praça viraria um friso.
  */
-function escalaEm(y: number, altura: number): number {
+/** Exportada porque a gente passou a ser desenhada por quadro, fora deste
+ *  sprite: quem a desenha precisa da MESMA conta de escala, senão as
+ *  figuras saem fora da perspectiva de todo o resto da praça. */
+export function escalaEm(y: number, altura: number): number {
   const t = Math.max(0, Math.min(1, (y - altura * HORIZONTE) / (altura * (1 - HORIZONTE))))
   // A FAIXA DE ESCALA ABRIU (era 0,32 a 1,82). O detalhe das figuras e das
   // barracas ja existia — saia com babado estampado, mercadoria no balcao,
@@ -611,10 +614,13 @@ export function rasterizarCenario(
   desenharBarraca(p, largura * 0.87, altura * 0.76, (altura / 620) * 0.9, 2)
 
   // A quadrilha, entre os dois planos de barraca.
-  // A gente, com a mesma escala por altura que o resto da praça usa — uma
-  // figura desenhada fora da escala da sua profundidade é o jeito mais rápido
-  // de quebrar a perspectiva de uma cena 2D.
-  desenharGente(p, largura, altura, (y) => escalaEm(y, altura))
+  // A GENTE DE LONGE, e só ela: a de perto DANÇA, e o que dança não pode
+  // ser assado — `junino.ts` a desenha por quadro. Ver `LIMIAR_DANCA_PX`
+  // em `junino-gente.ts` para onde passa a linha e por quê.
+  //
+  // `tempo` 0 aqui não congela todo mundo na mesma pose: cada figura tem
+  // fase própria, e no instante zero elas já estão espalhadas pelo passo.
+  desenharGente(p, largura, altura, (y) => escalaEm(y, altura), 0, 'longe')
 
   // As barracas da FRENTE, cortadas pelas bordas.
   desenharBarraca(p, -largura * 0.06, altura * 1.06, (altura / 620) * 1.75, 3)
