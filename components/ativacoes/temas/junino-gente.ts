@@ -1266,14 +1266,14 @@ const ALTURA_ADULTO = 40
  * paradas em poses DIFERENTES, que é o que salva uma multidão congelada
  * de parecer congelada.
  *
- * 36px deixa DEZOITO figuras dançando — a frente inteira da praça. O número
- * subiu depois que a estampa de chita virou padrão assado (ver
- * `ladrilhoDeChita`): com ela custando um preenchimento em vez de noventa,
- * o teto de quantas figuras cabem por quadro subiu junto.
+ * 58px deixa NOVE figuras dançando — a fileira da frente, que é onde o olho
+ * vai de qualquer jeito. Tentei 36px antes (dezoito figuras) e o quadro caiu
+ * mais um degrau: a conta é linear no número de figuras vivas, sem surpresa
+ * nenhuma, e nove é o que cabe.
  *
- * Abaixo de 36px a figura tem uns 6px de tronco, e o deslocamento de um
- * passo inteiro não chega a dois pixels — movimento que ninguém veria, pago
- * sessenta vezes por segundo.
+ * Abaixo de 58px a figura tem uns 9px de tronco, e um passo inteiro desloca
+ * dois ou três pixels — movimento que quase ninguém repara, pago sessenta
+ * vezes por segundo.
  */
 const LIMIAR_DANCA_PX = 58
 
