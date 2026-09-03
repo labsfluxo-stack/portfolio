@@ -364,15 +364,29 @@ function LupaIso({ x, y, z, raio }: { x: number; y: number; z: number; raio: num
         strokeWidth={TRACO.conteudo}
         {...preenche('stroke-ink')}
       />
-      <ellipse cx={cx} cy={topo} rx={rx} ry={ry} fill="url(#lente)" {...preenche('')} />
+      {/* O VIDRO USA O MESMO `face-topo` DE TODA OUTRA PEÇA, e essa foi a
+        * correção final — depois de a lupa ganhar volume, sombra, cabo no plano
+        * e até uma caixa própria, e continuar "não parecendo parte da camada".
+        *
+        * A causa não era de forma, era de VALOR. A cena inteira vive num
+        * registro escuro, e a lente estava preenchida com um azul claro a 30%:
+        * o único elemento claro de todo o desenho. Objeto fora da faixa tonal
+        * da cena salta dela por definição, não importa quão correta seja a
+        * geometria — e foram três tentativas atacando a geometria.
+        *
+        * Agora ela é vidro escuro como o tampo das outras caixas, e o que a
+        * identifica é um aro em cor de acento, fino. Continua sendo a única
+        * lupa da peça; deixou de ser a única mancha clara. */}
+      <ellipse cx={cx} cy={topo} rx={rx} ry={ry} fill="url(#face-topo)" {...preenche('')} />
       <ellipse
         cx={cx}
         cy={topo}
         rx={rx}
         ry={ry}
         fill="none"
-        strokeWidth={TRACO.conteudo * 1.5}
-        {...preenche('stroke-ink')}
+        stroke="var(--color-data)"
+        strokeWidth={TRACO.conteudo * 1.6}
+        {...preenche('')}
       />
     </g>
   )
@@ -1005,7 +1019,7 @@ const CAMADAS: Camada[] = [
     // A LUPA SAIU DO AR E ENTROU NO CAMPO. Erguida e solta ela lia como
     // enfeite pairando; encostada na ponta direita do campo, ela vira o botão
     // de buscar — que é onde toda pessoa já viu uma lupa na vida.
-    simbolo: { tipo: 'lupa', x: 87, y: 22, raio: 6, sobreCaixa: 1 },
+    simbolo: { tipo: 'lupa', x: 84, y: 22, raio: 5, sobreCaixa: 0 },
     // AS TRÊS IAs DESCERAM PARA DENTRO DA CAMADA.
     //
     // Antes elas pairavam acima do plano, sobre pedestais, ligadas por um fio
@@ -1028,16 +1042,11 @@ const CAMADAS: Camada[] = [
     // A mais fina de todas: descoberta não é matéria, é consequência.
     altura: 2,
     contornos: [
-      // O CAMPO ENCURTOU PARA A LUPA CABER AO LADO. Ela vinha pousada em cima
-      // da ponta direita do campo, e uma lente do tamanho da altura da barra,
-      // deitada sobre ela, não lia como botão — lia como objeto largado ali.
-      //
-      // Com o campo terminando em 76 e o botão começando em 80, os dois viram o
-      // par que qualquer pessoa reconhece: onde se digita, e o que se aperta.
-      [18, 18, 58, 9],
-      // O botão de buscar. Quadrado e da altura do campo, como em toda barra de
-      // busca que existe — é a caixa que carrega a lupa no tampo.
-      [80, 15, 14, 14],
+      // O CAMPO VOLTOU INTEIRO e a caixa do botão saiu. Ela tinha sido a
+      // terceira tentativa de fazer a lupa pertencer à cena, e falhou como as
+      // duas anteriores porque nenhuma atacava a causa real — ver o comentário
+      // de `LupaIso`.
+      [18, 18, 76, 9],
       // Dois resultados, altos o bastante para caberem título e trecho.
       [18, 34, 76, 16],
       [18, 56, 76, 16],
