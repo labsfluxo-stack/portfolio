@@ -590,6 +590,37 @@ export const pt: Dictionary = {
       description:
         'Dois desenvolvedores full-stack. Sites, blogs e sistemas construídos para carregar rápido, aparecer no Google e ser lidos pelo ChatGPT.',
     },
+    // O QUE CADA CAMADA ENTREGA, na língua de quem compra.
+    //
+    // A esquerda promete em português simples; a coluna `cumpre` responde em
+    // nome próprio. É o par que dá lastro: "abre em 2s" sozinho é propaganda,
+    // "abre em 2s / HTTP-2 · WCAG AA" é requisito.
+    //
+    // A ordem de baixo para cima conta a construção — dados, aplicação,
+    // interface — e termina em `descoberta`, que é o resultado pelo qual o
+    // cliente paga e o argumento que esta página repete quatro vezes.
+    arte: {
+      dados: {
+        nome: 'dados',
+        itens: ['histórico', 'busca rápida', 'backup diário'],
+        cumpre: ['PostgreSQL', 'ACID', 'LGPD'],
+      },
+      aplicacao: {
+        nome: 'aplicação',
+        itens: ['suas regras', 'integrações', 'sem amarras'],
+        cumpre: ['REST', 'OAuth 2', 'webhooks'],
+      },
+      interface: {
+        nome: 'interface',
+        itens: ['abre em 2s', 'no celular', 'acessível'],
+        cumpre: ['HTTP/2', 'WCAG AA', 'Open Graph'],
+      },
+      descoberta: {
+        nome: 'descoberta',
+        itens: ['indexado', 'citado por IA', 'link social'],
+        cumpre: ['Google', 'ChatGPT', 'Perplexity'],
+      },
+    },
     hero: {
       titulo: 'Sites, blogs e sistemas',
       tituloDestaque: 'sob medida.',

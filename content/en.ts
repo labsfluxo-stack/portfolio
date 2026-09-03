@@ -488,6 +488,35 @@ export const en: Dictionary = {
       description:
         'Two full-stack developers. Websites, blogs and systems built to load fast, show up on Google and be readable by ChatGPT.',
     },
+    // Ver o comentário em content/pt.ts. Os itens são traduzidos; `cumpre` não
+    // — `PostgreSQL`, `WCAG AA` e `ChatGPT` se escrevem igual nos dois idiomas,
+    // e é a estranheza técnica deles que dá lastro à coluna da esquerda.
+    //
+    // As traduções são mais curtas que o português, não mais literais: cada
+    // item tem ~13 caracteres antes de encostar no desenho, e "your rules"
+    // cabe onde "the rules are yours" atravessaria a peça.
+    arte: {
+      dados: {
+        nome: 'data',
+        itens: ['history', 'fast lookup', 'daily backup'],
+        cumpre: ['PostgreSQL', 'ACID', 'GDPR'],
+      },
+      aplicacao: {
+        nome: 'application',
+        itens: ['your rules', 'integrations', 'no lock-in'],
+        cumpre: ['REST', 'OAuth 2', 'webhooks'],
+      },
+      interface: {
+        nome: 'interface',
+        itens: ['opens in 2s', 'on mobile', 'accessible'],
+        cumpre: ['HTTP/2', 'WCAG AA', 'Open Graph'],
+      },
+      descoberta: {
+        nome: 'discovery',
+        itens: ['indexed', 'quoted by AI', 'social cards'],
+        cumpre: ['Google', 'ChatGPT', 'Perplexity'],
+      },
+    },
     hero: {
       titulo: 'Websites, blogs and',
       tituloDestaque: 'custom systems.',
