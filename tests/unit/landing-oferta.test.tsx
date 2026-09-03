@@ -14,9 +14,27 @@ describe('Oferta', () => {
 })
 
 describe('Dupla', () => {
-  it('é a faixa escura', () => {
+  /**
+   * ERA A FAIXA ESCURA, E DEIXOU DE SER.
+   *
+   * O hero virou escuro por decisão do dono, e a `Dupla` vem imediatamente
+   * abaixo dele: duas bandas escuras coladas viravam um bloco só de ~1400px
+   * com a fronteira dissolvida logo na abertura. A alternância claro/escuro da
+   * página é o que dá ritmo à rolagem, então a `Dupla` inverteu junto.
+   *
+   * O QUE ESTE TESTE PASSA A GUARDAR é a consequência que morde: sobre o papel
+   * claro, `--color-data` (#38BDF8) cai para 1,93:1 e reprova AA. Enquanto a
+   * seção era escura, o ciano era legítimo aqui — e era a única arte da página
+   * autorizada a usá-lo. Invertida a polaridade, todo ciano desta seção teve
+   * de virar `--color-accent` (#0369A1, 5,35:1), tanto nos números quanto na
+   * arte. É o mesmo guarda que `landing-topo.test.tsx` já faz no `Criterio`.
+   */
+  it('não usa o token do tema escuro depois de virar seção clara', () => {
     const { container } = render(<Dupla dict={pt} />)
-    expect(container.querySelector('.bg-bg, .bg-ink')).toBeTruthy()
+    expect(container.querySelector('.bg-bg, .bg-ink'), 'a Dupla voltou a ser faixa escura sem revisar o ciano').toBeNull()
+    expect(container.innerHTML).not.toContain('text-data')
+    expect(container.innerHTML).not.toContain('stroke-data')
+    expect(container.innerHTML).not.toContain('fill-data')
   })
 
   /**
