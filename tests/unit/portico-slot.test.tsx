@@ -28,6 +28,22 @@ vi.mock('@/components/three/Portico', () => ({
 // como o Hero passa os dados de verdade.
 const cenario = systems
 
+/**
+ * A cena não sobe mais assim que decide subir: ela espera as texturas.
+ *
+ * Em jsdom não existe `Worker`, então `pedirMapas` cai no caminho de
+ * emergência e gera os cinco mapas AQUI MESMO — ~700 ms de laço por pixel, o
+ * custo real que o worker existe para tirar da thread do visitante. O padrão de
+ * um segundo do `waitFor` não cobre isso, e o teste reprovava por tempo, não
+ * por defeito.
+ *
+ * Aumentar a espera é o certo em vez de dublar `gerarMapas`: o que estes casos
+ * verificam é a DECISÃO de mostrar a cena, e essa decisão agora inclui esperar
+ * o pixel ficar pronto. Com um dublê, o caminho de emergência deixaria de ser
+ * exercitado justamente onde ele é o único caminho.
+ */
+const ESPERA = 15_000
+
 function matchMedia(reduced: boolean) {
   vi.mocked(window.matchMedia).mockImplementation((query: string) => ({
     matches: reduced && query.includes('reduce'),
@@ -64,7 +80,7 @@ describe('PorticoSlot', () => {
     webgl(true)
     matchMedia(false)
     render(<PorticoSlot systems={cenario} />)
-    await waitFor(() => expect(screen.getByTestId('cena-3d')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('cena-3d')).toBeInTheDocument(), { timeout: ESPERA })
   })
 
   // Estas duas são as condições que SOBRARAM depois que a largura saiu. Se
@@ -103,11 +119,13 @@ describe('PorticoSlot', () => {
     }) as unknown as MediaQueryList)
 
     render(<PorticoSlot systems={cenario} />)
-    await waitFor(() =>
-      expect(
-        screen.getByTestId('cena-3d'),
-        'voltou um corte por largura — o celular perdeu a cena 3D',
-      ).toBeInTheDocument(),
+    await waitFor(
+      () =>
+        expect(
+          screen.getByTestId('cena-3d'),
+          'voltou um corte por largura — o celular perdeu a cena 3D',
+        ).toBeInTheDocument(),
+      { timeout: ESPERA },
     )
   })
 })

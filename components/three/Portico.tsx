@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { ContactShadows, Environment, Lightformer } from '@react-three/drei'
 import * as THREE from 'three'
@@ -49,23 +49,19 @@ import {
 import {
   GRATING_TILE,
   ROPE_LAY,
-  SIDE_RIBS,
   cargoAtlas,
+  comoTextura,
   containerSkinShader,
-  corrugationNormalMap,
   floorTextures,
   gratingTextures,
-  grimeMap,
   resolveMonoFamily,
   ropeTextures,
-  rustStreakMap,
-  skinWearMap,
   steelSkinShader,
-  steelWearMap,
   unitNoise,
   type CargoAtlas,
   type CargoCell,
   type FloorBay,
+  type Mapas,
 } from './portico-textures'
 import { buildYard, manifestFor, markFor, stow } from './portico-yard'
 
@@ -376,7 +372,32 @@ function unitJitter(count: number): Float32Array {
   return jitter
 }
 
+/**
+ * Cronômetro da construção de assets.
+ *
+ * A montagem da cena custa uma tarefa longa e síncrona — gerar as texturas
+ * procedurais em canvas 2D — e `PorticoSlot` a adia para a ociosidade
+ * justamente por isso. Adiar não é medir: sem número por etapa, "a cena é
+ * pesada" não tem onde ser atacada, e qualquer otimização vira palpite.
+ *
+ * `performance.measure` custa nanossegundos e as marcas ficam disponíveis no
+ * perfil do navegador e para o Playwright ler. Fica ligado em produção de
+ * propósito: é a única forma de medir a máquina do visitante, e não a minha.
+ */
+function cronometrar<T>(nome: string, fn: () => T): T {
+  if (typeof performance === 'undefined' || typeof performance.measure !== 'function') return fn()
+  const inicio = performance.now()
+  const valor = fn()
+  try {
+    performance.measure(`portico:${nome}`, { start: inicio, end: performance.now() })
+  } catch {
+    // Buffer de entradas cheio ou API parcial: medir nunca pode derrubar a cena.
+  }
+  return valor
+}
+
 function buildAssets(
+  mapas: Mapas,
   cells: CargoCell[],
   bays: FloorBay[],
   work: { x: number; z: number },
@@ -402,7 +423,7 @@ function buildAssets(
   // luz de ESCORREGAR pela chapa: numa superfície perfeitamente lisa o
   // especular desliza sem quebrar em lugar nenhum, e é justamente isso que faz
   // um render parecer desenho animado. Chapa de contêiner nunca é lisa.
-  const sideNormal = tune(corrugationNormalMap({ ribs: SIDE_RIBS, depth: 1.05, band: 0.085, wear: 0.55 }))
+  const sideNormal = tune(cronometrar('corrugationNormal', () => comoTextura(mapas.corrugationNormal)))
   // Um pouco acima de 1: com a oclusão dos vales entrando junto, o relevo
   // aguenta mais inclinação sem virar ruído — e é o par (normal forte, vale
   // escuro) que faz a onda ler como CHAPA DOBRADA em vez de listra impressa.
@@ -412,21 +433,21 @@ function buildAssets(
   // porque é ele que carrega o VALE da corrugação e a fresta da cantoneira. É a
   // oclusão que separa relevo de adesivo: sem sombra nenhuma no fundo da onda,
   // o normal map só inclina a luz e o olho lê decalque impresso.
-  const skinWear = tune(skinWearMap(SIDE_RIBS))
+  const skinWear = tune(cronometrar('skinWear', () => comoTextura(mapas.skinWear)))
   // E a história de cada unidade, amostrada com deslocamento por instância.
-  const grime = tune(grimeMap())
-  const steelWear = tune(steelWearMap())
+  const grime = tune(cronometrar('grime', () => comoTextura(mapas.grime)))
+  const steelWear = tune(cronometrar('steelWear', () => comoTextura(mapas.steelWear)))
   // A IDADE da máquina: escorrido de ferrugem, sujeira que assenta e o grão que
   // quebra a quina. `steelWearMap` continua dizendo de que aço a peça é feita;
   // este diz há quanto tempo ela está lá. Ver `steelSkinShader`.
-  const age = tune(rustStreakMap())
-  const rope = ropeTextures()
+  const age = tune(cronometrar('rustStreak', () => comoTextura(mapas.rustStreak)))
+  const rope = cronometrar('ropeTextures', ropeTextures)
   const ropeLay = [tune(rope.normal), tune(rope.orm)]
 
   // Todas as chapas da cena num atlas só. É o que permite instanciar: um
   // material carrega uma textura, então a marcação de cada contêiner vira uma
   // célula e cada instância recebe o deslocamento da sua.
-  const atlas = cargoAtlas(
+  const atlas = cronometrar('cargoAtlas', () => cargoAtlas(
     cells,
     {
       stencil: shade(palette.text, 0.62),
@@ -437,7 +458,7 @@ function buildAssets(
       panel: shade(palette.text, 0.9),
     },
     family,
-  )
+  ))
   tune(atlas.texture)
   atlas.texture.channel = 1
 
@@ -454,12 +475,14 @@ function buildAssets(
   }
   plate.setAttribute('aWear', new THREE.InstancedBufferAttribute(drift, 2))
 
-  const floor = floorTextures(palette.bg, palette.border, { bays, half: floorHalf, work }, family)
+  const floor = cronometrar('floorTextures', () =>
+    floorTextures(palette.bg, palette.border, { bays, half: floorHalf, work }, family),
+  )
   tune(floor.map)
   keep(floor.alpha)
   tune(floor.rough)
 
-  const grate = gratingTextures()
+  const grate = cronometrar('gratingTextures', gratingTextures)
   const gratingSpan = rig.railX * 2
   for (const texture of [grate.alpha, grate.orm, grate.normal]) {
     texture.repeat.set(gratingSpan / GRATING_TILE, WALKWAY.width / GRATING_TILE)
@@ -659,7 +682,17 @@ function buildAssets(
 
 const UP = new THREE.Vector3(0, 1, 0)
 
-function Yard({ systems, vsync }: { systems: readonly SceneSystem[]; vsync: number }) {
+function Yard({
+  systems,
+  vsync,
+  mapas,
+}: {
+  systems: readonly SceneSystem[]
+  vsync: number
+  /** Os cinco mapas procedurais, já prontos — gerados no worker antes de a cena
+   *  existir. Ver `PorticoSlot.pedirMapas`. */
+  mapas: Mapas
+}) {
   const gl = useThree((state) => state.gl)
   const camera = useThree((state) => state.camera)
   const scene = useThree((state) => state.scene)
@@ -756,8 +789,10 @@ function Yard({ systems, vsync }: { systems: readonly SceneSystem[]; vsync: numb
       // A baia de montagem: uma marcação maior no chão, onde a máquina trabalha.
       { x: 0, z: 0, length: work.x * 2 + 1.6, width: work.z * 2 + 1.6, code: '' },
     ]
-    return buildAssets(cells, bays, work, rig, palette, resolveMonoFamily(), anisotropy, floorHalf)
-  }, [manifest, rotation, yard, work, rig, palette, anisotropy, floorHalf])
+    return cronometrar('buildAssets', () =>
+      buildAssets(mapas, cells, bays, work, rig, palette, resolveMonoFamily(), anisotropy, floorHalf),
+    )
+  }, [mapas, manifest, rotation, yard, work, rig, palette, anisotropy, floorHalf])
 
   useEffect(() => assets.dispose, [assets])
 
@@ -845,9 +880,23 @@ function Yard({ systems, vsync }: { systems: readonly SceneSystem[]; vsync: numb
     [],
   )
 
+  const primeiroQuadro = useRef(true)
+
   useFrame((_, delta) => {
     const own = motion.current
     const { pose, sway } = own
+
+    // O primeiro quadro fecha a janela de montagem: o que houve entre o
+    // renderer nascer e este instante é o custo de subir a cena, e a maior
+    // parte dele não é textura — é compilação de shader.
+    if (primeiroQuadro.current) {
+      primeiroQuadro.current = false
+      try {
+        performance.measure('portico:ateOPrimeiroQuadro', 'portico:montagemPedida')
+      } catch {
+        // Sem a marca de partida (API parcial), a medição some e a cena segue.
+      }
+    }
 
     // Antes de qualquer coisa, e inclusive nos quadros em que o passo fixo não
     // avança: quem está medindo os quadros não pode perder justamente os
@@ -1168,6 +1217,50 @@ function Yard({ systems, vsync }: { systems: readonly SceneSystem[]; vsync: numb
 }
 
 /**
+ * A COMPILAÇÃO DE SHADER, tirada do caminho bloqueante.
+ *
+ * Medido depois que o worker levou embora os 545 ms de pixel: o que sobrou da
+ * montagem — 1 224 ms de 1 476 — não é textura nem geometria. É montar o grafo
+ * e COMPILAR OS PROGRAMAS. Esta cena é o pior caso: `MeshPhysicalMaterial` com
+ * clearcoat, dois `onBeforeCompile` próprios (`steelSkinShader` e
+ * `containerSkinShader`), sombra e mapa de ambiente. Cada combinação vira um
+ * programa, e `linkProgram` na primeira vez que o material é desenhado trava a
+ * thread até terminar.
+ *
+ * `compileAsync` compila os mesmos programas usando
+ * `KHR_parallel_shader_compile`: o driver linka em paralelo e o navegador só
+ * verifica se acabou. O quadro deixa de esperar o link.
+ *
+ * Por isso o `frameloop` começa em `never` (ver o envelope abaixo). Sem isso o
+ * primeiro quadro sairia ANTES do aquecimento e pagaria o link inteiro — o
+ * `compileAsync` chegaria tarde, para programas já compilados, e não teria
+ * feito nada. A cena só começa a andar depois que os programas estão prontos;
+ * enquanto isso quem está na tela é a elevação em SVG, como antes.
+ */
+function Aquecimento({ aoTerminar }: { aoTerminar: () => void }) {
+  const { gl, scene, camera } = useThree()
+
+  useEffect(() => {
+    let vivo = true
+    const seguir = () => {
+      if (vivo) aoTerminar()
+    }
+    // Navegador sem `compileAsync` (three antigo em cache, motor exótico) segue
+    // direto: perde o ganho, nunca a cena.
+    if (typeof gl.compileAsync !== 'function') {
+      seguir()
+      return
+    }
+    void gl.compileAsync(scene, camera).then(seguir, seguir)
+    return () => {
+      vivo = false
+    }
+  }, [gl, scene, camera, aoTerminar])
+
+  return null
+}
+
+/**
  * Envelope da cena. O `frameloop` alterna entre `always` e `demand` conforme
  * o hero entra e sai da viewport: nada de queimar GPU e bateria animando uma
  * máquina que já rolou para fora da tela.
@@ -1175,7 +1268,11 @@ function Yard({ systems, vsync }: { systems: readonly SceneSystem[]; vsync: numb
 export function Portico({
   systems,
   vsync,
+  mapas,
 }: {
+  /** Os mapas já gerados. A cena não os produz mais: `PorticoSlot` os pede ao
+   *  worker e só monta este componente quando eles chegam. */
+  mapas: Mapas
   systems: readonly SceneSystem[]
   /** O período do monitor, medido por `PorticoSlot` com a página parada — antes
    *  desta cena existir, que é a única hora em que a medição não sai
@@ -1184,6 +1281,9 @@ export function Portico({
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [inView, setInView] = useState(true)
+  // Enquanto for `false`, nenhum quadro é desenhado — ver `Aquecimento`.
+  const [aquecido, setAquecido] = useState(false)
+  const aquecer = useCallback(() => setAquecido(true), [])
 
   useEffect(() => {
     const node = containerRef.current
@@ -1201,7 +1301,10 @@ export function Portico({
         // o three 0.185 depreciou e resolve para PCF de qualquer forma — só
         // que gritando no console de quem abre o site.
         shadows="percentage"
-        frameloop={inView ? 'always' : 'demand'}
+        // `never` até os programas compilarem: o primeiro quadro que sair já
+        // sai com shader pronto, em vez de pagar o link dentro do próprio
+        // quadro. Ver `Aquecimento`.
+        frameloop={!aquecido ? 'never' : inView ? 'always' : 'demand'}
         // O teto abre até 2 e quem manda nele é `useQuality`, que começa no
         // degrau de estúdio e desce se o quadro não sustentar.
         //
@@ -1225,7 +1328,10 @@ export function Portico({
         }}
         camera={{ fov: VIEW.fov, near: 6, far: 190, position: [18, 16, 46] }}
       >
-        <Yard systems={systems} vsync={vsync} />
+        <Yard systems={systems} vsync={vsync} mapas={mapas} />
+        {/* Depois do `Yard` de propósito: o efeito precisa rodar com o grafo
+            já montado, senão compila uma cena vazia. */}
+        <Aquecimento aoTerminar={aquecer} />
       </Canvas>
     </div>
   )

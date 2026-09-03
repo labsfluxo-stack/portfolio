@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { PorticoFallback } from './PorticoFallback'
 import { VSYNC_DEFAULT, measureVsync } from './portico-quality'
 import type { SceneSystem } from './portico-systems'
+import { gerarMapas, type Mapas } from './portico-pixels'
+import type { CargaDeMapas } from './portico-texturas.worker'
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 
@@ -13,6 +15,59 @@ const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 // o three.js/@react-three, nunca entra no HTML inicial: só é buscado se o
 // efeito abaixo decidir mostrar a cena.
 const Portico = dynamic(() => import('./Portico').then((mod) => mod.Portico), { ssr: false })
+
+/**
+ * Os mapas procedurais, de preferência numa thread que não seja esta.
+ *
+ * O caminho feliz é o worker. O de emergência — navegador sem `Worker`, worker
+ * que falhou ao subir, erro em tempo de execução — roda `gerarMapas()` aqui
+ * mesmo, que é EXATAMENTE a mesma função com os mesmos números. Degrada em
+ * fluidez, nunca em imagem: quem cai no caminho de emergência vê a cena que
+ * via antes desta mudança, engasgo incluído. É o pior caso, não um caso pior.
+ */
+export function pedirMapas(): Promise<Mapas> {
+  // A rota tomada é MEDIDA, não suposta.
+  //
+  // Sem isto, worker e caminho de emergência são indistinguíveis de fora: os
+  // dois entregam os mapas prontos, e o cronômetro de `buildAssets` marca ~1 ms
+  // nos dois casos, porque ele só mede a embalagem. Um worker que falhasse
+  // silenciosamente devolveria a cena ao comportamento antigo — com todos os
+  // números parecendo ótimos. `scripts/medir-portico.mts` lê estas marcas.
+  const rota = (nome: 'worker' | 'emergencia', inicio: number, mapas: Mapas): Mapas => {
+    try {
+      performance.measure(`portico:mapas-${nome}`, { start: inicio, end: performance.now() })
+    } catch {
+      // Medir nunca pode derrubar a cena.
+    }
+    return mapas
+  }
+  const inicio = performance.now()
+
+  if (typeof Worker !== 'function') return Promise.resolve(rota('emergencia', inicio, gerarMapas()))
+
+  return new Promise((resolve) => {
+    let worker: Worker
+    try {
+      worker = new Worker(new URL('./portico-texturas.worker.ts', import.meta.url))
+    } catch {
+      resolve(rota('emergencia', inicio, gerarMapas()))
+      return
+    }
+
+    // Uma resposta só, e depois o worker morre: ele existe para uma tarefa.
+    // Sem isto ele fica vivo segurando ~1,2 MB de buffers já transferidos.
+    const encerrar = (mapas: Mapas) => {
+      worker.terminate()
+      resolve(mapas)
+    }
+
+    // Sem conversão: o worker devolve o mesmo formato que `gerarMapas` produz.
+    worker.onmessage = (evento: MessageEvent<CargaDeMapas>) => encerrar(rota('worker', inicio, evento.data))
+    worker.onerror = () => encerrar(rota('emergencia', inicio, gerarMapas()))
+
+    worker.postMessage('gerar')
+  })
+}
 
 /** Não confiar em user-agent: a única forma correta de saber se WebGL
  * funciona é pedir o contexto e ver o que volta. */
@@ -58,11 +113,20 @@ export function hasWebGL(): boolean {
  * O efeito no Lighthouse mobile foi medido antes e depois, não estimado.
  */
 export function PorticoSlot({ systems }: { systems: readonly SceneSystem[] }) {
-  const [showScene, setShowScene] = useState(false)
+  // ERA UM BOOLEANO, e virou os mapas em si.
+  //
+  // A cena não sobe mais "quando é hora": sobe quando as texturas EXISTEM. A
+  // diferença importa porque o pixel agora nasce noutra thread e chega depois.
+  // Montar antes deles e deixá-los entrar quando chegassem daria alguns quadros
+  // de chapa sem relevo, sem desgaste e sem ferrugem — um pop na peça que a
+  // cena existe para mostrar. Enquanto isso o visitante vê a elevação em SVG,
+  // que já é uma composição inteira e não um vazio.
+  const [mapas, setMapas] = useState<Mapas | null>(null)
   const [vsync, setVsync] = useState(VSYNC_DEFAULT)
 
   useEffect(() => {
     if (!hasWebGL()) return
+    let vivo = true
 
     const motionQuery = window.matchMedia(REDUCED_MOTION_QUERY)
     let idle: number | undefined
@@ -114,7 +178,19 @@ export function PorticoSlot({ systems }: { systems: readonly SceneSystem[] }) {
       // MENOR delta da amostra, então quadro contaminado pela partida da cena é
       // sempre mais lento e sempre descartado.
       void measureVsync().then(setVsync)
-      const montar = () => setShowScene(true)
+      // Marco zero da montagem. Precisa nascer AQUI e não no `onCreated` do
+      // Canvas: o r3f só chama `onCreated` depois que os filhos renderaram, ou
+      // seja, depois de `buildAssets` — ancorar ali mediria a montagem sem a
+      // parte mais cara dela. Ver `scripts/medir-portico.mts`.
+      const montar = () => {
+        performance.mark?.('portico:montagemPedida')
+        // O worker começa a trabalhar aqui e a cena sobe quando ele responde.
+        // A ociosidade que este agendamento espera continua valendo: não é para
+        // disputar com a rolagem nem a partida do worker.
+        void pedirMapas().then((prontos) => {
+          if (vivo) setMapas(prontos)
+        })
+      }
       if (typeof window.requestIdleCallback === 'function') {
         idle = window.requestIdleCallback(montar, { timeout: 2000 })
       } else {
@@ -124,7 +200,7 @@ export function PorticoSlot({ systems }: { systems: readonly SceneSystem[] }) {
 
     const evaluate = () => {
       if (motionQuery.matches) {
-        setShowScene(false)
+        setMapas(null)
         return
       }
       if (document.readyState === 'complete') agendar()
@@ -134,6 +210,7 @@ export function PorticoSlot({ systems }: { systems: readonly SceneSystem[] }) {
 
     motionQuery.addEventListener('change', evaluate)
     return () => {
+      vivo = false
       motionQuery.removeEventListener('change', evaluate)
       window.removeEventListener('load', agendar)
       if (idle !== undefined) window.cancelIdleCallback?.(idle)
@@ -143,8 +220,8 @@ export function PorticoSlot({ systems }: { systems: readonly SceneSystem[] }) {
 
   return (
     <div className="h-full w-full">
-      {showScene ? (
-        <Portico systems={systems} vsync={vsync} />
+      {mapas ? (
+        <Portico systems={systems} vsync={vsync} mapas={mapas} />
       ) : (
         <PorticoFallback systems={systems} />
       )}
