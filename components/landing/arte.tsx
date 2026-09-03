@@ -996,29 +996,45 @@ const CAMADAS: Camada[] = [
     // enfeite pairando; encostada na ponta direita do campo, ela vira o botão
     // de buscar — que é onde toda pessoa já viu uma lupa na vida.
     simbolo: { tipo: 'lupa', x: 82, y: 22, raio: 6.5 },
-    // As três IAs sobrevoando a página, cada uma ligada ao próprio resultado.
+    // AS TRÊS IAs DESCERAM PARA DENTRO DA CAMADA.
+    //
+    // Antes elas pairavam acima do plano, sobre pedestais, ligadas por um fio
+    // tracejado — e continuavam lendo como coisa colada por cima do desenho. O
+    // fio e a pedestal foram tentativas de amarrar de fora o que só resolve por
+    // dentro: se a camada é a descoberta, quem descobre É conteúdo dela.
+    //
+    // Agora são três caixas na fileira de baixo, com a mesma extrusão, a mesma
+    // hachura lateral e a mesma sombra de todas as outras peças da cena. O que
+    // as distingue é só o símbolo estampado no tampo — do mesmo jeito que uma
+    // tabela se distingue pelo cabeçalho e um nó pelas portas.
+    //
+    // O terceiro resultado saiu para abrir esse espaço. Dois resultados dizem
+    // "lista" tão bem quanto três, e a fileira de IAs vale mais que a repetição.
     marcasIA: [
-      { x: 30, y: 12 },
-      { x: 56, y: 12 },
-      { x: 82, y: 12 },
+      { x: 27, y: 85 },
+      { x: 53, y: 85 },
+      { x: 79, y: 85 },
     ],
     // A mais fina de todas: descoberta não é matéria, é consequência.
     altura: 2,
     contornos: [
       // O campo de busca, no alto e mais raso que os resultados.
       [18, 18, 76, 9],
-      // Os três resultados. Altos o bastante para caberem título e trecho —
-      // era exatamente o que faltava nas barras de 7 unidades.
-      [18, 36, 76, 16],
-      [18, 58, 76, 16],
-      [18, 80, 76, 16],
+      // Dois resultados, altos o bastante para caberem título e trecho.
+      [18, 34, 76, 16],
+      [18, 56, 76, 16],
+      // A fileira das IAs: três caixas iguais, conteúdo da camada como
+      // qualquer outra. O símbolo vai estampado no tampo de cada uma.
+      [19, 78, 17, 14],
+      [45, 78, 17, 14],
+      [71, 78, 17, 14],
     ],
     miolo: 'resultado',
     solidos: [],
     // O PRIMEIRO RESULTADO É O ÚNICO HACHURADO: é a posição conquistada, e o
-    // tom mais denso o separa dos outros dois sem precisar de seta nem de
-    // rótulo. Um só — o que se vende é ser O resultado, não estar na página.
-    hachuras: [[18, 36, 76, 16, 'esparsa']],
+    // tom mais denso o separa do outro sem precisar de seta nem de rótulo. Um
+    // só — o que se vende é ser O resultado, não estar na página.
+    hachuras: [[18, 34, 76, 16, 'esparsa']],
   },
 ]
 
@@ -1265,6 +1281,19 @@ function Miolo({
   }
 
   if (tipo === 'resultado') {
+    // A CAIXA ESTREITA É UMA DAS IAs e não leva miolo nenhum: o tampo dela
+    // recebe o símbolo, desenhado à parte. Sem esta saída, uma faísca ficaria
+    // por baixo de um título e duas linhas de trecho que não significam nada
+    // ali.
+    if (w < 30) return null
+    // A caixa rasa é o CAMPO de busca: uma barra curta, do tamanho de uma
+    // consulta digitada, e nada mais. Título e trecho pertencem ao resultado,
+    // não ao campo — desenhá-los aqui faria o campo virar mais um resultado.
+    if (d <= 10) {
+      return (
+        <polygon points={pontosDe(faceIso(x + 4, y + 3.4, (w - 8) * 0.42, 2.4, z))} {...preenche('fill-rule')} />
+      )
+    }
     // ANATOMIA DE RESULTADO DE BUSCA, e é a única forma que essa camada podia
     // ter. A versão anterior eram quatro barras longas e iguais — que não leem
     // como resultado, leem como cano. Ninguém reconhece "busca" numa pilha de
@@ -1891,34 +1920,25 @@ export function ArteAbertura({ textos }: { textos: Dictionary["landing"]["arte"]
                 altura={camada.simbolo.altura ?? 14}
               />
             )}
+            {/* AS MARCAS SÃO ESTAMPA NO TAMPO, como o cabeçalho é de uma tabela.
+              * Nada de pedestal e nada de fio: a caixa que as carrega já é uma
+              * das peças da camada, desenhada na mesma passada ordenada por
+              * profundidade que todas as outras. `z + alturaDe(...)` as põe em
+              * cima da tampa da caixa correspondente — a mesma conta do miolo. */}
             {camada.marcasIA?.map((posicao, k) => {
               const marca = MARCAS_IA[k % MARCAS_IA.length]!
-              const alto = camada.z + 15
-              const [px, py] = iso(posicao.x, posicao.y, alto)
-              const [, pousoY] = iso(posicao.x, posicao.y, camada.z + camada.altura)
+              // As três caixas de IA são as últimas da lista de contornos.
+              const indiceDaCaixa = camada.contornos.length - camada.marcasIA!.length + k
               return (
-                <g key={`${posicao.x}-${posicao.y}`}>
-                  {/* O FIO ATÉ A PÁGINA. Sem ele as três marcas pairavam
-                    * soltas no ar e liam como adesivo colado por cima do
-                    * desenho; com o fio, elas estão OLHANDO a página, que é a
-                    * afirmação inteira desta camada. Tracejado e apagado: é
-                    * linha de leitura, não de estrutura. */}
-                  <line
-                    x1={px}
-                    y1={py + 5}
-                    x2={px}
-                    y2={pousoY}
-                    strokeWidth={TRACO.construcao}
-                    strokeDasharray="1.5 2.5"
-                    {...preenche('stroke-rule')}
-                  />
-                  {/* A PEDESTAL: uma placa fina sob cada marca. Sem ela os
-                    * símbolos continuavam pairando sem nada que os apoiasse —
-                    * e objeto que flutua sem apoio, numa cena onde tudo pousa,
-                    * é exatamente o que lê como colagem. */}
-                  <CaixaIso rect={[posicao.x - 7, posicao.y - 7, 14, 14]} z={alto - 2.4} altura={2.4} />
-                  <MarcaIA x={posicao.x} y={posicao.y} z={alto} raio={4.6} forma={marca.forma} cor={marca.cor} />
-                </g>
+                <MarcaIA
+                  key={`${posicao.x}-${posicao.y}`}
+                  x={posicao.x}
+                  y={posicao.y}
+                  z={camada.z + alturaDe(indiceDaCaixa)}
+                  raio={4.6}
+                  forma={marca.forma}
+                  cor={marca.cor}
+                />
               )
             })}
 
