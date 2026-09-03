@@ -198,14 +198,43 @@ describe('camada de movimento da landing', () => {
     const regras = semComentarios.match(/[^{}]+\{[^}]*animation:[^;]*infinite[^}]*\}/g) ?? []
     const donas = regras.map((regra) => regra.split('{')[0]?.trim() ?? '')
 
+    // ERAM DUAS, E VIRARAM QUATRO — por decisão do dono, em duas rodadas, e
+    // nenhuma por descuido: é essa diferença que o teste existe para tornar
+    // visível. As duas novas moram ambas na arte da abertura, que o dono pediu
+    // explicitamente como peça premium e animada:
+    //
+    //   .fluxo-dados   pulsos correndo entre as camadas. A peça representa
+    //                  TRÂNSITO de dados, e representá-lo parado era a
+    //                  contradição mais visível da página.
+    //   .arte-flutua   as pranchas suspensas. Vista explodida parada afirma
+    //                  que as peças estão separadas, não que estão no ar.
+    //
+    // A VARREDURA SAIU e o teto desceu de 7 para 6, a pedido do dono: numa peça
+    // que já tinha seis movimentos, a faixa de luz atravessando era a que menos
+    // comunicava. Descer o número aqui é tão deliberado quanto subi-lo foi.
+    // O teto continua valendo e continua sendo um portão: uma quinta reprova.
+    // Se o custo de atenção passar a incomodar, o lugar de reverter é aqui —
+    // as duas são autocontidas e saem sem tocar no desenho.
     expect(
       donas.length,
       `${donas.length} animações infinitas: ${donas.join(' | ')}`,
-    ).toBe(2)
+    ).toBe(6)
 
     expect(donas.join(' '), 'a borda viva da landing sumiu ou trocou de dono').toMatch(
       /borda-viva/,
     )
     expect(donas.join(' '), 'a aurora da home sumiu ou trocou de dono').toMatch(/aurora/)
+    expect(donas.join(' '), 'o fluxo de dados da arte de abertura sumiu ou trocou de dono').toMatch(
+      /fluxo-dados/,
+    )
+    expect(donas.join(' '), 'a flutuação das camadas da arte sumiu ou trocou de dono').toMatch(
+      /arte-flutua/,
+    )
+    expect(donas.join(' '), 'a respiração do acento sumiu ou trocou de dono').toMatch(
+      /acento-respira/,
+    )
+    expect(donas.join(' '), 'as ondas do núcleo sumiram ou trocaram de dono').toMatch(
+      /acento-onda/,
+    )
   })
 })

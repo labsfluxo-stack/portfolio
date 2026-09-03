@@ -485,3 +485,205 @@ body {
     animation-timeline: auto !important;
   }
 }
+
+/* ── FLUXO DE DADOS NA ARTE DA ABERTURA ───────────────────────────────────
+ *
+ * Pulsos correndo pelas vias da camada de API, do módulo para o núcleo.
+ *
+ * É A TERCEIRA COISA DESTA BASE QUE SE MOVE PARA SEMPRE, e a segunda desta
+ * página. O teto de duas em `landing-movimento.test.ts` era deliberado e foi
+ * levantado com a mesma deliberação — o pedido é uma abertura premium, e uma
+ * peça que representa TRÂNSITO de dados parada é a contradição mais visível
+ * que a página poderia ter. Se um quarto item aparecer, o teste reprova de
+ * novo, que é exatamente o serviço que ele presta.
+ *
+ * A mecânica é `stroke-dashoffset` sobre um traço curto e um vão longo: o que
+ * corre é um pulso, não uma esteira tracejada. Por isso ele mora numa linha
+ * SEPARADA da via — a via usa as mesmas propriedades para o desenho
+ * progressivo, e na mesma linha um anularia o outro.
+ *
+ * `prefers-reduced-motion` não precisa de tratamento próprio: o bloco global lá
+ * em cima já força `animation-iteration-count: 1`, e o pulso pousa parado.
+ */
+@keyframes fluxo {
+  from { stroke-dashoffset: 26; }
+  to { stroke-dashoffset: 0; }
+}
+
+.fluxo-dados {
+  /* Pulso de 3, vão de 23: uma gota a cada volta, nunca um pontilhado. */
+  stroke-dasharray: 3 23;
+  animation: fluxo 2.6s linear infinite;
+  opacity: 0.9;
+}
+
+/* ── AS CAMADAS FLUTUAM ────────────────────────────────────────────────────
+ *
+ * Cada prancha sobe e desce alguns décimos de unidade, defasada da vizinha.
+ *
+ * O QUE ISSO RESOLVE: uma vista explodida parada afirma que as peças estão
+ * separadas, mas não que estão SUSPENSAS. Com o movimento defasado o olho
+ * passa a ler três objetos flutuando em espaço próprio em vez de três
+ * recortes empilhados — é o mesmo truque de qualquer render de produto, e é
+ * quase todo o "moderno" que uma peça isométrica pode ganhar de graça.
+ *
+ * A amplitude é minúscula de propósito. Passando de ~1,5 unidade a peça
+ * começa a NADAR, e nadar lê como brinquedo; abaixo disso ela respira, que é
+ * o que dá vida sem custar atenção.
+ *
+ * Amplitude em unidades do viewBox, não em pixels: o grupo pai está sob
+ * `scale(1.16)`, então px aqui sairia 16% maior do que o escrito.
+ */
+@keyframes flutuar {
+  from { transform: translate(-0.8px, -2.4px); }
+  to   { transform: translate(0.8px, 2.4px); }
+}
+
+.arte-flutua {
+  /* `alternate` e não um ciclo completo: ida e volta pelo mesmo caminho é o
+     que faz o movimento parecer suspensão, e não órbita. */
+  animation: flutuar 4.2s ease-in-out infinite alternate;
+  /* O passo negativo faz cada peca ENTRAR ja adiantada no ciclo, em vez de
+     esperar a vez: sem isso a cena comeca inteira parada e so ganha vida
+     depois de alguns segundos. O 0.37 e primo o bastante do periodo para as
+     defasagens nao reencontrarem em fase e a peca nunca pulsar junto. */
+  animation-delay: calc(var(--i, 0) * -0.37s);
+}
+
+
+/* ── O ACENTO RESPIRA ──────────────────────────────────────────────────────
+ *
+ * O halo do bloco central cresce e encolhe alguns por cento.
+ *
+ * Brilho de intensidade fixa lê como adesivo luminoso; o que o olho reconhece
+ * como FONTE de luz é a variação. Anima `opacity` e `transform`, as duas
+ * propriedades que o compositor resolve na GPU — animar o `filter` do bloom
+ * daria o mesmo efeito e recalcularia um desfoque gaussiano por quadro, que é
+ * o caminho mais rápido para derrubar o portão de quadros sob CPU 4x.
+ *
+ * `transform-box: fill-box` é obrigatório em SVG: sem ele a origem do
+ * `transform` é o canto do viewBox e a elipse ESCAPA em vez de pulsar no
+ * lugar.
+ */
+@keyframes respirar {
+  from { opacity: 0.72; transform: scale(0.94); }
+  to   { opacity: 1;    transform: scale(1.06); }
+}
+
+.acento-respira {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: respirar 3.4s ease-in-out infinite alternate;
+}
+
+/* ── ONDAS SAINDO DO NÚCLEO ────────────────────────────────────────────────
+ *
+ * Anéis que nascem no bloco central, crescem e se apagam.
+ *
+ * É o movimento mais visível da peça, e existe porque os outros três eram
+ * TÍMIDOS DEMAIS: flutuação de dois pixels, varredura a cada seis segundos e
+ * um halo respirando 6% somam uma cena que, olhada de relance, continua
+ * parada. Ondas concêntricas são lidas como emissão à primeira vista, sem o
+ * visitante precisar ficar olhando para perceber que algo acontece.
+ *
+ * Três anéis defasados em um terço do ciclo cada. Com um só, o pulso vira
+ * batida isolada com um vazio longo entre uma e outra; com três, existe sempre
+ * um anel a caminho e a emissão lê como contínua.
+ *
+ * `scale` e `opacity` de novo, e pelo mesmo motivo de `respirar`: são as duas
+ * que o compositor resolve sem repintar. A onda cresce 5× — grande o bastante
+ * para atravessar a camada inteira e morrer antes da borda dela.
+ */
+@keyframes onda {
+  from { transform: scale(0.35); opacity: 0.55; }
+  to   { transform: scale(5);    opacity: 0; }
+}
+
+.acento-onda {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: onda 3.6s ease-out infinite;
+  animation-delay: calc(var(--i, 0) * -1.2s);
+}
+
+/* ── A PEÇA SE DESMONTA NA ENTRADA ─────────────────────────────────────────
+ *
+ * As três pranchas começam EMPILHADAS, coladas umas nas outras, e sobem para
+ * as posições da vista explodida. Só depois disso a anotação aparece.
+ *
+ * POR QUE ISSO VALE MAIS QUE QUALQUER OUTRO MOVIMENTO DA PEÇA: uma vista
+ * explodida estática obriga o visitante a DEDUZIR que aquilo é um objeto só,
+ * separado no ar. Vendo a separação acontecer, ele não deduz — ele viu. E a
+ * mensagem da página inteira é exatamente essa: o que parece um site é um
+ * sistema de camadas, e as duas de baixo existem mesmo que ninguém as veja.
+ *
+ * Cada prancha desce por `--sobe`, que é o próprio `z` dela em unidades do
+ * viewBox (a projeção põe a altura direto no eixo Y da tela, então o número é
+ * o mesmo). A de baixo tem `--sobe: 0` e não se move: é o chão de onde as
+ * outras saem.
+ *
+ * `cubic-bezier` com passagem acima de 1 dá o repuxo de peça que assenta —
+ * sem ele o movimento termina em freada seca e lê como slide de apresentação.
+ *
+ * `both` é obrigatório: sem ele a prancha fica na posição final durante o
+ * atraso e a separação simplesmente não acontece.
+ */
+@keyframes separar {
+  from { transform: translateY(var(--sobe, 0px)); }
+  to   { transform: translateY(0); }
+}
+
+.arte-separa {
+  animation: separar 1.05s cubic-bezier(0.22, 1.15, 0.36, 1) both;
+  /* A de cima parte por último: a pilha se abre de baixo para cima, na mesma
+     ordem em que um sistema real é construído. */
+  animation-delay: calc(0.55s + var(--i, 0) * 0.16s);
+}
+
+/* A anotação — rótulos, cotas e cartela — só entra DEPOIS que a peça assentou.
+ * Aparecer junto competiria com o movimento e o visitante perderia a
+ * separação, que é a única coisa que a abertura tem para contar. */
+@keyframes anotar {
+  from { opacity: 0; transform: translateX(-4px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.arte-anota {
+  animation: anotar 620ms ease-out both;
+  animation-delay: 1.55s;
+}
+
+/* ── A PEÇA SE RE-EMPILHA AO SAIR DA TELA ──────────────────────────────────
+ *
+ * O inverso exato da entrada: as pranchas voltam a se colar conforme o hero
+ * deixa a viewport. Quem rola vê o sistema se montar ao chegar e voltar a ser
+ * um objeto só ao sair.
+ *
+ * É o padrão de hero premiado em 2026 — `animation-timeline: view()` com a
+ * faixa `exit`, sem uma linha de JavaScript. A infraestrutura desta página já
+ * estava pronta para isso: o `@supports` acima e o bloco de movimento reduzido
+ * que devolve `animation-timeline: auto` já existiam para a revelação.
+ *
+ * MORA NUM ELEMENTO PRÓPRIO, e não junto de `.arte-separa`. As duas animam
+ * `transform`, e `animation` é uma propriedade só: declaradas no mesmo
+ * elemento, a segunda venceria a primeira e a entrada simplesmente não
+ * aconteceria. Em grupos aninhados os transforms se COMPÕEM, que é o que se
+ * quer. Mesmo motivo pelo qual a flutuação já tinha envelope próprio.
+ *
+ * Fora do `@supports` não existe declaração nenhuma: navegador sem suporte
+ * mostra a peça montada e parada, que é o estado final correto.
+ */
+@keyframes reempilhar {
+  from { transform: translateY(0); }
+  to { transform: translateY(var(--sobe, 0px)); }
+}
+
+@supports (animation-timeline: view()) {
+  .arte-reempilha {
+    animation: reempilhar linear both;
+    animation-timeline: view();
+    /* Começa a fechar quando a peça já está saindo, não antes: fechar cedo
+       demais rouba a leitura de quem ainda está olhando o hero. */
+    animation-range: exit 15% exit 95%;
+  }
+}

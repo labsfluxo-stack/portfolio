@@ -31,7 +31,7 @@ export function Dupla({ dict }: { dict: Dictionary }) {
   const numeros = [...dupla.numeros, ...daTelemetria]
 
   return (
-    <section className="bg-ink text-paper">
+    <section className="border-t border-rule">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-20 sm:py-28">
         <div className="flex flex-col gap-8 md:flex-row md:items-center md:gap-12">
           <div className="flex flex-col gap-8 md:flex-1">
@@ -40,7 +40,7 @@ export function Dupla({ dict }: { dict: Dictionary }) {
             </h2>
             <div className="flex max-w-2xl flex-col gap-4">
               {dupla.corpo.map((paragrafo) => (
-                <p key={paragrafo} className="text-[17px] leading-relaxed text-muted">
+                <p key={paragrafo} className="text-[17px] leading-relaxed text-ink-2">
                   {paragrafo}
                 </p>
               ))}
@@ -59,7 +59,7 @@ export function Dupla({ dict }: { dict: Dictionary }) {
             <ArteDupla />
           </div>
         </div>
-        <dl className="revelar flex flex-wrap gap-x-10 gap-y-5 border-t border-border pt-7">
+        <dl className="revelar flex flex-wrap gap-x-10 gap-y-5 border-t border-rule pt-7">
           {numeros.map((n) => (
             <div key={n.rotulo} className="flex flex-col gap-1">
               {/* Antes o <dt> ficava `sr-only` e um <p aria-hidden> repetia o
@@ -76,10 +76,10 @@ export function Dupla({ dict }: { dict: Dictionary }) {
                * é o que o content model de <dl> exige), só que aparece depois
                * dele na tela -- o número em destaque, o rótulo abaixo, como
                * antes. */}
-              <dt className="order-2 font-mono text-[11px] uppercase tracking-[0.15em] text-muted">
+              <dt className="order-2 font-mono text-[11px] uppercase tracking-[0.15em] text-ink-2">
                 {n.rotulo}
               </dt>
-              <dd className="order-1 font-mono text-3xl font-bold text-data">{n.valor}</dd>
+              <dd className="order-1 font-mono text-3xl font-bold text-accent">{n.valor}</dd>
             </div>
           ))}
         </dl>

@@ -20,7 +20,23 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
     // curta demais no topo faz a página começar sem peso e empurra tudo o que
     // importa para baixo do orçamento de atenção.
     // `relative` só para ancorar a malha de pontos, que é `absolute`.
-    <section className="relative mx-auto flex w-full max-w-4xl flex-col gap-10 px-6 py-24 sm:py-36 md:flex-row md:items-center md:gap-16">
+    // O HERO FICOU ESCURO, e é a maior mudança de polaridade que esta página
+    // já teve. Decisão do dono, com o custo conhecido e aceito: o `globals.css`
+    // registra que a landing nasceu clara porque fala com dono de empresa no
+    // celular sob luz variável, e a vantagem da polaridade positiva CRESCE
+    // conforme a fonte diminui. O `<h1>`, gigante, quase não sente; quem paga
+    // é o texto de apoio de 17–19px.
+    //
+    // O que a mudança compra: a arte da abertura é uma peça com brilho, e
+    // brilho não existe sobre papel — sobre claro, bloom vira borrão cinza.
+    // Num painel escuro recortado ela lia como adesivo colado; na faixa
+    // escura inteira ela pertence à página.
+    //
+    // E A `Dupla` LOGO ABAIXO VIROU CLARA no mesmo movimento, obrigatoriamente:
+    // a página alterna bandas, e duas escuras coladas virariam um bloco só de
+    // ~1400px com a fronteira dissolvida logo na abertura.
+    <section className="relative bg-ink text-paper">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-10 px-6 py-24 sm:py-36 md:flex-row md:items-center md:gap-16">
       {/* MALHA DE PONTOS atrás da dobra (ver app/globals.css). Dos fundos do
         * catálogo do Magic UI é um dos poucos que sobrevive em papel, porque
         * não emite luz — é subtração, não brilho. Aurora, Meteors e Light Rays
@@ -77,17 +93,17 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
             * visitante ainda está decidindo se fica. */}
           <h1
             style={{ '--i': 0 } as React.CSSProperties}
-            className="entrar text-balance font-sans text-5xl font-bold leading-[1.05] tracking-tight text-ink sm:text-6xl lg:text-7xl"
+            className="entrar text-balance font-sans text-5xl font-bold leading-[1.05] tracking-tight text-paper sm:text-6xl lg:text-7xl"
           >
             {hero.titulo}{' '}
             <span className="font-serif font-normal italic tracking-normal">{hero.tituloDestaque}</span>
           </h1>
           <p
             style={{ '--i': 1 } as React.CSSProperties}
-            className="entrar max-w-2xl text-balance text-[19px] leading-relaxed text-ink-2 sm:text-xl"
+            className="entrar max-w-2xl text-balance text-[19px] leading-relaxed text-muted sm:text-xl"
           >
             {hero.subtitulo}{' '}
-            <span className="font-serif text-[21px] italic text-ink sm:text-[23px]">{hero.subtituloDestaque}</span>
+            <span className="font-serif text-[21px] italic text-paper sm:text-[23px]">{hero.subtituloDestaque}</span>
           </p>
         </div>
 
@@ -98,7 +114,12 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
            * Instagram (fonte de tráfego que o spec cita), sem stack de "voltar"
            * confiável, a troca de aba pode encerrar a sessão de vez (achado I3
            * Important da revisão final de branch). */}
-          <BotaoWhatsapp numero={dict.contact.whatsapp} mensagem={cta.mensagem}>
+          {/* `variante="claro"` porque o hero virou faixa escura. O padrão é
+            * `escuro` (`bg-ink text-paper`), que sobre o novo fundo desapareceu
+            * por completo: o botão ficou preto sobre preto e sobrou só o rótulo
+            * solto, sem alvo visível. O componente já tinha a variante certa —
+            * ela existe exatamente para as faixas escuras da página. */}
+          <BotaoWhatsapp numero={dict.contact.whatsapp} mensagem={cta.mensagem} variante="claro">
             {cta.rotulo}
           </BotaoWhatsapp>
           {/* Corpo, não rótulo: onze palavras em duas frases, não 1–3 palavras
@@ -114,12 +135,13 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
            * enterrado. Caixa alta com tracking é o pior caso de legibilidade,
            * e 12px no celular sob sol é exatamente o que inverter a polaridade
            * do tema queria consertar. */}
-          <p className="text-[17px] leading-relaxed text-ink-2">{hero.assinatura}</p>
+          <p className="text-[17px] leading-relaxed text-muted">{hero.assinatura}</p>
         </div>
       </div>
 
-      <div style={{ '--i': 3 } as React.CSSProperties} className="entrar hidden md:block md:w-[44%]">
-        <ArteAbertura />
+      <div style={{ '--i': 3 } as React.CSSProperties} className="entrar hidden md:block md:w-[46%]">
+        <ArteAbertura textos={dict.landing.arte} />
+      </div>
       </div>
     </section>
   )
