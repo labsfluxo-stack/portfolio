@@ -2160,12 +2160,24 @@ export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema'
 }
 
 /**
- * A dupla, dentro da faixa escura — a única das quatro que usa `--color-data`
- * (`#38BDF8`). Ali ele dá 9,29:1; sobre o papel claro daria 1,93:1 e reprovaria
- * AA, e por isso não aparece em nenhuma das outras peças.
+ * O SISTEMA E O REPOSITÓRIO DO CLIENTE — e a peça mudou de significado junto
+ * com a seção.
  *
- * Duas formas IDÊNTICAS e espelhadas, conectadas. Nenhuma é a principal, que é
- * exatamente o argumento: dois sêniores, nenhum insubstituível.
+ * Ela desenhava DOIS MÓDULOS IDÊNTICOS e espelhados, conectados, e a simetria
+ * era o argumento: dois sêniores, nenhum insubstituível. A entrega passou a ser
+ * de uma pessoa só, então a simetria virou afirmação falsa — e arte que afirma
+ * o que o texto ao lado já não afirma é a pior espécie de detalhe errado, do
+ * tipo que ninguém corrige porque ninguém lê desenho como texto.
+ *
+ * A geometria sobreviveu porque o novo argumento também é de DOIS LADOS: o
+ * sistema que eu construo, e o repositório que fica com você. O que mudou é o
+ * que os liga — antes era paridade entre iguais, agora é entrega. As quatro
+ * vias continuam, e continuam querendo dizer redundância: some qualquer
+ * caminho e o código ainda chega do outro lado.
+ *
+ * A peça segue na faixa que era escura e hoje é clara, então o `--color-data`
+ * dela virou `--color-accent`: sobre o papel o ciano daria 1,93:1 e reprovaria
+ * AA. Ver `contraste.test.ts`.
  *
  * A primeira tentativa por gerador saiu com esferas em wireframe e dezenas de
  * linhas cruzadas — o clichê visual de "rede neural", que é o oposto do que

@@ -255,7 +255,7 @@ export const pt: Dictionary = {
       oscapstack: {
         name: 'OSCapstack CRM',
         tagline: 'Sistema operacional comercial para originação de crédito imobiliário, em produção.',
-        team: '2 desenvolvedores full-stack',
+        team: 'Desenvolvimento full-stack, de ponta a ponta',
         duration: '26 dias de construção',
         improvements: [
           'Três canais de lead num lugar só',
@@ -313,7 +313,7 @@ export const pt: Dictionary = {
       'saturno-labs': {
         name: 'Saturno Labs',
         tagline: 'Plataforma de marketing autônomo B2B que mede a autoridade de uma marca dentro das IAs.',
-        team: '2 desenvolvedores full-stack',
+        team: 'Desenvolvimento full-stack, de ponta a ponta',
         duration: 'menos de 45 dias de construção',
         improvements: [
           'A pesquisa vem antes da peça',
@@ -357,7 +357,7 @@ export const pt: Dictionary = {
       'moveis-pro': {
         name: 'Moveis.pro',
         tagline: 'SaaS multi-tenant para lojas de móveis, com CRM e operação de WhatsApp e Instagram.',
-        team: '2 desenvolvedores full-stack',
+        team: 'Desenvolvimento full-stack, de ponta a ponta',
         duration: 'menos de 45 dias de construção',
         improvements: [
           'Atendimento, pedido e estoque num lugar só',
@@ -588,7 +588,7 @@ export const pt: Dictionary = {
     meta: {
       title: 'Sites, blogs e sistemas sob medida — Neto Alves',
       description:
-        'Dois desenvolvedores full-stack. Sites, blogs e sistemas construídos para carregar rápido, aparecer no Google e ser lidos pelo ChatGPT.',
+        'Sites, blogs e sistemas construídos para carregar rápido, aparecer no Google e ser lidos pelo ChatGPT. Você fala direto com quem escreve o código.',
     },
     // O QUE CADA CAMADA ENTREGA, na língua de quem compra.
     //
@@ -627,7 +627,7 @@ export const pt: Dictionary = {
       subtitulo: 'Construídos para carregar rápido, aparecer no Google e',
       subtituloDestaque: 'ser lidos pelo ChatGPT.',
       assinatura:
-        'Dois desenvolvedores full-stack. Você fala direto com quem escreve o código.',
+        'Você fala direto com quem escreve o código. Sem intermediário e sem repasse.',
     },
     cta: {
       rotulo: 'Quero um orçamento',
@@ -679,16 +679,38 @@ export const pt: Dictionary = {
         },
       ],
     },
+    // A SEÇÃO MUDOU DE ARGUMENTO, e a mudança é de fato, não de estilo: a
+    // entrega é de uma pessoa só, e a página inteira afirmava duas.
+    //
+    // O trabalho dela continua o mesmo — neutralizar as duas objeções do
+    // mercado. A primeira (agência cobra estrutura que não escreve seu código)
+    // uma pessoa só responde MELHOR que uma dupla, e a resposta nem precisou
+    // mudar de palavras.
+    //
+    // A segunda (ponto único de falha) não se responde mais com gente. E a
+    // resposta que sobrou é mais forte que a antiga, não mais fraca: "os dois
+    // conhecem o código" ainda falha se os dois saírem; "o código é seu, no seu
+    // repositório, documentado e testado" sobrevive a qualquer coisa —
+    // inclusive a mim. É também a única das duas que o visitante pode
+    // verificar, e os repositórios são públicos.
+    //
+    // A página deixou de CONTAR PESSOAS. Não diz "dois" e não diz "sozinho":
+    // fala de acesso e de propriedade, que é o que o cliente compra.
     dupla: {
-      titulo: 'Dois desenvolvedores full-stack',
+      titulo: 'Você fala com quem escreve o código',
       corpo: [
-        'Você fala direto com quem escreve o código. Sem gerente de projeto, sem estagiário, sem terceirização.',
-        'E não depende de uma pessoa só: os dois conhecem o código inteiro.',
+        'Sem gerente de projeto, sem estagiário, sem terceirização. A pessoa que responde a sua mensagem é a mesma que abre o editor.',
+        'E o que for construído é seu: o código fica no seu repositório, documentado e coberto por teste. Qualquer desenvolvedor pega de onde parou.',
       ],
       // Os valores NÃO ficam aqui: vêm de `telemetry`, que já carrega o campo
       // `provenance` dizendo como cada um foi medido. Só os rótulos moram
       // neste dicionário. Ver Task 6.
-      numeros: [{ valor: '2', rotulo: 'desenvolvedores' }],
+      //
+      // O "2 desenvolvedores" saiu daqui. Ficaram só os três números medidos —
+      // e o de casos de teste entrou de propósito: é ele que sustenta a frase
+      // sobre o código não viver na cabeça de ninguém. Número que prova o
+      // argumento vale mais que número que impressiona.
+      numeros: [],
     },
     prova: {
       // Era "Três sistemas em operação" — FALSO (saturno-labs tem
@@ -811,9 +833,9 @@ export const pt: Dictionary = {
             'Por si só, não. WordPress, Wix e Shopify entregam a página pronta pelo servidor, que é o que a IA precisa. O que atrapalha é o que se acumula em cima: plugin demais, hospedagem barata e — o mais comum — configuração de segurança que barra o robô achando que é raspagem. As três coisas têm conserto sem trocar de plataforma.',
         },
         {
-          pergunta: 'E se um de vocês ficar indisponível?',
+          pergunta: 'E se você ficar indisponível?',
           resposta:
-            'Os dois conhecem o código inteiro e o repositório é compartilhado desde o primeiro dia. O projeto não para porque uma pessoa parou.',
+            'O código fica no seu repositório desde o primeiro dia, documentado e coberto por teste — não na minha máquina e não na minha cabeça. Qualquer desenvolvedor abre o projeto e continua de onde parou. É a única resposta a essa pergunta que não depende de eu estar por perto.',
         },
         {
           pergunta: 'Isso substitui o trabalho de SEO?',
@@ -827,7 +849,7 @@ export const pt: Dictionary = {
           // (duas vezes); "45" sozinho afirma um teto que nenhum dos três
           // sistemas bateu de verdade.
           resposta:
-            'Depende do escopo. Os três sistemas do portfólio levaram de 26 a menos de 45 dias cada, com duas pessoas. Um site institucional é bem mais rápido que isso — mas só damos prazo depois de entender o que precisa existir.',
+            'Depende do escopo. Os três sistemas do portfólio levaram de 26 a menos de 45 dias cada. Um site institucional é bem mais rápido que isso — mas só dou prazo depois de entender o que precisa existir.',
         },
       ],
     },
@@ -836,13 +858,13 @@ export const pt: Dictionary = {
     meta: {
       title: 'Ativações digitais para agências — Neto Alves',
       description:
-        'Dois desenvolvedores full-stack constroem o software da sua ativação: advergame, quiz, roleta, totem e telão. Sai com a marca da agência.',
+        'Software sob medida para a sua ativação: advergame, quiz, roleta, totem e telão. Sai com a marca da agência.',
     },
     capa: {
       titulo: 'A ativação é sua.',
       tituloDestaque: 'O código é nosso.',
       subtitulo:
-        'Dois desenvolvedores full-stack constroem o software da ativação que a sua agência vendeu.',
+        'O software da ativação que a sua agência vendeu, construído sob medida.',
       convite: 'Toque nos alvos.',
       convitesTema: { junino: 'Estoure os balões.' },
       // Zero é plural: "0 acertos", nunca "0 acerto". Só a contagem

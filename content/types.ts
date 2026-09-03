@@ -80,11 +80,22 @@ export type CaseStudy = {
    * recrutador faz diante de 78.900 linhas. Sem resposta, ele resolve a
    * ambiguidade sozinho — e resolve pelo lado pessimista.
    *
-   * Declarar o time de dois FORTALECE os números em vez de diminuí-los: essa
-   * escala feita por duas pessoas é crível e rara; por uma só, força a
-   * credulidade de quem já entregou software e sabe o que custa.
+   * ESTE COMENTÁRIO DIZIA O CONTRÁRIO, e a correção é de fato: a entrega é de
+   * uma pessoa só. O texto anterior argumentava que declarar um time de dois
+   * fortalecia os números — "essa escala feita por duas pessoas é crível e
+   * rara; por uma só, força a credulidade de quem já entregou software" — e
+   * terminava mandando nunca sugerir trabalho solo.
    *
-   * Nunca escrever nada aqui que sugira trabalho solo — não foi.
+   * O raciocínio sobre credulidade continua correto e vale registrar, porque é
+   * um custo real que a página passou a pagar: 250 mil linhas e nove sistemas
+   * por uma pessoa CONVIDA à dúvida, e convida justamente em quem entende do
+   * assunto — que é quem se quer convencer.
+   *
+   * A resposta a esse custo não é inflar o time. É o que a página já faz melhor
+   * que qualquer afirmação: cada número carrega procedência, os prazos estão
+   * declarados ao lado, e os repositórios são públicos. Quem duvidar, confere.
+   *
+   * O campo passa a descrever o MODO de trabalho, não a contagem de pessoas.
    */
   team: string
   /**
