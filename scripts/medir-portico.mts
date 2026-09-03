@@ -17,7 +17,11 @@ import { chromium } from '@playwright/test'
 import { spawn } from 'node:child_process'
 import { setTimeout as esperar } from 'node:timers/promises'
 
-const BASE = 'http://localhost:4173/portfolio/pt/'
+// `MEDIR_URL` aponta para o site publicado em vez do `out/` local. É a única
+// forma de confirmar que o que foi ao ar é o que foi medido aqui — o hash dos
+// chunks do build do CI não bate com o do build local, então comparar nome de
+// arquivo não prova nada.
+const BASE = process.env.MEDIR_URL ?? 'http://localhost:4173/portfolio/pt/'
 /** Quanto esperar a cena montar: `PorticoSlot` só a agenda depois de `load` +
  *  ociosidade, com teto de 2s no `requestIdleCallback`. */
 const TETO_MONTAGEM = 15_000
