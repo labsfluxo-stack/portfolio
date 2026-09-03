@@ -1,3 +1,14 @@
+/**
+ * Uma camada da vista explodida do hero da landing: o nome, o que ela entrega
+ * (traduzido) e a que padrões responde (nome próprio, igual nos dois idiomas).
+ */
+export type CamadaDaArte = {
+  nome: string
+  /** Máximo ~13 caracteres cada — acima disso o texto atravessa o desenho. */
+  itens: readonly [string, string, string]
+  cumpre: readonly [string, string, string]
+}
+
 export const locales = ['pt', 'en'] as const
 export type Locale = (typeof locales)[number]
 
@@ -300,6 +311,34 @@ export type Dictionary = {
    */
   landing: {
     meta: { title: string; description: string }
+    /**
+     * AS LEGENDAS DA ARTE DA ABERTURA, e elas vieram para cá por um motivo de
+     * VENDA, não de arquitetura.
+     *
+     * Enquanto moravam dentro de `arte.tsx`, tinham de ser termos neutros de
+     * idioma — `ssr`, `cache`, `schema` — porque a mesma peça serve as rotas PT
+     * e EN. O problema é que essas palavras não significam nada para quem esta
+     * página persegue: dono de empresa, não desenvolvedor. A ilustração mais
+     * vista do site estava escrita para o público errado.
+     *
+     * No dicionário, cada idioma diz o que a camada FAZ, na língua da própria
+     * página: "abre em 2s", "seu histórico não se perde".
+     *
+     * A COLUNA `cumpre` CONTINUA EM NOME PRÓPRIO de propósito, e não é
+     * esquecimento: `PostgreSQL`, `WCAG AA` e `ChatGPT` se escrevem igual nos
+     * dois idiomas, e é justamente a estranheza técnica deles que dá lastro à
+     * coluna da esquerda. Traduzir seria enfraquecer as duas.
+     *
+     * O ESPAÇO É CURTO: cada item tem cerca de treze caracteres antes de
+     * encostar na peça. Não é limite de estilo, é de layout — texto mais longo
+     * atravessa o desenho. Ver `Anotacao`, em `components/landing/arte.tsx`.
+     */
+    arte: {
+      dados: CamadaDaArte
+      aplicacao: CamadaDaArte
+      interface: CamadaDaArte
+      descoberta: CamadaDaArte
+    }
     hero: {
       titulo: string
       /** Duas ou três palavras em serifa itálica, coladas ao fim do título.
