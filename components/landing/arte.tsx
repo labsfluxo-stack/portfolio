@@ -753,7 +753,17 @@ type Camada = {
   /** O símbolo que identifica a camada à primeira olhada, quando ela tem um.
    *  Cilindro é banco de dados desde os anos 70; lupa é busca em todo conjunto
    *  de ícones que existe. As convenções não se inventam — se usam. */
-  simbolo?: { tipo: 'cilindro' | 'lupa'; x: number; y: number; raio: number; altura?: number }
+  simbolo?: {
+    tipo: 'cilindro' | 'lupa'
+    x: number
+    y: number
+    raio: number
+    altura?: number
+    /** Índice do contorno em cujo tampo o símbolo pousa. Sem ele a lupa
+     *  flutuaria: as caixas têm alturas diferentes, e chutar uma média deixa o
+     *  símbolo enterrado numa e pairando na vizinha. */
+    sobreCaixa?: number
+  }
   /** As marcas das IAs que leem a página. Só a camada de descoberta tem. */
   marcasIA?: { x: number; y: number }[]
   /** Marcas vazadas: a maior parte do conteúdo. */
@@ -995,7 +1005,7 @@ const CAMADAS: Camada[] = [
     // A LUPA SAIU DO AR E ENTROU NO CAMPO. Erguida e solta ela lia como
     // enfeite pairando; encostada na ponta direita do campo, ela vira o botão
     // de buscar — que é onde toda pessoa já viu uma lupa na vida.
-    simbolo: { tipo: 'lupa', x: 82, y: 22, raio: 6.5 },
+    simbolo: { tipo: 'lupa', x: 87, y: 22, raio: 6, sobreCaixa: 1 },
     // AS TRÊS IAs DESCERAM PARA DENTRO DA CAMADA.
     //
     // Antes elas pairavam acima do plano, sobre pedestais, ligadas por um fio
@@ -1018,8 +1028,16 @@ const CAMADAS: Camada[] = [
     // A mais fina de todas: descoberta não é matéria, é consequência.
     altura: 2,
     contornos: [
-      // O campo de busca, no alto e mais raso que os resultados.
-      [18, 18, 76, 9],
+      // O CAMPO ENCURTOU PARA A LUPA CABER AO LADO. Ela vinha pousada em cima
+      // da ponta direita do campo, e uma lente do tamanho da altura da barra,
+      // deitada sobre ela, não lia como botão — lia como objeto largado ali.
+      //
+      // Com o campo terminando em 76 e o botão começando em 80, os dois viram o
+      // par que qualquer pessoa reconhece: onde se digita, e o que se aperta.
+      [18, 18, 58, 9],
+      // O botão de buscar. Quadrado e da altura do campo, como em toda barra de
+      // busca que existe — é a caixa que carrega a lupa no tampo.
+      [80, 15, 14, 14],
       // Dois resultados, altos o bastante para caberem título e trecho.
       [18, 34, 76, 16],
       [18, 56, 76, 16],
@@ -1943,12 +1961,14 @@ export function ArteAbertura({ textos }: { textos: Dictionary["landing"]["arte"]
             })}
 
             {camada.simbolo?.tipo === 'lupa' && (
-              // Pousada no campo, não pairando: `altura + 1` a deixa em cima da
-              // tampa da caixa do campo de busca, como o botão que ela é.
+              // Pousada no tampo da caixa que ela identifica, e a altura vem de
+              // `alturaDe` — a mesma fonte que desenhou a caixa. Um número
+              // chutado aqui deixaria a lente enterrada ou flutuando, porque as
+              // peças da camada não têm todas a mesma espessura.
               <LupaIso
                 x={camada.simbolo.x}
                 y={camada.simbolo.y}
-                z={camada.z + camada.altura + 1}
+                z={camada.z + alturaDe(camada.simbolo.sobreCaixa ?? 0)}
                 raio={camada.simbolo.raio}
               />
             )}
