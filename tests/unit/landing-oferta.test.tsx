@@ -76,10 +76,33 @@ describe('Dupla', () => {
     expect(screen.getByText('SENTINELA-42')).toBeInTheDocument()
   })
 
-  it('exibe o tamanho do time como número, não como desculpa', () => {
-    render(<Dupla dict={pt} />)
-    expect(screen.getByText('2')).toBeInTheDocument()
+  /**
+   * ERA "exibe o tamanho do time como número", e travava o `2`.
+   *
+   * A entrega passou a ser de uma pessoa só, e a seção deixou de CONTAR
+   * PESSOAS: ela fala de acesso direto e de propriedade do código. O guarda que
+   * sobrevive à mudança — e que continua valendo — é o outro: a seção nunca
+   * pode pedir desculpa pelo tamanho.
+   *
+   * O teste ganhou o par disso. "Sozinho", "apenas eu" e afins são exatamente o
+   * enquadramento que a reescrita existe para evitar: o cliente compra falar
+   * com quem escreve o código, não o número de pessoas que escrevem.
+   */
+  it('não conta pessoas nem pede desculpa pelo tamanho', () => {
     const { container } = render(<Dupla dict={pt} />)
     expect(container.textContent).not.toMatch(/apesar|pequen/i)
+    expect(container.textContent).not.toMatch(/sozinh|apenas eu|somente eu|uma pessoa só/i)
+    expect(container.textContent).not.toMatch(/\bdois desenvolvedores\b|\bdupla\b/i)
+  })
+
+  /**
+   * A PROMESSA QUE SUBSTITUIU A DUPLA, travada por teste porque é ela que
+   * responde à objeção de ponto único de falha. Se alguém apagar essa frase, a
+   * seção volta a não ter resposta para a pergunta mais cara da página.
+   */
+  it('responde ao ponto único de falha com o código, não com gente', () => {
+    const { container } = render(<Dupla dict={pt} />)
+    expect(container.textContent).toMatch(/reposit[óo]rio/i)
+    expect(container.textContent).toMatch(/teste/i)
   })
 })

@@ -212,7 +212,7 @@ export const en: Dictionary = {
       oscapstack: {
         name: 'OSCapstack CRM',
         tagline: "Commercial operating system for real-estate credit origination, in production.",
-        team: '2 full-stack developers',
+        team: 'Full-stack development, end to end',
         duration: 'built in 26 days',
         improvements: [
           'Three lead channels in one place',
@@ -254,7 +254,7 @@ export const en: Dictionary = {
       'saturno-labs': {
         name: 'Saturno Labs',
         tagline: "Autonomous B2B marketing platform that measures a brand's authority inside AI answers.",
-        team: '2 full-stack developers',
+        team: 'Full-stack development, end to end',
         duration: 'built in under 45 days',
         improvements: [
           'Research comes before the piece',
@@ -291,7 +291,7 @@ export const en: Dictionary = {
       'moveis-pro': {
         name: 'Moveis.pro',
         tagline: 'Multi-tenant SaaS for furniture stores, with CRM and WhatsApp/Instagram operations.',
-        team: '2 full-stack developers',
+        team: 'Full-stack development, end to end',
         duration: 'built in under 45 days',
         improvements: [
           'Service, order and stock in one place',
@@ -486,7 +486,7 @@ export const en: Dictionary = {
       // de IA, e a página inteira existe para não prometer o que não
       // controla. Ver content/pt.ts.
       description:
-        'Two full-stack developers. Websites, blogs and systems built to load fast, show up on Google and be readable by ChatGPT.',
+        'Websites, blogs and systems built to load fast, show up on Google and be readable by ChatGPT. You talk straight to whoever writes the code.',
     },
     // Ver o comentário em content/pt.ts. Os itens são traduzidos; `cumpre` não
     // — `PostgreSQL`, `WCAG AA` e `ChatGPT` se escrevem igual nos dois idiomas,
@@ -525,7 +525,7 @@ export const en: Dictionary = {
       // controllable than an AI mention.
       subtitulo: 'Built to load fast, show up on Google and',
       subtituloDestaque: 'be readable by ChatGPT.',
-      assinatura: 'Two full-stack developers. You talk straight to whoever writes the code.',
+      assinatura: 'You talk straight to whoever writes the code. No middleman, no hand-off.',
     },
     cta: {
       rotulo: 'Get a quote',
@@ -574,13 +574,16 @@ export const en: Dictionary = {
         },
       ],
     },
+    // Ver o comentário em content/pt.ts. A entrega é de uma pessoa só, e a
+    // segunda objeção do mercado passa a ser respondida com artefato — código
+    // no repositório do cliente, documentado e testado — em vez de com gente.
     dupla: {
-      titulo: 'Two full-stack developers',
+      titulo: 'You talk to whoever writes the code',
       corpo: [
-        'You talk straight to whoever writes the code. No project manager, no intern, no outsourcing.',
-        'And it does not hang on one person: both of us know the whole codebase.',
+        'No project manager, no intern, no outsourcing. The person who answers your message is the same one who opens the editor.',
+        'And what gets built is yours: the code lives in your repository, documented and covered by tests. Any developer picks up where it stopped.',
       ],
-      numeros: [{ valor: '2', rotulo: 'developers' }],
+      numeros: [],
     },
     prova: {
       // Ver content/pt.ts: "Three systems in production" was FALSE
