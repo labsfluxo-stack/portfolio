@@ -29,12 +29,30 @@ describe('Dupla', () => {
    * de virar `--color-accent` (#0369A1, 5,35:1), tanto nos números quanto na
    * arte. É o mesmo guarda que `landing-topo.test.tsx` já faz no `Criterio`.
    */
-  it('não usa o token do tema escuro depois de virar seção clara', () => {
+  /**
+   * O QUE ESTE TESTE GUARDA MUDOU DUAS VEZES, e o assunto real dele é um só:
+   * o ciano e o fundo desta seção andam juntos.
+   *
+   * `--color-data` (#38BDF8) dá 9,29:1 sobre escuro e 1,93:1 sobre o papel. A
+   * seção já foi escura, clareou quando o hero escureceu (para as duas bandas
+   * não virarem um bloco só) e voltou a escurecer quando a distinção passou a
+   * ser feita por VALOR — `--color-bg` no hero contra `--color-surface` aqui,
+   * com hairline entre os dois.
+   *
+   * Em cada uma dessas viradas o ciano teve de acompanhar, e é isso que se
+   * verifica: enquanto a seção for escura o ciano é legítimo; no minuto em que
+   * alguém a clarear de novo sem trocar o token, o teste reprova. É o mesmo
+   * par que `contraste.test.ts` mede em número.
+   */
+  it('o ciano só existe enquanto a seção for escura', () => {
     const { container } = render(<Dupla dict={pt} />)
-    expect(container.querySelector('.bg-bg, .bg-ink'), 'a Dupla voltou a ser faixa escura sem revisar o ciano').toBeNull()
-    expect(container.innerHTML).not.toContain('text-data')
-    expect(container.innerHTML).not.toContain('stroke-data')
-    expect(container.innerHTML).not.toContain('fill-data')
+    const escura = container.querySelector('.bg-bg, .bg-ink, .bg-surface') !== null
+    if (!escura) {
+      expect(container.innerHTML, 'seção clara com ciano: 1,93:1 reprova AA').not.toMatch(
+        /text-data|stroke-data|fill-data/,
+      )
+    }
+    expect(escura, 'a Dupla precisa declarar um fundo escuro explicitamente').toBe(true)
   })
 
   /**
