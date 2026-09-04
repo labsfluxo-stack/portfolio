@@ -45,7 +45,11 @@ import type { Dictionary } from '@/content/types'
  * não por traço. Se um dia um contorno ganhar raio, o perímetro sai alguns
  * décimos maior que o real e o traço fecha um triz antes do fim.
  */
-const perimetro = (w: number, h: number) => 2 * (w + h)
+// `perimetro(w, h)` morava aqui e ficou órfão quando a última arte de vista
+// frontal virou isométrica: retângulo projetado não tem mais lados de
+// comprimento `w` e `h`, e quem mede o contorno passou a ser `perimetroDe`,
+// que soma os lados DEPOIS da projeção. Sobrou `segmento`, que continua exato
+// em qualquer projeção porque mede dois pontos já projetados.
 const segmento = (x1: number, y1: number, x2: number, y2: number) => Math.hypot(x2 - x1, y2 - y1)
 
 /** Props de uma forma de CONTORNO, que é traçada. `--traco` alimenta o
@@ -2076,134 +2080,153 @@ export function ArteAbertura({ textos }: { textos: Dictionary["landing"]["arte"]
 }
 
 /**
- * Uma estrutura por cartão da oferta. Cada uma diz o que o cartão vende, sem
- * desenhar interface nenhuma:
+ * Uma estrutura por cartão da oferta, agora em ISOMÉTRICO como o resto da
+ * página. Cada uma diz o que o cartão vende, sem desenhar interface nenhuma:
  *
  *   site      camadas horizontais empilhadas — uma página, lida de cima a baixo
  *   blog      coluna de blocos repetidos — publicação que se acumula com o tempo
  *   sistema   malha de nós conectados — operação, onde tudo se fala
+ *
+ * As três dividem a MESMA laje de base, do mesmo tamanho e na mesma altura, e
+ * isso é requisito de composição e não economia: os cartões ficam lado a lado
+ * numa fileira, e três bases diferentes fariam o olho comparar as bases em vez
+ * do que está em cima delas — que é justamente onde mora a diferença entre os
+ * três produtos.
+ *
+ * Ids das defs com prefixo `o-`: `<defs>` de SVG vivem no documento, e esta
+ * página carrega outras três peças. Sem prefixo, a quarta herdaria em silêncio
+ * o que a primeira declarou.
  */
 /** Os quatro módulos ao redor do núcleo, no cartão "sistema". Fonte única: as
- *  vias e os nós saem daqui, então nenhum ajuste de posição pode dessincronizar
- *  os dois. */
+ *  vias e os módulos saem daqui, então nenhum ajuste de posição pode
+ *  dessincronizar os dois. */
 const NOS_SISTEMA: [number, number][] = [
-  [22, 14],
-  [98, 14],
-  [22, 58],
-  [98, 58],
+  [12, 12],
+  [40, 12],
+  [12, 40],
+  [40, 40],
 ]
 
 export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema' }) {
+  const face = (x: number, y: number, w: number, d: number, z: number) =>
+    pontosDe(faceIso(x, y, w, d, z))
+
+  const Bloco = ({
+    r,
+    z,
+    alt,
+    cheio = false,
+  }: {
+    r: [number, number, number, number]
+    z: number
+    alt: number
+    cheio?: boolean
+  }) => {
+    const [x, y, w, d] = r
+    const lx = pontosDe(faceLateralX(x, y, w, d, z, alt))
+    const ly = pontosDe(faceLateralY(x, y, w, d, z, alt))
+    return (
+      <g>
+        <polygon points={face(x + 1.2, y + 1.2, w, d, z)} fill="url(#o-sombra)" {...preenche('')} />
+        <polygon points={lx} fill="url(#o-face-clara)" {...preenche('')} />
+        <polygon points={lx} fill="url(#o-hachura-densa)" {...preenche('')} />
+        <polygon points={ly} fill="url(#o-face-escura)" {...preenche('')} />
+        <polygon points={ly} fill="url(#o-hachura-densa)" {...preenche('')} />
+        <g {...preenche('stroke-ink')} fill="none" strokeWidth={TRACO.construcao}>
+          <polygon points={lx} />
+          <polygon points={ly} />
+        </g>
+        {cheio ? (
+          <polygon points={face(x, y, w, d, z + alt)} {...preenche('fill-ink')} />
+        ) : (
+          <g>
+            <polygon {...contorno(faceIso(x, y, w, d, z + alt), 'fill-paper stroke-ink', TRACO.conteudo)} />
+            <polygon points={face(x, y, w, d, z + alt)} fill="url(#o-face-topo)" {...preenche('')} />
+          </g>
+        )}
+      </g>
+    )
+  }
+
+  /** A base comum das três. Ver o comentário do componente. */
+  const BASE: [number, number, number, number] = [0, 0, 52, 52]
+
   return (
     <svg
-      viewBox="0 0 120 72"
+      viewBox="0 0 104 76"
       role="img"
       aria-hidden="true"
       className="arte-viva h-auto w-full"
       preserveAspectRatio="xMidYMid meet"
     >
-      {variante === 'site' && (
-        <>
-          {/* UMA PÁGINA, e agora com a anatomia que faz reconhecer uma:
-              barra de topo com marca e menu, título, texto, botão. A versão
-              anterior era um retângulo com três tarjas dentro — podia ser
-              qualquer coisa. Mesma correção que a comparação de JS já tinha
-              recebido do dono ("não dá pra entender o que é"), aplicada aqui. */}
-          <rect x="10" y="8" width="100" height="56" strokeWidth="1.2" {...traca(perimetro(100, 56), 'fill-none stroke-ink')} />
-          <line x1="10" y1="20" x2="110" y2="20" strokeWidth="0.6" {...traca(100, 'stroke-rule')} />
-          <rect x="16" y="12" width="10" height="5" {...preenche('fill-ink')} />
-          {[86, 94, 102].map((x) => (
-            <rect key={x} x={x} y="13" width="6" height="2" {...preenche('fill-rule')} />
-          ))}
-          <rect x="16" y="27" width="44" height="7" {...preenche('fill-ink')} />
-          {[39, 45].map((y) => (
-            <rect key={y} x="16" y={y} width={y === 39 ? 72 : 58} height="2.5" {...preenche('fill-rule')} />
-          ))}
-          {/* O botão é o sinal mais forte de "isto é um site", e é o único
-              elemento em cor da peça. */}
-          <rect x="16" y="52" width="26" height="8" rx="2" {...preenche('fill-accent')} />
-        </>
-      )}
+      <DefsAcabamento p="o-" />
+      <DefsHachura p="o-" />
 
-      {variante === 'blog' && (
-        <>
-          {/* PUBLICAÇÃO QUE SE ACUMULA. Cada faixa é um post, e agora cada uma
-              tem CONTEÚDO — uma tarja de título e um marcador de data — em vez
-              de serem quatro retângulos vazios iguais. Quatro caixas idênticas
-              não dizem "blog", dizem "lista".
+      <g transform="translate(52, 10)">
+        <Bloco r={BASE} z={0} alt={2} />
 
-              O de cima é o mais recente e é o único preenchido: é o que o leitor
-              (e o crawler) encontra primeiro. Os de baixo desbotam para o
-              contorno, que é o tempo passando sem precisar de mais nenhum
-              elemento.
+        {variante === 'site' && (
+          <>
+            {/* UMA PÁGINA, lida de cima a baixo: barra de topo, título, duas
+              * linhas de texto e o botão. O botão é o sinal mais forte de
+              * todos — é ele que faz reconhecer "site" antes de qualquer outra
+              * forma da composição, e por isso é o único bloco em destaque. */}
+            <Bloco r={[4, 4, 44, 5]} z={2} alt={1.4} cheio />
+            <Bloco r={[4, 13, 28, 6]} z={2} alt={2} cheio />
+            <Bloco r={[4, 22, 40, 3]} z={2} alt={0.9} />
+            <Bloco r={[4, 27, 34, 3]} z={2} alt={0.9} />
+            <Bloco r={[4, 34, 15, 5]} z={2} alt={2.8} cheio />
+            <Bloco r={[4, 43, 44, 5]} z={2} alt={1} />
+          </>
+        )}
 
-              O bloco sólido entra por opacidade e os vazados por traço: um
-              contorno já cheio de tinta não tem desenho a mostrar — animá-lo
-              como traço acenderia a borda de um retângulo que já está preto. */}
-          {[8, 23, 38, 53].map((y, i) => (
-            <g key={y}>
-              {i === 0 ? (
-                <rect x="16" y={y} width="88" height="11" strokeWidth="1" {...preenche('fill-ink stroke-ink')} />
-              ) : (
-                <rect x="16" y={y} width="88" height="11" strokeWidth="0.9" {...traca(perimetro(88, 11), 'fill-none stroke-ink')} />
-              )}
-              {/* Tarja de título dentro de cada post. No primeiro ela é clara,
-                  porque o fundo dele é preto. */}
-              <rect
-                x="22"
-                y={y + 4}
-                width={[46, 54, 40, 50][i] ?? 46}
-                height="3"
-                {...preenche(i === 0 ? 'fill-paper' : 'fill-rule')}
-              />
-            </g>
-          ))}
-          {/* O marcador do post mais recente — único elemento em cor. */}
-          <rect x="94" y="26" width="6" height="5" {...preenche('fill-accent')} />
-        </>
-      )}
-
-      {variante === 'sistema' && (
-        <>
-          {/* Malha: cada nó fala com o vizinho. Só linhas retas.
-              Virou lista para o comprimento de cada aresta sair da mesma
-              coordenada que a desenha — escrito à mão, o primeiro ajuste de
-              posição deixaria o `--traco` apontando para a geometria antiga e
-              o traço fecharia curto ou passaria do fim. */}
-          {/* OPERAÇÃO: um centro que fala com todos, não uma teia.
-              A malha anterior tinha nove arestas ligando tudo a tudo, e nessa
-              escala virava rabisco — sem contar que "tudo ligado a tudo" é o
-              clichê de rede neural que esta página evita em toda parte.
-
-              Agora é hub e satélites: um núcleo em cor e quatro módulos ao
-              redor, cada um com uma via só. É o que um sistema de operação
-              realmente é — um lugar onde as coisas se encontram — e nessa
-              escala continua legível.
-
-              Os nós saem de UMA lista de coordenadas, e as vias saem da mesma
-              lista: mover um nó move a via junto. Escritas à mão, a primeira
-              correção de posição deixaria o `--traco` apontando para a
-              geometria antiga e o traço fecharia curto. */}
-          <g className="stroke-ink" strokeWidth="0.9">
-            {NOS_SISTEMA.map(([x, y]) => (
-              <line key={`v${x}-${y}`} x1={60} y1={36} x2={x} y2={y} {...traca(segmento(60, 36, x, y), '')} />
+        {variante === 'blog' && (
+          <>
+            {/* PUBLICAÇÃO QUE SE ACUMULA: quatro entradas iguais empilhadas, e a
+              * altura CRESCE de trás para frente. A repetição sozinha diz
+              * "lista"; é a escada de alturas que diz "acumula com o tempo",
+              * que é o argumento do cartão. */}
+            {[4, 15, 26, 37].map((y, i) => (
+              <g key={y}>
+                <Bloco r={[4, y, 44, 8]} z={2} alt={1 + i * 0.7} />
+                {/* A tarja do título de cada post, mais curta a cada uma —
+                  * quatro barras idênticas leem como tabela, não como texto. */}
+                <Bloco r={[7, y + 2, [30, 24, 34, 20][i] ?? 26, 2.4]} z={3 + i * 0.7} alt={0.8} cheio />
+              </g>
             ))}
-          </g>
-          {NOS_SISTEMA.map(([x, y]) => (
-            <rect
-              key={`n${x}-${y}`}
-              x={x - 9}
-              y={y - 6}
-              width="18"
-              height="12"
-              strokeWidth="0.9"
-              {...traca(perimetro(18, 12), 'fill-paper stroke-ink')}
-            />
-          ))}
-          {/* O núcleo, e o único elemento em cor. */}
-          <rect x="50" y="28" width="20" height="16" {...preenche('fill-accent')} />
-        </>
-      )}
+          </>
+        )}
+
+        {variante === 'sistema' && (
+          <>
+            {/* OPERAÇÃO: quatro módulos e um núcleo, com as vias desenhadas.
+              * As ligações vêm ANTES dos módulos, para passarem por baixo deles
+              * em vez de cortá-los ao meio — mesma ordem do hero. */}
+            <g className="stroke-data" strokeWidth={TRACO.conteudo}>
+              {NOS_SISTEMA.map(([x, y]) => {
+                const [ax, ay] = iso(x, y, 2)
+                const [bx, by] = iso(26, 26, 2)
+                return (
+                  <line
+                    key={`${x}-${y}`}
+                    x1={ax}
+                    y1={ay}
+                    x2={bx}
+                    y2={by}
+                    {...traca(segmento(ax, ay, bx, by), '')}
+                  />
+                )
+              })}
+            </g>
+            {NOS_SISTEMA.map(([x, y]) => (
+              <Bloco key={`${x}-${y}`} r={[x - 6, y - 5, 12, 10]} z={2} alt={2.4} />
+            ))}
+            {/* O núcleo, mais alto que os módulos e o único em destaque: numa
+              * malha em que tudo se fala, alguma coisa coordena. */}
+            <Bloco r={[19, 19, 14, 14]} z={2} alt={4.6} cheio />
+          </>
+        )}
+      </g>
     </svg>
   )
 }
