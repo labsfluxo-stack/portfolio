@@ -583,7 +583,7 @@ const HACHURA = { densa: 'hachura-densa', esparsa: 'hachura-esparsa' } as const
  * falta profundidade. Não falta — foram três tentativas.
  */
 
-function DefsAcabamento() {
+function DefsAcabamento({ p = '' }: { p?: string }) {
   return (
     <defs>
       {/* AS FACES VIRARAM VIDRO. No escuro a lógica se inverte: sombreamento
@@ -592,22 +592,22 @@ function DefsAcabamento() {
           não token: estas duas precisam ser luz, e `--color-ink` está invertido
           dentro do painel, então usá-lo aqui as amarraria à inversão em vez de
           à intenção. */}
-      <linearGradient id="face-clara" x1="0" y1="0" x2="0.35" y2="1">
+      <linearGradient id={`${p}face-clara`} x1="0" y1="0" x2="0.35" y2="1">
         <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.16" />
         <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.03" />
       </linearGradient>
-      <linearGradient id="face-escura" x1="0" y1="0" x2="0.35" y2="1">
+      <linearGradient id={`${p}face-escura`} x1="0" y1="0" x2="0.35" y2="1">
         <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.07" />
         <stop offset="100%" stopColor="#000000" stopOpacity="0.22" />
       </linearGradient>
       {/* O vidro da lupa: aceso na cor do acento, para amarrar a camada de cima
           ao único ponto de cor da peça — sem virar um segundo acento. */}
-      <linearGradient id="lente" x1="0" y1="0" x2="0.5" y2="1">
+      <linearGradient id={`${p}lente`} x1="0" y1="0" x2="0.5" y2="1">
         <stop offset="0%" stopColor="#67E8F9" stopOpacity="0.30" />
         <stop offset="100%" stopColor="#38BDF8" stopOpacity="0.10" />
       </linearGradient>
       {/* O topo das peças: vidro fosco, levemente azulado pela luz de ambiente. */}
-      <linearGradient id="face-topo" x1="0" y1="0" x2="0.4" y2="1">
+      <linearGradient id={`${p}face-topo`} x1="0" y1="0" x2="0.4" y2="1">
         <stop offset="0%" stopColor="#5B6B85" stopOpacity="0.42" />
         <stop offset="100%" stopColor="#1A2130" stopOpacity="0.62" />
       </linearGradient>
@@ -617,7 +617,7 @@ function DefsAcabamento() {
           "caixa desenhada sobre um fundo" de "caixa apoiada numa prancha".
           Chapada e fraca de propósito: sombra com gradiente pediria uma fonte
           de luz pontual, e esta cena é iluminada por céu difuso. */}
-      <linearGradient id="sombra">
+      <linearGradient id={`${p}sombra`}>
         <stop offset="0%" stopColor="var(--color-ink)" stopOpacity="0.09" />
         <stop offset="100%" stopColor="var(--color-ink)" stopOpacity="0.09" />
       </linearGradient>
@@ -628,12 +628,12 @@ function DefsAcabamento() {
       {/* O acento agora é DUOTONA — ciano para violeta. Uma cor só, por mais
           saturada que fosse, continuaria lendo como "quadrado pintado"; é a
           passagem entre dois matizes que faz o bloco parecer emitir luz. */}
-      <linearGradient id="acento-topo" x1="0" y1="0" x2="0.6" y2="1">
+      <linearGradient id={`${p}acento-topo`} x1="0" y1="0" x2="0.6" y2="1">
         <stop offset="0%" stopColor="#67E8F9" />
         <stop offset="55%" stopColor="#38BDF8" />
         <stop offset="100%" stopColor="#7C6CF6" />
       </linearGradient>
-      <linearGradient id="acento-lado" x1="0" y1="0" x2="0" y2="1">
+      <linearGradient id={`${p}acento-lado`} x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stopColor="#38BDF8" />
         <stop offset="100%" stopColor="#4C3FB8" />
       </linearGradient>
@@ -641,7 +641,7 @@ function DefsAcabamento() {
       {/* O HALO: a poça de luz que o acento derrama no plano. É ela que faz o
           brilho ter origem física em vez de parecer adesivo — objeto que
           acende, ilumina o que está embaixo. */}
-      <radialGradient id="halo">
+      <radialGradient id={`${p}halo`}>
         <stop offset="0%" stopColor="var(--color-data)" stopOpacity="0.40" />
         <stop offset="55%" stopColor="var(--color-data)" stopOpacity="0.10" />
         <stop offset="100%" stopColor="var(--color-data)" stopOpacity="0" />
@@ -653,7 +653,7 @@ function DefsAcabamento() {
       {/* Bloom em duas passadas: um halo apertado que dá a intensidade e um
           largo que dá o alcance. Uma passada só produz aquele brilho de
           "sombra colorida" — o de verdade tem núcleo e derrame. */}
-      <filter id="brilho" x="-120%" y="-120%" width="340%" height="340%">
+      <filter id={`${p}brilho`} x="-120%" y="-120%" width="340%" height="340%">
         <feGaussianBlur stdDeviation="1.6" result="perto" />
         <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="longe" />
         <feMerge>
@@ -664,7 +664,7 @@ function DefsAcabamento() {
         </feMerge>
       </filter>
       {/* Bloom leve, para o fluxo de dados: o pulso precisa acender, não borrar. */}
-      <filter id="brilho-fino" x="-60%" y="-60%" width="220%" height="220%">
+      <filter id={`${p}brilho-fino`} x="-60%" y="-60%" width="220%" height="220%">
         <feGaussianBlur stdDeviation="1.8" result="b" />
         <feMerge>
           <feMergeNode in="b" />
@@ -675,7 +675,7 @@ function DefsAcabamento() {
   )
 }
 
-function DefsHachura() {
+function DefsHachura({ p = '' }: { p?: string }) {
   return (
     <defs>
       {(
@@ -696,7 +696,7 @@ function DefsHachura() {
         // 60° da horizontal, cruzando as duas direções do plano ao mesmo tempo:
         // lia como rabisco solto por cima da peça em vez de risco deitado na
         // face. Foi o defeito mais visível da primeira renderização.
-        <pattern key={id} id={id} patternUnits="userSpaceOnUse" width={passo} height={passo}
+        <pattern key={id} id={`${p}${id}`} patternUnits="userSpaceOnUse" width={passo} height={passo}
           patternTransform="rotate(60)">
           <line
             x1="0"
@@ -2213,28 +2213,28 @@ export function ArteDupla() {
     const [x, y, w, d] = r
     return (
       <g>
-        <polygon points={face(x + 1.4, y + 1.4, w, d, z)} fill="url(#dupla-sombra)" {...preenche('')} />
-        <polygon points={ladoX(x, y, w, d, z, alt)} fill="url(#dupla-lado-claro)" {...preenche('')} />
-        <polygon points={ladoX(x, y, w, d, z, alt)} fill="url(#dupla-hachura)" {...preenche('')} />
-        <polygon points={ladoY(x, y, w, d, z, alt)} fill="url(#dupla-lado-escuro)" {...preenche('')} />
-        <polygon points={ladoY(x, y, w, d, z, alt)} fill="url(#dupla-hachura)" {...preenche('')} />
-        <g {...preenche('stroke-ink')} fill="none" strokeWidth="0.5">
+        <polygon points={face(x + 1.4, y + 1.4, w, d, z)} fill="url(#d-sombra)" {...preenche('')} />
+        <polygon points={ladoX(x, y, w, d, z, alt)} fill="url(#d-face-clara)" {...preenche('')} />
+        <polygon points={ladoX(x, y, w, d, z, alt)} fill="url(#d-hachura-densa)" {...preenche('')} />
+        <polygon points={ladoY(x, y, w, d, z, alt)} fill="url(#d-face-escura)" {...preenche('')} />
+        <polygon points={ladoY(x, y, w, d, z, alt)} fill="url(#d-hachura-densa)" {...preenche('')} />
+        <g {...preenche('stroke-ink')} fill="none" strokeWidth={TRACO.construcao}>
           <polygon points={ladoX(x, y, w, d, z, alt)} />
           <polygon points={ladoY(x, y, w, d, z, alt)} />
         </g>
         {cheio ? (
           <polygon
             points={face(x, y, w, d, z + alt)}
-            fill="url(#dupla-acento)"
+            fill="url(#d-acento-topo)"
             stroke="var(--color-data)"
-            strokeWidth="0.7"
-            filter="url(#dupla-brilho)"
+            strokeWidth={TRACO.conteudo}
+            filter="url(#d-brilho)"
             {...preenche('')}
           />
         ) : (
           <g>
-            <polygon {...contorno(faceIso(x, y, w, d, z + alt), 'fill-paper stroke-ink', 0.9)} />
-            <polygon points={face(x, y, w, d, z + alt)} fill="url(#dupla-topo)" {...preenche('')} />
+            <polygon {...contorno(faceIso(x, y, w, d, z + alt), 'fill-paper stroke-ink', TRACO.conteudo)} />
+            <polygon points={face(x, y, w, d, z + alt)} fill="url(#d-face-topo)" {...preenche('')} />
           </g>
         )}
       </g>
@@ -2261,7 +2261,7 @@ export function ArteDupla() {
           const [ax, ay] = P(x + 2, ly, z)
           const [bx, by] = P(x + 2 + (w - 4) * larg, ly, z)
           return (
-            <line key={i} x1={ax} y1={ay} x2={bx} y2={by} strokeWidth="0.5" {...preenche('stroke-rule')} />
+            <line key={i} x1={ax} y1={ay} x2={bx} y2={by} strokeWidth={TRACO.construcao} {...preenche('stroke-rule')} />
           )
         })}
       </>
@@ -2296,46 +2296,21 @@ export function ArteDupla() {
         } as React.CSSProperties
       }
     >
-      <defs>
-        {/* No escuro a face pega luz EM CIMA: a luz vem de cima e a base
-            encosta no plano. É o inverso exato do hero, e é o que impede os
-            blocos de parecerem iluminados por baixo. */}
-        <linearGradient id="dupla-lado-claro" x1="0" y1="0" x2="0.3" y2="1">
-          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.15" />
-          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.03" />
-        </linearGradient>
-        <linearGradient id="dupla-lado-escuro" x1="0" y1="0" x2="0.3" y2="1">
-          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.06" />
-          <stop offset="100%" stopColor="#000000" stopOpacity="0.24" />
-        </linearGradient>
-        <linearGradient id="dupla-sombra">
-          <stop offset="0%" stopColor="#000000" stopOpacity="0.32" />
-          <stop offset="100%" stopColor="#000000" stopOpacity="0.32" />
-        </linearGradient>
-        {/* Vidro fosco no tampo, como no hero: face da cor do fundo le como
-            buraco, nao como superficie. */}
-        <linearGradient id="dupla-topo" x1="0" y1="0" x2="0.4" y2="1">
-          <stop offset="0%" stopColor="#5B6B85" stopOpacity="0.40" />
-          <stop offset="100%" stopColor="#161C28" stopOpacity="0.66" />
-        </linearGradient>
-        {/* Hachura: a mesma materia do hero, em id proprio. */}
-        <pattern id="dupla-hachura" patternUnits="userSpaceOnUse" width="1.8" height="1.8" patternTransform="rotate(60)">
-          <line x1="0" y1="0" x2="0" y2="1.8" className="stroke-ink" strokeWidth="0.35" />
-        </pattern>
-        <linearGradient id="dupla-acento" x1="0" y1="0" x2="0.6" y2="1">
-          <stop offset="0%" stopColor="#67E8F9" />
-          <stop offset="100%" stopColor="#38BDF8" />
-        </linearGradient>
-        <filter id="dupla-brilho" x="-90%" y="-90%" width="280%" height="280%">
-          <feGaussianBlur stdDeviation="1.4" result="perto" />
-          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="longe" />
-          <feMerge>
-            <feMergeNode in="longe" />
-            <feMergeNode in="perto" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
+      {/* AS MESMAS DEFINIÇÕES DO HERO, com os ids prefixados.
+        *
+        * Elas eram um bloco escrito à mão aqui, e divergiram exatamente como
+        * duas cópias divergem: a sombra virou preto a 0,32 contra 0,09 do hero,
+        * a hachura ficou com uma densidade só e traço mais fino, o acento
+        * perdeu a terceira parada violeta e o bloom encolheu. Nada disso quebra
+        * teste — só faz as duas artes da mesma página parecerem de projetos
+        * diferentes, que foi o que o dono viu.
+        *
+        * O prefixo existe porque `<defs>` de SVG vivem no DOCUMENTO: as duas
+        * peças coexistem na página, e ids repetidos fariam a segunda herdar em
+        * silêncio o que a primeira declarou. Com `p="d-"` cada uma tem as suas,
+        * e as duas saem da MESMA fonte — não há mais o que divergir. */}
+      <DefsAcabamento p="d-" />
+      <DefsHachura p="d-" />
 
       {/* CAIXA APERTADA NO DESENHO. A anterior era 210x132 para um desenho que
         ocupava 137 de largura: quase um terco da caixa era margem vazia, e
@@ -2345,7 +2320,7 @@ export function ArteDupla() {
         {/* AS VIAS PRIMEIRO: elas passam por baixo dos blocos, como no hero as
             ligações passam por baixo dos nós. Linha que corta um sólido ao meio
             denuncia que o desenho não tem profundidade. */}
-        <g className="stroke-accent" strokeWidth="0.6">
+        <g className="stroke-data" strokeWidth={TRACO.conteudo}>
           {VIAS.map((v) => {
             const [ax, ay] = P(43, v, 0)
             const [bx, by] = P(61, v, 0)
