@@ -64,10 +64,12 @@ export function Oferta({ dict }: { dict: Dictionary }) {
                 *  interno precisa de área para existir: a 96px o desenho novo
                 *  vira mancha, e mancha não pontua nada.
                 *
-                *  Trinta e seis é o menor tamanho em que as três variantes
-                *  continuam distinguíveis entre si de relance, que é a única
-                *  coisa que elas precisam fazer. */}
-              <div className="w-36">
+                *  E subiu de novo, de 36 para 44, quando a peça ganhou halo,
+                *  ondas e flutuação: efeito de luz precisa de area em volta do
+                *  objeto para se dissolver. A 144px o halo encostava na borda
+                *  do SVG e virava mancha retangular — o mesmo corte que ja
+                *  tinha aparecido na arte da abertura. */}
+              <div className="w-44">
                 <ArteOferta variante={ARTES[i] ?? 'site'} />
               </div>
               <h3 className="font-mono text-xs uppercase tracking-[0.15em] text-accent">
