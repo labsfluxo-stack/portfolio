@@ -52,11 +52,26 @@ describe('Criterio', () => {
     expect(pt.landing.criterio.testes).toHaveLength(2)
   })
 
-  // O ciano reprova em fundo claro (1,93:1). Ele só existe nas duas faixas
-  // escuras, e nenhuma delas é esta.
-  it('não usa o token de destaque do tema escuro', () => {
+  /**
+   * ESTA SEÇÃO ESCURECEU, e o guarda mudou de assunto junto.
+   *
+   * Ele travava "não usa `text-data`", porque o ciano reprova em fundo claro
+   * (1,93:1) e o `Criterio` era uma das seções claras. Agora ele é escuro, e o
+   * ciano não só é permitido como é necessário: `--color-accent` (#0369A1) sobre
+   * preto fica quase invisível na barra dos dois testes.
+   *
+   * A inversão é feita por REDEFINIÇÃO DE TOKEN no elemento, não por troca de
+   * classe — é o que faz o formulário da auditoria, com suas ~30 classes de
+   * polaridade clara, virar junto sem ser tocado. O que precisa ser travado,
+   * então, é a existência dessa redefinição: sem ela a seção volta a renderizar
+   * texto claro sobre fundo claro, e nenhum outro teste pega isso.
+   */
+  it('declara a inversão de polaridade que a auditoria inteira herda', () => {
     const { container } = render(<Criterio dict={pt} locale="pt" />)
-    expect(container.innerHTML).not.toContain('text-data')
-    expect(container.innerHTML).not.toContain('bg-data')
+    const secao = container.querySelector('section')
+    const estilo = secao?.getAttribute('style') ?? ''
+    expect(estilo, 'sem a redefinição de --color-paper a seção não escurece').toContain('--color-paper')
+    expect(estilo, 'sem --color-ink o texto fica escuro sobre escuro').toContain('--color-ink')
+    expect(estilo, 'o acento precisa virar ciano: #0369A1 some sobre preto').toContain('#38BDF8')
   })
 })

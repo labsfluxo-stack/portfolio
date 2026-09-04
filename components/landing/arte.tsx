@@ -83,75 +83,123 @@ const preenche = (pinta: string) => ({ className: `preenche ${pinta}` })
  *
  * O texto ao lado diz "peça para ver o site com o JavaScript desligado; se a
  * tela ficar em branco, é isso que o ChatGPT enxerga". Isso é abstrato em
- * palavra e instantâneo em desenho — duas telas iguais, uma cheia e uma vazia.
+ * palavra e instantâneo em desenho — a mesma tela, cheia e vazia.
  *
- * O painel da direita está VAZIO de propósito, sem nem uma linha de cortesia.
- * Qualquer coisa ali enfraqueceria a única ideia que o desenho precisa passar.
+ * ISOMÉTRICA, como as outras duas. Era vista de frente, e a comparação
+ * acontecia só no CONTEÚDO: dois retângulos iguais, um com marcas e outro sem.
+ * Em volume a comparação acontece também na MATÉRIA — o painel cheio tem
+ * espessura, camadas e sombra; o vazio é uma chapa fina com nada em cima. O
+ * argumento fica mais forte porque o olho vê que falta massa, não só marca.
+ *
+ * O PAINEL DA DIREITA CONTINUA VAZIO DE PROPÓSITO, sem nem uma linha de
+ * cortesia. Qualquer coisa ali enfraqueceria a única ideia que o desenho
+ * precisa passar — e a tentação de "só um risquinho para não ficar pobre" é
+ * exatamente o que destruiria a peça.
  *
  * Sem cromo de navegador — nada de barra de endereço ou três bolinhas. Isso
- * viraria mockup, que é justamente o padrão datado que a pesquisa mandou
- * evitar. São dois retângulos, e o contexto vem do texto.
+ * viraria mockup, que é o padrão datado que a pesquisa mandou evitar.
+ *
+ * Ids das defs com prefixo `c-`: `<defs>` de SVG vivem no documento, e esta
+ * página já carrega outras duas peças. Sem prefixo, a terceira herdaria em
+ * silêncio o que a primeira declarou.
  */
 export function ArteSemJavaScript() {
+  const face = (x: number, y: number, w: number, d: number, z: number) =>
+    pontosDe(faceIso(x, y, w, d, z))
+
+  /** Uma peça sólida, com as duas faces visíveis, hachura e sombra. */
+  const Bloco = ({
+    r,
+    z,
+    alt,
+    cheio = false,
+  }: {
+    r: [number, number, number, number]
+    z: number
+    alt: number
+    cheio?: boolean
+  }) => {
+    const [x, y, w, d] = r
+    const lx = pontosDe(faceLateralX(x, y, w, d, z, alt))
+    const ly = pontosDe(faceLateralY(x, y, w, d, z, alt))
+    return (
+      <g>
+        <polygon points={face(x + 1.4, y + 1.4, w, d, z)} fill="url(#c-sombra)" {...preenche('')} />
+        <polygon points={lx} fill="url(#c-face-clara)" {...preenche('')} />
+        <polygon points={lx} fill="url(#c-hachura-densa)" {...preenche('')} />
+        <polygon points={ly} fill="url(#c-face-escura)" {...preenche('')} />
+        <polygon points={ly} fill="url(#c-hachura-densa)" {...preenche('')} />
+        <g {...preenche('stroke-ink')} fill="none" strokeWidth={TRACO.construcao}>
+          <polygon points={lx} />
+          <polygon points={ly} />
+        </g>
+        {cheio ? (
+          <polygon points={face(x, y, w, d, z + alt)} {...preenche('fill-ink')} />
+        ) : (
+          <g>
+            <polygon {...contorno(faceIso(x, y, w, d, z + alt), 'fill-paper stroke-ink', TRACO.conteudo)} />
+            <polygon points={face(x, y, w, d, z + alt)} fill="url(#c-face-topo)" {...preenche('')} />
+          </g>
+        )}
+      </g>
+    )
+  }
+
+  /** A base de cada painel — a mesma laje nos dois lados, para a comparação
+   *  ser do que está EM CIMA e nunca do que sustenta. */
+  const BASE: [number, number, number, number] = [0, 0, 56, 56]
+
   return (
     <svg
-      viewBox="0 0 400 180"
+      viewBox="0 0 300 82"
       role="img"
       aria-hidden="true"
       className="arte-viva h-auto w-full"
       preserveAspectRatio="xMidYMid meet"
     >
+      <DefsAcabamento p="c-" />
+      <DefsHachura p="c-" />
+
       {/* PAINEL CHEIO — o que a pessoa vê.
-       *
-       * A primeira versão era uma barra preta e umas linhas cinza, e o dono
-       * apontou o óbvio: não dava para saber o que era. O que faltava não era
-       * texto, era ANATOMIA — as partes que fazem qualquer pessoa reconhecer
-       * uma página sem ler uma palavra: barra de topo com logo e menu, título
-       * em destaque, linhas de parágrafo, um BOTÃO, e cartões embaixo.
-       *
-       * O botão é o sinal mais forte de todos. Retângulo arredondado em cor de
-       * destaque, na altura certa, é lido como "site" antes de qualquer outra
-       * coisa da composição. */}
-      <rect x="14" y="20" width="168" height="140" strokeWidth="1.5" {...traca(perimetro(168, 140), 'fill-none stroke-ink')} />
+        *
+        * A anatomia é a mesma que qualquer um reconhece como página: barra de
+        * topo, título, linhas de parágrafo, um botão e a fileira de cartões. O
+        * botão é o sinal mais forte de todos — retângulo em destaque, na altura
+        * certa, é lido como "site" antes de qualquer outra coisa. */}
+      <g transform="translate(72, 10) scale(0.96)">
+        <Bloco r={BASE} z={0} alt={2.4} />
+        {/* Barra de topo, com a marca à esquerda e três itens de menu. */}
+        <Bloco r={[4, 4, 48, 6]} z={2.4} alt={1.6} cheio />
+        {/* Título e duas linhas de apoio. */}
+        <Bloco r={[4, 14, 30, 7]} z={2.4} alt={2.2} cheio />
+        <Bloco r={[4, 24, 40, 3]} z={2.4} alt={1} />
+        <Bloco r={[4, 29, 32, 3]} z={2.4} alt={1} />
+        {/* O botão: o único bloco em destaque, e o que mais diz "isto é um
+            site". Mais alto que as linhas ao redor de propósito. */}
+        <Bloco r={[4, 35, 16, 5]} z={2.4} alt={3} cheio />
+        {/* A fileira de cartões que quase toda home tem. */}
+        {[4, 22, 40].map((x) => (
+          <Bloco key={x} r={[x, 45, 12, 8]} z={2.4} alt={1.8} />
+        ))}
+      </g>
 
-      {/* Barra de topo: marca à esquerda, três itens de menu à direita */}
-      <rect x="24" y="28" width="12" height="8" {...preenche('fill-ink')} />
-      {[130, 144, 158].map((x) => (
-        <rect key={x} x={x} y="30" width="10" height="3" {...preenche('fill-rule')} />
-      ))}
-      {/* Recuada 1px de cada lado: em `x1=14`/`x2=182` ela nasce no eixo exato
-       *  da moldura e, como o traço é centrado, meio pixel dela aparece do
-       *  lado de fora. */}
-      <line x1="15" y1="44" x2="181" y2="44" strokeWidth="1" {...traca(segmento(15, 44, 181, 44), 'stroke-rule')} />
-
-      {/* Título e duas linhas de apoio */}
-      <rect x="24" y="58" width="86" height="11" {...preenche('fill-ink')} />
-      <rect x="24" y="76" width="120" height="3.5" {...preenche('fill-rule')} />
-      <rect x="24" y="84" width="92" height="3.5" {...preenche('fill-rule')} />
-
-      {/* O botão — único elemento em cor, e o que mais diz "isto é um site" */}
-      <rect x="24" y="96" width="48" height="14" rx="3" {...preenche('fill-accent')} />
-
-      {/* Três cartões, a fileira que quase toda home tem */}
-      <line x1="24" y1="124" x2="172" y2="124" strokeWidth="1" {...traca(segmento(24, 124, 172, 124), 'stroke-rule')} />
-      {[24, 76, 128].map((x) => (
-        <g key={x}>
-          <rect x={x} y="132" width="44" height="22" strokeWidth="1" {...traca(perimetro(44, 22), 'fill-none stroke-rule')} />
-          <rect x={x + 8} y="140" width="22" height="3" {...preenche('fill-rule')} />
-        </g>
-      ))}
-
-      {/* A SETA — transformação, não comparação passiva lado a lado */}
-      <line x1="194" y1="90" x2="216" y2="90" strokeWidth="1.5" {...traca(segmento(194, 90, 216, 90), 'stroke-ink')} />
-      <path d="M 218 90 L 210 85.5 L 210 94.5 Z" {...preenche('fill-ink')} />
+      {/* A SETA — transformação, não comparação passiva lado a lado. */}
+      <g transform="translate(150, 40)">
+        <line x1="-9" y1="0" x2="7" y2="0" strokeWidth={TRACO.estrutura} {...preenche('stroke-ink')} />
+        <path d="M 10 0 L 2 -4.6 L 2 4.6 Z" {...preenche('fill-ink')} />
+      </g>
 
       {/* PAINEL VAZIO — o que o crawler recebe.
-       *
-       * Moldura idêntica e absolutamente nada dentro, nem uma linha de
-       * cortesia. É a mesma página: só o que sobra quando ninguém executou o
-       * JavaScript. Qualquer coisa aqui enfraqueceria a única ideia que o
-       * desenho precisa passar. */}
-      <rect x="230" y="20" width="168" height="140" strokeWidth="1.5" {...traca(perimetro(168, 140), 'fill-none stroke-ink')} />
+        *
+        * A MESMA laje, na mesma altura, e absolutamente nada em cima dela. É a
+        * mesma página: só o que sobra quando ninguém executou o JavaScript.
+        *
+        * Em volume a ausência pesa mais do que pesava na vista de frente: ao
+        * lado de uma pilha de blocos com sombra, uma laje lisa não lê como
+        * "outro desenho", lê como o mesmo objeto esvaziado. */}
+      <g transform="translate(228, 10) scale(0.96)">
+        <Bloco r={BASE} z={0} alt={2.4} />
+      </g>
     </svg>
   )
 }
