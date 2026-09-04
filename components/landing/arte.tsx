@@ -175,6 +175,12 @@ export function ArteSemJavaScript() {
         {/* A malha do plano: mesma das outras pecas. Sem ela a laje e lisa, e
           * laje lisa le como bandeja. */}
         <MalhaIso r={BASE} z={2.4} passo={7} />
+        {/* O CONTEUDO FLUTUA, o plano nao. Reaproveita `.arte-flutua` do hero,
+          * onde 27 elementos se movem: aqui sao seis, e sao eles que separam
+          * "peca da mesma pagina" de "ilustracao estatica ao lado de uma cena
+          * viva". O `--i` escalona cada um, entao a peca ondula em vez de
+          * subir em bloco. */}
+        <g className="arte-flutua" style={{ '--i': 1 } as React.CSSProperties}>
         {/* Barra de topo. A marca e os tres itens de menu sao desenhados NO
           * TAMPO dela, e nao como blocos separados: menu e conteudo da barra,
           * nao objeto pousado ao lado. */}
@@ -191,8 +197,9 @@ export function ArteSemJavaScript() {
             site". Mais alto que as linhas ao redor de propósito. */}
         <Bloco r={[4, 35, 16, 5]} z={2.4} alt={3} cheio />
         {/* A fileira de cartões que quase toda home tem. */}
-        {[4, 22, 40].map((x) => (
-          <g key={x}>
+        </g>
+        {[4, 22, 40].map((x, i) => (
+          <g key={x} className="arte-flutua" style={{ '--i': i + 2 } as React.CSSProperties}>
             <Bloco r={[x, 45, 12, 8]} z={2.4} alt={1.8} />
             {/* Cada cartao tem um titulo e uma linha. Tres retangulos vazios
               * leem como grade; com duas marcas dentro, leem como cartoes. */}
@@ -204,6 +211,7 @@ export function ArteSemJavaScript() {
 
       {/* A SETA — transformação, não comparação passiva lado a lado. */}
       <g transform="translate(150, 40)">
+        <ellipse cx="0" cy="0" rx="22" ry="11" fill="url(#c-halo)" className="acento-respira" />
         <line x1="-9" y1="0" x2="7" y2="0" strokeWidth={TRACO.estrutura} {...preenche('stroke-ink')} />
         {/* O PULSO NA SETA, reaproveitando `.fluxo-dados`. E a seta que carrega
           * a transformacao — desligar o JavaScript e o que ESVAZIA o painel — e
@@ -2240,7 +2248,7 @@ export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema'
         <MalhaIso r={BASE} z={2} passo={6.5} />
 
         {variante === 'site' && (
-          <>
+          <g className="arte-flutua" style={{ '--i': 1 } as React.CSSProperties}>
             {/* UMA PÁGINA, lida de cima a baixo: barra de topo, título, duas
               * linhas de texto e o botão. O botão é o sinal mais forte de
               * todos — é ele que faz reconhecer "site" antes de qualquer outra
@@ -2254,6 +2262,14 @@ export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema'
               * que o destacasse de fato — mesmo preenchimento dos outros tres.
               * Com a cor de dado e o bloom, ele vira o ponto para onde o olho
               * vai primeiro, que e exatamente o papel dele numa pagina. */}
+            <ellipse
+              cx={iso(11.5, 36.5, 2)[0]}
+              cy={iso(11.5, 36.5, 2)[1]}
+              rx={16}
+              ry={9}
+              fill="url(#o-halo)"
+              className="acento-respira"
+            />
             <Bloco r={[4, 34, 15, 5]} z={2} alt={2.8} />
             <polygon
               points={face(4, 34, 15, 5, 4.8)}
@@ -2264,7 +2280,7 @@ export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema'
               {...preenche('')}
             />
             <Bloco r={[4, 43, 44, 5]} z={2} alt={1} />
-          </>
+          </g>
         )}
 
         {variante === 'blog' && (
@@ -2274,7 +2290,7 @@ export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema'
               * "lista"; é a escada de alturas que diz "acumula com o tempo",
               * que é o argumento do cartão. */}
             {[4, 15, 26, 37].map((y, i) => (
-              <g key={y}>
+              <g key={y} className="arte-flutua" style={{ '--i': i + 1 } as React.CSSProperties}>
                 <Bloco r={[4, y, 44, 8]} z={2} alt={1 + i * 0.7} />
                 {/* A tarja do título de cada post, mais curta a cada uma —
                   * quatro barras idênticas leem como tabela, não como texto. */}
@@ -2333,12 +2349,57 @@ export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema'
                 />
               )
             })}
-            {NOS_SISTEMA.map(([x, y]) => (
-              <Bloco key={`${x}-${y}`} r={[x - 6, y - 5, 12, 10]} z={2} alt={2.4} />
+            {NOS_SISTEMA.map(([x, y], i) => (
+              <g key={`${x}-${y}`} className="arte-flutua" style={{ '--i': i + 1 } as React.CSSProperties}>
+                <Bloco r={[x - 6, y - 5, 12, 10]} z={2} alt={2.4} />
+              </g>
             ))}
             {/* O núcleo, mais alto que os módulos e o único em destaque: numa
               * malha em que tudo se fala, alguma coisa coordena. */}
-            <Bloco r={[19, 19, 14, 14]} z={2} alt={4.6} cheio />
+            {/* AS ONDAS DO NUCLEO, mesma classe do acento do hero. Numa malha
+              * em que tudo se fala, o que coordena tem que parecer emitir — e
+              * anel concentrico e lido como emissao a primeira vista, sem o
+              * visitante precisar ficar olhando. Dois, defasados: um so vira
+              * batida isolada com um vazio longo entre uma e outra. */}
+            {/* O HALO: a poca de luz que o nucleo derrama no plano. Sem ela o
+              * bloom le como adesivo brilhante colado sobre um desenho fosco —
+              * objeto que acende ilumina o que esta embaixo. Elipse e nao
+              * circulo: no plano isometrico um redondo perfeito denunciaria que
+              * a luz nao esta deitada junto com a superficie. */}
+            <ellipse
+              cx={iso(26, 26, 2)[0]}
+              cy={iso(26, 26, 2)[1]}
+              rx={24}
+              ry={14}
+              fill="url(#o-halo)"
+              className="acento-respira"
+            />
+            {[0, 1].map((anel) => {
+              const [cx, cy] = iso(26, 26, 2)
+              return (
+                <ellipse
+                  key={anel}
+                  cx={cx}
+                  cy={cy}
+                  rx={7}
+                  ry={4}
+                  fill="none"
+                  stroke="var(--color-data)"
+                  strokeWidth="0.8"
+                  className="acento-onda"
+                  style={{ '--i': anel } as React.CSSProperties}
+                />
+              )
+            })}
+            <Bloco r={[19, 19, 14, 14]} z={2} alt={4.6} />
+            <polygon
+              points={face(19, 19, 14, 14, 6.6)}
+              fill="url(#o-acento-topo)"
+              stroke="var(--color-data)"
+              strokeWidth={TRACO.construcao}
+              filter="url(#o-brilho)"
+              {...preenche('')}
+            />
           </>
         )}
       </g>

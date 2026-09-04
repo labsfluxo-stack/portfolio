@@ -85,7 +85,7 @@ export function Criterio({ dict, locale }: { dict: Dictionary; locale: Locale })
          * `max-w-lg` porque em largura total a comparação se dispersa: os dois
          * painéis precisam caber no mesmo golpe de vista, senão viram dois
          * desenhos em vez de um antes-e-depois. */}
-        <div className="max-w-lg py-2">
+        <div className="max-w-2xl py-2">
           <ArteSemJavaScript />
         </div>
 
