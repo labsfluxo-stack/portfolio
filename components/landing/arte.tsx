@@ -212,10 +212,11 @@ const contorno = (pts: [number, number][], pinta: string, largura: number) => ({
   ...traca(perimetroDe(pts), pinta),
 })
 
-const solido = (pts: [number, number][], pinta: string) => ({
-  points: pontosDe(pts),
-  ...preenche(pinta),
-})
+// `solido()` morava aqui e ficou órfão quando os paralelogramos deitados viraram
+// caixas com volume: `CaixaIso` desenha o próprio tampo. O editor apontou o
+// símbolo sem uso a sessão inteira e eu tratei como ruído — foi ele que
+// derrubou o deploy, porque `npm run lint` é o PRIMEIRO portão do CI, antes do
+// typecheck. Typecheck, teste e build passavam; o lint não.
 
 /**
  * AS DUAS FACES LATERAIS DE UM SÓLIDO, e é isto que dá profundidade real à peça.
