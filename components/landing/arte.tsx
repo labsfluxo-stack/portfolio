@@ -2268,26 +2268,87 @@ export function ArteDupla() {
     )
   }
 
-  /** As portas de cada lado, de onde as vias saem e chegam. */
-  /** AS VIAS SÃO PARALELAS, NÃO CRUZADAS.
+  /**
+   * A MALHA DA PLATAFORMA, igual à das pranchas do hero.
    *
-   * A versão de frente cruzava as quatro em X, e ali o X lia como malha
-   * redundante. Projetado em isométrico o mesmo cruzamento vira um laço — as
-   * duas diagonais se encontram no meio e o desenho parece um nó, não um
-   * caminho. Três vias paralelas dizem a mesma coisa (some uma, sobram duas) e
-   * leem como entrega em vez de emaranhado.
+   * É o que impede a base de ser uma laje lisa — e laje lisa é a mesma ausência
+   * que fazia as camadas do hero parecerem bandejas antes de ganharem
+   * quadriculado. Sobre a grade é que se mede, e é ela que faz o plano ler como
+   * superfície de trabalho em vez de fundo.
    */
-  const VIAS = [13, 25, 37]
+  const Malha = ({ r, z, passo }: { r: [number, number, number, number]; z: number; passo: number }) => {
+    const [x, y, w, d] = r
+    const colunas = Array.from({ length: Math.floor(w / passo) - 1 }, (_, i) => x + (i + 1) * passo)
+    const linhas = Array.from({ length: Math.floor(d / passo) - 1 }, (_, i) => y + (i + 1) * passo)
+    return (
+      <g {...preenche('stroke-rule')} strokeWidth={TRACO.construcao * 0.7} opacity="0.5">
+        {colunas.map((u) => {
+          const [ax, ay] = P(u, y, z)
+          const [bx, by] = P(u, y + d, z)
+          return <line key={'c' + u} x1={ax} y1={ay} x2={bx} y2={by} />
+        })}
+        {linhas.map((v) => {
+          const [ax, ay] = P(x, v, z)
+          const [bx, by] = P(x + w, v, z)
+          return <line key={'l' + v} x1={ax} y1={ay} x2={bx} y2={by} />
+        })}
+      </g>
+    )
+  }
+
+  /**
+   * UMA ENTRADA DE ARQUIVO no tampo do repositório: o quadrado do tipo e o nome
+   * ao lado.
+   *
+   * É a anatomia que faz uma caixa virar REPOSITÓRIO em vez de bloco. Sem ela a
+   * peça da direita era um paralelepípedo com um cadeado em cima — e a promessa
+   * da seção é que ali dentro tem código legível, não um cofre opaco.
+   */
+  const Arquivo = ({ x, y, z, largura }: { x: number; y: number; z: number; largura: number }) => {
+    const [nx, ny] = P(x + 5, y + 1.1, z)
+    const [mx, my] = P(x + 5 + largura, y + 1.1, z)
+    return (
+      <g>
+        <polygon points={face(x, y, 3, 2.4, z)} {...preenche('fill-rule')} />
+        <line x1={nx} y1={ny} x2={mx} y2={my} strokeWidth={TRACO.construcao} {...preenche('stroke-rule')} />
+      </g>
+    )
+  }
+
+  /**
+   * O TIQUE DE TESTE PASSANDO, em cor de dado.
+   *
+   * Traz para o desenho a única das três promessas do texto que ainda não
+   * estava desenhada. "Documentado" já são as linhas de código no tampo; "é
+   * seu" é a trava; faltava a prova de que aquilo roda.
+   */
+  const Tique = ({ x, y, z }: { x: number; y: number; z: number }) => {
+    const [ax, ay] = P(x, y + 1.4, z)
+    const [bx, by] = P(x + 1.1, y + 2.6, z)
+    const [cx, cy] = P(x + 3.2, y, z)
+    return (
+      <path
+        d={`M ${ax} ${ay} L ${bx} ${by} L ${cx} ${cy}`}
+        fill="none"
+        stroke="var(--color-data)"
+        strokeWidth={TRACO.conteudo}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        {...preenche('')}
+      />
+    )
+  }
+
+  /** As três vias de entrega, paralelas. Ver o comentário no corpo. */
+  const VIAS = [14, 24, 34]
 
   return (
     <svg
-      viewBox="0 0 148 104"
+      viewBox="0 0 152 108"
       role="img"
       aria-hidden="true"
       className="arte-viva h-auto w-full"
       preserveAspectRatio="xMidYMid meet"
-      // Mesma alavanca do hero: os tokens do projeto vivem em `@theme`, entao
-      // redefini-los aqui inverte a arvore inteira sem reescrever uma classe.
       style={
         {
           '--color-ink': '#DCE3F0',
@@ -2296,56 +2357,80 @@ export function ArteDupla() {
         } as React.CSSProperties
       }
     >
-      {/* AS MESMAS DEFINIÇÕES DO HERO, com os ids prefixados.
-        *
-        * Elas eram um bloco escrito à mão aqui, e divergiram exatamente como
-        * duas cópias divergem: a sombra virou preto a 0,32 contra 0,09 do hero,
-        * a hachura ficou com uma densidade só e traço mais fino, o acento
-        * perdeu a terceira parada violeta e o bloom encolheu. Nada disso quebra
-        * teste — só faz as duas artes da mesma página parecerem de projetos
-        * diferentes, que foi o que o dono viu.
-        *
-        * O prefixo existe porque `<defs>` de SVG vivem no DOCUMENTO: as duas
-        * peças coexistem na página, e ids repetidos fariam a segunda herdar em
-        * silêncio o que a primeira declarou. Com `p="d-"` cada uma tem as suas,
-        * e as duas saem da MESMA fonte — não há mais o que divergir. */}
+      {/* AS MESMAS DEFINIÇÕES DO HERO, com os ids prefixados: `<defs>` de SVG
+        * vivem no documento, e sem prefixo a segunda peça herdaria em silêncio
+        * o que a primeira declarou. */}
       <DefsAcabamento p="d-" />
       <DefsHachura p="d-" />
 
-      {/* CAIXA APERTADA NO DESENHO. A anterior era 210x132 para um desenho que
-        ocupava 137 de largura: quase um terco da caixa era margem vazia, e
-        margem vazia num SVG com `w-full` vira peca pequena na tela. Agora a
-        caixa acompanha os extremos reais da projecao. */}
-      <g transform="translate(40, 8) scale(1.3)">
-        {/* AS VIAS PRIMEIRO: elas passam por baixo dos blocos, como no hero as
-            ligações passam por baixo dos nós. Linha que corta um sólido ao meio
-            denuncia que o desenho não tem profundidade. */}
+      <g transform="translate(40, 10) scale(1.24)">
+        {/* A PLATAFORMA. Os dois objetos flutuavam lado a lado sem nada
+          * embaixo, e numa cena onde tudo tem sombra de contato isso lê como
+          * recorte. A base os põe no mesmo chão — e é ela que transforma duas
+          * peças soltas numa composição. */}
+        <Bloco r={[2, 2, 100, 44]} z={0} alt={1.8} />
+        <Malha r={[2, 2, 100, 44]} z={1.8} passo={7} />
+
+        {/* AS VIAS, por baixo dos blocos e por cima da plataforma — mesma ordem
+          * do hero, onde as ligações passam sob os nós. Linha que corta um
+          * sólido ao meio denuncia que o desenho não tem profundidade.
+          *
+          * Paralelas, não cruzadas: na vista de frente o X lia como malha
+          * redundante, mas projetado em isométrico ele vira um laço. Três vias
+          * dizem a mesma coisa — some uma, sobram duas. */}
         <g className="stroke-data" strokeWidth={TRACO.conteudo}>
           {VIAS.map((v) => {
-            const [ax, ay] = P(43, v, 0)
-            const [bx, by] = P(61, v, 0)
+            const [ax, ay] = P(40, v, 1.8)
+            const [bx, by] = P(58, v, 1.8)
             return <line key={v} x1={ax} y1={ay} x2={bx} y2={by} {...traca(segmento(ax, ay, bx, by), '')} />
           })}
         </g>
+        {/* O pulso correndo nas vias, reaproveitando a classe do hero: um
+          * comportamento, um lugar, e nenhuma regra `infinite` a mais. */}
+        {VIAS.map((v, i) => {
+          const [ax, ay] = P(40, v, 1.8)
+          const [bx, by] = P(58, v, 1.8)
+          return (
+            <line
+              key={'f' + v}
+              x1={ax}
+              y1={ay}
+              x2={bx}
+              y2={by}
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              className="fluxo-dados stroke-data"
+              filter="url(#d-brilho-fino)"
+              style={{ animationDelay: `${i * 0.85}s` }}
+            />
+          )
+        })}
 
         {/* O SISTEMA: três lajes empilhadas, eco direto das camadas do hero.
-            Alturas diferentes, porque skyline reto lê como bandeja. */}
-        <Bloco r={[8, 8, 34, 34]} z={0} alt={4.5} />
-        <Bloco r={[11, 11, 28, 28]} z={4.5} alt={3.4} />
-        <Bloco r={[14, 14, 22, 22]} z={7.9} alt={2.6} />
-        {/* As linhas ficam no tampo do bloco de CIMA, o único que aparece
-            inteiro — nos de baixo elas seriam desenhadas e imediatamente
-            cobertas pela laje seguinte. */}
-        <Linhas r={[14, 14, 22, 22]} z={10.5} quantas={3} />
+          * Alturas diferentes, porque skyline reto lê como bandeja. */}
+        <Bloco r={[6, 6, 34, 34]} z={1.8} alt={4.2} />
+        <Malha r={[6, 6, 34, 34]} z={6} passo={5.5} />
+        <Bloco r={[9, 9, 28, 28]} z={6} alt={3.2} />
+        <Bloco r={[12, 12, 22, 22]} z={9.2} alt={2.6} />
+        <Linhas r={[12, 12, 22, 22]} z={11.8} quantas={4} />
+        {/* Dois módulos menores encostados na laje do meio: é o que impede a
+          * pilha de ser só uma pirâmide lisa. */}
+        <Bloco r={[9, 31, 8, 6]} z={6} alt={2} />
+        <Bloco r={[29, 31, 8, 6]} z={6} alt={2.8} />
 
         {/* O REPOSITÓRIO DO CLIENTE: uma caixa só, mais alta que qualquer laje
-            da esquerda. A altura é o argumento — o que fica com ele não é um
-            resto do processo, é a peça de maior peso da composição. */}
-        <Bloco r={[62, 8, 34, 34]} z={0} alt={9} />
-        <Linhas r={[62, 8, 34, 34]} z={9} quantas={5} />
-        {/* A trava: o bloco em cor no tampo do repositório diz que aquilo tem
-            dono. É o único elemento colorido além das vias. */}
-        <Bloco r={[72, 30, 14, 8]} z={9} alt={2.2} cheio />
+          * da esquerda. A altura é o argumento — o que fica com ele não é resto
+          * do processo, é a peça de maior peso da composição. */}
+        <Bloco r={[58, 6, 38, 34]} z={1.8} alt={8.4} />
+        {/* Quatro entradas de arquivo e a coluna de testes passando. */}
+        {[10, 16, 22, 28].map((y, i) => (
+          <Arquivo key={y} x={62} y={y} z={10.2} largura={[16, 11, 19, 14][i] ?? 15} />
+        ))}
+        {[10, 16, 22].map((y) => (
+          <Tique key={y} x={88} y={y} z={10.2} />
+        ))}
+        {/* A trava: o único bloco em cor da peça. Aquilo tem dono. */}
+        <Bloco r={[62, 33, 13, 5]} z={10.2} alt={2.2} cheio />
       </g>
     </svg>
   )
