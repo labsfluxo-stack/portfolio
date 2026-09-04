@@ -172,8 +172,17 @@ export function ArteSemJavaScript() {
         * certa, é lido como "site" antes de qualquer outra coisa. */}
       <g transform="translate(72, 10) scale(0.96)">
         <Bloco r={BASE} z={0} alt={2.4} />
-        {/* Barra de topo, com a marca à esquerda e três itens de menu. */}
+        {/* A malha do plano: mesma das outras pecas. Sem ela a laje e lisa, e
+          * laje lisa le como bandeja. */}
+        <MalhaIso r={BASE} z={2.4} passo={7} />
+        {/* Barra de topo. A marca e os tres itens de menu sao desenhados NO
+          * TAMPO dela, e nao como blocos separados: menu e conteudo da barra,
+          * nao objeto pousado ao lado. */}
         <Bloco r={[4, 4, 48, 6]} z={2.4} alt={1.6} cheio />
+        <polygon points={face(6, 5.6, 7, 2.8, 4)} {...preenche('fill-paper')} />
+        {[30, 38, 46].map((x) => (
+          <polygon key={x} points={face(x, 6.2, 5, 1.6, 4)} {...preenche('fill-paper')} />
+        ))}
         {/* Título e duas linhas de apoio. */}
         <Bloco r={[4, 14, 30, 7]} z={2.4} alt={2.2} cheio />
         <Bloco r={[4, 24, 40, 3]} z={2.4} alt={1} />
@@ -183,13 +192,33 @@ export function ArteSemJavaScript() {
         <Bloco r={[4, 35, 16, 5]} z={2.4} alt={3} cheio />
         {/* A fileira de cartões que quase toda home tem. */}
         {[4, 22, 40].map((x) => (
-          <Bloco key={x} r={[x, 45, 12, 8]} z={2.4} alt={1.8} />
+          <g key={x}>
+            <Bloco r={[x, 45, 12, 8]} z={2.4} alt={1.8} />
+            {/* Cada cartao tem um titulo e uma linha. Tres retangulos vazios
+              * leem como grade; com duas marcas dentro, leem como cartoes. */}
+            <polygon points={face(x + 2, 47, 8, 1.4, 4.2)} {...preenche('fill-ink')} />
+            <polygon points={face(x + 2, 49.4, 5.5, 1, 4.2)} {...preenche('fill-rule')} />
+          </g>
         ))}
       </g>
 
       {/* A SETA — transformação, não comparação passiva lado a lado. */}
       <g transform="translate(150, 40)">
         <line x1="-9" y1="0" x2="7" y2="0" strokeWidth={TRACO.estrutura} {...preenche('stroke-ink')} />
+        {/* O PULSO NA SETA, reaproveitando `.fluxo-dados`. E a seta que carrega
+          * a transformacao — desligar o JavaScript e o que ESVAZIA o painel — e
+          * ate agora ela era a unica coisa parada de uma peca que descreve um
+          * acontecimento. Mesma classe do hero: um comportamento, um lugar, e
+          * nenhuma regra `infinite` a mais no CSS. */}
+        <line
+          x1="-9"
+          y1="0"
+          x2="7"
+          y2="0"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          className="fluxo-dados stroke-data"
+        />
         <path d="M 10 0 L 2 -4.6 L 2 4.6 Z" {...preenche('fill-ink')} />
       </g>
 
@@ -203,6 +232,11 @@ export function ArteSemJavaScript() {
         * "outro desenho", lê como o mesmo objeto esvaziado. */}
       <g transform="translate(228, 10) scale(0.96)">
         <Bloco r={BASE} z={0} alt={2.4} />
+        {/* A MALHA EXISTE NOS DOIS LADOS, e e o que torna a ausencia
+          * comparavel: sem ela a laje vazia poderia ser outra coisa, um plano
+          * qualquer. Com a mesma grade da esquerda, ela e reconhecidamente a
+          * MESMA superficie — so que sem nada em cima. */}
+        <MalhaIso r={BASE} z={2.4} passo={7} />
       </g>
     </svg>
   )
@@ -550,6 +584,45 @@ function MarcaIA({
       strokeLinejoin="round"
       {...traco}
     />
+  )
+}
+
+/**
+ * A MALHA DE UM PLANO — o quadriculado que separa prancha de bandeja.
+ *
+ * Estava escrita dentro de `ArteDupla` e subiu para cá quando a terceira peça
+ * precisou dela. Duas cópias de um quadriculado divergem exatamente como
+ * divergiram as `defs` das duas primeiras artes: passo diferente, opacidade
+ * diferente, e duas peças da mesma página parecendo de projetos diferentes.
+ *
+ * Sobre a grade é que se mede, e é ela que faz o plano ler como superfície de
+ * trabalho em vez de fundo.
+ */
+function MalhaIso({
+  r,
+  z,
+  passo,
+}: {
+  r: [number, number, number, number]
+  z: number
+  passo: number
+}) {
+  const [x, y, w, d] = r
+  const eixo = (n: number, base: number) =>
+    Array.from({ length: Math.max(0, Math.floor(n / passo) - 1) }, (_, i) => base + (i + 1) * passo)
+  return (
+    <g {...preenche('stroke-rule')} strokeWidth={TRACO.construcao * 0.7} opacity="0.5">
+      {eixo(w, x).map((u) => {
+        const [ax, ay] = iso(u, y, z)
+        const [bx, by] = iso(u, y + d, z)
+        return <line key={`c${u}`} x1={ax} y1={ay} x2={bx} y2={by} />
+      })}
+      {eixo(d, y).map((v) => {
+        const [ax, ay] = iso(x, v, z)
+        const [bx, by] = iso(x + w, v, z)
+        return <line key={`l${v}`} x1={ax} y1={ay} x2={bx} y2={by} />
+      })}
+    </g>
   )
 }
 
@@ -2164,6 +2237,7 @@ export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema'
 
       <g transform="translate(52, 10)">
         <Bloco r={BASE} z={0} alt={2} />
+        <MalhaIso r={BASE} z={2} passo={6.5} />
 
         {variante === 'site' && (
           <>
@@ -2175,7 +2249,20 @@ export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema'
             <Bloco r={[4, 13, 28, 6]} z={2} alt={2} cheio />
             <Bloco r={[4, 22, 40, 3]} z={2} alt={0.9} />
             <Bloco r={[4, 27, 34, 3]} z={2} alt={0.9} />
-            <Bloco r={[4, 34, 15, 5]} z={2} alt={2.8} cheio />
+            {/* O BOTAO ACENDE. E o sinal que faz reconhecer "site" antes de
+              * qualquer outra forma, e era o unico bloco em destaque sem nada
+              * que o destacasse de fato — mesmo preenchimento dos outros tres.
+              * Com a cor de dado e o bloom, ele vira o ponto para onde o olho
+              * vai primeiro, que e exatamente o papel dele numa pagina. */}
+            <Bloco r={[4, 34, 15, 5]} z={2} alt={2.8} />
+            <polygon
+              points={face(4, 34, 15, 5, 4.8)}
+              fill="url(#o-acento-topo)"
+              stroke="var(--color-data)"
+              strokeWidth={TRACO.construcao}
+              filter="url(#o-brilho)"
+              {...preenche('')}
+            />
             <Bloco r={[4, 43, 44, 5]} z={2} alt={1} />
           </>
         )}
@@ -2192,6 +2279,12 @@ export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema'
                 {/* A tarja do título de cada post, mais curta a cada uma —
                   * quatro barras idênticas leem como tabela, não como texto. */}
                 <Bloco r={[7, y + 2, [30, 24, 34, 20][i] ?? 26, 2.4]} z={3 + i * 0.7} alt={0.8} cheio />
+                {/* A marca de data ao lado do titulo: e ela que transforma
+                  * quatro tarjas iguais em quatro PUBLICACOES. */}
+                <polygon
+                  points={face(40, y + 2.2, 5, 2, 3.8 + i * 0.7)}
+                  {...preenche('fill-rule')}
+                />
               </g>
             ))}
           </>
@@ -2218,6 +2311,28 @@ export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema'
                 )
               })}
             </g>
+            {/* O PULSO NAS VIAS: e o cartao que vende OPERACAO, e operacao
+              * parada e uma contradicao no proprio desenho. Cada via parte num
+              * tempo diferente — em fase leriam como engrenagem, defasadas leem
+              * como trafego. */}
+            {NOS_SISTEMA.map(([x, y], i) => {
+              const [ax, ay] = iso(x, y, 2)
+              const [bx, by] = iso(26, 26, 2)
+              return (
+                <line
+                  key={`f${x}-${y}`}
+                  x1={ax}
+                  y1={ay}
+                  x2={bx}
+                  y2={by}
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  className="fluxo-dados stroke-data"
+                  filter="url(#o-brilho-fino)"
+                  style={{ animationDelay: `${i * 0.62}s` }}
+                />
+              )
+            })}
             {NOS_SISTEMA.map(([x, y]) => (
               <Bloco key={`${x}-${y}`} r={[x - 6, y - 5, 12, 10]} z={2} alt={2.4} />
             ))}
