@@ -17,7 +17,29 @@ export function Perguntas({ dict }: { dict: Dictionary }) {
   const { perguntas } = dict.landing
 
   return (
-    <section className="border-t border-rule">
+    // ESCURECIDA POR REDEFINIÇÃO DE TOKEN, como o `Criterio` e a arte da
+    // abertura. Todo token do projeto mora em `@theme`, então cada utilitário
+    // resolve para `var(--color-*)` — redefini-los aqui inverte a árvore
+    // inteira abaixo sem tocar em uma classe sequer.
+    //
+    // É o que torna barato escurecer uma seção com dezenas de classes de
+    // polaridade clara espalhadas em componentes filhos, e o que impede a
+    // primeira classe esquecida de virar texto escuro sobre fundo escuro.
+    //
+    // `--color-accent` vira o ciano: `#0369A1` sobre preto some, e é ele que
+    // pinta as barras, os números e os destaques desta seção.
+    <section
+      className="border-t border-rule bg-paper"
+      style={
+        {
+          '--color-paper': '#08090C',
+          '--color-ink': '#F5F3EF',
+          '--color-ink-2': '#878C96',
+          '--color-rule': '#1F232B',
+          '--color-accent': '#38BDF8',
+        } as React.CSSProperties
+      }
+    >
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-16">
         <h2 className="revelar-titulo font-sans text-2xl font-bold tracking-tight text-ink">
           {perguntas.titulo}

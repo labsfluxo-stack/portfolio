@@ -23,7 +23,29 @@ export function Oferta({ dict }: { dict: Dictionary }) {
   const { oferta } = dict.landing
 
   return (
-    <section className="border-t border-rule">
+    // ESCURECIDA POR REDEFINIÇÃO DE TOKEN, como o `Criterio` e a arte da
+    // abertura. Todo token do projeto mora em `@theme`, então cada utilitário
+    // resolve para `var(--color-*)` — redefini-los aqui inverte a árvore
+    // inteira abaixo sem tocar em uma classe sequer.
+    //
+    // É o que torna barato escurecer uma seção com dezenas de classes de
+    // polaridade clara espalhadas em componentes filhos, e o que impede a
+    // primeira classe esquecida de virar texto escuro sobre fundo escuro.
+    //
+    // `--color-accent` vira o ciano: `#0369A1` sobre preto some, e é ele que
+    // pinta as barras, os números e os destaques desta seção.
+    <section
+      className="border-t border-rule bg-paper"
+      style={
+        {
+          '--color-paper': '#08090C',
+          '--color-ink': '#F5F3EF',
+          '--color-ink-2': '#878C96',
+          '--color-rule': '#1F232B',
+          '--color-accent': '#38BDF8',
+        } as React.CSSProperties
+      }
+    >
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-20 sm:py-28">
         <h2 className="revelar-titulo font-sans text-4xl font-bold tracking-tight text-ink sm:text-5xl">
           {oferta.titulo}
@@ -35,7 +57,17 @@ export function Oferta({ dict }: { dict: Dictionary }) {
                *  três blocos de texto seguidos sem nenhuma pausa visual são
                *  exatamente a parede que a página precisa quebrar. `w-24` a
                *  mantém pequena — é pontuação, não ilustração. */}
-              <div className="w-24">
+              {/* `w-36` E NÃO `w-24`, e a razão é a peça ter mudado de natureza.
+                *  O comentário acima continua valendo — isto é pontuação, não
+                *  ilustração — mas a arte deixou de ser linha chapada e virou
+                *  isométrica, com faces, hachura e blocos empilhados. Detalhe
+                *  interno precisa de área para existir: a 96px o desenho novo
+                *  vira mancha, e mancha não pontua nada.
+                *
+                *  Trinta e seis é o menor tamanho em que as três variantes
+                *  continuam distinguíveis entre si de relance, que é a única
+                *  coisa que elas precisam fazer. */}
+              <div className="w-36">
                 <ArteOferta variante={ARTES[i] ?? 'site'} />
               </div>
               <h3 className="font-mono text-xs uppercase tracking-[0.15em] text-accent">
