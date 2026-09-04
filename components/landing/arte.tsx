@@ -2160,118 +2160,167 @@ export function ArteOferta({ variante }: { variante: 'site' | 'blog' | 'sistema'
 }
 
 /**
- * O SISTEMA E O REPOSITÓRIO DO CLIENTE — e a peça mudou de significado junto
- * com a seção.
+ * O SISTEMA QUE EU CONSTRUO E O REPOSITÓRIO QUE FICA COM VOCÊ.
  *
- * Ela desenhava DOIS MÓDULOS IDÊNTICOS e espelhados, conectados, e a simetria
- * era o argumento: dois sêniores, nenhum insubstituível. A entrega passou a ser
- * de uma pessoa só, então a simetria virou afirmação falsa — e arte que afirma
- * o que o texto ao lado já não afirma é a pior espécie de detalhe errado, do
- * tipo que ninguém corrige porque ninguém lê desenho como texto.
+ * Reconstruída em ISOMÉTRICO, no mesmo vocabulário do hero — extrusão com duas
+ * faces laterais, hachura como matéria, sombra de contato, alturas irregulares.
+ * A versão anterior era vista de frente, com retângulos chapados de 1px, e ao
+ * lado da abertura ela lia como peça de outro site.
  *
- * A geometria sobreviveu porque o novo argumento também é de DOIS LADOS: o
- * sistema que eu construo, e o repositório que fica com você. O que mudou é o
- * que os liga — antes era paridade entre iguais, agora é entrega. As quatro
- * vias continuam, e continuam querendo dizer redundância: some qualquer
- * caminho e o código ainda chega do outro lado.
+ * POLARIDADE INVERTIDA EM RELAÇÃO AO HERO, e não é detalhe de gosto: esta faixa
+ * é clara. No escuro, sombrear é somar preto e a luz vem de um fio branco no
+ * alto da face; no claro é o contrário — a face pega tinta embaixo e o topo
+ * fica limpo. Copiar os gradientes do hero deixaria os sólidos parecendo
+ * iluminados por baixo.
  *
- * A peça segue na faixa que era escura e hoje é clara, então o `--color-data`
- * dela virou `--color-accent`: sobre o papel o ciano daria 1,93:1 e reprovaria
- * AA. Ver `contraste.test.ts`.
+ * DEFS PRÓPRIAS, COM IDS PRÓPRIOS, e essa é a razão técnica de não reaproveitar
+ * as do hero: `<defs>` de SVG vivem no documento, não no elemento. As duas
+ * peças coexistem na mesma página, e um `id="face-clara"` repetido faria a
+ * segunda silenciosamente herdar o sombreamento da primeira — um bug que não
+ * quebra nada, não aparece em teste e só se nota comparando as duas artes lado
+ * a lado.
  *
- * A primeira tentativa por gerador saiu com esferas em wireframe e dezenas de
- * linhas cruzadas — o clichê visual de "rede neural", que é o oposto do que
- * esta página quer sinalizar. Aqui é tudo reto e contado: menos de trinta
- * traços no total.
+ * O ARGUMENTO: à esquerda a pilha construída, à direita a caixa que fica com o
+ * cliente, e entre as duas as vias de entrega. As quatro continuam dizendo
+ * redundância — some qualquer caminho e o código ainda chega do outro lado.
  */
 export function ArteDupla() {
-  // Uma forma só, desenhada uma vez e espelhada — se as duas fossem escritas à
-  // mão, a primeira divergência de coordenada quebraria a simetria que é o
-  // ponto da peça.
-  //
-  // TINHA VIRADO ALVO DE TIRO. Eram três quadrados concêntricos no mesmo peso
-  // de traço, e quadrado dentro de quadrado dentro de quadrado lê como mira,
-  // não como módulo — nada ali dizia "profissional que entrega". Agora cada
-  // forma tem ANATOMIA: carcaça, uma barra de topo, e quatro portas nas laterais
-  // por onde as ligações entram de verdade, em vez de encostarem no vazio.
-  //
-  // A hierarquia de traço é a mesma correção do hero: 1,4 na carcaça, 0,8 no
-  // interior, 0,6 nas portas. Antes tudo era 1,2 e o desenho lia chapado.
-  const PORTAS = [22, 54]
-  const forma = (
-    <>
-      {/* Carcaça — o traço mais forte da peça. */}
-      <rect x="0" y="0" width="76" height="76" strokeWidth="1.4" {...traca(perimetro(76, 76), 'fill-none stroke-accent')} />
-      {/* Barra de topo: dá orientação à forma. Sem ela o quadrado não tem
-          "em cima", e módulo sem orientação vira ornamento. */}
-      <line x1="0" y1="16" x2="76" y2="16" strokeWidth="0.8" {...traca(segmento(0, 16, 76, 16), 'stroke-accent')} />
-      <rect x="8" y="6" width="14" height="5" {...preenche('fill-accent')} />
-      {/* Núcleo, deslocado para baixo da barra e sem ser concêntrico — é o que
-          desfaz a leitura de alvo. */}
-      <rect x="14" y="28" width="48" height="34" strokeWidth="0.8" {...traca(perimetro(48, 34), 'fill-none stroke-accent')} />
-      <rect x="24" y="38" width="28" height="14" {...preenche('fill-accent')} />
-      {/* Portas: dois pontos em cada lateral, onde as ligações chegam. */}
-      {PORTAS.map((y) => (
-        <g key={y}>
-          <line x1="-6" y1={y} x2="0" y2={y} strokeWidth="0.6" {...traca(6, 'stroke-accent')} />
-          <line x1="76" y1={y} x2="82" y2={y} strokeWidth="0.6" {...traca(6, 'stroke-accent')} />
+  /** Escala local: a peça vive num quadro bem menor que o do hero, e as
+   *  coordenadas ficam legíveis se forem escritas na mesma faixa de 0..100. */
+  const P = (x: number, y: number, z: number): [number, number] => {
+    const [ax, ay] = iso(x, y, z)
+    return [ax, ay]
+  }
+  const face = (x: number, y: number, w: number, d: number, z: number) =>
+    pontosDe(faceIso(x, y, w, d, z))
+  const ladoX = (x: number, y: number, w: number, d: number, z: number, alt: number) =>
+    pontosDe(faceLateralX(x, y, w, d, z, alt))
+  const ladoY = (x: number, y: number, w: number, d: number, z: number, alt: number) =>
+    pontosDe(faceLateralY(x, y, w, d, z, alt))
+
+  /** Uma peça sólida da cena, com as duas faces visíveis e a sombra. */
+  const Bloco = ({
+    r,
+    z,
+    alt,
+    cheio = false,
+  }: {
+    r: [number, number, number, number]
+    z: number
+    alt: number
+    cheio?: boolean
+  }) => {
+    const [x, y, w, d] = r
+    return (
+      <g>
+        <polygon points={face(x + 1.4, y + 1.4, w, d, z)} fill="url(#dupla-sombra)" {...preenche('')} />
+        <polygon points={ladoX(x, y, w, d, z, alt)} fill="url(#dupla-lado-claro)" {...preenche('')} />
+        <polygon points={ladoY(x, y, w, d, z, alt)} fill="url(#dupla-lado-escuro)" {...preenche('')} />
+        <g {...preenche('stroke-ink')} fill="none" strokeWidth="0.5">
+          <polygon points={ladoX(x, y, w, d, z, alt)} />
+          <polygon points={ladoY(x, y, w, d, z, alt)} />
         </g>
-      ))}
-    </>
-  )
+        <polygon
+          {...contorno(faceIso(x, y, w, d, z + alt), `${cheio ? 'fill-accent' : 'fill-paper'} stroke-ink`, 0.9)}
+        />
+      </g>
+    )
+  }
+
+  /** Marca fina no tampo de um bloco — as linhas que dizem que ali tem código. */
+  const Linhas = ({
+    r,
+    z,
+    quantas,
+  }: {
+    r: [number, number, number, number]
+    z: number
+    quantas: number
+  }) => {
+    const [x, y, w, d] = r
+    const passo = (d - 4) / (quantas + 1)
+    return (
+      <>
+        {Array.from({ length: quantas }, (_, i) => {
+          const ly = y + 2 + (i + 1) * passo
+          const larg = [0.74, 0.52, 0.86, 0.62][i % 4] ?? 0.7
+          const [ax, ay] = P(x + 2, ly, z)
+          const [bx, by] = P(x + 2 + (w - 4) * larg, ly, z)
+          return (
+            <line key={i} x1={ax} y1={ay} x2={bx} y2={by} strokeWidth="0.5" {...preenche('stroke-rule')} />
+          )
+        })}
+      </>
+    )
+  }
+
+  /** As portas de cada lado, de onde as vias saem e chegam. */
+  /** AS VIAS SÃO PARALELAS, NÃO CRUZADAS.
+   *
+   * A versão de frente cruzava as quatro em X, e ali o X lia como malha
+   * redundante. Projetado em isométrico o mesmo cruzamento vira um laço — as
+   * duas diagonais se encontram no meio e o desenho parece um nó, não um
+   * caminho. Três vias paralelas dizem a mesma coisa (some uma, sobram duas) e
+   * leem como entrega em vez de emaranhado.
+   */
+  const VIAS = [13, 25, 37]
 
   return (
     <svg
-      viewBox="0 0 300 120"
+      viewBox="0 0 210 132"
       role="img"
       aria-hidden="true"
       className="arte-viva h-auto w-full"
       preserveAspectRatio="xMidYMid meet"
     >
-      {/* Grade de fundo, quase invisível — a mesma função do `grid-tecnico` do
-          portfólio: dar chão sem competir.
-          FICA FORA DO DESENHO de propósito: é o chão sobre o qual a peça se
-          constrói, e chão que também está sendo construído não é chão. */}
-      <g className="stroke-rule" strokeWidth="0.5">
-        {[30, 60, 90].map((y) => (
-          <line key={y} x1="8" y1={y} x2="292" y2={y} />
-        ))}
-      </g>
+      <defs>
+        {/* No claro a face escurece PARA BAIXO: a luz vem de cima e a base
+            encosta no plano. É o inverso exato do hero, e é o que impede os
+            blocos de parecerem iluminados por baixo. */}
+        <linearGradient id="dupla-lado-claro" x1="0" y1="0" x2="0.3" y2="1">
+          <stop offset="0%" stopColor="var(--color-ink)" stopOpacity="0.03" />
+          <stop offset="100%" stopColor="var(--color-ink)" stopOpacity="0.11" />
+        </linearGradient>
+        <linearGradient id="dupla-lado-escuro" x1="0" y1="0" x2="0.3" y2="1">
+          <stop offset="0%" stopColor="var(--color-ink)" stopOpacity="0.09" />
+          <stop offset="100%" stopColor="var(--color-ink)" stopOpacity="0.2" />
+        </linearGradient>
+        <linearGradient id="dupla-sombra">
+          <stop offset="0%" stopColor="var(--color-ink)" stopOpacity="0.07" />
+          <stop offset="100%" stopColor="var(--color-ink)" stopOpacity="0.07" />
+        </linearGradient>
+      </defs>
 
-      {/* As duas formas são o MESMO JSX, então traçam em sincronia — que é
-          exatamente o argumento da peça: dois sêniores, nenhum principal. */}
-      <g transform="translate(34, 22)">{forma}</g>
-      <g transform="translate(190, 22)">{forma}</g>
+      <g transform="translate(105, 22) scale(1.02)">
+        {/* AS VIAS PRIMEIRO: elas passam por baixo dos blocos, como no hero as
+            ligações passam por baixo dos nós. Linha que corta um sólido ao meio
+            denuncia que o desenho não tem profundidade. */}
+        <g className="stroke-accent" strokeWidth="0.6">
+          {VIAS.map((v) => {
+            const [ax, ay] = P(43, v, 0)
+            const [bx, by] = P(61, v, 0)
+            return <line key={v} x1={ax} y1={ay} x2={bx} y2={by} {...traca(segmento(ax, ay, bx, by), '')} />
+          })}
+        </g>
 
-      {/* AS CONEXÕES AGORA SAEM DAS PORTAS, não do ar.
-          Antes as três linhas partiam de pontos arbitrários no meio do vão e
-          morriam encostando na borda do quadrado — lia como risco atravessado,
-          não como ligação. Agora cada uma nasce numa porta real de uma forma e
-          termina numa porta real da outra, e as coordenadas saem das MESMAS
-          constantes que desenham as portas: mexer numa move as duas juntas.
+        {/* O SISTEMA: três lajes empilhadas, eco direto das camadas do hero.
+            Alturas diferentes, porque skyline reto lê como bandeja. */}
+        <Bloco r={[8, 8, 34, 34]} z={0} alt={4.5} />
+        <Bloco r={[11, 11, 28, 28]} z={4.5} alt={3.4} />
+        <Bloco r={[14, 14, 22, 22]} z={7.9} alt={2.6} />
+        {/* As linhas ficam no tampo do bloco de CIMA, o único que aparece
+            inteiro — nos de baixo elas seriam desenhadas e imediatamente
+            cobertas pela laje seguinte. */}
+        <Linhas r={[14, 14, 22, 22]} z={10.5} quantas={3} />
 
-          Quatro caminhos entre dois módulos de duas portas cada é a redundância
-          desenhada — some qualquer um e ainda sobra caminho. É literalmente o
-          argumento da seção: nenhum dos dois é ponto único de falha. */}
-      <g className="stroke-accent" strokeWidth="0.7">
-        {[22, 54].flatMap((saida) =>
-          [22, 54].map((chegada) => {
-            const x1 = 34 + 82
-            const y1 = 22 + saida
-            const x2 = 190 - 6
-            const y2 = 22 + chegada
-            return (
-              <line
-                key={`${saida}-${chegada}`}
-                x1={x1}
-                y1={y1}
-                x2={x2}
-                y2={y2}
-                {...traca(segmento(x1, y1, x2, y2), '')}
-              />
-            )
-          }),
-        )}
+        {/* O REPOSITÓRIO DO CLIENTE: uma caixa só, mais alta que qualquer laje
+            da esquerda. A altura é o argumento — o que fica com ele não é um
+            resto do processo, é a peça de maior peso da composição. */}
+        <Bloco r={[62, 8, 34, 34]} z={0} alt={9} />
+        <Linhas r={[62, 8, 34, 34]} z={9} quantas={5} />
+        {/* A trava: o bloco em cor no tampo do repositório diz que aquilo tem
+            dono. É o único elemento colorido além das vias. */}
+        <Bloco r={[72, 30, 14, 8]} z={9} alt={2.2} cheio />
       </g>
     </svg>
   )
