@@ -2215,14 +2215,28 @@ export function ArteDupla() {
       <g>
         <polygon points={face(x + 1.4, y + 1.4, w, d, z)} fill="url(#dupla-sombra)" {...preenche('')} />
         <polygon points={ladoX(x, y, w, d, z, alt)} fill="url(#dupla-lado-claro)" {...preenche('')} />
+        <polygon points={ladoX(x, y, w, d, z, alt)} fill="url(#dupla-hachura)" {...preenche('')} />
         <polygon points={ladoY(x, y, w, d, z, alt)} fill="url(#dupla-lado-escuro)" {...preenche('')} />
+        <polygon points={ladoY(x, y, w, d, z, alt)} fill="url(#dupla-hachura)" {...preenche('')} />
         <g {...preenche('stroke-ink')} fill="none" strokeWidth="0.5">
           <polygon points={ladoX(x, y, w, d, z, alt)} />
           <polygon points={ladoY(x, y, w, d, z, alt)} />
         </g>
-        <polygon
-          {...contorno(faceIso(x, y, w, d, z + alt), `${cheio ? 'fill-accent' : 'fill-paper'} stroke-ink`, 0.9)}
-        />
+        {cheio ? (
+          <polygon
+            points={face(x, y, w, d, z + alt)}
+            fill="url(#dupla-acento)"
+            stroke="var(--color-data)"
+            strokeWidth="0.7"
+            filter="url(#dupla-brilho)"
+            {...preenche('')}
+          />
+        ) : (
+          <g>
+            <polygon {...contorno(faceIso(x, y, w, d, z + alt), 'fill-paper stroke-ink', 0.9)} />
+            <polygon points={face(x, y, w, d, z + alt)} fill="url(#dupla-topo)" {...preenche('')} />
+          </g>
+        )}
       </g>
     )
   }
@@ -2267,31 +2281,67 @@ export function ArteDupla() {
 
   return (
     <svg
-      viewBox="0 0 210 132"
+      viewBox="0 0 148 104"
       role="img"
       aria-hidden="true"
       className="arte-viva h-auto w-full"
       preserveAspectRatio="xMidYMid meet"
+      // Mesma alavanca do hero: os tokens do projeto vivem em `@theme`, entao
+      // redefini-los aqui inverte a arvore inteira sem reescrever uma classe.
+      style={
+        {
+          '--color-ink': '#DCE3F0',
+          '--color-paper': '#0B0E15',
+          '--color-rule': '#2A3345',
+        } as React.CSSProperties
+      }
     >
       <defs>
-        {/* No claro a face escurece PARA BAIXO: a luz vem de cima e a base
+        {/* No escuro a face pega luz EM CIMA: a luz vem de cima e a base
             encosta no plano. É o inverso exato do hero, e é o que impede os
             blocos de parecerem iluminados por baixo. */}
         <linearGradient id="dupla-lado-claro" x1="0" y1="0" x2="0.3" y2="1">
-          <stop offset="0%" stopColor="var(--color-ink)" stopOpacity="0.03" />
-          <stop offset="100%" stopColor="var(--color-ink)" stopOpacity="0.11" />
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.03" />
         </linearGradient>
         <linearGradient id="dupla-lado-escuro" x1="0" y1="0" x2="0.3" y2="1">
-          <stop offset="0%" stopColor="var(--color-ink)" stopOpacity="0.09" />
-          <stop offset="100%" stopColor="var(--color-ink)" stopOpacity="0.2" />
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.06" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.24" />
         </linearGradient>
         <linearGradient id="dupla-sombra">
-          <stop offset="0%" stopColor="var(--color-ink)" stopOpacity="0.07" />
-          <stop offset="100%" stopColor="var(--color-ink)" stopOpacity="0.07" />
+          <stop offset="0%" stopColor="#000000" stopOpacity="0.32" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.32" />
         </linearGradient>
+        {/* Vidro fosco no tampo, como no hero: face da cor do fundo le como
+            buraco, nao como superficie. */}
+        <linearGradient id="dupla-topo" x1="0" y1="0" x2="0.4" y2="1">
+          <stop offset="0%" stopColor="#5B6B85" stopOpacity="0.40" />
+          <stop offset="100%" stopColor="#161C28" stopOpacity="0.66" />
+        </linearGradient>
+        {/* Hachura: a mesma materia do hero, em id proprio. */}
+        <pattern id="dupla-hachura" patternUnits="userSpaceOnUse" width="1.8" height="1.8" patternTransform="rotate(60)">
+          <line x1="0" y1="0" x2="0" y2="1.8" className="stroke-ink" strokeWidth="0.35" />
+        </pattern>
+        <linearGradient id="dupla-acento" x1="0" y1="0" x2="0.6" y2="1">
+          <stop offset="0%" stopColor="#67E8F9" />
+          <stop offset="100%" stopColor="#38BDF8" />
+        </linearGradient>
+        <filter id="dupla-brilho" x="-90%" y="-90%" width="280%" height="280%">
+          <feGaussianBlur stdDeviation="1.4" result="perto" />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="longe" />
+          <feMerge>
+            <feMergeNode in="longe" />
+            <feMergeNode in="perto" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
 
-      <g transform="translate(105, 22) scale(1.02)">
+      {/* CAIXA APERTADA NO DESENHO. A anterior era 210x132 para um desenho que
+        ocupava 137 de largura: quase um terco da caixa era margem vazia, e
+        margem vazia num SVG com `w-full` vira peca pequena na tela. Agora a
+        caixa acompanha os extremos reais da projecao. */}
+      <g transform="translate(40, 8) scale(1.3)">
         {/* AS VIAS PRIMEIRO: elas passam por baixo dos blocos, como no hero as
             ligações passam por baixo dos nós. Linha que corta um sólido ao meio
             denuncia que o desenho não tem profundidade. */}
