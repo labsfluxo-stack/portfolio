@@ -1,6 +1,7 @@
 import type { Dictionary, Locale } from '@/content/types'
 import { ArteSemJavaScript } from './arte'
 import { Auditoria } from './Auditoria'
+import { TOKENS_ESCUROS } from './polaridade'
 
 /**
  * A seção que carrega a página, e a que mudou mais depois da pesquisa.
@@ -32,26 +33,9 @@ export function Criterio({ dict, locale }: { dict: Dictionary; locale: Locale })
     // grande e, pior, uma segunda fonte de verdade: a primeira classe esquecida
     // viraria texto escuro sobre fundo escuro num campo de entrada.
     //
-    // Como todo token do projeto mora em `@theme`, cada utilitário resolve para
-    // `var(--color-*)`. Redefinindo as variáveis AQUI, a árvore inteira abaixo
-    // herda — seção, arte e formulário — e nenhuma classe precisou mudar. É a
-    // mesma alavanca que inverte a arte da abertura dentro do `<svg>`.
-    //
-    // `--color-accent` vira o ciano: sobre escuro ele dá 9,29:1, e é ele que
-    // pinta a barra dos dois testes e os destaques do resultado. Manter o
-    // `#0369A1` aqui deixaria a barra quase invisível contra o preto.
-    <section
-      className="border-t border-rule bg-paper"
-      style={
-        {
-          '--color-paper': '#08090C',
-          '--color-ink': '#F5F3EF',
-          '--color-ink-2': '#878C96',
-          '--color-rule': '#1F232B',
-          '--color-accent': '#38BDF8',
-        } as React.CSSProperties
-      }
-    >
+    // A paleta e o porquê de cada valor estão em `./polaridade` — eram cinco
+    // literais copiados aqui, em `Oferta`, em `Prova` e em `Perguntas`.
+    <section className="border-t border-rule bg-paper" style={TOKENS_ESCUROS}>
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-20 sm:py-28">
         <h2 className="revelar-titulo text-balance font-sans text-4xl font-bold leading-tight tracking-tight text-ink sm:text-5xl">
           {criterio.titulo}

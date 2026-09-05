@@ -19,13 +19,30 @@ import { urlWhatsapp } from './whatsapp'
  * botão pequeno não fica elegante, fica difícil de acertar.
  */
 const BASE =
-  'inline-flex min-h-12 items-center justify-center rounded-md px-6 text-[17px] font-semibold transition-opacity hover:opacity-90'
+  'inline-flex min-h-12 items-center justify-center text-[17px] font-semibold transition-opacity hover:opacity-90'
+
+/** O que faz um botão parecer botão, e que a variante `texto` justamente não quer. */
+const CAIXA = 'rounded-md px-6'
 
 const VARIANTE = {
   /** Sobre o papel claro. */
-  escuro: 'bg-ink text-paper',
+  escuro: `${CAIXA} bg-ink text-paper`,
   /** Dentro das faixas escuras. */
-  claro: 'bg-paper text-ink',
+  claro: `${CAIXA} bg-paper text-ink`,
+  /**
+   * SEM CAIXA — link de texto no acento, para as saídas de meio de página.
+   *
+   * Não é um botão mais fraco por economia de esforço: é hierarquia. A barra
+   * fixa já ocupa o papel de botão permanente no celular, e a pesquisa mede
+   * que ela sozinha rende +11% enquanto ela somada a um CTA acima da dobra
+   * rende +12% — o fixo absorve quase todo o ganho. Empilhar mais caixas
+   * escuras não soma conversão, só ruído; o que faltava era existir uma saída
+   * onde não havia nenhuma por 2.313px.
+   *
+   * `min-h-12` do `BASE` continua valendo: o alvo de toque é o mesmo, mesmo
+   * sem a caixa desenhada em volta dele.
+   */
+  texto: 'text-accent underline decoration-2 underline-offset-4',
 } as const
 
 export function BotaoWhatsapp({

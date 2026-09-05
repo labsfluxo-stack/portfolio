@@ -21,7 +21,21 @@ export function Fecho({ dict }: { dict: Dictionary }) {
   const { fecho, cta } = dict.landing
 
   return (
-    <section className="bg-ink text-paper">
+    // `footer` E NÃO `section`, e é o único conserto de acessibilidade que a
+    // auditoria de 2026-09-04 encontrou de fato: a página tinha UM landmark,
+    // `MAIN`, e mais nenhum. Para leitor de tela isso significa que a
+    // navegação por região não oferece nada — a pessoa só pode navegar por
+    // título.
+    //
+    // A recomendação original era `header` + `footer` + `nav`. As outras duas
+    // foram descartadas ao olhar a página: ela não tem topo (nenhum logo,
+    // nenhum menu — a landing apaga Header e Footer de propósito, ver
+    // app/[locale]/projetos/layout.tsx) e não tem navegação. Landmark vazio é
+    // pior que landmark ausente: promete uma região e entrega nada.
+    //
+    // Este bloco, sim, é rodapé de verdade — última faixa, fecho do argumento
+    // e a porta de saída. Nomear o que existe, não inventar o que falta.
+    <footer className="bg-ink text-paper">
       <div className="mx-auto flex w-full max-w-4xl flex-col items-start gap-5 px-6 py-14">
         <p className="revelar-titulo max-w-xl text-balance font-sans text-2xl font-bold tracking-tight sm:text-3xl">
           {fecho}
@@ -30,6 +44,6 @@ export function Fecho({ dict }: { dict: Dictionary }) {
           {cta.rotulo}
         </BotaoWhatsapp>
       </div>
-    </section>
+    </footer>
   )
 }

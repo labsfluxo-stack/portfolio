@@ -1,4 +1,5 @@
 import type { Dictionary } from '@/content/types'
+import { TOKENS_ESCUROS } from './polaridade'
 
 /**
  * Curta, no fim, para o subconjunto que já se engajou — coerente com o
@@ -18,28 +19,16 @@ export function Perguntas({ dict }: { dict: Dictionary }) {
 
   return (
     // ESCURECIDA POR REDEFINIÇÃO DE TOKEN, como o `Criterio` e a arte da
-    // abertura. Todo token do projeto mora em `@theme`, então cada utilitário
-    // resolve para `var(--color-*)` — redefini-los aqui inverte a árvore
-    // inteira abaixo sem tocar em uma classe sequer.
+    // abertura. A paleta e o porquê de cada valor estão em `./polaridade`.
     //
-    // É o que torna barato escurecer uma seção com dezenas de classes de
-    // polaridade clara espalhadas em componentes filhos, e o que impede a
-    // primeira classe esquecida de virar texto escuro sobre fundo escuro.
-    //
-    // `--color-accent` vira o ciano: `#0369A1` sobre preto some, e é ele que
-    // pinta as barras, os números e os destaques desta seção.
-    <section
-      className="border-t border-rule bg-paper"
-      style={
-        {
-          '--color-paper': '#08090C',
-          '--color-ink': '#F5F3EF',
-          '--color-ink-2': '#878C96',
-          '--color-rule': '#1F232B',
-          '--color-accent': '#38BDF8',
-        } as React.CSSProperties
-      }
-    >
+    // ESTA É A SEÇÃO MAIS DENSA EM TEXTO DA PÁGINA, e a auditoria de
+    // 2026-09-04 chegou a propor clareá-la para devolver ritmo à rolagem. Foi
+    // descartado DEPOIS de medir: a seção ocupa ~419px entre dois blocos
+    // escuros (`LandingCta` acima, `Fecho` abaixo), e uma faixa clara curta
+    // espremida entre dois escuros lê como piscada, não como respiro. O
+    // respiro passou a ser o `Piso`, que é claro por natureza e cai numa
+    // fronteira onde a troca tem para onde ir.
+    <section className="border-t border-rule bg-paper" style={TOKENS_ESCUROS}>
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-16">
         <h2 className="revelar-titulo font-sans text-2xl font-bold tracking-tight text-ink">
           {perguntas.titulo}

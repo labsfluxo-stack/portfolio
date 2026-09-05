@@ -74,16 +74,45 @@ describe('Prova', () => {
     }
   })
 
-  // Achado I6 (Important) da revisão final de branch: cada card era um <Link>
-  // inteiro para o polo escuro do portfólio, sem rota de volta — três saídas
-  // grandes numa página que apagou o menu para não ter saída nenhuma. Decisão
-  // do dono: os cards deixam de ser clicáveis; existe UM link no fim da seção.
-  it('os cards não são mais links -- existe um único link no fim da seção', () => {
+  // A REGRA MUDOU DE "UM LINK" PARA "NENHUM CARD-INTEIRO CLICÁVEL", e vale
+  // registrar por que, porque a versão anterior deste teste travava um número.
+  //
+  // O achado I6 reclamava de TRÊS SAÍDAS GRANDES: cada card era um <Link>
+  // inteiro para o polo escuro do portfólio, sem rota de volta, numa página que
+  // apagou o menu justamente para não oferecer saída. A correção da época
+  // ("existe UM link no fim da seção") resolveu o problema e criou outro, que a
+  // auditoria ampla de 2026-09-04 mediu na página no ar: cinco links em toda a
+  // landing, QUATRO deles saindo para fora (WhatsApp, e-mail, GitHub), sobrando
+  // um interno — e as três rotas de caso, que estão no sitemap, sem nenhum link
+  // vindo da página de maior autoridade do site.
+  //
+  // O que o I6 proibia era a saída GRANDE, não a existência de link. O título
+  // do card sublinhado é a affordance mínima de "isto continua"; o link de
+  // tratamento forte continua sendo um só, no fim, e continua apontando para o
+  // portfólio inteiro em vez de para um caso.
+  it('cada caso linka para a própria rota, sem o card inteiro virar clicável', () => {
+    const { container } = render(<Prova dict={pt} locale="pt" />)
+
+    for (const slug of SYSTEM_SLUGS) {
+      const link = screen.getByRole('link', { name: pt.systems.detail[slug].name })
+      expect(link).toHaveAttribute('href', `/pt/sistemas/${slug}`)
+      // O ALVO É O TÍTULO, NÃO O CARD. É esta asserção que preserva o I6: se
+      // alguém voltar a envolver o `<li>` inteiro no <Link>, o texto acessível
+      // do link passa a incluir as melhorias e o teste cai.
+      expect(link.textContent).toBe(pt.systems.detail[slug].name)
+    }
+
+    // Nenhum <li> é, ele próprio, um link nem contém um link que o cubra.
+    for (const item of container.querySelectorAll('li')) {
+      expect(item.tagName).toBe('LI')
+      expect(item.closest('a'), 'o card inteiro voltou a ser clicável').toBeNull()
+    }
+  })
+
+  it('mantém um único link de tratamento forte, para o portfólio inteiro', () => {
     render(<Prova dict={pt} locale="pt" />)
-    const links = screen.getAllByRole('link')
-    expect(links).toHaveLength(1)
-    expect(links[0]).toHaveTextContent(pt.landing.prova.verCase)
-    expect(links[0]).toHaveAttribute('href', expect.stringContaining('/pt'))
+    const link = screen.getByRole('link', { name: pt.landing.prova.verCase })
+    expect(link).toHaveAttribute('href', '/pt')
   })
 
   // Erro clássico de dev vendendo para não-dev, observado na pesquisa: provar

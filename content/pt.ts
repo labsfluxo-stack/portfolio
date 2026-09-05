@@ -653,13 +653,24 @@ export const pt: Dictionary = {
       ],
     },
     oferta: {
-      // "O que EU construo" convivia na mesma rolagem com "os dois conhecem
-      // o código inteiro" (Dupla, ver comentário lá) — primeira pessoa do
-      // singular devolvendo a objeção de ponto único de falha que a faixa
-      // anterior acabou de desarmar. A dupla é o diferencial da página, e
-      // fica plural em todo `dict.landing` (achado I5 da revisão final de
-      // branch). O resto do site continua na voz de uma pessoa só, e não é
-      // tocado aqui.
+      // PLURAL EM TODO `dict.landing`, e o motivo mudou — o comentário antigo
+      // aqui justificava o plural pela dupla ("a dupla é o diferencial da
+      // página"). Não há mais dupla: a entrega é de uma pessoa só, e a seção
+      // `dupla` foi reescrita para falar de acesso e propriedade em vez de
+      // contar gente.
+      //
+      // O plural FICA, agora por outra razão. A auditoria de 2026-09-04
+      // encontrou a página alternando: "O que construímos", "Vamos ler",
+      // "Conta pra gente" e "O que garantimos" convivendo com "não na minha
+      // máquina" e "só dou prazo" — o FAQ trocava de voz entre uma resposta e
+      // a seguinte. Plural corporativo por profissional solo é padrão de
+      // mercado e não afirma número nenhum; a ALTERNÂNCIA é que lê como
+      // alguém decidindo frase a frase o quanto revelar, e isso corrói
+      // exatamente a peça central desta página ("você fala direto com quem
+      // escreve o código").
+      //
+      // Uma voz, aplicada em todo `dict.landing`. O resto do site continua na
+      // primeira pessoa do singular, e não é tocado aqui.
       titulo: 'O que construímos',
       cartoes: [
         {
@@ -678,6 +689,7 @@ export const pt: Dictionary = {
             'Quando a operação não cabe em site. CRM, ERP, painel, automação — do banco ao ar.',
         },
       ],
+      cta: 'Conte o que precisa existir e a gente diz o que dá para fazer.',
     },
     // A SEÇÃO MUDOU DE ARGUMENTO, e a mudança é de fato, não de estilo: a
     // entrega é de uma pessoa só, e a página inteira afirmava duas.
@@ -733,8 +745,30 @@ export const pt: Dictionary = {
       // o plural.
       verCase: 'Ver os casos completos',
     },
-    // Vazio até o dono decidir o valor. A seção some sozinha — ver Task 8.
-    piso: null,
+    // DECIDIDO PELO DONO EM 2026-09-04: R$ 999 de entrada, R$ 99/mês.
+    //
+    // Ficou `null` desde o lançamento, e o custo disso foi medido na auditoria
+    // ampla: a página não tinha NENHUMA âncora de valor. A consequência de não
+    // publicar piso não é menos contato — é contato pior, gente pedindo
+    // orçamento de site de R$ 800 para trabalho de sistema, gastando a única
+    // hora que existe numa conversa que nunca ia fechar. O piso é filtro, não
+    // vitrine.
+    //
+    // A MENSALIDADE ENTRA NA MESMA RESPIRAÇÃO QUE A ENTRADA, e isso é
+    // deliberado. Custo recorrente descoberto depois da proposta é a forma
+    // mais rápida de queimar a confiança que a página passou 4.600px
+    // construindo — e confiança é literalmente o produto aqui ("você fala
+    // direto com quem escreve o código"). Quem publica o piso e esconde o
+    // recorrente não publicou piso nenhum.
+    //
+    // "A partir de" e não "R$ 999": o valor é ponto de partida e a nota diz
+    // isso em voz alta. A página inteira se sustenta em afirmações que se
+    // conferem; um piso que na prática nunca é o preço seria a primeira que
+    // não confere.
+    piso: {
+      valor: 'A partir de R$ 999',
+      nota: 'Mais R$ 99 por mês de hospedagem e manutenção. O valor final depende do escopo — este é o ponto de partida, não o teto.',
+    },
     fechamento: {
       titulo: 'Traz o problema.',
       // Era "Me conta" — primeira pessoa do singular, mesma inconsistência
@@ -835,7 +869,7 @@ export const pt: Dictionary = {
         {
           pergunta: 'E se você ficar indisponível?',
           resposta:
-            'O código fica no seu repositório desde o primeiro dia, documentado e coberto por teste — não na minha máquina e não na minha cabeça. Qualquer desenvolvedor abre o projeto e continua de onde parou. É a única resposta a essa pergunta que não depende de eu estar por perto.',
+            'O código fica no seu repositório desde o primeiro dia, documentado e coberto por teste — não numa máquina nossa e não na cabeça de ninguém. Qualquer desenvolvedor abre o projeto e continua de onde parou. É a única resposta a essa pergunta que não depende de ninguém estar por perto.',
         },
         {
           pergunta: 'Isso substitui o trabalho de SEO?',
@@ -849,7 +883,7 @@ export const pt: Dictionary = {
           // (duas vezes); "45" sozinho afirma um teto que nenhum dos três
           // sistemas bateu de verdade.
           resposta:
-            'Depende do escopo. Os três sistemas do portfólio levaram de 26 a menos de 45 dias cada. Um site institucional é bem mais rápido que isso — mas só dou prazo depois de entender o que precisa existir.',
+            'Depende do escopo. Os três sistemas do portfólio levaram de 26 a menos de 45 dias cada. Um site institucional é bem mais rápido que isso — mas só damos prazo depois de entender o que precisa existir.',
         },
       ],
     },

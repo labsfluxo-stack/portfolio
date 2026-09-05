@@ -551,11 +551,11 @@ export const en: Dictionary = {
       ],
     },
     oferta: {
-      // Ver content/pt.ts: "What I build" sat in the same scroll as "both of
-      // us know the whole codebase" (Dupla) — singular voice handing back
-      // the single-point-of-failure objection the section above just
-      // disarmed. Kept plural across dict.landing (final branch review,
-      // finding I5); the rest of the site keeps its one-person voice.
+      // Ver o comentário longo em content/pt.ts. O plural continua valendo em
+      // todo `dict.landing`, mas por outra razão: não há mais dupla a
+      // preservar — o que a auditoria de 2026-09-04 encontrou foi a página
+      // ALTERNANDO entre plural e singular, inclusive de uma resposta do FAQ
+      // para a seguinte. Uma voz só. O resto do site segue no singular.
       titulo: 'What we build',
       cartoes: [
         {
@@ -573,6 +573,7 @@ export const en: Dictionary = {
             'When the operation does not fit in a website. CRM, ERP, dashboards, automation — from the database to production.',
         },
       ],
+      cta: 'Tell us what needs to exist and we will tell you what is doable.',
     },
     // Ver o comentário em content/pt.ts. A entrega é de uma pessoa só, e a
     // segunda objeção do mercado passa a ser respondida com artefato — código
@@ -601,7 +602,14 @@ export const en: Dictionary = {
       // portfolio, not one specific case — hence the plural.
       verCase: 'Read the full case studies',
     },
-    piso: null,
+    // Ver o comentário longo em content/pt.ts. Valor em reais nos dois
+    // idiomas: o serviço é vendido no Brasil e cobrado em real, e converter
+    // para dólar na página inglesa inventaria uma cotação que a proposta não
+    // vai honrar.
+    piso: {
+      valor: 'From R$ 999',
+      nota: 'Plus R$ 99 a month for hosting and maintenance. Final pricing depends on scope — this is the starting point, not the ceiling.',
+    },
     fechamento: {
       // Ver content/pt.ts: "Bring me / Tell me" era primeira pessoa do
       // singular, mesma inconsistência de voz da Oferta.
@@ -689,9 +697,20 @@ export const en: Dictionary = {
             'Not in itself. WordPress, Wix and Shopify all deliver the page ready from the server, which is what AI needs. What hurts is what piles up on top: too many plugins, cheap hosting and — most common of all — a security setting that blocks the crawler thinking it is a scraper. All three are fixable without changing platform.',
         },
         {
-          pergunta: 'What if one of you is unavailable?',
+          // AFIRMAVA DOIS DESENVOLVEDORES, ao vivo, em produção. A correção de
+          // fato foi aplicada em content/pt.ts e nesta seção `dupla`, mas o
+          // FAQ inglês ficou para trás com "Both of us know the whole
+          // codebase" e "with two people" na pergunta de prazo — encontrado
+          // pela auditoria ampla de 2026-09-04.
+          //
+          // A resposta nova é a mesma do português e é mais forte que a
+          // antiga, não mais fraca: "os dois conhecem o código" ainda falha se
+          // os dois saírem; "o código é seu, no seu repositório, documentado e
+          // testado" sobrevive a qualquer coisa. É também a única das duas que
+          // o visitante pode verificar.
+          pergunta: 'What if you become unavailable?',
           resposta:
-            'Both of us know the whole codebase and the repository is shared from day one. The project does not stop because one person did.',
+            'The code lives in your repository from day one, documented and covered by tests — not on a machine of ours and not in anyone’s head. Any developer opens the project and picks up where it stopped. It is the only answer to that question that does not depend on anyone being around.',
         },
         {
           pergunta: 'Does this replace SEO work?',
@@ -704,7 +723,7 @@ export const en: Dictionary = {
           // '26 dias' e 'menos de 45 dias' (duas vezes); "45" sozinho afirma
           // um teto que nenhum dos três sistemas bateu de verdade.
           resposta:
-            'It depends on scope. The three systems in the portfolio took 26 to under 45 days each, with two people. A corporate site is much faster — but we only quote a deadline after understanding what needs to exist.',
+            'It depends on scope. The three systems in the portfolio took 26 to under 45 days each. A corporate site is much faster — but we only quote a deadline after understanding what needs to exist.',
         },
       ],
     },

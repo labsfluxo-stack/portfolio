@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { Dictionary, Locale } from '@/content/types'
 import { SYSTEM_SLUGS } from '@/content/types'
+import { TOKENS_ESCUROS } from './polaridade'
 
 /**
  * Depoimento é SINAL BARATO — qualquer um escreve um, e o comprador sabe
@@ -43,28 +44,8 @@ export function Prova({ dict, locale }: { dict: Dictionary; locale: Locale }) {
 
   return (
     // ESCURECIDA POR REDEFINIÇÃO DE TOKEN, como o `Criterio` e a arte da
-    // abertura. Todo token do projeto mora em `@theme`, então cada utilitário
-    // resolve para `var(--color-*)` — redefini-los aqui inverte a árvore
-    // inteira abaixo sem tocar em uma classe sequer.
-    //
-    // É o que torna barato escurecer uma seção com dezenas de classes de
-    // polaridade clara espalhadas em componentes filhos, e o que impede a
-    // primeira classe esquecida de virar texto escuro sobre fundo escuro.
-    //
-    // `--color-accent` vira o ciano: `#0369A1` sobre preto some, e é ele que
-    // pinta as barras, os números e os destaques desta seção.
-    <section
-      className="border-t border-rule bg-paper"
-      style={
-        {
-          '--color-paper': '#08090C',
-          '--color-ink': '#F5F3EF',
-          '--color-ink-2': '#878C96',
-          '--color-rule': '#1F232B',
-          '--color-accent': '#38BDF8',
-        } as React.CSSProperties
-      }
-    >
+    // abertura. A paleta e o porquê de cada valor estão em `./polaridade`.
+    <section className="border-t border-rule bg-paper" style={TOKENS_ESCUROS}>
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-20 sm:py-28">
         <div className="flex flex-col gap-3">
           <h2 className="revelar-titulo font-sans text-4xl font-bold tracking-tight text-ink sm:text-5xl">
@@ -104,7 +85,39 @@ export function Prova({ dict, locale }: { dict: Dictionary; locale: Locale }) {
                  * "menos de 45 dias" onde só existe o limite. Exibir "45" para
                  * os dois seria inventar precisão que ninguém mediu. */}
                 <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-                  <h3 className="text-[19px] font-semibold text-ink">{caso.name}</h3>
+                  {/* O NOME DO CASO VIROU LINK, e é o conserto de duas contas
+                    * que a auditoria de 2026-09-04 mediu na página no ar.
+                    *
+                    * SEO: a página inteira tinha CINCO links, quatro deles
+                    * saindo para fora (WhatsApp, e-mail, GitHub). Sobrava um
+                    * interno. As três páginas de caso estão no sitemap e não
+                    * recebiam link da página de maior autoridade do site —
+                    * desperdício caro numa arquitetura de dez URLs, e
+                    * justamente o tipo de fundamento técnico que esta página
+                    * se vende como sabendo fazer.
+                    *
+                    * CONVERSÃO: quem a seção acabou de convencer tem uma
+                    * pergunta óbvia ("como foi esse projeto?") e a página só
+                    * lhe oferecia o WhatsApp. Para quem não está pronto para
+                    * falar, a alternativa a ler mais um caso não é mandar
+                    * mensagem — é fechar a aba.
+                    *
+                    * O link é o TÍTULO, não um "saiba mais" solto: alvo maior,
+                    * texto que descreve o destino (leitor de tela lê "Móveis
+                    * Pro", não "saiba mais"), e nenhuma linha nova de layout.
+                    *
+                    * `prefetch={false}` pela mesma razão do link do fim da
+                    * seção: sem isso o Next pré-carrega o payload RSC das três
+                    * rotas assim que os cards entram em viewport. */}
+                  <h3 className="text-[19px] font-semibold text-ink">
+                    <Link
+                      prefetch={false}
+                      href={`/${locale}/sistemas/${slug}`}
+                      className="underline decoration-rule decoration-2 underline-offset-4 transition-colors hover:decoration-accent"
+                    >
+                      {caso.name}
+                    </Link>
+                  </h3>
                   <p className="font-mono text-[11px] uppercase tracking-widest text-ink-2">
                     {caso.duration} · {caso.team}
                   </p>
@@ -125,7 +138,20 @@ export function Prova({ dict, locale }: { dict: Dictionary; locale: Locale }) {
           })}
         </ul>
 
-        {/* ÚNICO link da seção (achado I6) — antes eram três, um por card, no
+        {/* JÁ NÃO É O ÚNICO LINK DA SEÇÃO: os três nomes de caso acima também
+         * levam para as rotas de detalhe (ver o comentário lá). O achado I6
+         * que criou esta regra reclamava de TRÊS SAÍDAS GRANDES — três links
+         * em tratamento de botão, no polo escuro do portfólio e sem rota de
+         * volta. Título sublinhado não é saída grande: é a affordance mínima
+         * de "isto continua", e a auditoria de 2026-09-04 mediu o custo do
+         * extremo oposto — uma landing com um único link interno em cinco.
+         *
+         * Este continua sendo o link de tratamento forte, e continua
+         * apontando para o portfólio inteiro (daí o plural em `verCase`), não
+         * para um caso específico.
+         *
+         * Comentário original, ainda válido para este link:
+         * antes eram três, um por card, no
          * polo escuro do portfólio e sem rota de volta. `prefetch={false}`
          * pela mesma razão de Contact.tsx e SystemCard.tsx: sem isso o Next
          * pré-carrega o payload RSC da rota assim que o link entra em

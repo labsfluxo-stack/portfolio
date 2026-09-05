@@ -379,7 +379,24 @@ export type Dictionary = {
       tranquilizador: string
     }
     criterio: { titulo: string; abertura: string; testes: { titulo: string; corpo: string }[]; fecho: string[] }
-    oferta: { titulo: string; cartoes: { nome: string; corpo: string }[] }
+    oferta: {
+      titulo: string
+      cartoes: { nome: string; corpo: string }[]
+      /**
+       * CTA em texto no fim da oferta, e a posição foi medida, não escolhida
+       * por gosto. Na página no ar os pontos de conversão caíam em y=494
+       * (hero), 2568 (auditoria), 4881 (fechamento), 5684 (rodapé) e na barra
+       * fixa — cinco no total, dentro do padrão de 3 a 5. O que faltava não
+       * era quantidade: entre 2568 e 4881 havia 2.313px cobrindo a oferta
+       * INTEIRA e a prova INTEIRA sem nenhuma saída, e são os dois blocos que
+       * mais constroem desejo.
+       *
+       * É link de texto e não botão de propósito: a barra fixa já ocupa o
+       * papel de botão permanente no celular, e um segundo botão grande a
+       * meia página compete com ela em vez de somar.
+       */
+      cta: string
+    }
     dupla: { titulo: string; corpo: string[]; numeros: { valor: string; rotulo: string }[] }
     prova: { titulo: string; lead: string; verCase: string }
     /**
@@ -388,6 +405,11 @@ export type Dictionary = {
      * antes de o valor estar decidido. Ver spec §4.6 — é a única decisão da
      * pesquisa com evidência direta de que move resultado, então o vazio é
      * estado temporário.
+     *
+     * O ESTADO TEMPORÁRIO ACABOU EM 2026-09-04: o dono decidiu R$ 999 de
+     * entrada e R$ 99/mês de hospedagem e manutenção. A opcionalidade fica no
+     * tipo — ela é o que permitiu a página ir ao ar sem número inventado, e
+     * publicar valor errado continua sendo pior do que não publicar.
      */
     piso: { valor: string; nota: string } | null
     fechamento: { titulo: string; corpo: string }

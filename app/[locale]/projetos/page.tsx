@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getDictionary, locales, type Locale } from '@/content'
 import { buildMetadata } from '@/lib/seo'
+import { landingJsonLd } from '@/lib/jsonld'
 import { LandingHero } from '@/components/landing/LandingHero'
 import { Criterio } from '@/components/landing/Criterio'
 import { Oferta } from '@/components/landing/Oferta'
@@ -69,6 +70,16 @@ export default async function LandingPage({
 
   return (
     <>
+      {/* `ProfessionalService` + `FAQPage` (ver lib/jsonld.ts). Fica na PÁGINA
+        * e não no layout da rota porque o layout não lê `params` — e não
+        * substitui o `Person` do layout de locale, soma a ele: a página
+        * continua sendo de uma pessoa identificável, e passa a ser também de
+        * um serviço com preço e de um FAQ. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(landingJsonLd(locale, dict)) }}
+      />
+
       {/* A DUPLA SUBIU PARA ANTES DA AUDITORIA, e a razão foi medida.
        *
        * No celular a página tem 6.747px; os primeiros 40% — onde o eyetracking
