@@ -6,7 +6,14 @@ export default tseslint.config(
   // `.wrangler/**` é o bundle temporário que `wrangler dev` gera ao rodar o
   // Worker localmente. É código gerado, já ignorado pelo git — mas o ESLint
   // de config plana não lê o .gitignore, então precisa constar aqui também.
-  { ignores: ['.next/**', 'out/**', 'node_modules/**', 'workers/**/.wrangler/**'] },
+  //
+  // `.superpowers/**` e a area de rascunho do repositorio (harness de render
+  // de arte, scripts de captura, relatorios), tambem ja ignorada pelo git.
+  // Sao scripts de Node soltos, sem tsconfig nem globais declarados, entao o
+  // `no-undef` acusava `console` e `process` neles e enchia `npm run lint` de
+  // erros que nao sao do produto — a ponto de o portao deixar de servir como
+  // portao. Mesmo motivo do `.wrangler/**`: o git ignora, o ESLint nao sabe.
+  { ignores: ['.next/**', 'out/**', 'node_modules/**', 'workers/**/.wrangler/**', '.superpowers/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
