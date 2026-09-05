@@ -1,4 +1,5 @@
 import type { Dictionary } from '@/content/types'
+import { MUTED_ESCURO } from './polaridade'
 import { BotaoWhatsapp } from './Botao'
 import { ArteAbertura } from './arte'
 
@@ -35,7 +36,9 @@ export function LandingHero({ dict }: { dict: Dictionary }) {
     // E A `Dupla` LOGO ABAIXO VIROU CLARA no mesmo movimento, obrigatoriamente:
     // a página alterna bandas, e duas escuras coladas virariam um bloco só de
     // ~1400px com a fronteira dissolvida logo na abertura.
-    <section className="relative bg-ink text-paper">
+    // `MUTED_ESCURO`: o SUBTÍTULO desta seção usa `text-muted` — é o primeiro
+    // parágrafo que qualquer visitante lê, e estava a 5,90:1. Ver ./polaridade.
+    <section className="relative bg-ink text-paper" style={MUTED_ESCURO}>
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-10 px-6 py-24 sm:py-36 md:flex-row md:items-center md:gap-16">
       {/* MALHA DE PONTOS atrás da dobra (ver app/globals.css). Dos fundos do
         * catálogo do Magic UI é um dos poucos que sobrevive em papel, porque

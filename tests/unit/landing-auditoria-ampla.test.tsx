@@ -2,7 +2,7 @@ import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { Fecho } from '@/components/landing/Fecho'
 import { Piso } from '@/components/landing/Piso'
-import { TOKENS_CLAROS, TOKENS_ESCUROS } from '@/components/landing/polaridade'
+import { MUTED_ESCURO, TOKENS_CLAROS, TOKENS_ESCUROS } from '@/components/landing/polaridade'
 import { landingJsonLd } from '@/lib/jsonld'
 import { pt } from '@/content/pt'
 import { en } from '@/content/en'
@@ -58,6 +58,21 @@ describe('contraste da paleta escura', () => {
     expect(contraste(principal, fundo)).toBeGreaterThanOrEqual(7)
     // O acento pinta número, barra e link — texto, não só ornamento.
     expect(contraste(acento, fundo)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  /**
+   * A CORREÇÃO PELA METADE QUE ESTE TESTE EXISTE PARA IMPEDIR.
+   *
+   * `--color-muted` é um token SEPARADO de `--color-ink-2`. A primeira passada
+   * subiu o segundo nas quatro seções que invertem por token e a página
+   * publicada continuou medindo 5,90:1 — porque `LandingHero`, `Dupla` e
+   * `LandingCta` invertem por `bg-ink text-paper` e o texto secundário delas é
+   * `text-muted`, que nunca foi tocado. Não era canto de página: é o subtítulo
+   * do hero, o primeiro parágrafo que qualquer visitante lê.
+   */
+  it('o muted das faixas escuras alcança 7:1 sobre o mesmo preto', () => {
+    const muted = MUTED_ESCURO['--color-muted' as keyof typeof MUTED_ESCURO] as string
+    expect(contraste(muted, fundo)).toBeGreaterThanOrEqual(7)
   })
 
   it('a paleta clara também alcança 7:1 no secundário', () => {

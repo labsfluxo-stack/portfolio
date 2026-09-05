@@ -1,4 +1,5 @@
 import type { Dictionary } from '@/content/types'
+import { MUTED_ESCURO } from './polaridade'
 import { BotaoWhatsapp } from './Botao'
 
 /**
@@ -20,7 +21,10 @@ export function LandingCta({ dict }: { dict: Dictionary }) {
   const { fechamento, cta } = dict.landing
 
   return (
-    <section className="bg-ink text-paper">
+    // `MUTED_ESCURO`: esta seção inverte por `bg-ink text-paper`, não por
+    // token, então o `text-muted` da linha tranquilizadora e do corpo pegava o
+    // `--color-muted` global (`#878C96`, 5,90:1). Ver ./polaridade.
+    <section className="bg-ink text-paper" style={MUTED_ESCURO}>
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-20 sm:py-28">
         <div className="flex flex-col gap-3">
           <h2 className="revelar-titulo font-sans text-4xl font-bold tracking-tight sm:text-5xl">

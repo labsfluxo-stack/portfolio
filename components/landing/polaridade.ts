@@ -37,6 +37,28 @@ export const TOKENS_ESCUROS = {
 } as React.CSSProperties
 
 /**
+ * `--color-muted` É UM TOKEN SEPARADO DE `--color-ink-2`, e essa distinção
+ * custou uma correção pela metade.
+ *
+ * A primeira passada da auditoria subiu `--color-ink-2` de `#878C96` para
+ * `#949CA4` nas quatro seções que invertem por token — e a medição na página
+ * publicada continuou acusando 5,90:1. A causa: `LandingHero`, `Dupla` e
+ * `LandingCta` não invertem por token, invertem por `bg-ink text-paper`, e o
+ * texto secundário delas usa `text-muted`, que resolve para `--color-muted` do
+ * `@theme` global — nunca tocado.
+ *
+ * Não era canto de página: `text-muted` pinta o SUBTÍTULO DO HERO (o primeiro
+ * parágrafo que qualquer visitante lê), os dois parágrafos da Dupla e a linha
+ * tranquilizadora logo abaixo do CTA principal.
+ *
+ * ESCOPO DELIBERADO: a correção fica nestas seções, e não no `@theme`.
+ * `--color-muted` é o secundário do site inteiro, que é escuro por padrão —
+ * mudá-lo na raiz alcançaria todas as telas de uma vez, e isso é decisão de
+ * outra auditoria, não efeito colateral desta.
+ */
+export const MUTED_ESCURO = { '--color-muted': '#949CA4' } as React.CSSProperties
+
+/**
  * A CONTRAPARTE CLARA, e ela existe por uma razão de leitura, não de simetria.
  *
  * A rota da landing força o documento inteiro para claro (ver

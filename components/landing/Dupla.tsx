@@ -1,4 +1,5 @@
 import type { Dictionary } from '@/content/types'
+import { MUTED_ESCURO } from './polaridade'
 import { ArteDupla } from './arte'
 
 /**
@@ -53,7 +54,9 @@ export function Dupla({ dict }: { dict: Dictionary }) {
     // E o ciano volta a ser legitimo nesta secao: sobre escuro ele da 9,29:1.
     // Foi por ela ter clareado que ele tinha sido trocado por `--color-accent`
     // (ver `contraste.test.ts`); com o fundo de volta, a troca se desfaz.
-    <section className="border-t border-border bg-ink text-paper">
+    // `MUTED_ESCURO`: ver ./polaridade — os dois parágrafos desta seção usam
+    // `text-muted`, que não é alcançado pela inversão `bg-ink text-paper`.
+    <section className="border-t border-border bg-ink text-paper" style={MUTED_ESCURO}>
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-20 sm:py-28">
         <div className="flex flex-col gap-8 md:flex-row md:items-center md:gap-12">
           <div className="flex flex-col gap-8 md:flex-1">
