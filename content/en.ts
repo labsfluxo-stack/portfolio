@@ -607,8 +607,11 @@ export const en: Dictionary = {
     // para dólar na página inglesa inventaria uma cotação que a proposta não
     // vai honrar.
     piso: {
-      valor: 'From R$ 999',
-      nota: 'Plus R$ 99 a month for hosting and maintenance. Final pricing depends on scope — this is the starting point, not the ceiling.',
+      // Ponto decimal e não vírgula: a moeda continua sendo o real (ver acima),
+      // mas quem lê esta página lê número em convenção inglesa, e "R$ 999,00"
+      // ali se lê como novecentos e noventa e nove mil.
+      valor: 'From R$ 999.00',
+      nota: 'Plus R$ 99.00 a month for hosting and maintenance. Final pricing depends on scope — this is the starting point, not the ceiling.',
     },
     fechamento: {
       // Ver content/pt.ts: "Bring me / Tell me" era primeira pessoa do

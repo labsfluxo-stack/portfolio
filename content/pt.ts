@@ -765,9 +765,18 @@ export const pt: Dictionary = {
     // isso em voz alta. A página inteira se sustenta em afirmações que se
     // conferem; um piso que na prática nunca é o preço seria a primeira que
     // não confere.
+    // FORMATO DE MOEDA COMPLETO (`R$ 999,00`), pedido do dono. Vírgula decimal
+    // e duas casas é como preço se escreve em documento comercial no Brasil —
+    // "R$ 999" seco lê como número solto, "R$ 999,00" lê como valor cobrado.
+    //
+    // O NÚMERO DO JSON-LD NÃO VEM DAQUI e não pode passar a vir: schema.org
+    // exige `price` sem separador e sem símbolo ("999"), então ele vive em
+    // `PRECO`, em lib/jsonld.ts. Derivar um do outro por regex criaria uma
+    // segunda fonte de verdade que quebra calada na primeira reescrita da
+    // frase — é o mesmo motivo pelo qual as duas nunca foram acopladas.
     piso: {
-      valor: 'A partir de R$ 999',
-      nota: 'Mais R$ 99 por mês de hospedagem e manutenção. O valor final depende do escopo — este é o ponto de partida, não o teto.',
+      valor: 'A partir de R$ 999,00',
+      nota: 'Mais R$ 99,00 por mês de hospedagem e manutenção. O valor final depende do escopo — este é o ponto de partida, não o teto.',
     },
     fechamento: {
       titulo: 'Traz o problema.',

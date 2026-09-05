@@ -111,6 +111,22 @@ describe('Piso', () => {
     }
   })
 
+  /**
+   * FORMATO DE MOEDA COMPLETO, com as duas casas — pedido do dono. "R$ 999"
+   * seco lê como número solto; "R$ 999,00" lê como valor cobrado.
+   *
+   * Separador decimal por idioma: vírgula no português, ponto no inglês. A
+   * moeda é a mesma nos dois (o serviço é cobrado em real), mas "R$ 999,00"
+   * para quem lê em convenção inglesa se lê como novecentos e noventa e nove
+   * mil.
+   */
+  it('o piso aparece em formato de moeda, com o separador de cada idioma', () => {
+    expect(pt.landing.piso!.valor).toMatch(/R\$ 999,00/)
+    expect(pt.landing.piso!.nota).toMatch(/R\$ 99,00/)
+    expect(en.landing.piso!.valor).toMatch(/R\$ 999\.00/)
+    expect(en.landing.piso!.nota).toMatch(/R\$ 99\.00/)
+  })
+
   /** "A partir de" — a página inteira se sustenta em afirmação que se confere. */
   it('o valor se apresenta como ponto de partida, não como preço fechado', () => {
     expect(pt.landing.piso!.valor).toMatch(/a partir de/i)
@@ -184,6 +200,26 @@ describe('JSON-LD da landing', () => {
 
     expect(servico(grafo).offers).toBeDefined()
     expect(servico(landingJsonLd('pt', semPiso)).offers).toBeUndefined()
+  })
+
+  /**
+   * A ARMADILHA QUE O FORMATO DE MOEDA CRIOU, travada aqui.
+   *
+   * O dicionário passou a escrever "R$ 999,00" e "R$ 99,00". O schema.org
+   * exige `price` como número puro — sem símbolo, sem separador de milhar,
+   * ponto como decimal. Um "R$ 999,00" vazando para cá invalida a oferta
+   * inteira aos olhos do Google, calado, sem quebrar nada visível.
+   *
+   * É por isso que o número do JSON-LD nunca foi derivado do texto: ele vive
+   * na constante `PRECO`, em lib/jsonld.ts.
+   */
+  it('o preço do JSON-LD é número puro, não o texto formatado da página', () => {
+    const servico = grafo['@graph'].find(
+      (n) => (n as { '@type': string })['@type'] === 'ProfessionalService',
+    ) as { offers: { price: string; priceSpecification: { price: string } } }
+    for (const valor of [servico.offers.price, servico.offers.priceSpecification.price]) {
+      expect(valor, 'formatacao de moeda vazou para o JSON-LD').toMatch(/^\d+(\.\d+)?$/)
+    }
   })
 
   it('a mensalidade entra como preço unitário mensal', () => {
