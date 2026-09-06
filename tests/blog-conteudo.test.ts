@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { LOCALE_DO_BLOG, POST_SLUGS, todosOsPosts } from '../content/posts'
@@ -89,6 +89,35 @@ describe('metadados dos artigos', () => {
    */
   it('o slug é ASCII minúsculo com hífens', () => {
     for (const slug of POST_SLUGS) expect(slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+  })
+
+  /**
+   * A CAPA APARECE EM DOIS LUGARES — no `meta`, para o índice, e como
+   * `<Figura>` no corpo, para o artigo. A duplicidade é deliberada e está
+   * explicada em `content/posts.ts`; esta é a trava que a torna segura.
+   *
+   * Sem ela, trocar a foto de um artigo e esquecer um dos dois lados dá o pior
+   * resultado possível: índice e artigo mostrando imagens diferentes para a
+   * mesma matéria, sem nada quebrar.
+   */
+  it('a capa do índice é o mesmo arquivo e o mesmo alt da abertura do artigo', () => {
+    for (const post of todosOsPosts()) {
+      if (!post.meta.capa) continue
+      const bruto = readFileSync(join(PASTA, `${post.slug}.mdx`), 'utf8')
+      const figura = new RegExp(`<Figura[^>]*?src="${post.meta.capa.src}"[\\s\\S]*?/>`).exec(bruto)
+      expect(figura, `${post.slug}: meta.capa aponta para um arquivo que o corpo não usa`).not.toBeNull()
+      const alt = /alt="([^"]*)"/.exec(figura![0])?.[1]
+      expect(alt, `${post.slug}: o alt da capa e o do corpo divergiram`).toBe(post.meta.capa.alt)
+    }
+  })
+
+  /** Capa apontando para arquivo inexistente rende uma imagem quebrada no índice. */
+  it('todo arquivo de capa existe em public/', () => {
+    for (const post of todosOsPosts()) {
+      if (!post.meta.capa) continue
+      const caminho = join(process.cwd(), 'public', post.meta.capa.src.replace(/^\//, ''))
+      expect(existsSync(caminho), `${post.slug}: ${post.meta.capa.src} não existe`).toBe(true)
+    }
   })
 })
 

@@ -46,6 +46,28 @@ export type MetaPost = {
    */
   atualizado?: string
   tags: readonly string[]
+  /**
+   * A imagem de abertura, que o ÍNDICE usa como capa.
+   *
+   * Vive no `meta` e não só no corpo do artigo porque o índice não consegue
+   * ler o que está dentro do MDX — o corpo é um componente compilado, não
+   * texto que dê para inspecionar. Sem isto, o índice seria para sempre uma
+   * lista sem imagem enquanto os artigos têm foto, que foi exatamente o que o
+   * dono viu e reclamou.
+   *
+   * ELA APARECE DUAS VEZES: aqui e como `<Figura>` no corpo. É a duplicidade
+   * que este repositório normalmente recusa, e a alternativa foi considerada —
+   * a página do artigo renderizar a capa sozinha, a partir do `meta`. Foi
+   * descartada por causa da POSIÇÃO: no corpo a abertura entra depois do
+   * primeiro parágrafo, para a resposta do artigo continuar no topo (a
+   * pesquisa citada neste blog mede que 44,2% das citações de LLM saem dos
+   * primeiros 30% do texto). Renderizada pela página, ela iria antes de tudo e
+   * empurraria a resposta para baixo.
+   *
+   * A trava é `tests/blog-conteudo.test.ts`, que exige que o arquivo exista em
+   * `public/` e que o `alt` daqui seja igual ao do `<Figura>` correspondente.
+   */
+  capa?: { src: string; alt: string; largura: number; altura: number }
 }
 
 type ModuloPost = {

@@ -4,7 +4,7 @@ import { blogTextos } from '@/content/blog-textos'
 import { LOCALE_DO_BLOG, todosOsPosts } from '@/content/posts'
 import { minutosDeLeitura } from '@/lib/leitura'
 import { dataLonga } from '@/lib/datas'
-import { buildMetadata } from '@/lib/seo'
+import { arquivoPublico, buildMetadata } from '@/lib/seo'
 import { blogJsonLd } from '@/lib/jsonld'
 import { MarcaIso } from '@/components/blog/MarcaIso'
 
@@ -92,10 +92,53 @@ export default function BlogIndex() {
                 <Link
                   prefetch={false}
                   href={`/${LOCALE_DO_BLOG}/blog/${post.slug}`}
-                  className={`group flex flex-col gap-3 transition-opacity hover:opacity-90 ${
-                    i === 0 ? 'pb-12' : 'py-8'
+                  // O DESTAQUE EMPILHA (capa larga em cima), OS DEMAIS DEITAM
+                  // (miniatura ao lado). Duas formas do mesmo card, e a razão é
+                  // de ritmo: cinco capas do mesmo tamanho viram catálogo de
+                  // produto, e o índice deixa de ter um começo.
+                  //
+                  // No celular tudo empilha: miniatura ao lado de texto em
+                  // 390px de largura não sobra espaço para nenhum dos dois.
+                  className={`group flex gap-5 transition-opacity hover:opacity-90 ${
+                    i === 0 ? 'flex-col pb-12' : 'flex-col py-8 sm:flex-row sm:gap-7'
                   }`}
                 >
+                  {post.meta.capa && (
+                    // `order-first` no destaque para a capa vir ANTES da linha
+                    // de data; nos demais ela é a coluna da esquerda.
+                    //
+                    // `loading="lazy"` em todas menos a primeira: a capa do
+                    // destaque está na dobra e adiá-la só atrasaria o que o
+                    // leitor já está vendo.
+                    <img
+                      src={arquivoPublico(post.meta.capa.src)}
+                      alt=""
+                      width={post.meta.capa.largura}
+                      height={post.meta.capa.altura}
+                      loading={i === 0 ? 'eager' : 'lazy'}
+                      decoding="async"
+                      // `alt=""` de propósito: a imagem está DENTRO do link
+                      // que já carrega o título do artigo como texto
+                      // acessível. Descrevê-la aqui faria o leitor de tela
+                      // anunciar a mesma entrada duas vezes.
+                      // `aspect-[2/1]` NO DESTAQUE, e não a proporção nativa da
+                      // foto. Em 16:9 a capa ocupava ~550px de altura e, com
+                      // título e chamada, o primeiro artigo comia a tela
+                      // inteira — os outros quatro nasciam abaixo da dobra num
+                      // índice de cinco. O recorte 2:1 é proporção de banner
+                      // editorial: continua dominante, devolve ~90px e traz o
+                      // segundo artigo para dentro do campo de visão.
+                      //
+                      // `object-cover` recorta em cima e embaixo mantendo o
+                      // centro, que é onde o assunto da foto costuma estar.
+                      className={
+                        i === 0
+                          ? 'aspect-[2/1] w-full rounded-lg border border-rule object-cover'
+                          : 'w-full shrink-0 rounded-md border border-rule object-cover sm:h-28 sm:w-48'
+                      }
+                    />
+                  )}
+                  <div className="flex min-w-0 flex-col gap-3">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] uppercase tracking-[0.15em] text-ink-2">
                     {i === 0 && (
                       <>
@@ -143,6 +186,7 @@ export default function BlogIndex() {
                       ))}
                     </ul>
                   )}
+                  </div>
                 </Link>
               </li>
             ))}
