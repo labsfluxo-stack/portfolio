@@ -12,7 +12,28 @@ import { describe, expect, it } from 'vitest'
  * internet inteira; nenhum dos dois quebra em desenvolvimento, porque a
  * máquina de quem escreve tem suporte e não pede menos movimento.
  */
-const css = readFileSync(resolve(__dirname, '../../app/globals.css'), 'utf8')
+/**
+ * O CSS SEM COMENTÁRIOS, e a remoção corrige um defeito real deste arquivo.
+ *
+ * `corposDe` acha a at-rule por busca literal de texto. Enquanto os comentários
+ * ficavam no conteúdo analisado, um comentário que MENCIONASSE
+ * `@media (prefers-reduced-motion: reduce)` — explicando, por exemplo, por que
+ * só deve existir um bloco desses — era encontrado antes do bloco de verdade, e
+ * o teste passava a medir a prosa em vez da regra.
+ *
+ * Foi o que aconteceu ao documentar o alternador de tema do blog: este teste
+ * acusou falta de `animation-delay: 0ms !important` num trecho que era
+ * comentário. Alarme falso — e alarme falso é o que faz um guarda ser
+ * abandonado, que é o raciocínio que o comentário do `corposDe` logo abaixo já
+ * registra sobre outro defeito seu.
+ *
+ * Analisar sem comentários é analisar o que vale: regra que só existe dentro de
+ * comentário não existe para o navegador.
+ */
+const css = readFileSync(resolve(__dirname, '../../app/globals.css'), 'utf8').replace(
+  /\/\*[\s\S]*?\*\//g,
+  '',
+)
 
 /**
  * TODOS os corpos de uma at-rule, contando chaves — regex não fecha bloco

@@ -372,3 +372,67 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
     }
   })
 })
+
+/**
+ * O BLOG É A SUPERFÍCIE PARA A QUAL ESTE PORTÃO EXISTE.
+ *
+ * Todo o resto do site é página institucional; o blog é o que se publica para
+ * ser lido e citado por máquina. Se o texto de um artigo não estiver no HTML
+ * bruto, o artigo não existe para GPTBot, ClaudeBot nem PerplexityBot — e o
+ * argumento comercial da landing inteira cai junto.
+ *
+ * Este bloco também fecha as duas checagens que o próprio site reprovava:
+ * `detectarBlog` (URL de blog no sitemap) e "o conteúdo está vivo"
+ * (`<lastmod>`), ambas medidas por workers/auditoria no site de quem visita.
+ */
+describe('blog', () => {
+  const SLUG_DO_ARTIGO = 'perplexity-cita-46x-mais-que-o-chatgpt-2026'
+
+  it('o corpo do artigo está no HTML bruto, fora de <script>', () => {
+    const visivel = semScripts(html(`pt/blog/${SLUG_DO_ARTIGO}`))
+    // Um trecho de prosa do MEIO do texto — não o título, que também aparece
+    // em `<meta>` e passaria mesmo com o corpo inteiro ausente.
+    expect(visivel).toContain('eles buscam em lugares diferentes')
+  })
+
+  it('o índice do blog lista o artigo', () => {
+    expect(semScripts(html('pt/blog'))).toContain('Perplexity cita 46')
+  })
+
+  /**
+   * O blog sai só em português. `/en/blog/` NÃO pode existir: rota vazia em
+   * inglês é pior que a ausência dela — entra no rastreamento como página sem
+   * conteúdo.
+   */
+  it('não existe blog em inglês', () => {
+    expect(existsSync(join(OUT, 'en', 'blog', 'index.html'))).toBe(false)
+    expect(existsSync(join(OUT, 'en', 'blog', SLUG_DO_ARTIGO, 'index.html'))).toBe(false)
+  })
+
+  it('o sitemap traz a URL do blog com data — as duas checagens que o site reprovava', () => {
+    const sitemap = readFileSync(join(OUT, 'sitemap.xml'), 'utf8')
+    // `detectarBlog` (workers/auditoria) procura exatamente esta marca nas
+    // URLs do sitemap de quem é auditado.
+    expect(sitemap).toMatch(/\/pt\/blog\//)
+    expect(sitemap).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/)
+    expect(sitemap).not.toMatch(/\/en\/blog\//)
+  })
+
+  it('o feed RSS existe e é bem formado', () => {
+    const feed = readFileSync(join(OUT, 'feed.xml'), 'utf8')
+    expect(feed).toMatch(/^<\?xml version="1\.0" encoding="UTF-8"\?>/)
+    expect(feed).toContain('<rss version="2.0"')
+    expect(feed).toContain('<item>')
+    expect(feed).toMatch(/<pubDate>[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4}/)
+    // `&` cru quebra o XML inteiro, e o leitor de feed descarta o arquivo sem
+    // avisar ninguém. Depois de tirar as entidades válidas não pode sobrar `&`.
+    expect(feed.replace(/&(amp|lt|gt|quot|apos|#\d+);/g, '')).not.toContain('&')
+  })
+
+  it('o llms.txt lista o artigo, e só na seção do português', () => {
+    const llms = readFileSync(join(OUT, 'llms.txt'), 'utf8')
+    const secaoEn = llms.slice(llms.indexOf('## en'))
+    expect(llms).toContain(`/pt/blog/${SLUG_DO_ARTIGO}/`)
+    expect(secaoEn).not.toContain('/blog/')
+  })
+})

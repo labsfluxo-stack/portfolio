@@ -1,4 +1,7 @@
 import type { CaseStudy, Dictionary, Locale, SystemSlug } from '@/content/types'
+import { blogTextos } from '@/content/blog-textos'
+import { dataVigente, LOCALE_DO_BLOG, type Post } from '@/content/posts'
+import { palavrasDoPost } from './leitura'
 import { HREFLANG, SITE_URL, routeUrl } from './seo'
 
 /**
@@ -34,6 +37,11 @@ export function personJsonLd(locale: Locale, dict: Dictionary) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Person',
+    // `@id` ESTÁVEL, e ele passou a ser referenciado de fora: `postJsonLd` e
+    // `blogJsonLd` apontam `author`/`publisher` para cá em vez de repetir nome
+    // e URL em cada artigo. Um grafo com duas descrições da mesma pessoa é
+    // ambíguo para quem consome, e a segunda cópia é a que envelhece.
+    '@id': `${routeUrl(locale, '')}#pessoa`,
     name: dict.hero.name,
     jobTitle: dict.hero.role,
     description: dict.meta.description,
@@ -133,6 +141,72 @@ export function landingJsonLd(locale: Locale, dict: Dictionary) {
         })),
       },
     ],
+  }
+}
+
+/**
+ * `BlogPosting` por artigo, e `Blog` no índice.
+ *
+ * É o tipo que os buscadores usam para tratar a página como artigo datado em
+ * vez de página avulsa — o que muda o resultado é `datePublished` e
+ * `dateModified`, não a marcação em si.
+ *
+ * `dateModified` sai de `dataVigente`: a revisão, se houve; a publicação, se
+ * não. Declarar `dateModified` igual ao `datePublished` num texto nunca
+ * revisado não é erro, é o valor honesto — o que seria erro é carimbar a data
+ * do build, que faria todo artigo parecer revisado a cada deploy.
+ *
+ * `wordCount` e `timeRequired` vêm CONTADOS do arquivo (ver lib/leitura.ts).
+ * Nenhum dos dois é escrito no `meta` do artigo, pela mesma razão que nenhum
+ * número deste site é escrito à mão: o texto muda e o número fica para trás.
+ *
+ * `author` e `publisher` apontam para a mesma `Person` que o layout de locale
+ * já emite, por `@id`, em vez de repetir nome e URL. Um grafo com duas
+ * descrições da mesma pessoa é ambíguo para quem consome.
+ */
+export function postJsonLd(post: Post, minutos: number) {
+  const url = routeUrl(LOCALE_DO_BLOG, `/blog/${post.slug}`)
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    '@id': url,
+    headline: post.meta.titulo,
+    description: post.meta.descricao,
+    url,
+    inLanguage: HREFLANG[LOCALE_DO_BLOG],
+    datePublished: post.meta.publicado,
+    dateModified: dataVigente(post.meta),
+    keywords: post.meta.tags.join(', '),
+    wordCount: palavrasDoPost(post.slug),
+    // ISO 8601 de duração — `PT7M`, sete minutos.
+    timeRequired: `PT${minutos}M`,
+    author: { '@id': `${routeUrl(LOCALE_DO_BLOG, '')}#pessoa` },
+    publisher: { '@id': `${routeUrl(LOCALE_DO_BLOG, '')}#pessoa` },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+    isPartOf: { '@type': 'Blog', '@id': `${routeUrl(LOCALE_DO_BLOG, '/blog')}#blog` },
+  }
+}
+
+/** O índice: um `Blog` que aponta para cada `BlogPosting` publicado. */
+export function blogJsonLd(posts: Post[]) {
+  const url = routeUrl(LOCALE_DO_BLOG, '/blog')
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Blog',
+    '@id': `${url}#blog`,
+    name: blogTextos.meta.titulo,
+    description: blogTextos.meta.descricao,
+    url,
+    inLanguage: HREFLANG[LOCALE_DO_BLOG],
+    blogPost: posts.map((post) => ({
+      '@type': 'BlogPosting',
+      '@id': routeUrl(LOCALE_DO_BLOG, `/blog/${post.slug}`),
+      headline: post.meta.titulo,
+      datePublished: post.meta.publicado,
+      dateModified: dataVigente(post.meta),
+    })),
   }
 }
 
