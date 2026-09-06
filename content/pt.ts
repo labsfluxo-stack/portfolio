@@ -908,6 +908,56 @@ export const pt: Dictionary = {
       ],
     },
   },
+  /**
+   * Os sete andares do prédio (home), da cobertura ao térreo. Cópia
+   * PLACEHOLDER por decisão do dono (2026-09-06) — real, plausível e em
+   * português correto, mas não é o texto final. Ver
+   * components/predio/predio-programa.ts para a ordem e os objetos de cada
+   * andar.
+   */
+  predio: {
+    cobertura: {
+      titulo: 'Cobertura',
+      resumo: 'De onde se vê o todo. Sistemas em produção, rodando sem drama.',
+      objetos: {},
+    },
+    servidores: {
+      titulo: 'Servidores',
+      resumo: 'Hospedagem, backup e o uptime que sustenta o resto do prédio.',
+      objetos: { rack: 'Ver os sistemas em produção', backup: 'Como o backup funciona' },
+    },
+    design: {
+      titulo: 'Design',
+      resumo: 'Onde a interface é desenhada antes de virar código.',
+      objetos: {
+        computador: 'Ver os sistemas em produção',
+        prancheta: 'Ver os projetos entregues',
+      },
+    },
+    geo: {
+      titulo: 'Conteúdo',
+      resumo: 'O que se escreve para aparecer nas buscas e ser citado por quem procura.',
+      objetos: { painel: 'Ver o painel de conteúdo', artigos: 'Ler os artigos do blog' },
+    },
+    automacao: {
+      titulo: 'Automação',
+      resumo: 'Processos que antes dependiam de alguém lembrar de fazer.',
+      objetos: {
+        esteira: 'Ver os sistemas de automação',
+        prateleira: 'Ver os projetos entregues',
+      },
+    },
+    acolhimento: {
+      titulo: 'Acolhimento',
+      resumo: 'Onde um cliente novo entende o que vai acontecer, antes de acontecer.',
+      objetos: { balcao: 'Ver como o atendimento funciona' },
+    },
+    recepcao: {
+      titulo: 'Recepção',
+      resumo: 'O térreo. Chegou até aqui — o próximo passo é uma mensagem.',
+      objetos: { formulario: 'Ir para o formulário de contato' },
+    },
+  },
   footer: {
     rights: '© 2026 Neto Alves. Todos os direitos reservados.',
     builtWith: 'Construído com Next.js, Tailwind CSS e Motion.',

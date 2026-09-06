@@ -147,6 +147,18 @@ export type CaseStudy = {
   outcome?: string
 }
 
+/**
+ * Os textos do prédio, indexados pela mesma chave que `ANDARES` usa. O tipo é
+ * `Record<ChaveAndar, ...>` de propósito: esquecer um andar aqui vira erro de
+ * tipo no `tsc`, não uma seção sem título no site publicado.
+ */
+export type TextoDeAndar = {
+  titulo: string
+  resumo: string
+  /** Rótulo acessível de cada objeto clicável, por `id`. */
+  objetos: Record<string, string>
+}
+
 export type Dictionary = {
   meta: { title: string; description: string; ogAlt: string }
   nav: { about: string; systems: string; stack: string; contact: string; cv: string }
@@ -600,4 +612,11 @@ export type Dictionary = {
     }
   }
   footer: { rights: string; builtWith: string; sourceCode: string; sourceCodeUrl: string }
+  /**
+   * Os sete andares do prédio (home). Chaveado por `ChaveAndar`
+   * (components/predio/predio-programa.ts) — a mesma fonte que a cena 3D e o
+   * fallback em HTML leem para decidir QUAIS andares existem. O dicionário só
+   * decide COMO cada um se chama.
+   */
+  predio: Record<import('@/components/predio/predio-programa').ChaveAndar, TextoDeAndar>
 }

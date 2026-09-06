@@ -733,6 +733,53 @@ export const en: Dictionary = {
       ],
     },
   },
+  /**
+   * Ver content/pt.ts: mesmos sete andares, mesma ressalva de cópia
+   * placeholder.
+   */
+  predio: {
+    cobertura: {
+      titulo: 'Rooftop',
+      resumo: 'Where the whole thing is visible at once. Systems in production, running without drama.',
+      objetos: {},
+    },
+    servidores: {
+      titulo: 'Servers',
+      resumo: 'Hosting, backup, and the uptime that holds up the rest of the building.',
+      objetos: { rack: 'See the systems in production', backup: 'How the backup works' },
+    },
+    design: {
+      titulo: 'Design',
+      resumo: 'Where the interface gets drawn before it becomes code.',
+      objetos: {
+        computador: 'See the systems in production',
+        prancheta: 'See the delivered projects',
+      },
+    },
+    geo: {
+      titulo: 'Content',
+      resumo: 'What gets written to show up in search and get cited by whoever is looking.',
+      objetos: { painel: 'See the content dashboard', artigos: 'Read the blog posts' },
+    },
+    automacao: {
+      titulo: 'Automation',
+      resumo: 'Processes that used to depend on someone remembering to do them.',
+      objetos: {
+        esteira: 'See the automation systems',
+        prateleira: 'See the delivered projects',
+      },
+    },
+    acolhimento: {
+      titulo: 'Onboarding',
+      resumo: 'Where a new client understands what happens next, before it happens.',
+      objetos: { balcao: 'See how the onboarding works' },
+    },
+    recepcao: {
+      titulo: 'Reception',
+      resumo: 'Ground floor. You made it this far — the next step is a message.',
+      objetos: { formulario: 'Go to the contact form' },
+    },
+  },
   footer: {
     rights: '© 2026 Neto Alves. All rights reserved.',
     builtWith: 'Built with Next.js, Tailwind CSS and Motion.',
