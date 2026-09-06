@@ -6,6 +6,7 @@ import { minutosDeLeitura } from '@/lib/leitura'
 import { dataLonga } from '@/lib/datas'
 import { buildMetadata } from '@/lib/seo'
 import { blogJsonLd } from '@/lib/jsonld'
+import { MarcaIso } from '@/components/blog/MarcaIso'
 
 export const dynamicParams = false
 
@@ -38,15 +39,26 @@ export default function BlogIndex() {
       />
 
       <div className="mx-auto w-full max-w-5xl px-6 py-16 sm:py-24">
-        <header className="flex flex-col gap-4">
+        <header className="flex flex-col gap-5">
+          {/* A MARCA ISOMÉTRICA, que é o que liga esta página ao resto do site.
+            * Fica acima do título e pequena de propósito: é uma citação da arte
+            * da landing, não uma segunda ilustração competindo com ela. */}
+          <MarcaIso className="h-14 w-14 shrink-0" />
           <h1 className="font-sans text-4xl font-bold tracking-tight text-ink sm:text-5xl">
             {indice.titulo}
           </h1>
           {/* `max-w-2xl` no lead e não no `<h1>`: o título é curto e ganha em
             * ocupar a largura; o parágrafo precisa da medida curta para ser
             * lido. Só o corpo do artigo usa os 66ch exatos — aqui a linha é
-            * uma só e a restrição serve para não atravessar a tela larga. */}
-          <p className="max-w-2xl text-[19px] leading-relaxed text-ink-2">{indice.lead}</p>
+            * uma só e a restrição serve para não atravessar a tela larga.
+            *
+            * A serifa itálica no fim é a assinatura do site (ver o hero da
+            * landing). Duas ou três palavras, nunca a frase toda: acima disso
+            * ela deixa de ser destaque e vira o tom da página. */}
+          <p className="max-w-2xl text-[19px] leading-relaxed text-ink-2">
+            {indice.lead}{' '}
+            <span className="font-serif text-[21px] italic text-ink">{indice.leadDestaque}</span>
+          </p>
         </header>
 
         {posts.length === 0 ? (
@@ -54,9 +66,20 @@ export default function BlogIndex() {
         ) : (
           // `<ol>` e não `<ul>`: a ordem é informação — do mais recente para o
           // mais antigo — e não um acaso de layout.
+          // O PRIMEIRO ARTIGO TEM PESO PRÓPRIO, e a razão vem da pesquisa de
+          // 2026: o traço comum dos sites premiados é hierarquia tipográfica
+          // nítida — dá para distinguir título, apoio e corpo num golpe de
+          // vista. Cinco artigos com exatamente o mesmo peso não são uma
+          // hierarquia, são uma lista de arquivo, e a página lia como índice de
+          // pasta em vez de publicação.
+          //
+          // O destaque é só ESCALA e ar, sem imagem e sem caixa. "Tipografia
+          // como imagem-herói" é o outro achado da pesquisa, e é o único
+          // recurso disponível enquanto as capas não existem — o que também
+          // significa que o destaque não quebra quando elas chegarem.
           <ol className="mt-14 flex flex-col">
-            {posts.map((post) => (
-              <li key={post.slug} className="border-t border-rule">
+            {posts.map((post, i) => (
+              <li key={post.slug} className={i === 0 ? '' : 'border-t border-rule'}>
                 {/* O CARD INTEIRO É O LINK, e aqui isso é o certo — ao
                   * contrário da seção de prova da landing, onde o achado I6
                   * proibia card clicável. Lá o card carregava três blocos de
@@ -69,19 +92,43 @@ export default function BlogIndex() {
                 <Link
                   prefetch={false}
                   href={`/${LOCALE_DO_BLOG}/blog/${post.slug}`}
-                  className="group flex flex-col gap-3 py-8 transition-opacity hover:opacity-90"
+                  className={`group flex flex-col gap-3 transition-opacity hover:opacity-90 ${
+                    i === 0 ? 'pb-12' : 'py-8'
+                  }`}
                 >
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] uppercase tracking-[0.15em] text-ink-2">
+                    {i === 0 && (
+                      <>
+                        <span className="text-accent">{indice.destaque}</span>
+                        <span aria-hidden="true">·</span>
+                      </>
+                    )}
                     <time dateTime={post.meta.publicado}>{dataLonga(post.meta.publicado)}</time>
                     <span aria-hidden="true">·</span>
                     <span>
                       {minutosDeLeitura(post.slug)} {blogTextos.post.minutos}
                     </span>
                   </div>
-                  <h2 className="max-w-3xl font-sans text-2xl font-bold leading-tight tracking-tight text-ink underline decoration-transparent decoration-2 underline-offset-4 transition-colors group-hover:decoration-accent sm:text-3xl">
+                  <h2
+                    className={`max-w-3xl font-sans font-bold leading-[1.08] tracking-tight text-ink underline decoration-transparent decoration-2 underline-offset-4 transition-colors group-hover:decoration-accent ${
+                      // O salto de escala é o destaque inteiro. Um degrau só
+                      // não separa; dois degraus separam sem virar outra página.
+                      i === 0 ? 'text-3xl sm:text-[2.75rem]' : 'text-2xl sm:text-3xl'
+                    }`}
+                  >
                     {post.meta.titulo}
                   </h2>
-                  <p className="max-w-2xl text-[17px] leading-relaxed text-ink-2">
+                  {/* A CHAMADA DO DESTAQUE VAI EM SERIFA, e é a mesma decisão
+                    * editorial do topo dos artigos: em texto longo a serifa
+                    * sinaliza matéria, não interface. Só o primeiro — se todos
+                    * levassem, a serifa deixaria de marcar coisa alguma. */}
+                  <p
+                    className={
+                      i === 0
+                        ? 'max-w-2xl font-serif text-[21px] italic leading-relaxed text-ink-2 sm:text-[23px]'
+                        : 'max-w-2xl text-[17px] leading-relaxed text-ink-2'
+                    }
+                  >
                     {post.meta.descricao}
                   </p>
                   {post.meta.tags.length > 0 && (

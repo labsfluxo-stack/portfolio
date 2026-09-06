@@ -93,10 +93,33 @@ export default async function PaginaDoPost({ params }: { params: Promise<{ slug:
                   {minutos} {textos.minutos}
                 </span>
               </div>
-              <h1 className="max-w-[20ch] text-balance font-sans text-4xl font-bold leading-[1.1] tracking-tight text-ink sm:text-5xl">
+              {/* ESCALA MENOR NO CELULAR: era `text-4xl` (36px), e um título
+                * de dez palavras ocupava quatro linhas — quase uma tela inteira
+                * antes do primeiro parágrafo, na única superfície onde o
+                * visitante rola com o polegar. 30px tira cerca de 200px de
+                * altura sem que o título deixe de dominar a dobra.
+                *
+                * Três degraus e não dois: `lg` devolve os 48px cheios no
+                * desktop, onde há largura para eles. */}
+              <h1 className="max-w-[20ch] text-balance font-sans text-[30px] font-bold leading-[1.08] tracking-tight text-ink sm:text-4xl lg:text-5xl">
                 {meta.titulo}
               </h1>
-              <p className="max-w-[60ch] text-[21px] leading-relaxed text-ink-2">
+              {/* O LEAD EM SERIFA ITÁLICA — e isto é uma exceção deliberada à
+                * regra de "três ou quatro palavras no site inteiro" que vale
+                * para as páginas de venda.
+                *
+                * Lá a serifa é ACENTO: aparece em duas palavras de um título
+                * para parar o olho, e diluí-la faria virar o tom da página. No
+                * blog ela tem um PAPEL EDITORIAL definido — o lead de matéria,
+                * que é convenção de revista há um século e que a pesquisa de
+                * 2026 registra como sinal de conteúdo longo e de autoridade,
+                * não de interface.
+                *
+                * O papel é o que limita o uso: um lead por artigo, nunca no
+                * corpo. Se a serifa escapar para o texto corrido, ela deixa de
+                * marcar a entrada da leitura e vira decoração — e aí a regra
+                * das páginas de venda volta a valer com razão. */}
+              <p className="max-w-[52ch] font-serif text-[22px] italic leading-relaxed text-ink-2 sm:text-[25px]">
                 {meta.descricao}
               </p>
               {meta.atualizado && meta.atualizado !== meta.publicado && (

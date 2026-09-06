@@ -21,8 +21,23 @@ export const blogTextos = {
   },
   indice: {
     titulo: 'Blog',
-    lead: 'O que a gente mede construindo software para aparecer nas buscas e nas IAs. Números com fonte, sem promessa de atalho.',
+    lead: 'O que a gente mede construindo software para aparecer nas buscas e nas IAs.',
+    /**
+     * A ASSINATURA DA CASA, e ela estava faltando no blog.
+     *
+     * Serifa itálica nas últimas palavras é o gesto tipográfico do site inteiro
+     * — o hero da landing faz exatamente isto com `subtituloDestaque`. O blog
+     * tinha nascido sem ele, e era a única marca própria que a superfície mais
+     * textual do site poderia carregar de graça.
+     *
+     * Chave separada, e não marcador dentro da string, pela mesma razão que na
+     * landing: o portão de GEO compara o dicionário com o HTML entregue, e um
+     * asterisco que existisse num e não no outro quebraria a comparação.
+     */
+    leadDestaque: 'Números com fonte, sem promessa de atalho.',
     vazio: 'Ainda não há nada publicado.',
+    /** Rótulo do artigo em destaque. Mono, caixa alta — a voz das micro-legendas do site. */
+    destaque: 'Mais recente',
   },
   chrome: {
     /** O `<nav>` precisa de nome acessível: há dois no documento (topo e rodapé). */
