@@ -38,12 +38,17 @@ export default function BlogIndex() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(blogJsonLd(posts)) }}
       />
 
-      <div className="mx-auto w-full max-w-5xl px-6 py-16 sm:py-24">
-        <header className="flex flex-col gap-5">
+      {/* `py-12 sm:py-16` E NÃO `py-16 sm:py-24`. O ar do topo foi calibrado
+        * quando o índice era só texto, onde espaço generoso é o que dá
+        * respiração. Com capa, o mesmo espaço vira desperdício: medido em
+        * 1333x669 (a tela do dono), o cabeçalho consumia 438px antes de a
+        * imagem começar, e a página mostrava um artigo por vez. */}
+      <div className="mx-auto w-full max-w-5xl px-6 py-12 sm:py-16">
+        <header className="flex flex-col gap-4">
           {/* A MARCA ISOMÉTRICA, que é o que liga esta página ao resto do site.
             * Fica acima do título e pequena de propósito: é uma citação da arte
             * da landing, não uma segunda ilustração competindo com ela. */}
-          <MarcaIso className="h-14 w-14 shrink-0" />
+          <MarcaIso className="h-11 w-11 shrink-0" />
           <h1 className="font-sans text-4xl font-bold tracking-tight text-ink sm:text-5xl">
             {indice.titulo}
           </h1>
@@ -77,7 +82,7 @@ export default function BlogIndex() {
           // como imagem-herói" é o outro achado da pesquisa, e é o único
           // recurso disponível enquanto as capas não existem — o que também
           // significa que o destaque não quebra quando elas chegarem.
-          <ol className="mt-14 flex flex-col">
+          <ol className="mt-10 flex flex-col">
             {posts.map((post, i) => (
               <li key={post.slug} className={i === 0 ? '' : 'border-t border-rule'}>
                 {/* O CARD INTEIRO É O LINK, e aqui isso é o certo — ao
@@ -131,9 +136,26 @@ export default function BlogIndex() {
                       //
                       // `object-cover` recorta em cima e embaixo mantendo o
                       // centro, que é onde o assunto da foto costuma estar.
+                      // `max-h-[40dvh]` JUNTO COM a proporção, e é ele que
+                      // conserta o defeito que a proporção sozinha tem:
+                      // `aspect-[2/1]` responde à LARGURA e ignora a altura da
+                      // janela. Numa tela de 669px de altura a capa ficava com
+                      // 488px e enchia quase tudo; numa de 1080px o mesmo
+                      // cálculo fica confortável. A proporção manda enquanto
+                      // couber, e o teto assume quando a janela é baixa.
+                      //
+                      // `dvh` e não `vh`: no celular a barra do navegador
+                      // aparece e some, e `vh` congela na altura maior — a
+                      // imagem estouraria a tela justamente quando a barra
+                      // está visível.
                       className={
                         i === 0
-                          ? 'aspect-[2/1] w-full rounded-lg border border-rule object-cover'
+                          // `aspect-[3/2]` no celular e `2/1` a partir de `sm`.
+                          // Lá a restrição é a LARGURA, não a altura: 2:1 sobre
+                          // 342px dá uma faixa de 171px, curta demais para
+                          // funcionar como capa. 3:2 devolve 228px sem empurrar
+                          // o título para fora da tela.
+                          ? 'aspect-[3/2] max-h-[40dvh] w-full rounded-lg border border-rule object-cover sm:aspect-[2/1]'
                           : 'w-full shrink-0 rounded-md border border-rule object-cover sm:h-28 sm:w-48'
                       }
                     />
