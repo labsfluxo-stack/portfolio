@@ -63,6 +63,15 @@ type ModuloPost = {
  * ser esquecido.
  */
 const REGISTRO: Record<string, ModuloPost> = {
+  // O SLUG NÃO REPETE O TÍTULO, e isso é decisão, não descuido. O artigo
+  // nasceu comparando só ChatGPT e Perplexity e cresceu para os quatro
+  // mecanismos; o título acompanhou, o endereço não.
+  //
+  // URL publicada é permanente: trocá-la quebra todo link já compartilhado e
+  // zera o histórico da página no buscador — é a regra que
+  // `tests/blog-conteudo.test.ts` registra ao travar o formato do slug. O
+  // endereço também não ficou errado: a diferença de 46 vezes continua sendo a
+  // abertura do texto e o número mais forte dele.
   'perplexity-cita-46x-mais-que-o-chatgpt-2026': perplexityCita46x as unknown as ModuloPost,
 }
 

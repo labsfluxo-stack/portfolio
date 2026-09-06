@@ -6,7 +6,22 @@ export type CamadaDaArte = {
   nome: string
   /** Máximo ~13 caracteres cada — acima disso o texto atravessa o desenho. */
   itens: readonly [string, string, string]
-  cumpre: readonly [string, string, string]
+  /**
+   * DEIXOU DE SER UMA TUPLA DE TRÊS, e a razão é de conteúdo: a camada
+   * `descoberta` precisava nomear quatro mecanismos de IA, não três.
+   *
+   * O limite real não é a contagem, é o espaço vertical. As linhas empilham a
+   * cada 8,6px a partir do topo da camada, e as camadas ficam ~58px umas das
+   * outras — quatro linhas ocupam 28px e ainda sobram 30 de folga. Uma quinta
+   * chegaria a 37px e começaria a apertar a camada de baixo, que é o defeito
+   * de "camadas invadindo umas às outras" que esta arte já teve.
+   *
+   * A linha-guia vertical de `ArteAbertura` acompanha o tamanho da lista, em
+   * vez do `py + 27` fixo de quando toda lista tinha três itens.
+   *
+   * Três ou quatro, então; nunca cinco. Cada um com ~13 caracteres no máximo.
+   */
+  cumpre: readonly string[]
 }
 
 export const locales = ['pt', 'en'] as const

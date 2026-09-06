@@ -388,15 +388,52 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
 describe('blog', () => {
   const SLUG_DO_ARTIGO = 'perplexity-cita-46x-mais-que-o-chatgpt-2026'
 
+  const arquivoDoArtigo = () =>
+    readFileSync(join(process.cwd(), 'content', 'posts', `${SLUG_DO_ARTIGO}.mdx`), 'utf8')
+
+  /**
+   * A PROSA VEM DO ARQUIVO-FONTE, e não de uma string escrita aqui.
+   *
+   * A primeira versão destes dois testes fixava trechos literais do artigo
+   * ("eles buscam em lugares diferentes", "Perplexity cita 46"). Bastou o
+   * artigo ganhar as seções de Gemini e de Claude — mesma tese, texto revisado
+   * — para os dois quebrarem sem que nada estivesse errado no site.
+   *
+   * Teste que quebra quando o CONTEÚDO muda, e não quando o COMPORTAMENTO
+   * muda, é ruído: ensina a atualizar a asserção no reflexo, e é assim que uma
+   * trava de verdade acaba desligada junto. O resto deste arquivo já evitava
+   * isso comparando contra o dicionário; aqui a fonte é o `.mdx`.
+   */
+  function prosaDoArtigo(): string[] {
+    return arquivoDoArtigo()
+      .replace(/^export const meta = \{[\s\S]*?\n\}\n/m, '')
+      .split('\n')
+      // Só linha de prosa pura: sem título, lista, link, ênfase ou entidade.
+      // Essas passam por transformação no render e não sobreviveriam a um
+      // `toContain` literal.
+      .filter((l) => l.trim().length > 55 && !/^[#\-*>|]|[[\]*`_<>&"]/.test(l.trim()))
+      .map((l) => l.trim())
+  }
+
   it('o corpo do artigo está no HTML bruto, fora de <script>', () => {
     const visivel = semScripts(html(`pt/blog/${SLUG_DO_ARTIGO}`))
-    // Um trecho de prosa do MEIO do texto — não o título, que também aparece
-    // em `<meta>` e passaria mesmo com o corpo inteiro ausente.
-    expect(visivel).toContain('eles buscam em lugares diferentes')
+    const linhas = prosaDoArtigo()
+    // Prova que há prosa de verdade para conferir. Sem isto, um filtro que
+    // deixasse de casar qualquer linha faria o teste passar vazio.
+    expect(linhas.length, 'nenhuma linha de prosa pura encontrada no artigo').toBeGreaterThan(5)
+    // Três amostras espalhadas — começo, meio e fim. Uma só poderia estar
+    // apenas no `<meta description>` e passar com o corpo inteiro ausente.
+    for (const i of [0, Math.floor(linhas.length / 2), linhas.length - 1]) {
+      expect(visivel, `sumiu do HTML: "${linhas[i]!.slice(0, 50)}…"`).toContain(
+        escapeHtmlText(linhas[i]!),
+      )
+    }
   })
 
-  it('o índice do blog lista o artigo', () => {
-    expect(semScripts(html('pt/blog'))).toContain('Perplexity cita 46')
+  it('o índice do blog lista o artigo pelo título que ele tem hoje', () => {
+    const titulo = /titulo:\s*'([^']+)'/.exec(arquivoDoArtigo())?.[1]
+    expect(titulo, 'não achei `titulo` no meta do artigo').toBeTruthy()
+    expect(semScripts(html('pt/blog'))).toContain(escapeHtmlText(titulo!))
   })
 
   /**

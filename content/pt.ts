@@ -152,7 +152,13 @@ export const pt: Dictionary = {
       // JavaScript"), que é mostrar o dever de casa: o recrutador técnico
       // gosta, o cliente não entende, e o sênior acha que você está se
       // explicando. O fato fica, a explicação sai.
-      'A camada mais recente é medição: KPIs próprias, SEO técnico e GEO — a disciplina de aparecer nas respostas do ChatGPT, do Gemini e do Perplexity, não só na primeira página do Google. Este site é feito assim de propósito: as IAs conseguem lê-lo.',
+      // O CLAUDE ENTROU NA LISTA. A frase nomeava três mecanismos e omitia um
+      // quarto que a própria suíte de testes trata como rastreador de
+      // primeira classe (`ClaudeBot`, em tests/static-html.test.ts) e que o
+      // case do Saturno Labs, algumas seções abaixo, já citava. Lista de
+      // motores incompleta numa frase sobre ser lido por IA é o tipo de
+      // imprecisão que esta página não pode carregar.
+      'A camada mais recente é medição: KPIs próprias, SEO técnico e GEO — a disciplina de aparecer nas respostas do ChatGPT, do Gemini, do Claude e do Perplexity, não só na primeira página do Google. Este site é feito assim de propósito: as IAs conseguem lê-lo.',
     ],
     photoAlt: 'Retrato de Neto Alves',
     photoPending: 'Foto a ser adicionada',
@@ -618,7 +624,12 @@ export const pt: Dictionary = {
       descoberta: {
         nome: 'descoberta',
         itens: ['indexado', 'citado por IA', 'link social'],
-        cumpre: ['Google', 'ChatGPT', 'Perplexity'],
+        // QUATRO, e o quarto é o Claude. A lista nomeava três mecanismos numa
+        // página cujo argumento é ser lido por IA, enquanto o case do Saturno
+        // Labs, na mesma rolagem do portfólio, já falava em "ChatGPT, Gemini,
+        // Claude e Perplexity". A própria suíte de testes cita o ClaudeBot
+        // entre os rastreadores que não executam JavaScript.
+        cumpre: ['Google', 'ChatGPT', 'Claude', 'Perplexity'],
       },
     },
     hero: {

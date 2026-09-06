@@ -1606,7 +1606,22 @@ function Anotacao({
         return (
           <g key={`cumpre${i}`}>
             <line x1={px + 2} y1={py} x2={inicio} y2={py} strokeWidth={TRACO.construcao} />
-            <line x1={inicio} y1={py - 3} x2={inicio} y2={py + 27} strokeWidth={TRACO.construcao} />
+            {/* A GUIA ACOMPANHA O TAMANHO DA LISTA, e não um `py + 27` fixo.
+              * Era fixo enquanto toda camada tinha exatamente três padrões; a
+              * camada `descoberta` passou a nomear quatro mecanismos de IA, e
+              * a quarta linha (em `py + 28,3`) ficaria para fora da guia — o
+              * traço terminando antes do texto que ele existe para agrupar.
+              *
+              * `2,5 + (n-1) * 8,6` é a linha de base do último item; mais 7 de
+              * respiro. Ver o comentário de `cumpre` em content/types.ts para
+              * o porquê de quatro caber e cinco não. */}
+            <line
+              x1={inicio}
+              y1={py - 3}
+              x2={inicio}
+              y2={py + 9.5 + (textos[camada.chave].cumpre.length - 1) * 8.6}
+              strokeWidth={TRACO.construcao}
+            />
             {textos[camada.chave].cumpre.map((padrao, linha) => (
               <text
                 key={padrao}

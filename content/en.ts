@@ -125,7 +125,8 @@ export const en: Dictionary = {
       "Infrastructure came before the code: networks, switches and servers. It is not the service I sell today, it is the reason what I ship holds up — someone who spent those years accountable for other people's uptime designs software around how it stays standing, not only around how it works.",
       // Ver content/pt.ts: abria em comparação e fechava explicando a própria
       // técnica.
-      "The newest layer is measurement: custom KPIs, technical SEO and GEO — the discipline of showing up in answers from ChatGPT, Gemini and Perplexity, not just on Google's first page. This site is built that way on purpose: the AIs can read it.",
+      // Ver content/pt.ts: o Claude faltava na lista de mecanismos.
+      "The newest layer is measurement: custom KPIs, technical SEO and GEO — the discipline of showing up in answers from ChatGPT, Gemini, Claude and Perplexity, not just on Google's first page. This site is built that way on purpose: the AIs can read it.",
     ],
     photoAlt: 'Portrait of Neto Alves',
     photoPending: 'Photo to be added',
@@ -514,7 +515,8 @@ export const en: Dictionary = {
       descoberta: {
         nome: 'discovery',
         itens: ['indexed', 'quoted by AI', 'social cards'],
-        cumpre: ['Google', 'ChatGPT', 'Perplexity'],
+        // Ver content/pt.ts: o Claude faltava numa lista de mecanismos de IA.
+        cumpre: ['Google', 'ChatGPT', 'Claude', 'Perplexity'],
       },
     },
     hero: {
