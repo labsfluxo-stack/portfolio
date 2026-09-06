@@ -1,0 +1,94 @@
+export const meta = {
+  titulo: 'O código é seu: o que acontece se o desenvolvedor sumir',
+  descricao:
+    'A única resposta a essa pergunta que não depende de ninguém estar por perto é artefato, não gente. E dá para exigir por contrato, antes de a primeira linha ser escrita.',
+  publicado: '2026-09-05',
+  tags: ['Contratação', 'Processo'],
+}
+
+A resposta que serve não é "temos uma equipe grande". É **o código estar no seu
+repositório desde o primeiro dia, documentado e coberto por teste** — porque essa é a única
+resposta que continua verdadeira mesmo quando quem escreveu não está por perto.
+
+Equipe grande também acaba. Sócio sai, empresa fecha, contrato é rescindido. Contar pessoas
+responde a pergunta com algo que pode desaparecer; contar artefato responde com algo que
+fica.
+
+## O que "o código é seu" tem que significar
+
+A frase é fácil de dizer e quase nunca é verificada. Ela precisa significar quatro coisas,
+e as quatro dá para conferir antes de assinar:
+
+**1. O repositório está numa conta sua.** Não numa conta do fornecedor à qual você tem
+acesso — numa organização registrada no nome da sua empresa, onde você é o dono e pode
+remover qualquer pessoa. Acesso concedido é acesso que pode ser retirado; propriedade não.
+
+**2. O histórico está lá inteiro.** Um repositório entregue no fim, com um único commit
+chamado "versão inicial", não é histórico — é um arquivo zipado com outro nome. O valor do
+histórico é poder responder "por que isto foi feito assim" daqui a dois anos.
+
+**3. Existe documentação de como subir.** Não manual de usuário: as instruções para outro
+desenvolvedor colocar o projeto para rodar na máquina dele e publicar uma alteração. Se
+essa informação vive na cabeça de alguém, o código é seu e inútil ao mesmo tempo.
+
+**4. Existe teste automatizado.** Teste é a documentação que não mente. Ele descreve o
+comportamento esperado de um jeito que o computador confere — e é o que permite outro
+desenvolvedor mudar alguma coisa sem medo de quebrar o que já funcionava.
+
+<Figura
+  alt="Repositório de um projeto na conta do cliente, com histórico de commits e a suíte de testes passando."
+  sugestao="Captura de um repositório real (pode ser um dos cases) mostrando duas coisas juntas: o histórico de commits com mensagens de verdade e o resultado verde da suíte de testes. É a prova visual dos itens 2 e 4."
+  legenda="Histórico e testes — as duas coisas que fazem outro desenvolvedor continuar de onde parou."
+/>
+
+## O teste que separa promessa de fato
+
+Peça isto antes de fechar: **acesso ao repositório de um projeto que a pessoa já entregou,
+mesmo que só de leitura, mesmo que por quinze minutos.** Se o trabalho é aberto, o link
+resolve.
+
+O que olhar em quinze minutos:
+
+- **As mensagens de commit dizem alguma coisa?** "ajustes", "correções", "wip" trinta vezes
+  seguidas é um histórico que não vai ajudar ninguém.
+- **Existe um arquivo explicando como rodar?** Geralmente `README.md`, na raiz.
+- **Existe pasta de teste, e ela tem conteúdo?**
+- **A última alteração é de quando?** Projeto entregue e nunca mais tocado é um dado, não
+  necessariamente um problema — mas é uma conversa que vale ter.
+
+Nada disso exige que você saiba programar. São quatro perguntas de leitura.
+
+## Por que isto virou pergunta de compra
+
+Contratar um profissional só, ou uma equipe pequena, tem uma vantagem que empresa grande
+não consegue oferecer: você fala com quem escreve o código, sem intermediário e sem repasse.
+
+E tem um risco real que precisa ser respondido de frente, não desconversado: essa pessoa
+pode ficar indisponível. Adoecer, mudar de área, sumir.
+
+A resposta ruim é inflar o time. A resposta boa é tornar o projeto **independente de quem o
+construiu** — e isso não é favor nem gentileza, é uma característica técnica que se
+verifica. Um projeto com repositório seu, histórico legível, documentação de operação e
+testes passando é um projeto que qualquer desenvolvedor competente assume em poucos dias.
+
+## O que colocar no contrato
+
+Três linhas resolvem, e nenhuma delas é polêmica para quem trabalha assim:
+
+1. **O código-fonte é de propriedade da contratante**, entregue em repositório sob conta da
+   contratante, com histórico completo.
+2. **A entrega inclui documentação de instalação, execução e publicação.**
+3. **A entrega inclui a suíte de testes automatizados** executada na entrega.
+
+Se um fornecedor resistir às três, o problema não é jurídico. É que ele está vendendo
+dependência, e a dependência é o produto.
+
+## E a manutenção continua fazendo sentido
+
+Vale ser honesto sobre o outro lado: nada disso significa que você deva trocar de
+desenvolvedor. Quem construiu conhece as decisões, e continuar com quem conhece costuma ser
+mais barato do que recomeçar.
+
+O ponto é outro. Você deve continuar **porque quer**, não porque não tem alternativa. Essa
+diferença muda a conversa inteira — de renovação, de prazo, de preço — e é a única coisa
+nesta lista que não dá para instalar depois.

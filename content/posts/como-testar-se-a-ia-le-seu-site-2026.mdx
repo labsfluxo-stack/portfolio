@@ -1,0 +1,105 @@
+export const meta = {
+  titulo: 'Como testar se a IA lê o seu site, sem ferramenta nenhuma',
+  descricao:
+    'Três testes que você faz sozinho em cinco minutos, com o navegador que já tem aberto. O primeiro deles reprova a maioria dos sites feitos nos últimos cinco anos.',
+  publicado: '2026-09-05',
+  tags: ['GEO', 'Diagnóstico'],
+}
+
+Desligue o JavaScript e recarregue o seu site. Se a tela ficar em branco, é exatamente
+isso que o ChatGPT enxerga.
+
+Esse é o teste inteiro. Ele leva menos de um minuto, não precisa de ferramenta paga, e
+reprova uma quantidade grande dos sites construídos nos últimos cinco anos — inclusive
+sites caros, bonitos e rápidos.
+
+## Por que desligar o JavaScript prova alguma coisa
+
+Quando alguém pergunta ao ChatGPT qual empresa contratar no seu ramo, ele não abre o seu
+site num navegador. Ele **pede a página ao servidor e lê o que voltou** — o HTML cru, na
+hora, sem executar nada e sem uma segunda tentativa. O mesmo vale para o ClaudeBot, o
+PerplexityBot e para os robôs de prévia de link do WhatsApp e do LinkedIn.
+
+O navegador de uma pessoa faz o contrário: recebe o HTML, executa o JavaScript e só então
+monta a tela. Num site que se monta no navegador, o HTML que sai do servidor é uma casca
+quase vazia, e o texto só existe depois de o JavaScript rodar.
+
+Para você, funciona. Para a IA, chega vazio. Desligar o JavaScript te coloca no lugar
+dela.
+
+## Teste 1: o JavaScript desligado
+
+**No Chrome ou Edge:** abra o seu site, aperte `F12`, depois `Ctrl+Shift+P`, digite
+`javascript` e escolha **Disable JavaScript**. Recarregue com `F5`, sem fechar o painel.
+
+**No Firefox:** digite `about:config` na barra de endereço, procure
+`javascript.enabled` e mude para `false`. Lembre de voltar para `true` depois.
+
+<Figura
+  alt="A mesma página com o JavaScript ligado e desligado, lado a lado: à esquerda o site completo, à direita uma tela quase vazia."
+  sugestao="Antes e depois, lado a lado: o site normal e o mesmo site com JavaScript desligado. É a imagem mais importante do artigo — ela prova o argumento inteiro num golpe de vista. Se der, use um site real que reprova (sem identificar o dono)."
+  legenda="O mesmo endereço, na mesma hora. À direita é o que o ChatGPT recebe."
+/>
+
+O que olhar:
+
+- **Tela em branco, ou só o cabeçalho** — a IA não vê o seu conteúdo. É o pior resultado, e o mais comum em site feito como aplicação de página única.
+- **Página completa, sem alguns efeitos** — está certo. É assim que tem que ser: o texto vem pronto do servidor e o JavaScript só enfeita.
+- **Página completa, mas sem os preços / sem os produtos / sem os depoimentos** — parcial. Justamente o que você quer que seja citado está do lado errado da linha.
+
+## Teste 2: o código-fonte, que é ainda mais direto
+
+Clique com o botão direito na página e escolha **Exibir código-fonte da página** (`Ctrl+U`).
+Isso mostra o HTML como o servidor entregou — antes de qualquer JavaScript rodar. É
+literalmente o que a IA recebe.
+
+Agora use `Ctrl+F` dentro dessa tela e procure uma frase que aparece no seu site. Um
+parágrafo do "quem somos", o nome de um serviço, um depoimento.
+
+Achou a frase, está no HTML. Não achou, ela não existe para a IA — mesmo estando bem
+visível na tela para você.
+
+Este teste é melhor que o primeiro em um ponto: ele não depende de você interpretar o que
+"parece" carregado. Ou a frase está lá, ou não está.
+
+<Figura
+  alt="Tela de código-fonte com a busca do navegador aberta, mostrando zero resultados para uma frase que aparece na página."
+  sugestao="Captura do Ctrl+U com o Ctrl+F aberto, procurando uma frase do site e devolvendo 0 de 0. O contador zerado é o que faz o ponto — destaque ele."
+  legenda="A frase está na tela, mas não está no HTML. Para a IA, ela não existe."
+/>
+
+## Teste 3: o portão que ninguém lembra de conferir
+
+Digite o endereço do seu site seguido de `/robots.txt` — por exemplo,
+`suaempresa.com.br/robots.txt`. É um arquivo de texto que diz aos robôs o que eles podem
+ler.
+
+Procure por estes nomes: **GPTBot**, **ClaudeBot**, **PerplexityBot**, **Google-Extended**,
+**CCBot**. Se algum deles aparecer perto da palavra `Disallow`, você está pedindo
+explicitamente para aquela IA não ler o seu site.
+
+<Figura
+  alt="Arquivo robots.txt aberto no navegador, com uma regra Disallow para GPTBot destacada."
+  sugestao="Um robots.txt real com `User-agent: GPTBot` e `Disallow: /`. Pode ser montado, mas precisa parecer um arquivo de verdade no navegador, não um bloco de código."
+  legenda="Duas linhas que pedem, por escrito, para o ChatGPT não ler o site."
+/>
+
+Isso acontece mais por acidente do que por escolha. Muitos sites herdaram essa
+configuração de um plugin de segurança, de uma recomendação copiada, ou de um padrão da
+hospedagem que ninguém revisou. E há um caso maior, que não aparece no `robots.txt` e
+merece artigo próprio: desde julho de 2025, todo domínio novo criado na Cloudflare bloqueia
+esses robôs por padrão, na camada de segurança.
+
+## O que fazer com o resultado
+
+Se os três testes passaram, a base técnica está resolvida e o seu problema é outro:
+conteúdo. A IA consegue ler o seu site, mas talvez não encontre nele nada que responda o
+que perguntam sobre o seu setor.
+
+Se o primeiro teste reprovou, o conserto não é ajuste de detalhe — é mudança de como a
+página é entregue, do navegador para o servidor. Dá para fazer sem trocar de plataforma na
+maioria dos casos, e é o tipo de trabalho que se resolve uma vez.
+
+E vale dizer o que estes três testes **não** medem: se o seu site abre rápido no 4G, se o
+texto que existe é bom, e se ele responde as perguntas que o seu cliente faz. São três
+coisas diferentes, e as três importam.

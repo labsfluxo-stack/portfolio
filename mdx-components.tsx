@@ -1,4 +1,6 @@
+import Link from 'next/link'
 import type { MDXComponents } from 'mdx/types'
+import { Figura } from '@/components/blog/Figura'
 import { idDoTitulo } from '@/lib/leitura'
 
 /**
@@ -66,6 +68,11 @@ function titulo(nivel: 2 | 3) {
 
 export function useMDXComponents(componentes: MDXComponents): MDXComponents {
   return {
+    // ENTREGUE AQUI, e não importado em cada artigo. Um `import` no topo de um
+    // `.mdx` funciona, mas transforma o arquivo de texto em arquivo de código
+    // logo na primeira linha — e quem escreve artigo não deveria precisar
+    // lembrar de importar nada para pôr uma imagem.
+    Figura,
     h2: titulo(2),
     h3: titulo(3),
     p: ({ children }) => (
@@ -74,13 +81,42 @@ export function useMDXComponents(componentes: MDXComponents): MDXComponents {
       // pouco mais. 19px é o corpo do site inteiro.
       <p className="mt-5 text-[19px] leading-[1.65] text-ink-2">{children}</p>
     ),
+    /**
+     * LINK INTERNO PASSA PELO `<Link>` DO NEXT, e isso é correção de um defeito
+     * que só aparece em produção.
+     *
+     * Um `[texto](/pt/blog/outro-artigo)` no MDX virava `<a href="/pt/blog/...">`
+     * cru. O site é publicado sob `basePath: '/portfolio'` (GitHub Pages), e um
+     * `<a>` cru NÃO recebe esse prefixo — nem o barra final que
+     * `trailingSlash: true` exige. Resultado: link entre artigos apontando para
+     * 404, sem nenhum aviso em build, nos testes ou no `npm run dev`, onde o
+     * basePath se comporta diferente.
+     *
+     * O `<Link>` resolve as duas coisas sozinho. `prefetch={false}` pelo mesmo
+     * motivo do resto do projeto: sem isso o Next baixa o payload da outra rota
+     * assim que o link entra em viewport, e ninguém pediu.
+     */
     a: ({ href, children }) => {
-      const externo = typeof href === 'string' && href.startsWith('http')
+      const classe =
+        'text-accent underline decoration-accent/40 underline-offset-4 transition-colors hover:decoration-accent'
+
+      if (typeof href === 'string' && href.startsWith('/')) {
+        return (
+          <Link prefetch={false} href={href} className={classe}>
+            {children}
+          </Link>
+        )
+      }
+
       return (
         <a
           href={href}
-          {...(externo ? { target: '_blank', rel: 'noreferrer' } : {})}
-          className="text-accent underline decoration-accent/40 underline-offset-4 transition-colors hover:decoration-accent"
+          // Âncora dentro da própria página (`#secao`) não abre em aba nova:
+          // só o que sai do site é que abre.
+          {...(typeof href === 'string' && href.startsWith('http')
+            ? { target: '_blank', rel: 'noreferrer' }
+            : {})}
+          className={classe}
         >
           {children}
         </a>

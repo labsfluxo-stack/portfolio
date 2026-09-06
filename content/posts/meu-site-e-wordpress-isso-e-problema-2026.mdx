@@ -1,0 +1,94 @@
+export const meta = {
+  titulo: 'Meu site é WordPress. Isso atrapalha na IA? (2026)',
+  descricao:
+    'A plataforma quase nunca é o problema. Desde julho de 2025, todo domínio novo na Cloudflare bloqueia GPTBot, ClaudeBot e PerplexityBot por padrão — e isso alcança cerca de 20% da web.',
+  publicado: '2026-09-05',
+  tags: ['GEO', 'WordPress', 'Infraestrutura'],
+}
+
+Por si só, não. WordPress, Wix e Shopify entregam a página pronta pelo servidor, que é
+exatamente o que a IA precisa para ler o seu conteúdo. Nenhum dos três impede que o seu
+site seja lido pelo ChatGPT.
+
+O que atrapalha é o que se acumula em cima — e o motivo mais comum não tem nada a ver com
+a plataforma que você escolheu.
+
+## O verdadeiro culpado é uma configuração de segurança
+
+**Desde 1º de julho de 2025, todo domínio novo criado na Cloudflare bloqueia GPTBot,
+ClaudeBot, PerplexityBot e Google-Extended por padrão.** É uma regra gerenciada do firewall
+chamada "Block AI bots", ligada automaticamente, que devolve bloqueio duro para esses
+robôs. A Cloudflare atende algo em torno de **20% da web pública**.
+
+Leia de novo o "por padrão". Ninguém precisou pedir. Quem registrou um domínio novo depois
+daquela data, ou migrou para a Cloudflare, muito provavelmente está bloqueando as IAs neste
+minuto sem saber — em WordPress, em Shopify, em site feito à mão, tanto faz.
+
+<Figura
+  alt="Painel da Cloudflare mostrando a regra Block AI bots ligada."
+  sugestao="Captura do painel da Cloudflare em Security > Bots, com a regra de bloqueio de bots de IA visivelmente ATIVA. É a prova do argumento — vale a pena ser uma captura real."
+  legenda="Ligada por padrão em todo domínio novo desde julho de 2025."
+/>
+
+Esse é o tipo de coisa que faz uma empresa reprovar num teste que ela nem sabia que estava
+fazendo. O site está no ar, rápido, bonito, com o texto todo no HTML — e mesmo assim a IA
+recebe um bloqueio antes de chegar ao conteúdo.
+
+## O segundo culpado: o `robots.txt` que ninguém revisou
+
+Abra `suaempresa.com.br/robots.txt` e procure por `GPTBot`, `ClaudeBot`, `PerplexityBot`,
+`Google-Extended` ou `CCBot`. Se algum aparecer perto de `Disallow`, o seu site está
+pedindo por escrito para aquela IA não entrar.
+
+Numa varredura da Cloudflare em 27 de julho de 2026, sobre 4.223 arquivos `robots.txt`, os
+robôs de IA mais bloqueados foram, nesta ordem: **GPTBot** (690 arquivos), **ClaudeBot**
+(594), **Google-Extended** (558), **CCBot** (554) e **PerplexityBot** (415).
+
+Boa parte disso é herdada, não decidida: veio de um plugin de segurança, de uma
+recomendação copiada de um fórum em 2023, ou de um padrão da hospedagem. Quase nunca foi
+uma escolha consciente de quem paga a conta.
+
+## O terceiro: plugin demais e hospedagem barata
+
+Aqui, sim, o WordPress tem uma tendência própria — não por ser WordPress, mas por ser fácil
+instalar coisas nele. Trinta plugins ativos, cada um carregando o próprio JavaScript e a
+própria folha de estilo, transformam uma página simples num download pesado.
+
+Isso não te tira da IA: o texto continua no HTML. Mas te tira do primeiro teste que o seu
+cliente faz, que é abrir o site no celular, no 4G, e esperar. Passou de dois segundos, você
+perde gente antes de ela ver qualquer coisa.
+
+## O que isso significa na prática
+
+Se o seu site é WordPress, Wix ou Shopify, a ordem de investigação é esta:
+
+1. **A camada de segurança está bloqueando os robôs de IA?** É a causa mais provável e a
+   menos suspeitada. Também é a de conserto mais rápido — uma regra de exceção.
+2. **O `robots.txt` está pedindo bloqueio?** Cinco segundos para conferir.
+3. **A página abre em menos de dois segundos no celular?** Aqui entra a limpeza de plugin e
+   a conversa sobre hospedagem.
+4. **O texto está no HTML?** [Três testes que você faz sozinho](/pt/blog/como-testar-se-a-ia-le-seu-site-2026) respondem isso.
+
+**Nenhum dos quatro exige trocar de plataforma.** Trocar de plataforma é caro, demorado e,
+na maioria dos casos que aparecem por aqui, resolve um problema que não era o problema.
+
+## Uma ressalva honesta sobre bloquear IA
+
+Bloquear robô de IA é uma decisão legítima. Há gente que não quer o próprio conteúdo
+treinando modelo de terceiro, e isso é direito de quem publica.
+
+O que não é legítimo é bloquear sem saber. Se a sua empresa quer aparecer quando alguém
+pergunta ao ChatGPT quem contratar no seu ramo, e a sua camada de segurança está devolvendo
+bloqueio para o ChatGPT, você está pagando por duas coisas que se anulam.
+
+Vale registrar uma limitação do `robots.txt` também: ele é um pedido, não uma trava. A
+Cloudflare publicou em agosto de 2025 evidência de que o Perplexity usava rastreadores não
+declarados, alternando identificação e endereço para contornar essas regras. Quem realmente
+quer bloquear precisa fazer isso no servidor ou no firewall — e quem realmente quer ser
+lido precisa conferir os dois.
+
+## Fontes
+
+- [Cloudflare blocks AI crawlers by default](https://adamarant.com/en/blog/cloudflare-blocks-ai-crawlers-by-default-how-to-fix-it-without-breaking-security)
+- [We Analyzed robots.txt Across Cloudflare's Network](https://technologychecker.io/blog/robots-txt-ai-crawlers-blocking-report)
+- [Robots.txt for AI Crawlers: GPTBot, PerplexityBot & GEO Audit](https://pixis.ai/blog/robots-txt-for-ai-crawlers-gptbot-perplexitybot-geo-audit/) — Pixis

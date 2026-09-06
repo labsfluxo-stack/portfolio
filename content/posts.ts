@@ -1,4 +1,8 @@
 import * as perplexityCita46x from './posts/perplexity-cita-46x-mais-que-o-chatgpt-2026.mdx'
+import * as comoTestar from './posts/como-testar-se-a-ia-le-seu-site-2026.mdx'
+import * as wordpress from './posts/meu-site-e-wordpress-isso-e-problema-2026.mdx'
+import * as seoEGeo from './posts/seo-e-geo-nao-sao-a-mesma-coisa-2026.mdx'
+import * as codigoESeu from './posts/o-codigo-e-seu-se-o-desenvolvedor-sumir-2026.mdx'
 
 /**
  * O BLOG É SÓ EM PORTUGUÊS, e isso é decisão do dono, não limitação técnica.
@@ -73,6 +77,10 @@ const REGISTRO: Record<string, ModuloPost> = {
   // endereço também não ficou errado: a diferença de 46 vezes continua sendo a
   // abertura do texto e o número mais forte dele.
   'perplexity-cita-46x-mais-que-o-chatgpt-2026': perplexityCita46x as unknown as ModuloPost,
+  'como-testar-se-a-ia-le-seu-site-2026': comoTestar as unknown as ModuloPost,
+  'meu-site-e-wordpress-isso-e-problema-2026': wordpress as unknown as ModuloPost,
+  'seo-e-geo-nao-sao-a-mesma-coisa-2026': seoEGeo as unknown as ModuloPost,
+  'o-codigo-e-seu-se-o-desenvolvedor-sumir-2026': codigoESeu as unknown as ModuloPost,
 }
 
 export type Post = { slug: string; meta: MetaPost; Corpo: ModuloPost['default'] }
@@ -92,8 +100,19 @@ export function dataVigente(meta: MetaPost): string {
  */
 export function todosOsPosts(): Post[] {
   return Object.entries(REGISTRO)
-    .map(([slug, modulo]) => ({ slug, meta: modulo.meta, Corpo: modulo.default }))
-    .sort((a, b) => b.meta.publicado.localeCompare(a.meta.publicado))
+    .map(([slug, modulo], ordem) => ({ slug, ordem, meta: modulo.meta, Corpo: modulo.default }))
+    // DESEMPATE PELA ORDEM DO REGISTRO, e ele é necessário desde o primeiro
+    // dia: o blog nasceu com cinco artigos publicados na MESMA data. Com
+    // `publicado` igual, a comparação devolve 0 e a ordem final passa a
+    // depender de detalhe de implementação do `sort` — muda entre versões de
+    // motor e entre plataformas, e o índice sairia numa ordem no meu build e
+    // noutra no do CI.
+    //
+    // Adiantar ou atrasar a data de um artigo para forçar a ordem resolveria
+    // também, e seria mentira num site cujo argumento é que suas afirmações se
+    // conferem. A ordem do `REGISTRO` acima É a ordem de leitura pretendida.
+    .sort((a, b) => b.meta.publicado.localeCompare(a.meta.publicado) || a.ordem - b.ordem)
+    .map(({ slug, meta, Corpo }) => ({ slug, meta, Corpo }))
 }
 
 export function postPorSlug(slug: string): Post | undefined {

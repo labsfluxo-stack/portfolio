@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
@@ -388,6 +388,18 @@ describe('portão de GEO — HTML bruto contém o conteúdo', () => {
 describe('blog', () => {
   const SLUG_DO_ARTIGO = 'perplexity-cita-46x-mais-que-o-chatgpt-2026'
 
+  /**
+   * Lido do DIRETÓRIO, não escrito à mão: este arquivo roda em Node puro
+   * (`vitest.html.config.ts`, ambiente `node`, sem o plugin de MDX), então
+   * importar `content/posts.ts` — que importa `.mdx` — quebra aqui. É a mesma
+   * restrição que `scripts/generate-seo-files.mts` tem, e a mesma trava a
+   * protege: `tests/blog-conteudo.test.ts` garante que diretório e registro
+   * são a mesma lista.
+   */
+  const POST_SLUGS_ESPERADOS = readdirSync(join(process.cwd(), 'content', 'posts'))
+    .filter((n) => n.endsWith('.mdx'))
+    .map((n) => n.replace(/\.mdx$/, ''))
+
   const arquivoDoArtigo = () =>
     readFileSync(join(process.cwd(), 'content', 'posts', `${SLUG_DO_ARTIGO}.mdx`), 'utf8')
 
@@ -464,6 +476,27 @@ describe('blog', () => {
     // `&` cru quebra o XML inteiro, e o leitor de feed descarta o arquivo sem
     // avisar ninguém. Depois de tirar as entidades válidas não pode sobrar `&`.
     expect(feed.replace(/&(amp|lt|gt|quot|apos|#\d+);/g, '')).not.toContain('&')
+  })
+
+  /**
+   * TODO LINK INTERNO PRECISA CARREGAR O `basePath`, e este teste existe porque
+   * a ausência dele não quebra nada em lugar nenhum até chegar em produção.
+   *
+   * O site é publicado sob `/portfolio` (GitHub Pages). Um `<a href="/pt/blog/x">`
+   * cru — que é o que um link markdown vira sem tratamento — aponta para
+   * `dominio.com/pt/blog/x`, e não para `dominio.com/portfolio/pt/blog/x`. O
+   * build gera, o teste de unidade passa, o `npm run dev` funciona (lá o
+   * basePath se comporta diferente) e o link cai em 404 só no ar.
+   *
+   * Foi exatamente o que aconteceu com os links entre artigos.
+   */
+  it('nenhum link interno do blog perde o basePath', () => {
+    for (const rota of ['pt/blog', ...POST_SLUGS_ESPERADOS.map((s) => `pt/blog/${s}`)]) {
+      const bruto = semScripts(html(rota))
+      const internos = [...bruto.matchAll(/href="(\/[^"]*)"/g)].map((m) => m[1]!)
+      const semPrefixo = internos.filter((h) => !h.startsWith('/portfolio/') && h !== '/portfolio')
+      expect(semPrefixo, `em /${rota}, link(s) interno(s) sem basePath`).toEqual([])
+    }
   })
 
   it('o llms.txt lista o artigo, e só na seção do português', () => {
