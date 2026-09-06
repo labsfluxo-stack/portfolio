@@ -14,9 +14,11 @@ workers/**/.wrangler/
 # Segredos locais do wrangler (chave do Groq). NUNCA versionar.
 workers/**/.dev.vars
 
-# Capturas de trabalho das revisões visuais — nunca versionadas.
-nv-*.png
-av-*.png
-blog-*.png
-*.tmp.png
-*.tmp.mts
+
+# Capturas e scripts descartaveis das revisoes visuais.
+# Regra AMPLA de proposito: a versao anterior listava prefixo por prefixo
+# (nv-, av-, blog-) e dois arquivos novos (grafico-*.png) escaparam para um
+# commit mesmo assim. Imagem de trabalho na RAIZ do repositorio nunca e
+# artefato do site — o que o site publica vive em public/.
+/*.png
+/*.tmp.*
