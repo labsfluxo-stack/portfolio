@@ -1,6 +1,11 @@
 import Link from 'next/link'
 import type { MDXComponents } from 'mdx/types'
 import { Figura } from '@/components/blog/Figura'
+import {
+  GraficoConcentracao,
+  GraficoTrafegoCadastro,
+  GraficoVagas,
+} from '@/components/blog/Graficos'
 import { idDoTitulo } from '@/lib/leitura'
 
 /**
@@ -73,6 +78,12 @@ export function useMDXComponents(componentes: MDXComponents): MDXComponents {
     // logo na primeira linha — e quem escreve artigo não deveria precisar
     // lembrar de importar nada para pôr uma imagem.
     Figura,
+    // Os gráficos são componentes próprios e não `<Figura>` com um `src`:
+    // eles não são imagem, são desenho vetorial que acompanha o tema e cujos
+    // números vivem no código junto do texto. Ver components/blog/Graficos.tsx.
+    GraficoConcentracao,
+    GraficoTrafegoCadastro,
+    GraficoVagas,
     h2: titulo(2),
     h3: titulo(3),
     p: ({ children }) => (

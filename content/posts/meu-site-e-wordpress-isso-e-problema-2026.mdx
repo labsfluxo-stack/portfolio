@@ -34,6 +34,40 @@ Esse é o tipo de coisa que faz uma empresa reprovar num teste que ela nem sabia
 fazendo. O site está no ar, rápido, bonito, com o texto todo no HTML — e mesmo assim a IA
 recebe um bloqueio antes de chegar ao conteúdo.
 
+## Medimos doze sites brasileiros grandes. Metade não entrega a página
+
+Os números da Cloudflare são globais. Como não existe levantamento brasileiro sobre isso,
+fizemos um pequeno: pedimos a página inicial de **doze dos maiores sites do Brasil** duas
+vezes — uma identificando-se como navegador comum, outra como `GPTBot`, que é o
+rastreador do ChatGPT.
+
+O resultado, em 6 de setembro de 2026:
+
+- **Três** responderam normalmente ao navegador e devolveram **erro 403 ao GPTBot**. É
+  bloqueio dirigido: o site funciona para gente e recusa a IA.
+- **Três** devolveram 403 para os dois. Proteção de robô mais agressiva, que não distingue
+  — o efeito prático é o mesmo, a IA não lê.
+- **Cinco** declaram bloqueio a rastreador de IA no próprio `robots.txt`.
+- **Um** respondeu 200 com a página **completamente vazia de texto**: todo o conteúdo se
+  monta no navegador. Para a IA, um site em branco.
+
+Somando os dois primeiros casos, **metade dos doze não entrega a página ao ChatGPT**.
+
+Não vamos nomear ninguém, por dois motivos. O primeiro é que quase nada disso parece
+decisão de marketing — é configuração de infraestrutura, e o time que a liga costuma não
+ser o que responde por aparecer nas buscas. O segundo é que o ponto não é a empresa: é que,
+se acontece nessa proporção com quem tem time de tecnologia grande, é razoável supor que
+aconteça mais com quem não tem.
+
+**Como refazer o teste no seu site**, que é o que interessa: peça a sua página inicial com
+o cabeçalho de identificação do GPTBot e compare com a resposta ao navegador. Qualquer
+ferramenta de requisição faz isso. Se a resposta ao bot for 403, ou vier vazia, você achou
+o problema antes de contratar qualquer coisa.
+
+Uma ressalva sobre o método: são doze sites, medidos de um único endereço de rede e num
+único momento. Serve para mostrar que o problema é comum e fácil de conferir — não é
+amostra estatística, e não afirmamos que a proporção vale para a web brasileira inteira.
+
 ## O segundo culpado: o `robots.txt` que ninguém revisou
 
 Abra `suaempresa.com.br/robots.txt` e procure por `GPTBot`, `ClaudeBot`, `PerplexityBot`,
