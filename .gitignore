@@ -13,3 +13,10 @@ workers/**/.wrangler/
 
 # Segredos locais do wrangler (chave do Groq). NUNCA versionar.
 workers/**/.dev.vars
+
+# Capturas de trabalho das revisões visuais — nunca versionadas.
+nv-*.png
+av-*.png
+blog-*.png
+*.tmp.png
+*.tmp.mts
