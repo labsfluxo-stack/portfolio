@@ -65,22 +65,31 @@ export function quadroDe(progresso: number): Quadro {
   const chao = centroDoAndar(ultimo)
   const y = ultimo === 0 ? alvo : alvo + ((chao - alvo) * suave) / ultimo
 
-  // Andar ativo (o rótulo mostrado): FATIA de progresso, não a mesma conta da
-  // altura. Reaproveitar `indiceDeAltura` foi a primeira tentativa e é o
-  // defeito que a suíte "todos os sete andares são visitados" existe para
-  // pegar — com 7 andares e só 6 intervalos entre centros, o último andar
-  // vira um ponto de largura zero (só em p===1 exato) e nunca é "visitado" de
-  // verdade, pisca e some. Dividir o progresso em `ANDARES.length` fatias
-  // iguais dá aos sete andares, inclusive o último, uma faixa de verdade.
-  const fatia = 1 / ANDARES.length
-  const posicaoNaFatia = ultimo === 0 ? 0 : p / fatia
-  const andar = Math.min(ultimo, Math.floor(posicaoNaFatia))
-  const dentroDoAndar = aparar(posicaoNaFatia - andar, 0, 1)
+  // Andar ativo e estação: o MESMO `suave` que gera `y`, não um segundo
+  // relógio. Uma versão anterior usava uma fatia de progresso à parte (1/7 do
+  // scroll por andar) para escolher o rótulo — e a revisão pegou o resultado:
+  // o rótulo sempre trocava ANTES de a câmera chegar perto do centro novo.
+  // Pior caso, a recepção: o rótulo já dizia "chegou" em progresso ≈ 0,857,
+  // com a câmera ainda a quase um andar inteiro de distância. Arredondar
+  // `suave` dá o andar cujo CENTRO está mais perto da câmera agora — não pode
+  // discordar de `y`, porque vem do mesmo número. (Isso também resolve, de
+  // graça, o ponto de largura zero do último andar que a primeira tentativa
+  // com `floor()` tinha: o arredondamento dá a cada andar de ponta uma janela
+  // de meio andar, nunca um ponto único.)
+  const andar = Math.min(ultimo, Math.max(0, Math.round(suave)))
+
+  // Janela do andar ativo, em unidades de `suave`: meio andar para cada lado
+  // do centro, cortada nas bordas do prédio — o primeiro e o último andar não
+  // têm vizinho de um dos lados, então a janela deles é metade do tamanho.
+  const janelaInicio = Math.max(0, andar - 0.5)
+  const janelaFim = Math.min(ultimo, andar + 0.5)
+  const larguraJanela = janelaFim - janelaInicio
+  const estacao = larguraJanela === 0 ? 0 : aparar((suave - janelaInicio) / larguraJanela, 0, 1)
 
   return {
     pose: { y, z: RECUO },
     andar,
-    estacao: comParada(dentroDoAndar),
+    estacao,
     // O plano acompanha a descida na fração do seu parallax. O da frente
     // (fator 1) acompanha inteiro e serve de referência para os outros dois.
     planos: PLANOS.map((plano) => y * plano.parallax),

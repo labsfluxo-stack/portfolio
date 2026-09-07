@@ -71,6 +71,35 @@ describe('descida', () => {
     expect(quadroDe(-3).andar).toBe(0)
     expect(quadroDe(9).andar).toBe(ANDARES.length - 1)
   })
+
+  /**
+   * O rótulo do andar e a altura da câmera têm que contar a MESMA história.
+   * Uma versão anterior derivava `andar` de uma fatia de progresso paralela
+   * (1/7 do scroll por andar) à conta que gera `pose.y` (que interpola entre
+   * 6 centros) — dois relógios em vez de um. O rótulo sempre chegava ANTES da
+   * câmera: pior caso, a recepção, cujo rótulo já dizia "chegou" em
+   * progresso ≈ 0,857, com a câmera ainda a quase um andar inteiro de
+   * distância do centro real. Nenhum dos outros 13 testes olha a relação
+   * entre `andar` e `pose.y` — só este.
+   *
+   * `toBeLessThanOrEqual`, não `toBeLessThan`: nos pontos exatos onde a
+   * câmera está EXATAMENTE no meio do caminho entre dois centros, os dois
+   * andares estão igualmente perto — não existe "mais perto" nesse instante
+   * único, é o próprio limite entre as duas fatias. Isso é diferente do
+   * teste de parallax (dois fatores sempre distintos por construção): aqui é
+   * geometria de vizinho-mais-próximo, que empata exatamente na fronteira.
+   */
+  it('a câmera está sempre mais perto (ou empatada) do centro do seu andar do que do centro de qualquer outro', () => {
+    for (let p = 0; p <= 1; p += 0.001) {
+      const { andar, pose } = quadroDe(p)
+      const distanciaDoProprio = Math.abs(pose.y - centroDoAndar(andar))
+      for (let outro = 0; outro < ANDARES.length; outro++) {
+        if (outro === andar) continue
+        const distanciaDoOutro = Math.abs(pose.y - centroDoAndar(outro))
+        expect(distanciaDoProprio).toBeLessThanOrEqual(distanciaDoOutro)
+      }
+    }
+  })
 })
 
 describe('amortecimento', () => {
