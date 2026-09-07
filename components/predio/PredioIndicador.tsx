@@ -82,7 +82,23 @@ export function PredioIndicador({ itens, rotuloNav }: { itens: ItemDoIndicador[]
                 href={`#${item.id}`}
                 aria-current={ativo ? 'true' : undefined}
                 // Mesmas classes de components/layout/SkipLink.tsx: invisível
-                // por padrão, aparece só com foco de teclado.
+                // por padrão, aparece só com foco de teclado, no mesmo canto
+                // (`top-4 left-4`). Isso NÃO colide: hoje, na rota de prévia
+                // (app/[locale]/predio/page.tsx), o SkipLink nem existe —
+                // ele só é renderizado por app/[locale]/(site)/layout.tsx,
+                // fora de onde `/predio` vive (confirmado lendo os dois
+                // arquivos, não suposto). Quando `PredioSlot` existir e
+                // embutir este fallback numa página que já tem SkipLink, os
+                // dois ainda não colidem: só um elemento tem foco de teclado
+                // por vez, então só um `:focus` pinta o canto por vez — nunca
+                // simultâneo. A ordem no DOM decide a SEQUÊNCIA, não uma
+                // sobreposição: o SkipLink de `(site)/layout.tsx` vem antes
+                // de `<main>` (e portanto antes deste componente, que é o
+                // primeiro filho de PredioFallback), então por Tab o
+                // visitante sempre encontra "pular para o conteúdo" primeiro
+                // e "pular para um andar" em seguida — a mesma ordem que dois
+                // skip-links sucessivos usariam, reaproveitando o mesmo canto
+                // reservado em vez de inventar um segundo lugar na tela.
                 className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:border focus:border-border focus:bg-surface focus:px-4 focus:py-2 focus:font-mono focus:text-sm"
               >
                 {item.rotulo}

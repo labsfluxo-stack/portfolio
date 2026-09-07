@@ -104,4 +104,26 @@ describe('fallback do prédio', () => {
       expect(links[i]).toHaveAttribute('href', `#predio-${andar.chave}`)
     })
   })
+
+  /**
+   * Achado de revisão (2026-09-08): a justificativa para manter o indicador
+   * vivo era "é o único jeito de pular direto entre os sete andares por
+   * teclado sem rolar" — mas ele nascia como o ÚLTIMO filho do contêiner,
+   * depois das sete seções inteiras. Na primeira descida, quem navega por
+   * Tab tinha que atravessar exatamente o conteúdo que o menu de atalho
+   * existe para deixar pular, antes de conseguir alcançar o próprio menu.
+   * O menu que só ajuda depois de já não precisar mais dele não cumpre a
+   * própria razão de existir. Este teste fixa a posição no DOM para que uma
+   * reordenação futura não reintroduza o mesmo defeito em silêncio.
+   */
+  it('o indicador vem antes das sete seções no DOM, não depois', () => {
+    render(<PredioFallback dict={dict} locale="pt" />)
+    const rolador = screen.getAllByRole('region')[0]!.parentElement!
+    const filhos = Array.from(rolador.children)
+    const indiceNav = filhos.findIndex((el) => el.tagName === 'NAV')
+    const indicePrimeiraSecao = filhos.findIndex((el) => el.tagName === 'SECTION')
+    expect(indiceNav).toBeGreaterThanOrEqual(0)
+    expect(indicePrimeiraSecao).toBeGreaterThanOrEqual(0)
+    expect(indiceNav).toBeLessThan(indicePrimeiraSecao)
+  })
 })

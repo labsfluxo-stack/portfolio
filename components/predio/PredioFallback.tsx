@@ -44,6 +44,12 @@ const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '/portfolio'
  * PredioIndicador.tsx). Sem ele e sem substituto, nada na tela avisa que
  * existem mais seis andares abaixo; esse custo é deliberado e está na spec,
  * não um esquecimento.
+ *
+ * `PredioIndicador` é o PRIMEIRO FILHO do contêiner, antes de qualquer
+ * `<section>` — achado de revisão (2026-09-08): a razão de mantê-lo vivo é
+ * deixar quem navega por teclado pular direto entre os sete andares sem
+ * rolar, e essa razão não se sustenta se o menu só é alcançável DEPOIS de
+ * atravessar por Tab as sete seções que ele serve para deixar pular.
  */
 export function PredioFallback({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const itensDoIndicador = ANDARES.map((andar) => ({
@@ -59,6 +65,15 @@ export function PredioFallback({ dict, locale }: { dict: Dictionary; locale: Loc
       // um clique no indicador mesmo para quem pediu para não ver isso.
       className="tela-cheia sem-barra-de-rolagem w-full snap-y snap-mandatory overflow-y-auto"
     >
+      {/* PRIMEIRO FILHO, não último (achado de revisão, 2026-09-08): a razão
+       * de manter este componente vivo era deixar quem navega por teclado
+       * pular direto entre os sete andares sem precisar rolar — uma
+       * justificativa que a posição de antes contradizia, porque o menu só
+       * era alcançável DEPOIS de atravessar por Tab as sete seções inteiras
+       * que ele serve para deixar pular. Aqui, na primeira descida, o
+       * visitante encontra o menu de atalho antes do conteúdo que ele
+       * atalha. */}
+      <PredioIndicador itens={itensDoIndicador} rotuloNav={dict.a11y.predioNav} />
       {ANDARES.map((andar, i) => {
         const texto = dict.predio[andar.chave]
         return (
@@ -92,7 +107,6 @@ export function PredioFallback({ dict, locale }: { dict: Dictionary; locale: Loc
           </section>
         )
       })}
-      <PredioIndicador itens={itensDoIndicador} rotuloNav={dict.a11y.predioNav} />
     </div>
   )
 }
