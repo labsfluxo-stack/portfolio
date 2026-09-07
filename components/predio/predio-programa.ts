@@ -37,7 +37,10 @@ export type Andar = {
   chave: ChaveAndar
   /** Número exibido. `null` na cobertura e na recepção, que não são numeradas. */
   numero: number | null
-  /** Temperatura da luz em kelvin. Quente no topo, fria no meio, quente no fim. */
+  /**
+   * Temperatura da luz em kelvin. Quente no topo, quente no fim — mas o ponto
+   * mais frio é `automacao`, um andar abaixo do meio geométrico, não `geo`.
+   */
   kelvin: number
   objetos: readonly ObjetoDoAndar[]
 }

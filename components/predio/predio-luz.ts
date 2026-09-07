@@ -7,8 +7,6 @@
  * o contraste quebra a suíte, que é como este projeto já protege a landing
  * (`tests/unit/contraste.test.ts`).
  */
-import { ANDARES } from './predio-programa'
-
 /** WCAG 2.1 AA para texto normal. */
 export const MINIMO_AA = 4.5
 
@@ -19,13 +17,18 @@ export const MINIMO_AA = 4.5
  * kelvin→sRGB dá cores fisicamente corretas e visualmente sujas nas pontas do
  * arco. O kelvin do programa diz a INTENÇÃO; estes hex são a intenção afinada
  * a olho e depois medida.
+ *
+ * Exportado — não por precisar em produção (quem renderiza usa `corDoAndar`),
+ * mas para que `tests/unit/predio-luz.test.ts` confira `AR.length` contra
+ * `ANDARES.length`. Um andar novo sem cor correspondente vira suíte vermelha
+ * ali, e não um `throw` em tempo de módulo estourando a página de verdade.
  */
-const AR = [
+export const AR = [
   '#3a2b22', // cobertura — âmbar profundo, o sol batendo raso
   '#3d2f26', // servidores
   '#3b3130', // design
-  '#33313d', // geo — o miolo é o ponto mais frio
-  '#2f3242', // automação
+  '#33313d', // geo — esfriando, ainda não é o ponto mais frio
+  '#2f3242', // automação — o miolo de verdade: kelvin mais alto, cor mais fria
   '#382f36', // acolhimento — começa a esquentar de volta
   '#43301f', // recepção — luz artificial, quente
 ] as const
@@ -42,9 +45,4 @@ export function corDoRotulo(_indice: number): string {
   // medir e sete chances de um passar despercebido — e a descida ficaria com o
   // texto mudando de cor no meio, que lê como erro, não como intenção.
   return ROTULO
-}
-
-// Guarda de desenvolvimento: o número de ares tem de acompanhar o de andares.
-if (AR.length !== ANDARES.length) {
-  throw new Error(`predio-luz: ${AR.length} ares para ${ANDARES.length} andares`)
 }
