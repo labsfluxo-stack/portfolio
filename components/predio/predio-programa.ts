@@ -27,6 +27,15 @@ export type ObjetoDoAndar = {
    * Destino RELATIVO e sem `basePath`. O `basePath` é `/portfolio` em produção
    * e vazio em teste; quem resolve é o componente, via `next/link`. Destino já
    * prefixado aqui vira `/portfolio/portfolio/...` no site publicado.
+   *
+   * O INVARIANTE que a revisão de PredioFallback.tsx surfaceou (e que a
+   * camada de objeto clicável da cena 3D herda ao construir sobre este mesmo
+   * dado): dois objetos de andares diferentes podem ter o MESMO rótulo em
+   * `content/pt.ts`/`content/en.ts` quando — e só quando — os dois levam ao
+   * MESMO `destino` ("rack" e "computador" dizem "Ver os sistemas em
+   * produção" e os dois levam a `/#sistemas`). Rótulo igual com destino
+   * DIFERENTE não é essa situação — é o link errado atrás do texto certo, o
+   * defeito que este arquivo existe para impedir de nascer invisível.
    */
   destino: string
   /** Posição no plano da frente, em fração da largura do andar. 0 = esquerda. */
