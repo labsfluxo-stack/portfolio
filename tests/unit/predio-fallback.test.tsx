@@ -21,8 +21,16 @@ describe('fallback do prédio', () => {
   it('cada andar tem título e resumo de verdade', () => {
     render(<PredioFallback dict={dict} locale="pt" />)
     for (const andar of ANDARES) {
-      expect(screen.getByText(dict.predio[andar.chave].titulo)).toBeInTheDocument()
-      expect(screen.getByText(dict.predio[andar.chave].resumo)).toBeInTheDocument()
+      // O título é buscado DENTRO da própria seção (`within`), não no
+      // documento inteiro: o indicador de andar (PredioIndicador.tsx) repete
+      // o mesmo texto do título em cada um dos seus sete links de teclado —
+      // de propósito, é o nome acessível real da parada —, então um
+      // `getByText` sobre `document` bateria duas vezes (o `<h2>` visível e
+      // o link invisível-até-foco) e quebraria por ambiguidade que não é
+      // defeito nenhum.
+      const secao = screen.getByRole('region', { name: dict.predio[andar.chave].titulo })
+      expect(within(secao).getByText(dict.predio[andar.chave].titulo)).toBeInTheDocument()
+      expect(within(secao).getByText(dict.predio[andar.chave].resumo)).toBeInTheDocument()
     }
   })
 
@@ -79,8 +87,12 @@ describe('fallback do prédio', () => {
   /**
    * A barra de rolagem não era enfeite: dizia que a página continua e onde
    * se está dentro dela. Removê-la sem substituto apaga essa informação —
-   * por isso entra o indicador de andar, uma âncora de navegação de verdade
-   * (não uma tira decorativa), com um link por parada.
+   * decisão do dono (2026-09-08), com o custo escrito na spec de propósito,
+   * não escondido. O que fica é só a navegação por teclado: uma landmark de
+   * verdade com um link por parada, invisível até receber foco (ver
+   * components/predio/PredioIndicador.tsx) — sumir da TELA é decisão de
+   * arte, sumir do TECLADO seria defeito, e é só essa segunda garantia que
+   * este teste confere.
    */
   it('o indicador de andar é uma landmark de navegação com um link por parada', () => {
     render(<PredioFallback dict={dict} locale="pt" />)

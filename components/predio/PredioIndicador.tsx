@@ -1,31 +1,47 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { corDoRotulo } from './predio-luz'
 
 export type ItemDoIndicador = { id: string; rotulo: string }
 
 /**
- * O indicador de andar — o substituto da barra de rolagem que a spec manda
- * esconder (docs/superpowers/specs/2026-09-06-predio-home-design.md, "Um
- * andar por tela, sem barra de rolagem"). Sem ele, sumir com a barra some
- * também com a única pista de que existem mais andares abaixo — a barra não
- * era enfeite, dizia que a página continua e onde se está dentro dela.
+ * A navegação entre andares — não mais um indicador visível.
  *
- * MESMO PADRÃO de components/blog/Indice.tsx: é CLIENTE só por causa do
- * destaque do andar atual. A pilha de links sai pronta do servidor — está no
- * HTML, funciona por teclado e mouse sem JavaScript nenhum (são `<a href="#…">`
- * de verdade, a mesma âncora de navegação que o resto do fallback usa), e é
- * o que o leitor de tela e o crawler enxergam. O JavaScript só acrescenta
- * saber onde você está.
+ * Decisão do dono, 2026-09-08, revisando a decisão de 2026-09-07 que
+ * introduziu este componente como indicador FIXO na lateral: ele foi visto
+ * no navegador e a ordem foi "some tudo — nada visível". A tela mostra o
+ * andar e mais nada — ver docs/superpowers/specs/2026-09-06-predio-home-
+ * design.md, "Um andar por tela, sem barra de rolagem", parte 3. Nenhuma
+ * pista visível substituta foi inventada aqui: nem seta, nem borda cortada,
+ * nem gradiente. Esse custo — nada avisa que existem mais seis andares — é
+ * deliberado e está escrito na spec, não um esquecimento deste arquivo.
  *
- * `threshold: 0.5`, sem o `rootMargin` recortado que o índice do blog usa:
- * lá o alvo era um TÍTULO cruzando o topo de um artigo contínuo; aqui cada
- * andar já ocupa a tela inteira (`.tela-cheia` em PredioFallback.tsx), então
- * "mais da metade visível" já identifica o andar atual sem precisar de faixa.
+ * O QUE NÃO SAI: sumir da TELA não pode significar sumir do TECLADO (WCAG
+ * 2.4.7, foco visível) — um link permanentemente invisível é, ele mesmo,
+ * uma armadilha para quem navega por Tab. A forma que resolve as duas coisas
+ * ao mesmo tempo é a mesma que components/layout/SkipLink.tsx já usa neste
+ * projeto: `sr-only focus:not-sr-only` — invisível por padrão (mas presente
+ * na árvore de acessibilidade, então leitor de tela e crawler continuam
+ * enxergando), revelado só enquanto o PRÓPRIO link está com foco de
+ * teclado, escondido de novo assim que o foco anda para o próximo. Nenhuma
+ * classe nova inventada — mesma receita já provada no projeto.
+ *
+ * `aria-current` continua calculado (IntersectionObserver, mesmo padrão de
+ * components/blog/Indice.tsx): é informação NÃO VISUAL — um leitor de tela
+ * anuncia "andar atual" independente de pintura na tela — então não é a
+ * pista visível que o dono pediu para tirar.
  */
 export function PredioIndicador({ itens, rotuloNav }: { itens: ItemDoIndicador[]; rotuloNav: string }) {
   const [atual, setAtual] = useState<string | null>(null)
+
+  // Chave estável: `itens` chega como um array literal novo a cada render do
+  // componente pai (PredioFallback.tsx recria `itensDoIndicador` toda vez),
+  // então usar `itens` direto como dependência do efeito abaixo derrubava e
+  // recriava o `IntersectionObserver` em TODO re-render, não só quando o
+  // programa do prédio de fato muda (achado da revisão). Uma string
+  // primitiva compara por valor — igual em dois renders quaisquer com os
+  // mesmos sete andares — e é isso que estabiliza o efeito.
+  const chaveDosItens = itens.map((item) => item.id).join('|')
 
   useEffect(() => {
     const alvos = itens
@@ -49,40 +65,27 @@ export function PredioIndicador({ itens, rotuloNav }: { itens: ItemDoIndicador[]
 
     for (const alvo of alvos) observador.observe(alvo)
     return () => observador.disconnect()
-  }, [itens])
-
-  // Mesma cor para os sete andares (predio-luz.ts): o indicador fica fixo na
-  // tela enquanto o fundo por baixo dele muda de andar para andar, e não dá
-  // para escolher uma cor só que passe AA contra um fundo só — `corDoRotulo`
-  // já é a que passa contra todos.
-  const cor = corDoRotulo(0)
+    // Dependência é `chaveDosItens`, não `itens`: ver o comentário na
+    // declaração dela acima. Sem plugin de lint de hooks configurado neste
+    // projeto (eslint.config.mjs), não há regra de "dependência exaustiva"
+    // para satisfazer ou suprimir aqui.
+  }, [chaveDosItens])
 
   return (
-    <nav aria-label={rotuloNav} className="fixed right-3 top-1/2 z-10 -translate-y-1/2 sm:right-5">
-      <ol className="flex flex-col gap-2.5">
+    <nav aria-label={rotuloNav}>
+      <ol>
         {itens.map((item) => {
           const ativo = atual === item.id
           return (
             <li key={item.id}>
               <a
                 href={`#${item.id}`}
-                // O rótulo do andar É o nome acessível do link — não tem
-                // texto visível (só o traço abaixo, decorativo), então sem
-                // `aria-label` o link ficaria sem nome nenhum para quem usa
-                // leitor de tela ou navega por teclado.
-                aria-label={item.rotulo}
                 aria-current={ativo ? 'true' : undefined}
-                // 44px de alvo de toque no link inteiro; só o traço visível
-                // (o `span` abaixo) é pequeno — o alvo clicável não precisa
-                // parecer do tamanho do dedo para ter o tamanho do dedo.
-                className="flex min-h-11 min-w-11 items-center justify-center"
-                style={{ color: cor }}
+                // Mesmas classes de components/layout/SkipLink.tsx: invisível
+                // por padrão, aparece só com foco de teclado.
+                className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:border focus:border-border focus:bg-surface focus:px-4 focus:py-2 focus:font-mono focus:text-sm"
               >
-                <span
-                  aria-hidden="true"
-                  className={`block rounded-full transition-all ${ativo ? 'h-2.5 w-2.5' : 'h-1.5 w-1.5 opacity-50'}`}
-                  style={{ backgroundColor: cor }}
-                />
+                {item.rotulo}
               </a>
             </li>
           )

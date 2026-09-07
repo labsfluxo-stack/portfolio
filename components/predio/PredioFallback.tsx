@@ -30,12 +30,20 @@ const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '/portfolio'
  * cair alinhada ao topo da tela, sem JavaScript.
  *
  * Cada `<section>` usa a MESMA `.tela-cheia`: a spec pede uma tela inteira
- * por andar, não "pelo menos uma" — por isso `flex` + `justify-center` para
- * centralizar o conteúdo dentro da altura fixa, em vez de deixar `py-14`
- * decidir a altura como antes.
+ * por andar, não "pelo menos uma" — por isso `flex` (linha) + `items-center`
+ * para centralizar o conteúdo NA VERTICAL dentro da altura fixa (eixo
+ * cruzado de uma linha flex), com `mx-auto` + `max-w-5xl` no `<div>` de
+ * dentro cuidando do centro horizontal — em vez de deixar `py-14` decidir a
+ * altura como antes.
  *
- * `PredioIndicador` substitui a barra de rolagem que sumiu: é o que diz que
- * a descida continua e onde se está dentro dela.
+ * `PredioIndicador` NÃO é mais um substituto visível da barra de rolagem —
+ * decisão do dono, 2026-09-08, revisando a versão de 2026-09-07 desta mesma
+ * frase: o indicador fixo foi visto no navegador e a ordem foi "some tudo".
+ * Hoje ele é só navegação por teclado entre andares (sete `<a href="#…">`
+ * reais, invisíveis até receberem foco — ver o comentário de
+ * PredioIndicador.tsx). Sem ele e sem substituto, nada na tela avisa que
+ * existem mais seis andares abaixo; esse custo é deliberado e está na spec,
+ * não um esquecimento.
  */
 export function PredioFallback({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const itensDoIndicador = ANDARES.map((andar) => ({

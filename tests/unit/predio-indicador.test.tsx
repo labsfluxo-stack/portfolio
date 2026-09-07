@@ -53,4 +53,33 @@ describe('PredioIndicador', () => {
     expect(screen.getByRole('link', { name: 'Andar B' })).toHaveAttribute('aria-current', 'true')
     expect(screen.getByRole('link', { name: 'Andar A' })).not.toHaveAttribute('aria-current')
   })
+
+  /**
+   * Decisão do dono, 2026-09-08, revisando a versão de 2026-09-07 que
+   * introduziu este componente como indicador FIXO E VISÍVEL: ele foi visto
+   * no navegador e a ordem foi "some tudo — nada visível". Mas sumir da
+   * TELA não pode significar sumir do TECLADO (WCAG 2.4.7) — um link
+   * permanentemente invisível é, ele mesmo, uma armadilha para quem navega
+   * por Tab. A forma que resolve as duas coisas é a mesma que
+   * components/layout/SkipLink.tsx já usa neste projeto: invisível por
+   * padrão, revelado só enquanto o próprio link está em foco.
+   */
+  it('cada parada fica invisível até receber foco de teclado — mesma receita do SkipLink', () => {
+    document.body.innerHTML = '<div id="andar-a"></div><div id="andar-b"></div>'
+    render(<PredioIndicador itens={itens} rotuloNav="Andares do prédio" />)
+    for (const item of itens) {
+      const link = screen.getByRole('link', { name: item.rotulo })
+      expect(link.className).toMatch(/\bsr-only\b/)
+      expect(link.className).toMatch(/\bfocus:not-sr-only\b/)
+    }
+  })
+
+  it('não sobra pintura permanente — nenhum link fica fixo na tela por padrão', () => {
+    document.body.innerHTML = '<div id="andar-a"></div><div id="andar-b"></div>'
+    render(<PredioIndicador itens={itens} rotuloNav="Andares do prédio" />)
+    for (const item of itens) {
+      const link = screen.getByRole('link', { name: item.rotulo })
+      expect(link.className).not.toMatch(/\bfixed\b/)
+    }
+  })
 })
