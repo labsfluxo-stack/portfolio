@@ -50,8 +50,8 @@ export const ANDARES: readonly Andar[] = [
     numero: 7,
     kelvin: 2900,
     objetos: [
-      { id: 'rack', destino: '/sistemas', x: 0.12 },
-      { id: 'backup', destino: '/sistemas', x: 0.82 },
+      { id: 'rack', destino: '/#sistemas', x: 0.12 },
+      { id: 'backup', destino: '/#sistemas', x: 0.82 },
     ],
   },
   {
@@ -59,7 +59,7 @@ export const ANDARES: readonly Andar[] = [
     numero: 6,
     kelvin: 3600,
     objetos: [
-      { id: 'computador', destino: '/sistemas', x: 0.38 },
+      { id: 'computador', destino: '/#sistemas', x: 0.38 },
       { id: 'prancheta', destino: '/projetos', x: 0.72 },
     ],
   },
