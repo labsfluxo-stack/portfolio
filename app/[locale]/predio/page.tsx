@@ -23,7 +23,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params
   const dict = getDictionary(locale)
-  return { title: `${dict.hero.name} — prédio`, robots: { index: false, follow: false } }
+  // `dict.predioMeta.title`, nunca um literal — achado de revisão: o título
+  // anterior grudava a palavra portuguesa "prédio" no <title> de /en/predio/
+  // também. Mesma composição de cv/page.tsx (rótulo do dicionário — aqui,
+  // `predioMeta.title` — travessão — nome).
+  return { title: `${dict.predioMeta.title} — ${dict.hero.name}`, robots: { index: false, follow: false } }
 }
 
 export default async function PredioPreviewPage({ params }: { params: Promise<{ locale: Locale }> }) {

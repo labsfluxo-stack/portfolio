@@ -162,7 +162,14 @@ export type TextoDeAndar = {
 export type Dictionary = {
   meta: { title: string; description: string; ogAlt: string }
   nav: { about: string; systems: string; stack: string; contact: string; cv: string }
-  a11y: { skipToContent: string; localeSwitch: string; openMenu: string; mainNav: string }
+  a11y: {
+    skipToContent: string
+    localeSwitch: string
+    openMenu: string
+    mainNav: string
+    /** `aria-label` do indicador de andar (components/predio/PredioIndicador.tsx). */
+    predioNav: string
+  }
   boot: { lines: string[] }
   hero: {
     name: string
@@ -619,4 +626,14 @@ export type Dictionary = {
    * decide COMO cada um se chama.
    */
   predio: Record<import('@/components/predio/predio-programa').ChaveAndar, TextoDeAndar>
+  /**
+   * Título da rota de prévia `/predio` (app/[locale]/predio/page.tsx).
+   *
+   * Campo próprio, e não uma chave a mais dentro de `predio` acima: aquele
+   * `Record` é chaveado por `ChaveAndar` — um andar de verdade —, e um título
+   * de página ali quebraria o tipo (achado de revisão: `${dict.hero.name} —
+   * prédio` estava escrito direto no componente da rota, grudando a palavra
+   * portuguesa "prédio" no `<title>` também de `/en/predio/`).
+   */
+  predioMeta: { title: string }
 }

@@ -13,6 +13,7 @@ export const en: Dictionary = {
     localeSwitch: 'Switch language',
     openMenu: 'Open menu',
     mainNav: 'Main navigation',
+    predioNav: 'Building floors',
   },
   boot: {
     lines: [
@@ -780,6 +781,7 @@ export const en: Dictionary = {
       objetos: { formulario: 'Go to the contact form' },
     },
   },
+  predioMeta: { title: 'Building' },
   footer: {
     rights: '© 2026 Neto Alves. All rights reserved.',
     builtWith: 'Built with Next.js, Tailwind CSS and Motion.',

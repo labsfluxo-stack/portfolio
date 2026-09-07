@@ -13,6 +13,7 @@ export const pt: Dictionary = {
     localeSwitch: 'Trocar idioma',
     openMenu: 'Abrir menu',
     mainNav: 'Navegação principal',
+    predioNav: 'Andares do prédio',
   },
   boot: {
     lines: [
@@ -958,6 +959,7 @@ export const pt: Dictionary = {
       objetos: { formulario: 'Ir para o formulário de contato' },
     },
   },
+  predioMeta: { title: 'Prédio' },
   footer: {
     rights: '© 2026 Neto Alves. Todos os direitos reservados.',
     builtWith: 'Construído com Next.js, Tailwind CSS e Motion.',
