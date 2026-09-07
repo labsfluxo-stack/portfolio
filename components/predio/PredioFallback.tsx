@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { Dictionary, Locale } from '@/content/types'
 import { ANDARES, type ObjetoDoAndar } from './predio-programa'
 import { corDoAndar, corDoRotulo } from './predio-luz'
+import { PredioIndicador } from './PredioIndicador'
 
 // Mesma constante que Header.tsx, PhotoFrame.tsx e lib/seo.ts já usam: a
 // forma canônica de ler o `basePath` fora do que o Next resolve sozinho.
@@ -17,18 +18,48 @@ const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '/portfolio'
  *
  * A cor vem de `predio-luz.ts`, a mesma que a cena usa, então o fallback é a
  * versão chapada do mesmo prédio — não um segundo desenho que envelhece sozinho.
+ *
+ * UM ANDAR POR TELA, SEM BARRA DE ROLAGEM (decisão do dono, 2026-09-07 — ver
+ * docs/superpowers/specs/2026-09-06-predio-home-design.md). O `<div>` raiz é
+ * o elemento que rola: `.tela-cheia` (100dvh, com reserva em 100vh — ver
+ * globals.css) dá a ele a altura exata de uma tela, `overflow-y-auto` é o
+ * que MANTÉM a rolagem funcionando (roda, toque, Page Down/Home/End/setas —
+ * nunca `overflow-hidden`), e `.sem-barra-de-rolagem` só pinta por cima,
+ * escondendo a barra sem tocar no `overflow`. `snap-y snap-mandatory` +
+ * `snap-start` em cada andar (rolagem nativa, sem biblioteca) faz a parada
+ * cair alinhada ao topo da tela, sem JavaScript.
+ *
+ * Cada `<section>` usa a MESMA `.tela-cheia`: a spec pede uma tela inteira
+ * por andar, não "pelo menos uma" — por isso `flex` + `justify-center` para
+ * centralizar o conteúdo dentro da altura fixa, em vez de deixar `py-14`
+ * decidir a altura como antes.
+ *
+ * `PredioIndicador` substitui a barra de rolagem que sumiu: é o que diz que
+ * a descida continua e onde se está dentro dela.
  */
 export function PredioFallback({ dict, locale }: { dict: Dictionary; locale: Locale }) {
+  const itensDoIndicador = ANDARES.map((andar) => ({
+    id: `predio-${andar.chave}`,
+    rotulo: dict.predio[andar.chave].titulo,
+  }))
+
   return (
-    <div className="w-full">
+    <div
+      // SEM `scroll-smooth`: este componente é também o que fica no lugar da
+      // cena quando `prefers-reduced-motion` está ligado, e `scroll-behavior:
+      // smooth` não respeita essa preferência sozinho — animaria o salto de
+      // um clique no indicador mesmo para quem pediu para não ver isso.
+      className="tela-cheia sem-barra-de-rolagem w-full snap-y snap-mandatory overflow-y-auto"
+    >
       {ANDARES.map((andar, i) => {
         const texto = dict.predio[andar.chave]
         return (
           <section
             key={andar.chave}
-            aria-labelledby={`predio-${andar.chave}`}
+            id={`predio-${andar.chave}`}
+            aria-labelledby={`predio-${andar.chave}-titulo`}
             style={{ backgroundColor: corDoAndar(i), color: corDoRotulo(i) }}
-            className="px-6 py-14 sm:px-10"
+            className="tela-cheia flex snap-start items-center px-6 sm:px-10"
           >
             <div className="mx-auto flex max-w-5xl flex-col gap-3">
               {andar.numero !== null && (
@@ -36,7 +67,7 @@ export function PredioFallback({ dict, locale }: { dict: Dictionary; locale: Loc
                   {String(andar.numero).padStart(2, '0')}
                 </span>
               )}
-              <h2 id={`predio-${andar.chave}`} className="text-2xl font-semibold">
+              <h2 id={`predio-${andar.chave}-titulo`} className="text-2xl font-semibold">
                 {texto.titulo}
               </h2>
               <p className="max-w-2xl opacity-90">{texto.resumo}</p>
@@ -53,6 +84,7 @@ export function PredioFallback({ dict, locale }: { dict: Dictionary; locale: Loc
           </section>
         )
       })}
+      <PredioIndicador itens={itensDoIndicador} rotuloNav={dict.a11y.predioNav} />
     </div>
   )
 }

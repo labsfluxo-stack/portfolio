@@ -80,6 +80,51 @@ body {
 }
 
 /* ==========================================================================
+   PRÉDIO — um andar por tela, sem barra de rolagem.
+   Decisão do dono, 2026-09-07 (docs/superpowers/specs/2026-09-06-predio-home-
+   design.md, seção "Um andar por tela, sem barra de rolagem"). Duas classes,
+   nenhuma via utilitário do Tailwind: as duas dependem de CSS que um
+   utilitário isolado não expressa (ver cada uma abaixo).
+
+   `.tela-cheia`: `100vh` na regra base, `100dvh` dentro de `@supports` — e
+   NÃO as duas declarações empilhadas na mesma regra, que era a primeira
+   tentativa e SE PROVOU QUEBRADA no build de verdade: o Lightning CSS do
+   Tailwind v4 minifica duas declarações da mesma propriedade na mesma regra
+   para UMA só (fica só a última), porque para um minificador elas parecem
+   redundantes — exatamente o oposto do que a técnica de fallback depende
+   (a ORDEM de origem sobrevivendo à minificação). `@supports` não sofre essa
+   fusão: são duas regras, não duas declarações da mesma regra, e a condição
+   é resolvida pelo NAVEGADOR, não pelo minificador. Confirmado no
+   `out/_next/static/chunks/*.css` gerado por `npm run build`.
+
+   No celular, `100vh` mede a tela SEM a barra de endereço do navegador — o
+   andar vaza. Quem entende `dvh` cai na regra de dentro do `@supports`;
+   quem não entende nunca avalia essa condição como verdadeira e fica só com
+   a de fora. Nunca `min-height`: a spec pede uma tela INTEIRA por andar,
+   não "pelo menos uma".
+
+   `.sem-barra-de-rolagem`: esconder é só pintura. O `overflow` que de fato
+   permite rolar mora na classe Tailwind `overflow-y-auto`, no componente —
+   nunca aqui, e nunca `hidden`. Barra escondida e rolagem travada são coisas
+   diferentes; a segunda é armadilha de acessibilidade. */
+.tela-cheia {
+  height: 100vh;
+}
+@supports (height: 100dvh) {
+  .tela-cheia {
+    height: 100dvh;
+  }
+}
+
+.sem-barra-de-rolagem {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge legado */
+}
+.sem-barra-de-rolagem::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge novo */
+}
+
+/* ==========================================================================
    TEMA SELECIONÁVEL — só o blog, por enquanto.
 
    O blog é a superfície mais longa do site, e a pesquisa de interface é

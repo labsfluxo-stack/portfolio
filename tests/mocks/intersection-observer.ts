@@ -33,10 +33,24 @@ export function installIntersectionObserverMock(): void {
   })
 }
 
-/** Simula a entrada (ou saída) da viewport em todos os observadores vivos. */
-export function triggerIntersection(isIntersecting = true): void {
+/**
+ * Simula a entrada (ou saída) da viewport em todos os observadores vivos.
+ *
+ * Aceita um booleano (uso original: só "entrou ou não", sem `target` — é o
+ * bastante para um observador que olha um elemento só, como `Counter.tsx`) OU
+ * uma lista de entradas já moldadas (uso novo: um observador que olha VÁRIOS
+ * elementos, como o indicador de andar, precisa dizer QUAL entrou, e o
+ * callback real lê `entry.target`/`entry.boundingClientRect`, que o booleano
+ * sozinho não tem como fornecer). A assinatura antiga continua idêntica —
+ * nenhum chamador existente muda.
+ */
+export function triggerIntersection(
+  entradas: boolean | IntersectionObserverEntry[] = true,
+): void {
+  const lista: IntersectionObserverEntry[] =
+    typeof entradas === 'boolean' ? [{ isIntersecting: entradas } as IntersectionObserverEntry] : entradas
   for (const io of [...observers]) {
-    io.callback([{ isIntersecting } as IntersectionObserverEntry], io)
+    io.callback(lista, io)
   }
 }
 

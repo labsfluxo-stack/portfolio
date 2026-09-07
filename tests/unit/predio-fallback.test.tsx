@@ -59,4 +59,37 @@ describe('fallback do prédio', () => {
     const titulos = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
     expect(titulos).toEqual(ANDARES.map((a) => dict.predio[a.chave].titulo))
   })
+
+  /**
+   * Decisão do dono (2026-09-07, spec "Um andar por tela, sem barra de
+   * rolagem"): a barra lateral some, mas SUMIR COM A BARRA NÃO PODE SUMIR
+   * COM A ROLAGEM — esconder é só pintura (`scrollbar-width`,
+   * `::-webkit-scrollbar`), nunca `overflow: hidden`, que travaria roda,
+   * toque e teclado (Page Down, Home, End, setas). Este teste é o piso
+   * mínimo que a spec pede: o elemento que rola continua com `overflow`
+   * rolável, nunca escondido.
+   */
+  it('a barra de rolagem some, mas a rolagem em si continua ligada', () => {
+    render(<PredioFallback dict={dict} locale="pt" />)
+    const rolador = screen.getAllByRole('region')[0]!.parentElement!
+    expect(rolador.className).not.toMatch(/\boverflow-hidden\b/)
+    expect(rolador.className).toMatch(/\boverflow-y-auto\b/)
+  })
+
+  /**
+   * A barra de rolagem não era enfeite: dizia que a página continua e onde
+   * se está dentro dela. Removê-la sem substituto apaga essa informação —
+   * por isso entra o indicador de andar, uma âncora de navegação de verdade
+   * (não uma tira decorativa), com um link por parada.
+   */
+  it('o indicador de andar é uma landmark de navegação com um link por parada', () => {
+    render(<PredioFallback dict={dict} locale="pt" />)
+    const nav = screen.getByRole('navigation', { name: dict.a11y.predioNav })
+    const links = within(nav).getAllByRole('link')
+    expect(links).toHaveLength(ANDARES.length)
+    ANDARES.forEach((andar, i) => {
+      expect(links[i]).toHaveAccessibleName(dict.predio[andar.chave].titulo)
+      expect(links[i]).toHaveAttribute('href', `#predio-${andar.chave}`)
+    })
+  })
 })
