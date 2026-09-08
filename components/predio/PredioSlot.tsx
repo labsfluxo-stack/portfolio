@@ -31,16 +31,11 @@ const Predio = dynamic(() => import('./Predio').then((m) => m.Predio), { ssr: fa
  *
  * QUESTÃO ARQUITETURAL — qual camada fica acessível quando a cena está no ar.
  *
- * Enquanto a cena existe, ela e o fallback moram no DOM ao mesmo tempo: a cena
- * por cima visualmente, o fallback por baixo como `sr-only`. Um link dentro de
- * `sr-only` continua focável — então, sem mais nada, um usuário de teclado
- * tabularia por CADA destino duas vezes: uma na camada da cena (a Task 8 põe
- * uma âncora de DOM sobre cada objeto clicável do canvas), outra no fallback
- * invisível. Ninguém pediu isso, e ninguém notaria sem tabular.
- *
- * A decisão: o FALLBACK é a camada acessível enquanto a cena estiver montada.
- * A camada da cena (o `<div>` abaixo que envolve `<Predio>`) leva
- * `aria-hidden="true"` e sai da árvore de acessibilidade.
+ * Enquanto a cena existe, ela e o fallback moram no DOM ao mesmo tempo. A
+ * decisão: o FALLBACK é a camada acessível (árvore de acessibilidade + ordem
+ * de tabulação) enquanto a cena estiver montada. A camada da cena (o `<div>`
+ * abaixo que envolve `<Predio>`) leva `aria-hidden="true"` e sai da árvore de
+ * acessibilidade.
  *
  * Por que o fallback, e não a cena — o argumento não é gosto, é completude:
  *   - O fallback SEMPRE tem os sete andares no DOM, mais o atalho de teclado
@@ -66,14 +61,60 @@ const Predio = dynamic(() => import('./Predio').then((m) => m.Predio), { ssr: fa
  * sem tocar em ponteiro — é o mesmo padrão que `Portico.tsx` já usa no
  * `<Canvas>` dele.
  *
- * O que falta, e cabe à Task 8: `aria-hidden="true"` sozinho NÃO retira foco de
- * teclado de um descendente focável (é a regra WAI-ARIA que esta cena teria que
- * respeitar: nenhum elemento focável pode viver dentro de um `aria-hidden`).
- * Hoje isso não importa — o stub de `Predio.tsx` não contém nada focável. Mas
- * quando a Task 8 acrescentar as âncoras sobre o canvas, CADA UMA delas precisa
- * de `tabIndex={-1}` (tira da ordem de tabulação, não do clique) para que a
- * garantia valha de verdade. Fica registrado aqui porque é este componente que
- * decide a camada, e a decisão só se sustenta se a Task 8 conhecer a condição.
+ * `aria-hidden="true"` sozinho NÃO retira foco de teclado de um descendente
+ * focável — é a regra WAI-ARIA que a cena precisa respeitar (nenhum elemento
+ * focável pode viver dentro de um `aria-hidden`). Isso não fica só documentado
+ * aqui: `components/predio/Predio.tsx` exporta `AncoraDeObjeto`, o componente
+ * que a Task 8 usa para cada objeto clicável, e ele mesmo força
+ * `tabIndex={-1}` — não é possível usá-lo e produzir uma âncora focável por
+ * engano (ver o teste `tests/unit/predio-scene.test.tsx`).
+ *
+ * ---
+ *
+ * MECANISMO DE OCLUSÃO VISUAL — como o fallback fica "atrás" sem deixar de
+ * poder aparecer (fix round 1, achado Crítico).
+ *
+ * A primeira versão escondia o fallback inteiro atrás de um
+ * `<div className="sr-only">`. `sr-only` é `position: absolute; overflow:
+ * hidden; clip: rect(0,0,0,0)` — um ancestral POSICIONADO e PERMANENTEMENTE
+ * RECORTADO. O `focus:not-sr-only` que `PredioIndicador` já usa em cada um
+ * dos seus próprios links só reseta a caixa DO PRÓPRIO LINK; não alcança o
+ * recorte de um ancestral. Resultado: tabular até um link, com a cena
+ * montada, aterrissava foco num elemento estruturalmente incapaz de aparecer
+ * — o mesmo problema de WCAG 2.4.7 que este projeto já corrigiu uma vez,
+ * reintroduzido por uma porta diferente (a árvore de acessibilidade estava
+ * certa; o RECORTE visual é que sabotava a técnica de revelar-ao-focar).
+ *
+ * A correção troca RECORTE por EMPILHAMENTO. O invólucro do fallback nunca é
+ * `sr-only`/`hidden`/`invisible` — continua sendo uma caixa normal, do
+ * tamanho normal, só numa camada de pilha (`z-index`) mais baixa que a da
+ * cena por padrão (`-z-10`) e mais alta assim que QUALQUER coisa lá dentro
+ * tem foco (`focus-within:z-50` — mesma linguagem visual de `focus:z-50` que
+ * `PredioIndicador`/`SkipLink` já usam). Como não há recorte, um link
+ * focado É uma caixa pintável o tempo todo; só muda em qual camada ele pinta.
+ *
+ * `z-index` só tem efeito em elemento POSICIONADO (`position` != `static`) —
+ * e dar `position: relative` a este invólucro reintroduziria exatamente o
+ * problema do critério de aceite herdado (ver abaixo): um ancestral
+ * posicionado novo, na cadeia que leva até `PredioIndicador`. A saída é a
+ * exceção do próprio CSS Flexbox: um FILHO DIRETO de um contêiner `flex`
+ * respeita `z-index` para fins de empilhamento MESMO com `position: static`
+ * — sem se tornar, ele mesmo, um bloco de contenção para descendentes
+ * `position: absolute` (isso exige `position` de verdade, que este invólucro
+ * nunca ganha). Por isso o invólucro externo agora é `flex flex-col`: dá
+ * significado ao `z-index` do invólucro do fallback sem tocar em `position`
+ * em lugar nenhum da cadeia.
+ *
+ * A camada da cena (o `<div aria-hidden>` que envolve `<Predio>`) É
+ * `position: fixed` de propósito — "a página rola; o canvas fica parado atrás
+ * dela" (brief da Task 8) — e leva `z-0` explícito, deliberado, para não
+ * depender de sorte na comparação com o `-z-10`/`focus-within:z-50` do
+ * fallback (achado Menor do mesmo round: a versão anterior tinha `-z-10` no
+ * PRÓPRIO contêiner do canvas, dentro de `Predio.tsx`, contradizendo este
+ * comentário — só inofensivo por acidente, porque o fallback preso em
+ * `sr-only` já estava apagado de qualquer jeito, então nenhuma ordem de
+ * pilha chegava a importar). Ver o comentário em `Predio.tsx` para a outra
+ * metade dessa decisão.
  */
 export function PredioSlot({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const [cena, setCena] = useState(false)
@@ -123,25 +164,30 @@ export function PredioSlot({ dict, locale }: { dict: Dictionary; locale: Locale 
     }
   }, [])
 
-  // SEM `relative` no invólucro (critério de aceite herdado da revisão do
-  // Indicador, item 2): `PredioIndicador` e `SkipLink` usam `focus:absolute`
-  // contando com a AUSÊNCIA de ancestral posicionado — a revelação por foco
-  // ancora no bloco de contenção inicial, não num contêiner deste componente.
-  // Um `position: relative` aqui criaria esse ancestral e mudaria onde o link
-  // aparece ao receber foco. `w-full` sozinho não estabelece novo bloco de
-  // contenção, então a geometria de antes deste componente existir continua
-  // igual.
+  // `flex flex-col`, NÃO `relative` (critério de aceite herdado da revisão
+  // do Indicador, item 2, reconfirmado no fix round 1): `PredioIndicador` e
+  // `SkipLink` usam `focus:absolute` contando com a AUSÊNCIA de ancestral
+  // posicionado — a revelação por foco ancora no bloco de contenção inicial,
+  // não num contêiner deste componente. `display: flex` não cria bloco de
+  // contenção para `position: absolute` (só `position` de verdade faz isso);
+  // é usado aqui só para dar significado ao `z-index` do invólucro do
+  // fallback abaixo, pela exceção do Flexbox (ver o comentário grande acima).
   return (
-    <div className="w-full">
+    <div className="flex flex-col w-full">
       {cena && (
-        <div aria-hidden="true">
+        <div aria-hidden="true" className="fixed inset-0 z-0">
           <Predio dict={dict} locale={locale} vsync={vsync} />
         </div>
       )}
       {/* O fallback continua no DOM sob a cena: ele é o conteúdo indexável e,
        * enquanto a cena estiver montada, o ÚNICO destino de teclado (ver o
-       * comentário acima) — a cena o cobre visualmente, não o substitui. */}
-      <div className={cena ? 'sr-only' : undefined}>
+       * comentário acima). `-z-10 focus-within:z-50` é EMPILHAMENTO, não
+       * recorte — nunca `sr-only`/`hidden`/`invisible` aqui: ver a seção
+       * "mecanismo de oclusão visual" acima. */}
+      <div
+        data-testid="predio-fallback-camada"
+        className={cena ? '-z-10 focus-within:z-50' : undefined}
+      >
         <PredioFallback dict={dict} locale={locale} />
       </div>
     </div>
