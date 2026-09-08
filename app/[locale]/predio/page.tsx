@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { getDictionary, type Locale } from '@/content'
-import { PredioFallback } from '@/components/predio/PredioFallback'
+import { PredioSlot } from '@/components/predio/PredioSlot'
 
 // Rota de PRÉVIA, não publicada — existe só para abrir o prédio inteiro em
 // `/pt/predio/` e `/en/predio/` enquanto ele ainda não tem cena 3D nem lugar
@@ -34,9 +34,11 @@ export default async function PredioPreviewPage({ params }: { params: Promise<{ 
   const { locale } = await params
   const dict = getDictionary(locale)
 
-  // Renderiza o fallback direto, e não `PredioSlot` — porque `PredioSlot`
-  // ainda não existe (é uma task futura deste mesmo plano). Quando existir,
-  // esta rota passa a renderizá-lo aqui no lugar do fallback; é uma troca de
-  // componente, não uma decisão de manter o fallback nesta rota para sempre.
-  return <PredioFallback dict={dict} locale={locale} />
+  // `PredioSlot`, não `PredioFallback` direto (Task 7): é o slot quem decide
+  // entre a cena 3D e o fallback em HTML — o fallback continua sendo o que
+  // esta rota mostra em qualquer navegador sem WebGL, com movimento reduzido
+  // ligado, ou antes do JS hidratar; a troca só acontece depois que um efeito
+  // no cliente confirma as duas condições. Ver o comentário de
+  // components/predio/PredioSlot.tsx para a decisão completa.
+  return <PredioSlot dict={dict} locale={locale} />
 }
