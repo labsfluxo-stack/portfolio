@@ -404,18 +404,22 @@ function useProgressoDeRolagem(): RefObject<number> {
       clientHeight: window.innerHeight,
     })
 
+    // O último elemento que se PROVOU ser a descida. Sem ele, um `resize` (que
+    // não tem `target` de rolagem) cairia no caminho da janela, que devolve
+    // `null` quando quem rola é o `<div>` do fallback — e o progresso ficaria
+    // congelado no valor antigo até o visitante rolar de novo. Girar o celular
+    // no meio da descida é exatamente esse caso.
+    let ultimoRolador: HTMLElement | null = null
+
     const ler = (evento?: Event) => {
-      const alvo = evento?.target
-      const caixa =
-        alvo instanceof HTMLElement
-          ? {
-              scrollTop: alvo.scrollTop,
-              scrollHeight: alvo.scrollHeight,
-              clientHeight: alvo.clientHeight,
-            }
-          : daJanela()
+      const alvo = evento?.target instanceof HTMLElement ? evento.target : ultimoRolador
+      const caixa = alvo
+        ? { scrollTop: alvo.scrollTop, scrollHeight: alvo.scrollHeight, clientHeight: alvo.clientHeight }
+        : daJanela()
       const lido = progressoDoCurso(caixa, window.innerHeight)
-      if (lido !== null) progresso.current = lido
+      if (lido === null) return
+      if (alvo) ultimoRolador = alvo
+      progresso.current = lido
     }
 
     ler()
