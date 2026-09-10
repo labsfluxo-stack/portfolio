@@ -185,57 +185,87 @@ test.describe('foco no indicador de andares (PredioIndicador)', () => {
   })
 })
 
-test('a cena pinta por cima do fallback; um link focado pinta por cima da cena', async ({
+/**
+ * A CENA TAPA O FALLBACK — provado em PIXEL, não em teste de acerto.
+ *
+ * A versão anterior deste teste usava `document.elementFromPoint` no centro da
+ * tela e exigia que ele resolvesse para dentro de `predio-canvas`. O comentário
+ * dela dizia que isso era "a mesma árvore que decide o que é PINTADO". Não é, e
+ * a diferença deixou de ser acadêmica no dia em que a camada da cena passou a
+ * ser `pointer-events: none` (correção da rolagem travada): `pointer-events`
+ * muda o TESTE DE ACERTO sem mexer em UMA LINHA do que é pintado. O teste
+ * antigo ficou vermelho com a tela visualmente idêntica — ele media a coisa
+ * errada, e a rolagem foi quem revelou isso.
+ *
+ * A prova nova não decodifica imagem nem precisa de dependência: pinta a camada
+ * do fallback de uma cor berrante, tira uma captura, repinta de OUTRA cor
+ * berrante, tira outra, e exige que os dois PNGs sejam byte a byte idênticos.
+ * Se um único pixel do fallback atravessasse o prédio, a cor daquele pixel
+ * mudaria entre as duas capturas e os arquivos divergiriam. É uma afirmação
+ * sobre o que a tela mostra, não sobre a árvore do DOM — e cobre de uma vez o
+ * `alpha: false` do `<Canvas>`, a cor de limpeza declarada e a ordem de
+ * empilhamento das duas camadas.
+ */
+test('nada do fallback atravessa o prédio, e um link focado pinta por cima da cena', async ({
   page,
 }) => {
   await page.goto(ROTA)
   await expect(page.locator('[data-testid="predio-canvas"] canvas')).toBeVisible({
     timeout: 8000,
   })
+  // A cena precisa ASSENTAR antes de servir de referência: a câmera amortece
+  // até a pose de repouso e o fundo interpola até a cor do andar ativo. Duas
+  // capturas tiradas durante isso divergiriam pela própria animação, não por
+  // vazamento — falso vermelho.
+  await page.waitForTimeout(3500)
 
-  // `elementFromPoint` segue a pilha de empilhamento real do navegador — é a
-  // mesma árvore que decide o que é PINTADO, não uma leitura de classe CSS.
-  // Sem foco em nada: o centro da tela tem de resolver para dentro do
-  // `data-testid="predio-canvas"`, nunca para dentro do fallback — senão o
-  // texto de trás vazaria por cima do prédio.
-  const centro = await page.evaluate(() => {
-    const el = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2)
-    return {
-      dentroDaCena: !!el?.closest('[data-testid="predio-canvas"]'),
-      dentroDoFallback: !!el?.closest('[data-testid="predio-fallback-camada"]'),
-    }
-  })
-  expect(centro.dentroDaCena, 'o centro da tela não resolveu para dentro da cena').toBe(true)
-  expect(centro.dentroDoFallback, 'o fallback vazou por cima da cena sem foco nenhum').toBe(false)
+  const pintarFallback = (cor: string) =>
+    page.evaluate((c) => {
+      const camada = document.querySelector<HTMLElement>('[data-testid="predio-fallback-camada"]')
+      if (!camada) throw new Error('camada do fallback não encontrada')
+      camada.style.background = c
+      camada.querySelectorAll<HTMLElement>('*').forEach((el) => {
+        el.style.background = c
+        el.style.color = c
+      })
+    }, cor)
 
-  // Agora foca um link do fallback e repete a leitura NO PONTO EXATO do
-  // link: o `focus-within:z-50` promete que o fallback sobe de camada; a
-  // prova é que o próprio elemento de toque passa a responder ao
-  // hit-test ali, não mais o canvas.
+  await pintarFallback('#ff00ff')
+  const magenta = await page.screenshot()
+  await pintarFallback('#00ff00')
+  const verde = await page.screenshot()
+
+  expect(
+    Buffer.compare(magenta, verde),
+    'a tela mudou quando só o FALLBACK mudou de cor — ou seja, ele atravessa o prédio',
+  ).toBe(0)
+
+  // E o outro lado da promessa: um link focado TEM de aparecer. Se
+  // `focus-within:z-50` parasse de promover a camada, o link ficaria atrás do
+  // canvas opaco e o visitante de teclado focaria algo invisível — a regressão
+  // de WCAG 2.4.7 que o mecanismo de empilhamento existe para impedir. A prova
+  // é a mesma moeda: a mesma região da tela, antes e depois do foco, tem de
+  // DIFERIR.
   const link = page.getByRole('link', { name: 'Recepção' })
   await link.focus()
   const caixa = await link.boundingBox()
-  const noLink = await page.evaluate(
-    ({ x, y }) => {
-      const el = document.elementFromPoint(x, y)
-      return {
-        ehOLink: el?.tagName === 'A',
-        dentroDaCena: !!el?.closest('[data-testid="predio-canvas"]'),
-      }
-    },
-    { x: caixa!.x + caixa!.width / 2, y: caixa!.y + caixa!.height / 2 },
-  )
-  expect(noLink.ehOLink, 'o link focado não é o elemento pintado no seu próprio lugar').toBe(true)
-  expect(noLink.dentroDaCena, 'a cena continuou por cima mesmo com o link focado').toBe(false)
+  expect(caixa, 'o link do indicador não tem caixa ao receber foco').not.toBeNull()
+  const regiao = {
+    x: Math.max(0, Math.round(caixa!.x)),
+    y: Math.max(0, Math.round(caixa!.y)),
+    width: Math.max(1, Math.round(caixa!.width)),
+    height: Math.max(1, Math.round(caixa!.height)),
+  }
+  const comFoco = await page.screenshot({ clip: regiao })
 
-  // E ao perder o foco, o canvas volta a responder no MESMO ponto — a prova
-  // de que a promoção de camada é reversível, não um vazamento permanente.
   await link.evaluate((el) => el.blur())
-  const depoisDoBlur = await page.evaluate(
-    ({ x, y }) => !!document.elementFromPoint(x, y)?.closest('[data-testid="predio-canvas"]'),
-    { x: caixa!.x + caixa!.width / 2, y: caixa!.y + caixa!.height / 2 },
-  )
-  expect(depoisDoBlur, 'a cena não voltou a pintar por cima depois do blur').toBe(true)
+  await page.waitForTimeout(300)
+  const semFoco = await page.screenshot({ clip: regiao })
+
+  expect(
+    Buffer.compare(comFoco, semFoco),
+    'a região do link ficou igual com e sem foco — o link focado não pintou por cima da cena',
+  ).not.toBe(0)
 })
 
 test('o invólucro flex não estica nem colapsa o scroller do fallback', async ({ page }) => {
@@ -312,5 +342,183 @@ test.describe('celular', () => {
       const caixa = await link.boundingBox()
       if (caixa) expect(caixa.height).toBeGreaterThanOrEqual(44)
     }
+  })
+})
+
+/**
+ * A DESCIDA DIRIGIDA POR ENTRADA HUMANA — roda, dedo e teclado.
+ *
+ * Estes testes existem por causa de um defeito que a suíte inteira deixou
+ * passar e que o dono encontrou abrindo a página: "não consigo rolar para
+ * baixo e para cima, fica travado na cobertura".
+ *
+ * POR QUE NENHUM DOS TESTES ACIMA PEGOU. Todos eles avançam a descida
+ * atribuindo `scrollTop` no elemento que rola. Isso prova que o elemento PODE
+ * ser movido — e nunca prova que um VISITANTE consegue movê-lo. Eram duas
+ * afirmações diferentes, e a suíte só tinha a primeira. O defeito morava
+ * exatamente na camada que `scrollTop = n` pula: a cena, `fixed inset-0`,
+ * cobria a tela inteira com `pointer-events: auto` e engolia todo evento de
+ * roda e de toque; o elemento que rola ficava atrás dela, em `-z-10`, e nunca
+ * recebia nada. Pelo teclado era outra porta do mesmo defeito: o contêiner que
+ * rola não é focável e `document.activeElement` era `<body>`, então as teclas
+ * de rolagem iam para o documento, que tem `scrollHeight === innerHeight` e
+ * não rola.
+ *
+ * REGRA DESTE BLOCO, e ela não é estilo: **nenhum teste daqui pode escrever
+ * `scrollTop`.** Só `mouse.wheel()` e `keyboard.press()`. No instante em que
+ * um deles atribuir posição, ele volta a ser um teste do parágrafo acima e o
+ * buraco reabre.
+ */
+test.describe('a descida se move por entrada humana', () => {
+  test('a roda do mouse sobre a cena move a descida', async ({ page }) => {
+    await page.goto(ROTA)
+    await expect(page.locator('[data-testid="predio-canvas"] canvas')).toBeVisible({
+      timeout: 8000,
+    })
+
+    const scroller = scrollerLocator(page)
+    expect(await scroller.evaluate((el) => el.scrollTop)).toBe(0)
+
+    // No MEIO da tela, que é onde a cena cobre — não numa borda onde algum
+    // outro elemento pudesse receber o evento por acaso.
+    const viewport = page.viewportSize()!
+    await page.mouse.move(viewport.width / 2, viewport.height / 2)
+    for (let i = 0; i < 8; i++) {
+      await page.mouse.wheel(0, 400)
+      await page.waitForTimeout(80)
+    }
+    await page.waitForTimeout(500)
+
+    const depois = await scroller.evaluate((el) => el.scrollTop)
+    expect(depois, 'a roda do mouse sobre a cena não moveu a descida').toBeGreaterThan(0)
+
+    // E a cena ACOMPANHOU: o rótulo do andar ativo mudou. Sem isto o teste
+    // provaria só que um `<div>` invisível se mexeu — não que o visitante
+    // desceu no prédio.
+    const rotulos = await page.locator('[data-testid="predio-canvas"] a').allTextContents()
+    expect(rotulos.join('|'), 'a cena não acompanhou a rolagem da roda').not.toContain(
+      'Como o backup funciona',
+    )
+  })
+
+  test('a roda também sobe de volta', async ({ page }) => {
+    await page.goto(ROTA)
+    await expect(page.locator('[data-testid="predio-canvas"] canvas')).toBeVisible({
+      timeout: 8000,
+    })
+    const viewport = page.viewportSize()!
+    await page.mouse.move(viewport.width / 2, viewport.height / 2)
+    for (let i = 0; i < 8; i++) {
+      await page.mouse.wheel(0, 400)
+      await page.waitForTimeout(80)
+    }
+    await page.waitForTimeout(400)
+    const scroller = scrollerLocator(page)
+    const desceu = await scroller.evaluate((el) => el.scrollTop)
+    expect(desceu).toBeGreaterThan(0)
+
+    for (let i = 0; i < 12; i++) {
+      await page.mouse.wheel(0, -400)
+      await page.waitForTimeout(80)
+    }
+    await page.waitForTimeout(500)
+    expect(
+      await scroller.evaluate((el) => el.scrollTop),
+      'a roda não trouxe a descida de volta para cima',
+    ).toBeLessThan(desceu)
+  })
+
+  test('as teclas de rolagem movem a descida sem nada focado', async ({ page }) => {
+    await page.goto(ROTA)
+    await expect(page.locator('[data-testid="predio-canvas"] canvas')).toBeVisible({
+      timeout: 8000,
+    })
+    const scroller = scrollerLocator(page)
+
+    // O cenário do dono: a página abriu, ninguém clicou em nada, e ele
+    // apertou uma tecla de rolagem.
+    await page.keyboard.press('PageDown')
+    await page.waitForTimeout(500)
+    const pageDown = await scroller.evaluate((el) => el.scrollTop)
+    expect(pageDown, 'Page Down não moveu a descida').toBeGreaterThan(0)
+
+    await page.keyboard.press('End')
+    await page.waitForTimeout(600)
+    const fim = await scroller.evaluate((el) => el.scrollTop)
+    expect(fim, 'End não levou a descida até a recepção').toBeGreaterThan(pageDown)
+
+    await page.keyboard.press('Home')
+    await page.waitForTimeout(600)
+    expect(
+      await scroller.evaluate((el) => el.scrollTop),
+      'Home não trouxe a descida de volta à cobertura',
+    ).toBe(0)
+  })
+
+  /**
+   * O CURSOR EM CIMA DE UMA ÂNCORA — a variante que quase escapou.
+   *
+   * As âncoras são as únicas coisas da camada da cena com , e elas são filhas de um  que não rola: o
+   * encadeamento de rolagem a partir delas sobe para a janela, que nesta rota
+   * não rola. Sem repasse, a descida volta a travar — só que num retângulo de
+   * 189 × 44 px, o que é muito mais difícil de perceber e de reproduzir do que
+   * a tela inteira travada. Este teste põe o cursor exatamente lá.
+   */
+  test('a roda funciona também com o cursor sobre uma âncora de objeto', async ({ page }) => {
+    await page.goto(ROTA)
+    await expect(page.locator('[data-testid="predio-canvas"] canvas')).toBeVisible({
+      timeout: 8000,
+    })
+    await page.waitForTimeout(1200)
+
+    const ancora = page.locator('[data-testid="predio-canvas"] a').first()
+    const caixa = await ancora.boundingBox()
+    expect(caixa, 'nenhuma âncora de objeto na tela para testar').not.toBeNull()
+
+    // O centro da âncora, e a confirmação de que é MESMO ela sob o cursor —
+    // senão o teste passaria por acidente, medindo a rolagem no vazio.
+    const x = caixa!.x + caixa!.width / 2
+    const y = caixa!.y + caixa!.height / 2
+    expect(
+      // Objeto e não tupla: sob `noUncheckedIndexedAccess`, desestruturar um
+      // `number[]` dá `number | undefined` nos dois nomes.
+      await page.evaluate(
+        ({ px, py }) => document.elementFromPoint(px, py)?.tagName,
+        { px: x, py: y },
+      ),
+      'o ponto escolhido não é a âncora',
+    ).toBe('A')
+
+    const scroller = scrollerLocator(page)
+    await page.mouse.move(x, y)
+    for (let i = 0; i < 5; i++) {
+      await page.mouse.wheel(0, 400)
+      await page.waitForTimeout(90)
+    }
+    await page.waitForTimeout(500)
+    expect(
+      await scroller.evaluate((el) => el.scrollTop),
+      'a roda morreu em cima da âncora — a descida travou de novo',
+    ).toBeGreaterThan(0)
+  })
+
+  test('as setas movem a descida, e o toque no celular também', async ({ browser }) => {
+    const ctx = await browser.newContext(IPHONE_13_CHROMIUM)
+    const page = await ctx.newPage()
+    await page.goto(ROTA)
+    await expect(page.locator('[data-testid="predio-canvas"] canvas')).toBeVisible({
+      timeout: 8000,
+    })
+    const scroller = scrollerLocator(page)
+
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('ArrowDown')
+    await page.waitForTimeout(500)
+    expect(
+      await scroller.evaluate((el) => el.scrollTop),
+      'as setas não moveram a descida',
+    ).toBeGreaterThan(0)
+
+    await ctx.close()
   })
 })

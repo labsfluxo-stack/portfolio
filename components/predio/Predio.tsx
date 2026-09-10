@@ -394,6 +394,198 @@ export function progressoDoCurso(
  * rolou vem em `event.target`, e o progresso sai dele, filtrado por
  * `progressoDoCurso`.
  */
+/**
+ * O elemento que de fato rola nesta página, procurado pelo que ele FAZ e não
+ * pelo que ele é: curso vertical de pelo menos uma altura de janela. Mesmo
+ * critério de `progressoDoCurso`, e pela mesma razão — não amarrar a cena à
+ * classe nem ao `data-testid` de um componente que ela não edita.
+ */
+let roladorLembrado: HTMLElement | null = null
+
+function serveComoDescida(el: HTMLElement): boolean {
+  return el.isConnected && el.scrollHeight - el.clientHeight >= window.innerHeight
+}
+
+function acharRolador(): HTMLElement | null {
+  // Lembrado entre chamadas porque `useRepasseDeRolagem` chama isto a CADA
+  // evento de roda: varrer todos os `<div>` da página sessenta vezes por
+  // segundo seria pagar em varredura de DOM justamente durante a rolagem, que
+  // é o momento que este arquivo inteiro existe para manter barato. A memória
+  // é revalidada a cada uso, então um `<div>` que saiu do documento ou deixou
+  // de ter curso é descartado em vez de virar um alvo morto.
+  if (roladorLembrado && serveComoDescida(roladorLembrado)) return roladorLembrado
+  roladorLembrado = null
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>('div'))) {
+    if (serveComoDescida(el)) {
+      roladorLembrado = el
+      return el
+    }
+  }
+  return null
+}
+
+/**
+ * As teclas de rolagem movem a descida — e a razão de isto existir é um defeito
+ * que o dono encontrou: "não consigo rolar para baixo e para cima".
+ *
+ * Metade era ponteiro (ver o contêiner da cena). A outra metade é esta: o
+ * elemento que rola não é focável, `document.activeElement` é `<body>`, e as
+ * teclas de rolagem vão para o DOCUMENTO — que nesta rota tem `scrollHeight ===
+ * innerHeight` e não rola. O visitante apertava Page Down e nada acontecia.
+ *
+ * POR QUE NÃO A FORMA PADRÃO (contêiner de rolagem focável, com nome
+ * acessível). Ela foi testada no navegador antes de ser descartada, e o
+ * resultado está medido: com `tabindex="0"` no contêiner que rola, UM CLIQUE
+ * DE MOUSE em qualquer lugar da cena passa a focá-lo; `focus-within:z-50` em
+ * `PredioSlot.tsx` dispara; e a camada do fallback sobe para `z-index: 50`, na
+ * FRENTE da cena. Um clique no prédio trocaria o prédio por sete telas de HTML
+ * — defeito pior que o que se estava consertando. Desfazer isso exigiria
+ * reescrever o `focus-within` (achado de revisão endurecido) para
+ * `:has(:focus-visible)`, e num navegador sem `:has()` a revelação por foco
+ * simplesmente não aconteceria: voltaria o WCAG 2.4.7 que aquele mecanismo
+ * existe para resolver. Troca ruim.
+ *
+ * O QUE ISTO FAZ, e o que deliberadamente NÃO faz. Só age quando NINGUÉM está
+ * focado — ou seja, exatamente na janela em que o navegador mandaria as teclas
+ * para um documento que não rola. No instante em que o visitante tabula para
+ * dentro do fallback (a camada de teclado desta página, por decisão
+ * arquitetural de `PredioSlot.tsx`), `activeElement` deixa de ser `<body>`,
+ * este atalho se cala e o tratamento NATIVO assume. Não há captura de foco,
+ * não há tecla roubada de campo de texto, e o movimento continua sendo
+ * `scrollTo`/`scrollBy` do navegador — com o `scroll-snap` do fallback fazendo
+ * a parada cair no andar, como já fazia. Nada aqui interpola posição: essa é a
+ * linha que separa isto de uma biblioteca de scroll suave, que a spec proíbe
+ * por custo de INP.
+ *
+ * Um degrau de tecla é UMA TELA, não os ~40 px nativos da seta: o fallback é
+ * `snap-mandatory`, e qualquer passo menor que meia tela volta para o mesmo
+ * ponto de encaixe. Uma tecla, um andar — que é a própria unidade da página.
+ */
+function useTeclasDeDescida(): void {
+  useEffect(() => {
+    const aoTeclar = (evento: KeyboardEvent) => {
+      if (evento.defaultPrevented || evento.altKey || evento.ctrlKey || evento.metaKey) return
+      // Só quando o foco não está em lugar nenhum. Com qualquer coisa focada, o
+      // navegador já sabe o que fazer e faz melhor.
+      const ativo = document.activeElement
+      if (ativo && ativo !== document.body && ativo !== document.documentElement) return
+
+      const rolador = acharRolador()
+      if (!rolador) return
+      const tela = rolador.clientHeight
+      const fim = rolador.scrollHeight - tela
+
+      let destino: number | null = null
+      switch (evento.key) {
+        case 'PageDown':
+        case 'ArrowDown':
+          destino = Math.min(fim, rolador.scrollTop + tela)
+          break
+        case 'PageUp':
+        case 'ArrowUp':
+          destino = Math.max(0, rolador.scrollTop - tela)
+          break
+        case ' ':
+          destino = evento.shiftKey
+            ? Math.max(0, rolador.scrollTop - tela)
+            : Math.min(fim, rolador.scrollTop + tela)
+          break
+        case 'Home':
+          destino = 0
+          break
+        case 'End':
+          destino = fim
+          break
+        default:
+          return
+      }
+
+      evento.preventDefault()
+      rolador.scrollTo({ top: destino })
+    }
+
+    window.addEventListener('keydown', aoTeclar)
+    return () => window.removeEventListener('keydown', aoTeclar)
+  }, [])
+}
+
+/**
+ * A rolagem SOBRE UMA ÂNCORA — o último buraco da correção da rolagem travada,
+ * e o mais traiçoeiro dos três porque só aparece com o cursor num lugar certo.
+ *
+ * As âncoras precisam de `pointer-events: auto` (é o clique inteiro do
+ * recurso), e com isso voltam a ser alvo de evento. Só que elas são filhas da
+ * camada da cena, que é `position: fixed` e não rola: o encadeamento de rolagem
+ * a partir delas sobe para `body`/`html`, que nesta rota não rolam. Medido: com
+ * o cursor parado sobre "Ver os sistemas em produção", cinco eventos de roda
+ * deixam `scrollTop` em 0. A descida trava de novo — só que agora num retângulo
+ * de 189 × 44 px em vez da tela inteira.
+ *
+ * DUAS SAÍDAS FORAM MEDIDAS E DESCARTADAS ANTES DESTA:
+ *   - Mover a sobreposição para DENTRO do elemento que rola (portal de React).
+ *     Não funciona: um elemento `position: fixed` é retirado do conteúdo
+ *     rolável do ancestral, então o encadeamento continua indo para a janela.
+ *     Testado no navegador movendo o nó à mão — `scrollTop` seguiu em 0.
+ *   - Deixar a sobreposição rolar junto com o conteúdo (`absolute` de verdade,
+ *     compensando `scrollTop` a cada quadro). Funciona, mas a compensação só
+ *     acontece no quadro seguinte: em rolagem rápida a âncora treme um quadro
+ *     inteiro atrás do objeto.
+ *
+ * O que sobrou é REPASSAR. Repasse não é biblioteca de scroll suave, e a
+ * diferença é exatamente a que a spec proíbe: aqui não há interpolação, curva
+ * nem relógio próprio — o delta bruto vai direto para `scrollBy`, e quem faz
+ * encaixe, inércia e limite continua sendo o navegador. O custo de INP fica
+ * onde não importa: este listener só é alcançado por eventos que começam EM
+ * CIMA de uma âncora, porque todo o resto da camada é `pointer-events: none`.
+ * A rolagem comum da página nunca passa por aqui.
+ */
+function useRepasseDeRolagem(alvo: RefObject<HTMLDivElement | null>): void {
+  useEffect(() => {
+    const no = alvo.current
+    if (!no) return
+
+    // Passivo de propósito: sem `preventDefault`. O navegador ainda tenta rolar
+    // a cadeia da âncora, que não rola nada, então não há rolagem dupla — e a
+    // promessa de passividade mantém o evento fora do caminho crítico.
+    const aoGirar = (evento: WheelEvent) => {
+      acharRolador()?.scrollBy({ top: evento.deltaY })
+    }
+
+    // O toque é o oposto: aqui `preventDefault` é obrigatório, senão o gesto
+    // não vira rolagem nenhuma. Por isso `{ passive: false }` — e por isso ele
+    // fica preso a ESTE nó, nunca ao documento.
+    let ultimoY: number | null = null
+    const aoTocar = (evento: TouchEvent) => {
+      ultimoY = evento.touches[0]?.clientY ?? null
+    }
+    const aoArrastar = (evento: TouchEvent) => {
+      const y = evento.touches[0]?.clientY
+      if (y === undefined || ultimoY === null) return
+      const rolador = acharRolador()
+      if (!rolador) return
+      evento.preventDefault()
+      rolador.scrollBy({ top: ultimoY - y })
+      ultimoY = y
+    }
+    const aoSoltar = () => {
+      ultimoY = null
+    }
+
+    no.addEventListener('wheel', aoGirar, { passive: true })
+    no.addEventListener('touchstart', aoTocar, { passive: true })
+    no.addEventListener('touchmove', aoArrastar, { passive: false })
+    no.addEventListener('touchend', aoSoltar, { passive: true })
+    no.addEventListener('touchcancel', aoSoltar, { passive: true })
+    return () => {
+      no.removeEventListener('wheel', aoGirar)
+      no.removeEventListener('touchstart', aoTocar)
+      no.removeEventListener('touchmove', aoArrastar)
+      no.removeEventListener('touchend', aoSoltar)
+      no.removeEventListener('touchcancel', aoSoltar)
+    }
+  }, [alvo])
+}
+
 function useProgressoDeRolagem(): RefObject<number> {
   const progresso = useRef(0)
 
@@ -627,12 +819,18 @@ function ObjetoNaCena({
     material.emissiveIntensity = nivel.current * 0.55
   })
 
+  // SEM `onPointerOver`/`onPointerOut` aqui, e a ausência é deliberada: o
+  // canvas inteiro passou a ser `pointer-events: none` na correção da rolagem
+  // (ver o comentário do contêiner em `Predio`), então o raycast do r3f não
+  // recebe mais evento nenhum e um handler escrito aqui NUNCA dispararia.
+  // Deixá-lo no arquivo seria código que mente sobre o que acontece.
+  //
+  // O brilho não morreu: quem o acende agora é o `onPointerEnter` da própria
+  // âncora de DOM, em `Sobreposicao` — que é justamente o elemento que o
+  // visitante aponta antes de clicar. O que se perdeu é acender o objeto
+  // passando o mouse na MALHA, fora da caixa da âncora.
   return (
-    <group
-      position={[xDoObjeto(objeto.x), base, Z_OBJETO]}
-      onPointerOver={() => brilhos.current.set(objeto.id, true)}
-      onPointerOut={() => brilhos.current.set(objeto.id, false)}
-    >
+    <group position={[xDoObjeto(objeto.x), base, Z_OBJETO]}>
       {pecas.map((peca, i) => (
         <mesh
           key={i}
@@ -848,8 +1046,20 @@ function Ceu() {
  * lá embaixo) e medir layout a 60 Hz, para cada âncora, forçaria um reflow por
  * quadro. Medido preguiçosamente e invalidado só quando a janela muda de
  * tamanho — que é a única hora em que o texto pode reembrulhar.
+ *
+ * `clicavel` separa a ÂNCORA do RÓTULO, e a distinção é o defeito de rolagem em
+ * miniatura: só a âncora pode voltar a `pointer-events: auto`. Um rótulo de
+ * andar que recebesse ponteiro seria mais uma caixa engolindo a roda do mouse
+ * no meio da tela — o mesmo defeito que travou a descida inteira, só que menor
+ * e mais difícil de achar.
  */
-type Alvo = { mundo: THREE.Vector3; el: HTMLElement; w: number; h: number }
+type Alvo = {
+  mundo: THREE.Vector3
+  el: HTMLElement
+  w: number
+  h: number
+  clicavel: boolean
+}
 
 function Cena({
   vsync,
@@ -1054,7 +1264,11 @@ function Cena({
       // tela, que é o ponto inteiro de manter três andares vivos.
       const visivel = Math.min(1, Math.max(0, (1.15 - Math.abs(ndc.y)) / 0.22))
       el.style.opacity = visivel.toFixed(3)
-      el.style.pointerEvents = visivel > 0.25 ? 'auto' : 'none'
+      // SO a ancora volta a receber ponteiro. O rotulo nunca — ver `clicavel`
+      // no tipo `Alvo`: uma caixa de texto no meio da tela com
+      // `pointer-events: auto` engoliria a roda do mouse ali, que e o defeito
+      // que esta correcao inteira existe para tirar.
+      el.style.pointerEvents = alvo.clicavel && visivel > 0.25 ? 'auto' : 'none'
     }
   })
 
@@ -1186,11 +1400,16 @@ function Sobreposicao({
   alvos: RefObject<Map<string, Alvo>>
 }) {
   const registrar =
-    (chave: string, mundo: THREE.Vector3) =>
+    (chave: string, mundo: THREE.Vector3, clicavel: boolean) =>
     (el: HTMLElement | null): void => {
-      if (el) alvos.current.set(chave, { mundo, el, w: 0, h: 0 })
+      if (el) alvos.current.set(chave, { mundo, el, w: 0, h: 0, clicavel })
       else alvos.current.delete(chave)
     }
+
+  // A camada que recebe os eventos que caem EM CIMA de uma âncora — os únicos
+  // que chegam aqui, já que todo o resto é `pointer-events: none`.
+  const camada = useRef<HTMLDivElement>(null)
+  useRepasseDeRolagem(camada)
 
   // Nasce invisível e inerte: até o primeiro quadro projetar o elemento, ele
   // estaria em (0, 0) — o canto superior esquerdo —, e um alvo de toque de
@@ -1198,7 +1417,7 @@ function Sobreposicao({
   const repouso = { opacity: 0, pointerEvents: 'none' as const }
 
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div ref={camada} className="pointer-events-none absolute inset-0 overflow-hidden">
       {vivos.map((indice) => {
         const andar = ANDARES[indice]!
         const texto = dict.predio[andar.chave]
@@ -1211,6 +1430,7 @@ function Sobreposicao({
               ref={registrar(
                 `rotulo:${andar.chave}`,
                 new THREE.Vector3(xDoObjeto(0.04), piso + PE_DIREITO * 0.8, Z_OBJETO),
+                false,
               )}
               className="absolute left-0 top-0 max-w-[18rem] rounded px-3 py-2 will-change-transform"
               style={{ backgroundColor: ar, color: tinta, ...repouso }}
@@ -1233,6 +1453,7 @@ function Sobreposicao({
                     piso + alturaDoObjeto(objeto.id) + 0.45,
                     Z_OBJETO,
                   ),
+                  true,
                 )}
                 href={enderecoDoObjeto(locale, objeto.destino)}
                 className="absolute left-0 top-0 flex min-h-11 min-w-11 max-w-[15rem] items-center justify-center rounded px-3 text-center text-xs font-medium underline underline-offset-4 will-change-transform"
@@ -1253,6 +1474,12 @@ function Sobreposicao({
 // ── O componente ──────────────────────────────────────────────────────────
 
 export function Predio({ dict, locale, vsync }: { dict: Dictionary; locale: Locale; vsync: number }) {
+  // FORA do `<Canvas>`, de proposito. As teclas nao dependem de three.js
+  // nenhum, e um efeito registrado dentro da cena so roda quando o
+  // reconciliador do r3f confirma — depois de o `<canvas>` ja existir no DOM.
+  // Medido: nessa janela o visitante ve o predio e Page Down nao faz nada.
+  // Aqui o atalho esta vivo no mesmo instante em que o componente monta.
+  useTeclasDeDescida()
   const [andar, setAndar] = useState(0)
   const vivos = useMemo(() => janelaDeAndares(andar), [andar])
   const brilhos = useRef(new Map<string, boolean>())
@@ -1263,7 +1490,30 @@ export function Predio({ dict, locale, vsync }: { dict: Dictionary; locale: Loca
     // FALLBACK é resolvida inteira em `PredioSlot.tsx` (o invólucro que envolve
     // este componente leva `z-0`). Aqui só se decide a ordem DENTRO da cena, e
     // ela é a ordem do DOM: canvas primeiro, âncoras por cima.
-    <div data-testid="predio-canvas" className="fixed inset-0">
+    //
+    // `pointer-events-none` — E ESTA CLASSE É O CONSERTO DE UM DEFEITO QUE O
+    // DONO ENCONTROU ABRINDO A PÁGINA: "não consigo rolar para baixo e para
+    // cima, fica travado na cobertura".
+    //
+    // A causa, medida: este `<div>` é `fixed inset-0`, cobre a tela inteira e,
+    // com `pointer-events: auto` (o padrão), era ele que `elementFromPoint` no
+    // centro da tela devolvia. Todo evento de roda e de toque morria aqui. E
+    // como quem rola de verdade é um `<div>` do fallback que é IRMÃO desta
+    // camada — não ancestral —, o encadeamento de rolagem do navegador subia
+    // por `body`/`html`, que não rolam nesta rota, e nunca chegava nele. A cena
+    // não estava "por cima" do scroller; estava no caminho dele.
+    //
+    // `pointer-events` é herdado, então isto apaga o ponteiro do canvas e de
+    // tudo que está dentro de uma vez; as âncoras de objeto voltam a ligá-lo,
+    // uma a uma, no laço de quadro. É exatamente a distinção que o comentário
+    // de `PredioSlot.tsx` já usava para escolher `aria-hidden` em vez de
+    // `inert`: `inert` desliga o ponteiro de forma que um filho NÃO consegue
+    // reverter; `pointer-events: none` deixa.
+    //
+    // O PREÇO, dito com todas as letras: sem ponteiro no canvas, o raycast do
+    // r3f não recebe mais nada e o brilho de hover pela MALHA acabou. Ele
+    // sobrevive pela âncora (ver `ObjetoNaCena`). Rolar vale mais que brilhar.
+    <div data-testid="predio-canvas" className="pointer-events-none fixed inset-0">
       <Canvas
         // `percentage` = PCFShadowMap. O padrão (`true`) escolhe PCFSoft, que o
         // three 0.185 depreciou e resolve para PCF de qualquer forma — só que
@@ -1273,6 +1523,18 @@ export function Predio({ dict, locale, vsync }: { dict: Dictionary; locale: Loca
         // degrau seguro (1 ou 3, nunca 0) e sobe só sob medição.
         dpr={[1, 2]}
         gl={OPACO}
+        // `pointer-events: none` PRECISA vir por aqui, e não só do contêiner:
+        // o `<Canvas>` do r3f escreve `pointerEvents: 'auto'` INLINE no
+        // `<div>` dele (ver `CanvasImpl` em react-three-fiber.esm.js — "when
+        // the event source is not this div, we need to set pointer-events to
+        // none"), e estilo inline vence a herança do pai. Medido: com só a
+        // classe no contêiner, `elementFromPoint` no centro da tela ainda
+        // devolvia o `<canvas>`, e a roda do mouse continuava morrendo nele.
+        // O `...style` do r3f é espalhado DEPOIS do padrão dele, então esta
+        // linha é o ponto de extensão previsto pela própria biblioteca. Os dois
+        // nós abaixo (o `<div>` interno e o `<canvas>`) não declaram nada e
+        // herdam daqui.
+        style={{ pointerEvents: 'none' }}
         camera={{ fov: 50, near: 0.5, far: 96, position: [0, quadroDe(0).pose.y, RECUO] }}
         // Hora dourada com ACES fecha a sombra; um pouco de exposição devolve a
         // leitura do material sem clarear tinta nenhuma.

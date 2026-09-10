@@ -177,14 +177,36 @@ describe('slot do prédio', () => {
 
     /**
      * O mecanismo escolhido para "o que aparece na tela é a cena" (constraint
-     * 3 do ruling) é empilhamento por `z-index`, não recorte: o invólucro do
-     * fallback fica ATRÁS da cena por padrão (`-z-10`) e passa À FRENTE
-     * (`z-50`, mesma linguagem visual de `focus:z-50` que `PredioIndicador`/
-     * `SkipLink` já usam) assim que algo dentro dele tem foco
-     * (`focus-within`). Isso não recorta nem tira do fluxo: um link focado
-     * continua uma caixa normal, só numa camada de pilha diferente — por
-     * isso consegue pintar. Este teste afirma a RECEITA de classes, não o
-     * resultado visual (que jsdom não computa).
+     * 3 do ruling) é empilhamento por `z-index`, não recorte: o fallback fica
+     * ATRÁS da cena por padrão e passa À FRENTE (`z-50`, mesma linguagem
+     * visual de `focus:z-50` que `PredioIndicador`/`SkipLink` já usam) assim
+     * que algo dentro dele tem foco (`focus-within`). Isso não recorta nem
+     * tira do fluxo: um link focado continua uma caixa normal, só numa camada
+     * de pilha diferente — por isso consegue pintar.
+     *
+     * QUAL METADE DA PILHA CARREGA O EMPILHAMENTO — mudou, e a mudança
+     * consertou um defeito grave. Antes era o fallback que descia (`-z-10`),
+     * com a cena em `z-0`. O resultado, medido no navegador: `z-index`
+     * negativo pinta ANTES do conteúdo em fluxo do contexto de empilhamento,
+     * então a camada do fallback ficava embaixo dos PRÓPRIOS ANCESTRAIS para
+     * efeito de teste de acerto — e o elemento que rola, que mora dentro dela,
+     * nunca recebia a roda do mouse. `elementFromPoint` no centro da tela
+     * devolvia `<body>`. A descida ficava travada na cobertura, que foi
+     * exatamente o defeito que o dono relatou.
+     *
+     * Agora quem sobe é a CENA (`z-10`), e o fallback fica no fluxo normal,
+     * sem `z-index` nenhum. A ordem de pintura é a mesma de antes — cena por
+     * cima, fallback por baixo, foco promovendo o fallback para `z-50` —, mas
+     * o fallback deixa de estar abaixo dos próprios ancestrais e volta a ser
+     * alcançável pelo ponteiro.
+     *
+     * Por isso este teste passou a proibir explicitamente `z-index` negativo
+     * na camada do fallback: é a receita que quebrou a rolagem, e sem esta
+     * linha nada impede alguém de reintroduzi-la. A prova de que a rolagem
+     * funciona de verdade é de outro tipo e vive em
+     * `tests/e2e/predio.spec.ts` ("a descida se move por entrada humana"):
+     * jsdom não computa empilhamento nem despacha rolagem, então aqui só se
+     * afirma a RECEITA de classes.
      */
     it('a camada do fallback usa empilhamento (z-index), não recorte, para ficar atrás da cena', async () => {
       comWebGL(true)
@@ -194,8 +216,56 @@ describe('slot do prédio', () => {
         timeout: ESPERA,
       })
       const camada = screen.getByTestId('predio-fallback-camada')
-      expect(camada.className).toMatch(/-z-10\b/)
       expect(camada.className).toMatch(/focus-within:z-50\b/)
+      // NUNCA `z-index` negativo aqui: põe o fallback abaixo dos próprios
+      // ancestrais no teste de acerto e mata a rolagem por roda e por toque.
+      expect(camada.className).not.toMatch(/(^|\s)-z-\d/)
+      // Quem fica por cima é a cena, e com `z-index` positivo explícito.
+      const camadaDaCena = screen.getByTestId('predio-canvas').parentElement
+      expect(camadaDaCena?.className).toMatch(/(^|\s)z-10\b/)
+    })
+
+    /**
+     * A CENA NÃO PODE ENGOLIR PONTEIRO. As duas camadas `fixed inset-0` (o
+     * invólucro daqui e o contêiner dentro de `Predio.tsx`) cobrem a tela
+     * inteira; qualquer uma delas com `pointer-events: auto` basta para a roda
+     * do mouse e o toque morrerem antes de chegar em quem rola, porque o
+     * elemento que rola é IRMÃO desta camada e o encadeamento de rolagem sobe
+     * por `body`/`html`, que não rolam nesta rota.
+     *
+     * Isto NÃO é o `inert` descartado no comentário do componente: `inert`
+     * desliga o ponteiro sem deixar nenhum descendente reverter, enquanto
+     * `pointer-events: none` é revertido por qualquer filho que declare
+     * `auto` — que é o que as âncoras de objeto fazem para continuar
+     * clicáveis.
+     */
+    it('a camada da cena não recebe ponteiro, para não engolir a rolagem', async () => {
+      comWebGL(true)
+      comMovimentoReduzido(false)
+      render(<PredioSlot dict={dict} locale="pt" />)
+      await waitFor(() => expect(screen.getByTestId('predio-canvas')).toBeInTheDocument(), {
+        timeout: ESPERA,
+      })
+      const camadaDaCena = screen.getByTestId('predio-canvas').parentElement
+      expect(camadaDaCena?.className).toMatch(/(^|\s)pointer-events-none\b/)
+    })
+
+    /**
+     * Com a cena transparente ao ponteiro, um clique no meio do prédio
+     * ATRAVESSA e aterrissa no fallback — que está logo atrás, alinhado e
+     * invisível sob o canvas opaco. Sem esta regra, clicar no vazio da cena
+     * navegaria para um link que ninguém consegue ver.
+     */
+    it('os links do fallback não são clicáveis por trás da cena, exceto o que tem foco', async () => {
+      comWebGL(true)
+      comMovimentoReduzido(false)
+      render(<PredioSlot dict={dict} locale="pt" />)
+      await waitFor(() => expect(screen.getByTestId('predio-canvas')).toBeInTheDocument(), {
+        timeout: ESPERA,
+      })
+      const camada = screen.getByTestId('predio-fallback-camada')
+      expect(camada.className).toMatch(/\[&_a\]:pointer-events-none/)
+      expect(camada.className).toMatch(/\[&_a:focus\]:pointer-events-auto/)
     })
   })
 

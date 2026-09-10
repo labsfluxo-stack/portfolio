@@ -172,10 +172,40 @@ export function PredioSlot({ dict, locale }: { dict: Dictionary; locale: Locale 
   // contenção para `position: absolute` (só `position` de verdade faz isso);
   // é usado aqui só para dar significado ao `z-index` do invólucro do
   // fallback abaixo, pela exceção do Flexbox (ver o comentário grande acima).
+  // `pointer-events-none` NO INVÓLUCRO EXTERNO enquanto a cena está no ar, e
+  // este é o passo que faltava para a roda do mouse chegar em quem rola.
+  //
+  // Medido: com a camada da cena já transparente ao ponteiro, o
+  // `elementFromPoint` no centro da tela passou a devolver ESTE `<div>` — não o
+  // fallback. A razão é o `-z-10` do fallback: `z-index` negativo pinta ANTES
+  // do conteúdo em fluxo do contexto de empilhamento, então a camada do
+  // fallback fica embaixo do PRÓPRIO PAI para efeito de teste de acerto. O pai
+  // ganhava o evento, e o encadeamento de rolagem a partir dele sobe — nunca
+  // desce até o filho que rola.
+  //
+  // Com o pai transparente, o acerto atravessa e aterrissa dentro do fallback,
+  // que é o elemento que rola: aí o navegador tem o que rolar. Só vale
+  // enquanto a cena existe; sem cena, o fallback É a página e precisa do
+  // ponteiro inteiro.
   return (
     <div className="flex flex-col w-full">
+      {/* `pointer-events-none` NESTE invólucro, além do que `Predio.tsx` já põe
+       * no contêiner dele: os dois são `fixed inset-0`, e QUALQUER UM dos dois
+       * com `pointer-events: auto` basta para engolir a roda do mouse e o
+       * toque. O elemento que de fato rola (o `<div>` do fallback, abaixo) é
+       * IRMÃO desta camada, não ancestral dela — então o encadeamento de
+       * rolagem do navegador sobe por `body`/`html`, que não rolam nesta rota,
+       * e nunca chega nele. Foi assim que a descida ficou travada na cobertura:
+       * defeito relatado pelo dono e reproduzido com medição.
+       *
+       * Isto NÃO é o `inert` que o comentário grande acima descartou, e a
+       * diferença é justamente a que importa ali: `inert` desliga o ponteiro de
+       * um jeito que nenhum descendente consegue reverter, enquanto
+       * `pointer-events: none` é revertido por qualquer filho que declare
+       * `auto` — que é exatamente o que as âncoras de objeto fazem. O clique
+       * nelas continua funcionando. */}
       {cena && (
-        <div aria-hidden="true" className="fixed inset-0 z-0">
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-10">
           <Predio dict={dict} locale={locale} vsync={vsync} />
         </div>
       )}
@@ -183,10 +213,28 @@ export function PredioSlot({ dict, locale }: { dict: Dictionary; locale: Locale 
        * enquanto a cena estiver montada, o ÚNICO destino de teclado (ver o
        * comentário acima). `-z-10 focus-within:z-50` é EMPILHAMENTO, não
        * recorte — nunca `sr-only`/`hidden`/`invisible` aqui: ver a seção
-       * "mecanismo de oclusão visual" acima. */}
+       * "mecanismo de oclusão visual" acima.
+       *
+       * `[&_a]:pointer-events-none` é a outra metade da correção da rolagem, e
+       * sem ela o conserto trocaria um defeito por outro pior. Com a camada da
+       * cena transparente ao ponteiro, um clique no meio do prédio atravessa e
+       * aterrissa no fallback — que está logo atrás, alinhado, e INVISÍVEL sob
+       * o canvas opaco. Clicar no vazio da cena navegaria para um link que
+       * ninguém consegue ver. Só os `<a>` perdem o ponteiro: o contêiner que
+       * rola continua `auto`, que é o que a roda do mouse precisa acertar para
+       * que o navegador saiba o que rolar.
+       *
+       * `[&_a:focus]:pointer-events-auto` devolve o clique ao link FOCADO —
+       * aquele que `focus-within:z-50` acabou de trazer para a frente e tornar
+       * visível. Enquanto está visível, é clicável; enquanto está escondido,
+       * não é. */}
       <div
         data-testid="predio-fallback-camada"
-        className={cena ? '-z-10 focus-within:z-50' : undefined}
+        className={
+          cena
+            ? 'focus-within:z-50 [&_a]:pointer-events-none [&_a:focus]:pointer-events-auto'
+            : undefined
+        }
       >
         <PredioFallback dict={dict} locale={locale} />
       </div>
