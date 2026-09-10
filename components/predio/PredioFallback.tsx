@@ -151,7 +151,17 @@ function LinkDoObjeto({
     )
   }
   return (
-    <Link href={`/${locale}${objeto.destino}`} className={CLASSE_LINK}>
+    // `prefetch={false}`, como TODO OUTRO `<Link>` do site (Header, Footer,
+    // LocaleSwitch, CaseStudy, SystemCard, Contact, Prova) — achado da Tarefa
+    // 9 ao provar a descida num navegador de verdade: sem isto, assim que um
+    // objeto clicável ("prancheta", "painel"...) entra na viewport durante a
+    // rolagem, o roteador do Next tenta buscar o payload de pré-carregamento
+    // de `/projetos` ou `/blog` num arquivo que o export estático não gera
+    // com esse nome (`__next.$d$locale.projetos.__PAGE__.txt?_rsc=...`) — 404
+    // real, tanto no servidor de E2E quanto (por ser exatamente o mesmo
+    // `output: 'export'`) no GitHub Pages publicado. Medido: quatro erros de
+    // console numa descida completa antes desta linha, zero depois.
+    <Link prefetch={false} href={`/${locale}${objeto.destino}`} className={CLASSE_LINK}>
       {rotulo}
     </Link>
   )
