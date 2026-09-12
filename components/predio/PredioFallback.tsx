@@ -51,7 +51,42 @@ const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '/portfolio'
  * rolar, e essa razão não se sustenta se o menu só é alcançável DEPOIS de
  * atravessar por Tab as sete seções que ele serve para deixar pular.
  */
-export function PredioFallback({ dict, locale }: { dict: Dictionary; locale: Locale }) {
+export function PredioFallback({
+  dict,
+  locale,
+  semEncaixe = false,
+}: {
+  dict: Dictionary
+  locale: Locale
+  /**
+   * Desliga o `scroll-snap` do contêiner que rola. `PredioSlot` liga isto
+   * ENQUANTO A CENA 3D ESTÁ MONTADA, e a razão é um defeito medido, não gosto.
+   *
+   * Com `scroll-snap-type: y mandatory` e um ponto de encaixe a cada altura de
+   * tela, o navegador leva a rolagem para o ponto de encaixe MAIS PRÓXIMO do
+   * destino. Um gesto que anda menos de METADE de uma tela tem a origem como
+   * ponto mais próximo — e volta para ela. O limiar é exatamente metade, medido
+   * ao pixel numa janela de 800: delta 399 → `scrollTop` 0; 400 → 0; 401 → 800.
+   * Uma catraca de roda de mouse de verdade entrega ~100 px. Ou seja: com o
+   * encaixe obrigatório ligado, rolar com a roda não movia NADA, em nenhuma
+   * altura de janela — foi o "fica travado na cobertura" que o dono relatou.
+   * (`proximity` foi medido também, e não resolve: catracas de 100 px continuam
+   * em 0. Só `none` deixa a rolagem acumular.)
+   *
+   * Por que desligar é legítimo com a cena no ar, e SÓ com ela: o encaixe
+   * existe para alinhar cada `<section>` ao topo da tela — trabalho que só faz
+   * sentido quando é o HTML que está sendo visto. Com a cena montada o HTML
+   * está invisível atrás de um canvas opaco, e quem faz o andar "parar na tela"
+   * é a curva `PARADA` de `predio-descida.ts`, que gasta 45 % da rolagem
+   * desacelerando no centro de cada andar. Eram dois mecanismos para o mesmo
+   * trabalho, e um deles matava a entrada do visitante.
+   *
+   * Sem a cena (movimento reduzido, sem WebGL, antes de hidratar) este
+   * parâmetro fica `false` e a decisão do dono — "um andar por tela, sem barra
+   * de rolagem" — continua valendo inteira, que é exatamente onde ela é visível.
+   */
+  semEncaixe?: boolean
+}) {
   const itensDoIndicador = ANDARES.map((andar) => ({
     id: `predio-${andar.chave}`,
     rotulo: dict.predio[andar.chave].titulo,
@@ -63,7 +98,12 @@ export function PredioFallback({ dict, locale }: { dict: Dictionary; locale: Loc
       // cena quando `prefers-reduced-motion` está ligado, e `scroll-behavior:
       // smooth` não respeita essa preferência sozinho — animaria o salto de
       // um clique no indicador mesmo para quem pediu para não ver isso.
-      className="tela-cheia sem-barra-de-rolagem w-full snap-y snap-mandatory overflow-y-auto"
+      //
+      // `snap-none` com a cena montada — ver `semEncaixe` acima. `overflow-y-auto`
+      // NUNCA sai: é ele que permite rolar, e esconder a barra é outra coisa.
+      className={`tela-cheia sem-barra-de-rolagem w-full overflow-y-auto ${
+        semEncaixe ? 'snap-none' : 'snap-y snap-mandatory'
+      }`}
     >
       {/* PRIMEIRO FILHO, não último (achado de revisão, 2026-09-08): a razão
        * de manter este componente vivo era deixar quem navega por teclado

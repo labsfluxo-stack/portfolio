@@ -522,3 +522,113 @@ test.describe('a descida se move por entrada humana', () => {
     await ctx.close()
   })
 })
+
+/**
+ * A RODA DE VERDADE, EM VÁRIAS ALTURAS DE JANELA.
+ *
+ * Este bloco existe porque a correção anterior passou na suíte e continuou
+ * quebrada para o dono. Os testes de entrada humana que eu tinha escrito usavam
+ * eventos de roda de 400 px — e 400 px é grande demais para revelar o defeito.
+ * Uma roda de mouse de verdade entrega ~100 px por catraca, e era ali que a
+ * página estava morta.
+ *
+ * O MECANISMO, medido no navegador e não deduzido: com `scroll-snap-type: y
+ * mandatory` e um ponto de encaixe a cada altura de tela, o navegador leva a
+ * rolagem para o ponto de encaixe MAIS PRÓXIMO do destino. Um gesto que anda
+ * menos de METADE de uma tela tem o ponto de partida como mais próximo — e
+ * volta para ele. O limiar é exatamente metade, medido ao pixel numa janela de
+ * 800: delta 399 → `scrollTop` 0; delta 400 → 0; delta 401 → 800.
+ *
+ * Duas consequências, e a segunda é a que importa:
+ *   1. O defeito parece depender da ALTURA quando se testa com 400 px, porque
+ *      400 só passa de metade em janelas abaixo de 800. Daí a tabela
+ *      "700/720/740/760/780 funcionam, 800 e 900 não".
+ *   2. Mas com uma catraca de verdade (~100 px) NENHUMA altura funciona. A
+ *      altura era o sintoma; o tamanho do gesto era a causa.
+ *
+ * Por isso este bloco varre alturas E usa catracas pequenas. Testar em uma
+ * altura só, ou com um gesto grande, é o que deixou o defeito chegar ao dono
+ * duas vezes.
+ */
+test.describe('a roda pequena move a descida, em qualquer altura de janela', () => {
+  // 720 é a altura padrão do Playwright e a que "funcionava" com 400 px — ela
+  // entra justamente para provar que também estava quebrada para gesto de
+  // verdade. 800 e 900 são a faixa que o dono reportou.
+  // 1080 é a janela ALTA, e não é enfeite: quanto mais alta a tela, mais
+  // longe fica a metade que o encaixe obrigatório exigia, então é nela que o
+  // defeito era pior — e é justamente a altura que uma sonda de 400 px jamais
+  // acusaria, porque 400 perde para 540 com folga.
+  for (const height of [720, 800, 900, 1080]) {
+    test(`catracas de 120 px descem a página numa janela de ${height} px`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height })
+      await page.goto(ROTA)
+      await expect(page.locator('[data-testid="predio-canvas"] canvas')).toBeVisible({
+        timeout: 8000,
+      })
+      await page.waitForTimeout(1200)
+
+      const scroller = scrollerLocator(page)
+      expect(await scroller.evaluate((el) => el.scrollTop)).toBe(0)
+
+      // Quatro catracas de 120 px = 480 px de intenção, com pausa entre elas
+      // para que cada uma seja um gesto próprio — que é como uma roda de mouse
+      // de verdade se comporta, e o pior caso para o encaixe obrigatório.
+      await page.mouse.move(640, height / 2)
+      for (let i = 0; i < 4; i++) {
+        await page.mouse.wheel(0, 120)
+        await page.waitForTimeout(80)
+      }
+      await page.waitForTimeout(600)
+
+      // A faixa é apertada de propósito, em torno dos 480 px de intenção, e ela
+      // reprova os DOIS jeitos de errar. Zero (ou quase) é o encaixe obrigatório
+      // devolvendo o gesto para a origem — o defeito que o dono relatou. Um
+      // múltiplo da altura da tela seria o encaixe voltando por outra porta,
+      // quantizando a descida em andares inteiros em vez de deixá-la contínua —
+      // e contínua é o que a curva `PARADA` de `predio-descida.ts` já modula em
+      // software, sem precisar de CSS nenhum.
+      const andou = await scroller.evaluate((el) => el.scrollTop)
+      expect(
+        andou,
+        `catracas pequenas não moveram nada numa janela de ${height} px`,
+      ).toBeGreaterThanOrEqual(440)
+      expect(
+        andou,
+        `a descida andou em saltos, não 1:1 com o gesto (janela de ${height} px)`,
+      ).toBeLessThanOrEqual(520)
+    })
+  }
+
+  /**
+   * E o mecanismo, preso pelo nome: enquanto a cena está no ar, o contêiner que
+   * rola NÃO pode ter encaixe obrigatório. `proximity` também foi medido e
+   * também não resolve (catracas de 100 px continuam em 0) — só `none` deixa a
+   * rolagem acumular. Quem faz o andar "parar na tela" com a cena montada é a
+   * curva `PARADA` de `predio-descida.ts`, não o CSS.
+   */
+  test('com a cena montada, o contêiner que rola não tem encaixe obrigatório', async ({ page }) => {
+    await page.goto(ROTA)
+    await expect(page.locator('[data-testid="predio-canvas"] canvas')).toBeVisible({
+      timeout: 8000,
+    })
+    const tipo = await scrollerLocator(page).evaluate((el) => getComputedStyle(el).scrollSnapType)
+    expect(tipo, 'o encaixe obrigatório voltou e vai matar a roda de novo').toBe('none')
+  })
+
+  /**
+   * A outra metade do contrato: SEM a cena, o fallback é a página visível e a
+   * decisão do dono ("um andar por tela, sem barra de rolagem") continua
+   * valendo inteira — lá o encaixe é o que alinha a seção ao topo, e não há
+   * cena nenhuma para fazer isso em software.
+   */
+  test('sem a cena, o encaixe obrigatório do fallback continua', async ({ browser }) => {
+    const ctx = await browser.newContext({ reducedMotion: 'reduce' })
+    const page = await ctx.newPage()
+    await page.goto(ROTA)
+    await page.waitForTimeout(2500)
+    await expect(page.locator('[data-testid="predio-canvas"] canvas')).toHaveCount(0)
+    const tipo = await scrollerLocator(page).evaluate((el) => getComputedStyle(el).scrollSnapType)
+    expect(tipo, 'o fallback sozinho perdeu o encaixe que alinha cada andar').toBe('y mandatory')
+    await ctx.close()
+  })
+})

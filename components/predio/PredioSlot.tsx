@@ -236,7 +236,16 @@ export function PredioSlot({ dict, locale }: { dict: Dictionary; locale: Locale 
             : undefined
         }
       >
-        <PredioFallback dict={dict} locale={locale} />
+        {/* `semEncaixe={cena}` — ver o comentário do próprio parâmetro em
+         * `PredioFallback.tsx`. Resumo: `scroll-snap-type: y mandatory` leva a
+         * rolagem para o ponto de encaixe MAIS PRÓXIMO do destino, então um
+         * gesto menor que MEIA TELA volta para onde começou. Uma catraca de
+         * roda de verdade tem ~100 px, e a descida não saía do lugar em altura
+         * nenhuma. Com a cena montada o encaixe não tem o que alinhar (o HTML
+         * está invisível atrás do canvas opaco) e quem faz o andar parar é a
+         * curva `PARADA` da descida; sem a cena o encaixe continua, porque aí é
+         * ele que entrega "um andar por tela". */}
+        <PredioFallback dict={dict} locale={locale} semEncaixe={cena} />
       </div>
     </div>
   )
