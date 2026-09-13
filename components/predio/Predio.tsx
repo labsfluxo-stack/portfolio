@@ -18,6 +18,12 @@ import {
 import { amortecer, quadroDe } from './predio-descida'
 import { corDoAndar, corDoRotulo } from './predio-luz'
 import { capacidadesDo, temPerspectiva, type Capacidades } from './predio-qualidade'
+// A rolagem mora FORA deste arquivo desde a revisão final, e o motivo é de
+// arquitetura: o atalho de teclado precisa valer também SEM a cena (movimento
+// reduzido, aparelho sem WebGL, navegador embutido do Instagram), e quem está
+// sempre montado nesses casos é `PredioSlot` — que não pode importar deste
+// arquivo sem arrastar o three.js inteiro para o HTML inicial.
+import { progressoDoCurso, useRepasseDeRolagem } from './predio-rolagem'
 import { TIERS, type Tier, createMeter, judge, startingStep } from '../three/portico-quality'
 
 /**
@@ -337,26 +343,6 @@ export function xDoObjeto(fracao: number): number {
   return (fracao - 0.5) * MEIA_VAO * 2
 }
 
-/**
- * Progresso 0..1 dentro de uma caixa que rola — ou `null` quando a caixa não é
- * a descida.
- *
- * O guarda-corpo é o CURSO MÍNIMO: só vale como fonte da descida um elemento
- * com pelo menos uma altura de janela de curso. Uma lista pequena com
- * `overflow` em algum canto da página não sequestra a câmera; a descida do
- * prédio tem seis alturas de janela e passa com folga. Rolagem horizontal
- * (bloco de código, tabela) nem chega a ser considerada: nela `scrollHeight ===
- * clientHeight` e o curso é zero.
- */
-export function progressoDoCurso(
-  caixa: { scrollTop: number; scrollHeight: number; clientHeight: number },
-  cursoMinimo: number,
-): number | null {
-  const curso = caixa.scrollHeight - caixa.clientHeight
-  if (curso < Math.max(1, cursoMinimo)) return null
-  return Math.min(1, Math.max(0, caixa.scrollTop / curso))
-}
-
 // ── A rolagem ─────────────────────────────────────────────────────────────
 
 /**
@@ -394,198 +380,6 @@ export function progressoDoCurso(
  * rolou vem em `event.target`, e o progresso sai dele, filtrado por
  * `progressoDoCurso`.
  */
-/**
- * O elemento que de fato rola nesta página, procurado pelo que ele FAZ e não
- * pelo que ele é: curso vertical de pelo menos uma altura de janela. Mesmo
- * critério de `progressoDoCurso`, e pela mesma razão — não amarrar a cena à
- * classe nem ao `data-testid` de um componente que ela não edita.
- */
-let roladorLembrado: HTMLElement | null = null
-
-function serveComoDescida(el: HTMLElement): boolean {
-  return el.isConnected && el.scrollHeight - el.clientHeight >= window.innerHeight
-}
-
-function acharRolador(): HTMLElement | null {
-  // Lembrado entre chamadas porque `useRepasseDeRolagem` chama isto a CADA
-  // evento de roda: varrer todos os `<div>` da página sessenta vezes por
-  // segundo seria pagar em varredura de DOM justamente durante a rolagem, que
-  // é o momento que este arquivo inteiro existe para manter barato. A memória
-  // é revalidada a cada uso, então um `<div>` que saiu do documento ou deixou
-  // de ter curso é descartado em vez de virar um alvo morto.
-  if (roladorLembrado && serveComoDescida(roladorLembrado)) return roladorLembrado
-  roladorLembrado = null
-  for (const el of Array.from(document.querySelectorAll<HTMLElement>('div'))) {
-    if (serveComoDescida(el)) {
-      roladorLembrado = el
-      return el
-    }
-  }
-  return null
-}
-
-/**
- * As teclas de rolagem movem a descida — e a razão de isto existir é um defeito
- * que o dono encontrou: "não consigo rolar para baixo e para cima".
- *
- * Metade era ponteiro (ver o contêiner da cena). A outra metade é esta: o
- * elemento que rola não é focável, `document.activeElement` é `<body>`, e as
- * teclas de rolagem vão para o DOCUMENTO — que nesta rota tem `scrollHeight ===
- * innerHeight` e não rola. O visitante apertava Page Down e nada acontecia.
- *
- * POR QUE NÃO A FORMA PADRÃO (contêiner de rolagem focável, com nome
- * acessível). Ela foi testada no navegador antes de ser descartada, e o
- * resultado está medido: com `tabindex="0"` no contêiner que rola, UM CLIQUE
- * DE MOUSE em qualquer lugar da cena passa a focá-lo; `focus-within:z-50` em
- * `PredioSlot.tsx` dispara; e a camada do fallback sobe para `z-index: 50`, na
- * FRENTE da cena. Um clique no prédio trocaria o prédio por sete telas de HTML
- * — defeito pior que o que se estava consertando. Desfazer isso exigiria
- * reescrever o `focus-within` (achado de revisão endurecido) para
- * `:has(:focus-visible)`, e num navegador sem `:has()` a revelação por foco
- * simplesmente não aconteceria: voltaria o WCAG 2.4.7 que aquele mecanismo
- * existe para resolver. Troca ruim.
- *
- * O QUE ISTO FAZ, e o que deliberadamente NÃO faz. Só age quando NINGUÉM está
- * focado — ou seja, exatamente na janela em que o navegador mandaria as teclas
- * para um documento que não rola. No instante em que o visitante tabula para
- * dentro do fallback (a camada de teclado desta página, por decisão
- * arquitetural de `PredioSlot.tsx`), `activeElement` deixa de ser `<body>`,
- * este atalho se cala e o tratamento NATIVO assume. Não há captura de foco,
- * não há tecla roubada de campo de texto, e o movimento continua sendo
- * `scrollTo`/`scrollBy` do navegador — com o `scroll-snap` do fallback fazendo
- * a parada cair no andar, como já fazia. Nada aqui interpola posição: essa é a
- * linha que separa isto de uma biblioteca de scroll suave, que a spec proíbe
- * por custo de INP.
- *
- * Um degrau de tecla é UMA TELA, não os ~40 px nativos da seta: o fallback é
- * `snap-mandatory`, e qualquer passo menor que meia tela volta para o mesmo
- * ponto de encaixe. Uma tecla, um andar — que é a própria unidade da página.
- */
-function useTeclasDeDescida(): void {
-  useEffect(() => {
-    const aoTeclar = (evento: KeyboardEvent) => {
-      if (evento.defaultPrevented || evento.altKey || evento.ctrlKey || evento.metaKey) return
-      // Só quando o foco não está em lugar nenhum. Com qualquer coisa focada, o
-      // navegador já sabe o que fazer e faz melhor.
-      const ativo = document.activeElement
-      if (ativo && ativo !== document.body && ativo !== document.documentElement) return
-
-      const rolador = acharRolador()
-      if (!rolador) return
-      const tela = rolador.clientHeight
-      const fim = rolador.scrollHeight - tela
-
-      let destino: number | null = null
-      switch (evento.key) {
-        case 'PageDown':
-        case 'ArrowDown':
-          destino = Math.min(fim, rolador.scrollTop + tela)
-          break
-        case 'PageUp':
-        case 'ArrowUp':
-          destino = Math.max(0, rolador.scrollTop - tela)
-          break
-        case ' ':
-          destino = evento.shiftKey
-            ? Math.max(0, rolador.scrollTop - tela)
-            : Math.min(fim, rolador.scrollTop + tela)
-          break
-        case 'Home':
-          destino = 0
-          break
-        case 'End':
-          destino = fim
-          break
-        default:
-          return
-      }
-
-      evento.preventDefault()
-      rolador.scrollTo({ top: destino })
-    }
-
-    window.addEventListener('keydown', aoTeclar)
-    return () => window.removeEventListener('keydown', aoTeclar)
-  }, [])
-}
-
-/**
- * A rolagem SOBRE UMA ÂNCORA — o último buraco da correção da rolagem travada,
- * e o mais traiçoeiro dos três porque só aparece com o cursor num lugar certo.
- *
- * As âncoras precisam de `pointer-events: auto` (é o clique inteiro do
- * recurso), e com isso voltam a ser alvo de evento. Só que elas são filhas da
- * camada da cena, que é `position: fixed` e não rola: o encadeamento de rolagem
- * a partir delas sobe para `body`/`html`, que nesta rota não rolam. Medido: com
- * o cursor parado sobre "Ver os sistemas em produção", cinco eventos de roda
- * deixam `scrollTop` em 0. A descida trava de novo — só que agora num retângulo
- * de 189 × 44 px em vez da tela inteira.
- *
- * DUAS SAÍDAS FORAM MEDIDAS E DESCARTADAS ANTES DESTA:
- *   - Mover a sobreposição para DENTRO do elemento que rola (portal de React).
- *     Não funciona: um elemento `position: fixed` é retirado do conteúdo
- *     rolável do ancestral, então o encadeamento continua indo para a janela.
- *     Testado no navegador movendo o nó à mão — `scrollTop` seguiu em 0.
- *   - Deixar a sobreposição rolar junto com o conteúdo (`absolute` de verdade,
- *     compensando `scrollTop` a cada quadro). Funciona, mas a compensação só
- *     acontece no quadro seguinte: em rolagem rápida a âncora treme um quadro
- *     inteiro atrás do objeto.
- *
- * O que sobrou é REPASSAR. Repasse não é biblioteca de scroll suave, e a
- * diferença é exatamente a que a spec proíbe: aqui não há interpolação, curva
- * nem relógio próprio — o delta bruto vai direto para `scrollBy`, e quem faz
- * encaixe, inércia e limite continua sendo o navegador. O custo de INP fica
- * onde não importa: este listener só é alcançado por eventos que começam EM
- * CIMA de uma âncora, porque todo o resto da camada é `pointer-events: none`.
- * A rolagem comum da página nunca passa por aqui.
- */
-function useRepasseDeRolagem(alvo: RefObject<HTMLDivElement | null>): void {
-  useEffect(() => {
-    const no = alvo.current
-    if (!no) return
-
-    // Passivo de propósito: sem `preventDefault`. O navegador ainda tenta rolar
-    // a cadeia da âncora, que não rola nada, então não há rolagem dupla — e a
-    // promessa de passividade mantém o evento fora do caminho crítico.
-    const aoGirar = (evento: WheelEvent) => {
-      acharRolador()?.scrollBy({ top: evento.deltaY })
-    }
-
-    // O toque é o oposto: aqui `preventDefault` é obrigatório, senão o gesto
-    // não vira rolagem nenhuma. Por isso `{ passive: false }` — e por isso ele
-    // fica preso a ESTE nó, nunca ao documento.
-    let ultimoY: number | null = null
-    const aoTocar = (evento: TouchEvent) => {
-      ultimoY = evento.touches[0]?.clientY ?? null
-    }
-    const aoArrastar = (evento: TouchEvent) => {
-      const y = evento.touches[0]?.clientY
-      if (y === undefined || ultimoY === null) return
-      const rolador = acharRolador()
-      if (!rolador) return
-      evento.preventDefault()
-      rolador.scrollBy({ top: ultimoY - y })
-      ultimoY = y
-    }
-    const aoSoltar = () => {
-      ultimoY = null
-    }
-
-    no.addEventListener('wheel', aoGirar, { passive: true })
-    no.addEventListener('touchstart', aoTocar, { passive: true })
-    no.addEventListener('touchmove', aoArrastar, { passive: false })
-    no.addEventListener('touchend', aoSoltar, { passive: true })
-    no.addEventListener('touchcancel', aoSoltar, { passive: true })
-    return () => {
-      no.removeEventListener('wheel', aoGirar)
-      no.removeEventListener('touchstart', aoTocar)
-      no.removeEventListener('touchmove', aoArrastar)
-      no.removeEventListener('touchend', aoSoltar)
-      no.removeEventListener('touchcancel', aoSoltar)
-    }
-  }, [alvo])
-}
-
 function useProgressoDeRolagem(): RefObject<number> {
   const progresso = useRef(0)
 
@@ -1474,12 +1268,6 @@ function Sobreposicao({
 // ── O componente ──────────────────────────────────────────────────────────
 
 export function Predio({ dict, locale, vsync }: { dict: Dictionary; locale: Locale; vsync: number }) {
-  // FORA do `<Canvas>`, de proposito. As teclas nao dependem de three.js
-  // nenhum, e um efeito registrado dentro da cena so roda quando o
-  // reconciliador do r3f confirma — depois de o `<canvas>` ja existir no DOM.
-  // Medido: nessa janela o visitante ve o predio e Page Down nao faz nada.
-  // Aqui o atalho esta vivo no mesmo instante em que o componente monta.
-  useTeclasDeDescida()
   const [andar, setAndar] = useState(0)
   const vivos = useMemo(() => janelaDeAndares(andar), [andar])
   const brilhos = useRef(new Map<string, boolean>())

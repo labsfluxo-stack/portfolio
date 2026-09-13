@@ -9,9 +9,9 @@ import {
   janelaDeAndares,
   ladrilhosDoPlano,
   pecasDoObjeto,
-  progressoDoCurso,
   xDoObjeto,
 } from '@/components/predio/Predio'
+import { progressoDoCurso } from '@/components/predio/predio-rolagem'
 import { ANDARES } from '@/components/predio/predio-programa'
 import { ALTURA_ANDAR, PILARES, PLANOS } from '@/components/predio/predio-arquitetura'
 import { quadroDe } from '@/components/predio/predio-descida'

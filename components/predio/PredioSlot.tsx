@@ -5,6 +5,7 @@ import type { Dictionary, Locale } from '@/content/types'
 import { PredioFallback } from './PredioFallback'
 import { hasWebGL } from '../three/PorticoSlot'
 import { VSYNC_DEFAULT, measureVsync } from '../three/portico-quality'
+import { useTeclasDeDescida } from './predio-rolagem'
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)'
 
@@ -86,39 +87,68 @@ const Predio = dynamic(() => import('./Predio').then((m) => m.Predio), { ssr: fa
  * certa; o RECORTE visual é que sabotava a técnica de revelar-ao-focar).
  *
  * A correção troca RECORTE por EMPILHAMENTO. O invólucro do fallback nunca é
- * `sr-only`/`hidden`/`invisible` — continua sendo uma caixa normal, do
- * tamanho normal, só numa camada de pilha (`z-index`) mais baixa que a da
- * cena por padrão (`-z-10`) e mais alta assim que QUALQUER coisa lá dentro
- * tem foco (`focus-within:z-50` — mesma linguagem visual de `focus:z-50` que
- * `PredioIndicador`/`SkipLink` já usam). Como não há recorte, um link
- * focado É uma caixa pintável o tempo todo; só muda em qual camada ele pinta.
+ * `sr-only`/`hidden`/`invisible` — continua sendo uma caixa normal, do tamanho
+ * normal, só numa camada de pilha mais baixa que a da cena, e mais alta assim
+ * que QUALQUER coisa lá dentro tem foco (`focus-within:z-50` — mesma linguagem
+ * visual de `focus:z-50` que `PredioIndicador`/`SkipLink` já usam). Como não há
+ * recorte, um link focado É uma caixa pintável o tempo todo; só muda em qual
+ * camada ele pinta.
  *
- * `z-index` só tem efeito em elemento POSICIONADO (`position` != `static`) —
- * e dar `position: relative` a este invólucro reintroduziria exatamente o
- * problema do critério de aceite herdado (ver abaixo): um ancestral
- * posicionado novo, na cadeia que leva até `PredioIndicador`. A saída é a
- * exceção do próprio CSS Flexbox: um FILHO DIRETO de um contêiner `flex`
- * respeita `z-index` para fins de empilhamento MESMO com `position: static`
- * — sem se tornar, ele mesmo, um bloco de contenção para descendentes
- * `position: absolute` (isso exige `position` de verdade, que este invólucro
- * nunca ganha). Por isso o invólucro externo agora é `flex flex-col`: dá
- * significado ao `z-index` do invólucro do fallback sem tocar em `position`
- * em lugar nenhum da cadeia.
+ * QUAL DAS DUAS CAMADAS CARREGA O `z-index` — e esta prosa já descreveu o
+ * arranjo ERRADO uma vez (achado de revisão: comentário e teste se
+ * contradiziam, no arquivo mais delicado do recurso), então vale escrever
+ * exatamente o que está no código hoje:
  *
- * A camada da cena (o `<div aria-hidden>` que envolve `<Predio>`) É
- * `position: fixed` de propósito — "a página rola; o canvas fica parado atrás
- * dela" (brief da Task 8) — e leva `z-0` explícito, deliberado, para não
- * depender de sorte na comparação com o `-z-10`/`focus-within:z-50` do
- * fallback (achado Menor do mesmo round: a versão anterior tinha `-z-10` no
- * PRÓPRIO contêiner do canvas, dentro de `Predio.tsx`, contradizendo este
- * comentário — só inofensivo por acidente, porque o fallback preso em
- * `sr-only` já estava apagado de qualquer jeito, então nenhuma ordem de
- * pilha chegava a importar). Ver o comentário em `Predio.tsx` para a outra
- * metade dessa decisão.
+ *   - CAMADA DA CENA: `pointer-events-none fixed inset-0 z-10`.
+ *   - CAMADA DO FALLBACK: SEM `z-index` no repouso, no fluxo normal, mais
+ *     `focus-within:z-50` para subir quando algo lá dentro recebe foco.
+ *   - INVÓLUCRO EXTERNO: `flex flex-col w-full`, com ponteiro INTACTO.
+ *
+ * A versão anterior punha `-z-10` no fallback e `z-0` na cena. Pintava igual, e
+ * quebrava a rolagem: `z-index` negativo pinta ANTES do conteúdo em fluxo, então
+ * a camada do fallback ficava abaixo dos PRÓPRIOS ANCESTRAIS no teste de acerto
+ * — `elementFromPoint` no centro da tela devolvia `<body>`, e o elemento que
+ * rola, que mora dentro dela, nunca recebia a roda do mouse. Invertendo (a cena
+ * SOBE em vez de o fallback descer), a ordem de pintura é a mesma e o fallback
+ * volta a ser alcançável pelo ponteiro. `tests/unit/predio-slot.test.tsx`
+ * proíbe explicitamente o `z-index` negativo de voltar.
+ *
+ * `z-index` só tem efeito em elemento POSICIONADO (`position` != `static`) — e
+ * dar `position: relative` a estes invólucros reintroduziria exatamente o
+ * problema do critério de aceite herdado (ver abaixo): um ancestral posicionado
+ * novo, na cadeia que leva até `PredioIndicador`. A saída é a exceção do
+ * próprio CSS Flexbox: um FILHO DIRETO de um contêiner `flex` respeita
+ * `z-index` para fins de empilhamento MESMO com `position: static` — sem se
+ * tornar, ele mesmo, um bloco de contenção para descendentes `position:
+ * absolute` (isso exige `position` de verdade, que estes invólucros nunca
+ * ganham). Por isso o invólucro externo é `flex flex-col`: dá significado ao
+ * `z-index` do `focus-within` do fallback sem tocar em `position` em lugar
+ * nenhum da cadeia.
+ *
+ * A camada da cena é `position: fixed` de propósito — "a página rola; o canvas
+ * fica parado atrás dela" (brief da Task 8) — e `pointer-events-none` porque,
+ * sendo `fixed`, ela NÃO está na cadeia de rolagem de quem rola: com ponteiro
+ * ligado, ela engolia toda roda e todo toque. Ver o comentário em `Predio.tsx`
+ * para a outra metade dessa decisão.
  */
 export function PredioSlot({ dict, locale }: { dict: Dictionary; locale: Locale }) {
   const [cena, setCena] = useState(false)
   const [vsync, setVsync] = useState(VSYNC_DEFAULT)
+
+  // AQUI, e não dentro de `<Predio>` — achado Crítico da revisão final.
+  //
+  // Enquanto a chamada morava na cena, o atalho de teclado só existia quando a
+  // cena existia: quem liga movimento reduzido, quem está num aparelho sem
+  // WebGL e quem abre pelo navegador embutido do Instagram ficava sem Page
+  // Down, Home, End e setas — justamente na camada que é a ACESSÍVEL, e sobre
+  // a qual todo o argumento deste arquivo se apoia. Era o defeito original do
+  // dono sobrevivendo numa segunda porta.
+  //
+  // `PredioSlot` está sempre montado, com cena ou sem ela, então é daqui que o
+  // atalho vale para os dois caminhos. E o hook vive em `predio-rolagem.ts`,
+  // sem three.js, justamente para que importá-lo aqui não arraste a biblioteca
+  // para o HTML inicial — que é o que `next/dynamic` acima existe para evitar.
+  useTeclasDeDescida()
 
   useEffect(() => {
     if (!hasWebGL()) return
@@ -172,21 +202,12 @@ export function PredioSlot({ dict, locale }: { dict: Dictionary; locale: Locale 
   // contenção para `position: absolute` (só `position` de verdade faz isso);
   // é usado aqui só para dar significado ao `z-index` do invólucro do
   // fallback abaixo, pela exceção do Flexbox (ver o comentário grande acima).
-  // `pointer-events-none` NO INVÓLUCRO EXTERNO enquanto a cena está no ar, e
-  // este é o passo que faltava para a roda do mouse chegar em quem rola.
-  //
-  // Medido: com a camada da cena já transparente ao ponteiro, o
-  // `elementFromPoint` no centro da tela passou a devolver ESTE `<div>` — não o
-  // fallback. A razão é o `-z-10` do fallback: `z-index` negativo pinta ANTES
-  // do conteúdo em fluxo do contexto de empilhamento, então a camada do
-  // fallback fica embaixo do PRÓPRIO PAI para efeito de teste de acerto. O pai
-  // ganhava o evento, e o encadeamento de rolagem a partir dele sobe — nunca
-  // desce até o filho que rola.
-  //
-  // Com o pai transparente, o acerto atravessa e aterrissa dentro do fallback,
-  // que é o elemento que rola: aí o navegador tem o que rolar. Só vale
-  // enquanto a cena existe; sem cena, o fallback É a página e precisa do
-  // ponteiro inteiro.
+  // O ponteiro deste invólucro fica INTACTO: a tentativa de apagá-lo aqui foi
+  // um passo intermediário de uma correção anterior, e deixou de ser necessária
+  // quando o `-z-10` saiu do fallback. Com o fallback de volta ao fluxo normal,
+  // o acerto de ponteiro já aterrissa dentro dele sem precisar atravessar o
+  // pai — e apagar o ponteiro aqui quebraria o caminho SEM cena, onde o
+  // fallback é a página inteira e precisa receber tudo.
   return (
     <div className="flex flex-col w-full">
       {/* `pointer-events-none` NESTE invólucro, além do que `Predio.tsx` já põe
@@ -236,16 +257,7 @@ export function PredioSlot({ dict, locale }: { dict: Dictionary; locale: Locale 
             : undefined
         }
       >
-        {/* `semEncaixe={cena}` — ver o comentário do próprio parâmetro em
-         * `PredioFallback.tsx`. Resumo: `scroll-snap-type: y mandatory` leva a
-         * rolagem para o ponto de encaixe MAIS PRÓXIMO do destino, então um
-         * gesto menor que MEIA TELA volta para onde começou. Uma catraca de
-         * roda de verdade tem ~100 px, e a descida não saía do lugar em altura
-         * nenhuma. Com a cena montada o encaixe não tem o que alinhar (o HTML
-         * está invisível atrás do canvas opaco) e quem faz o andar parar é a
-         * curva `PARADA` da descida; sem a cena o encaixe continua, porque aí é
-         * ele que entrega "um andar por tela". */}
-        <PredioFallback dict={dict} locale={locale} semEncaixe={cena} />
+        <PredioFallback dict={dict} locale={locale} />
       </div>
     </div>
   )

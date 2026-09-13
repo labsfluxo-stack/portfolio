@@ -502,7 +502,7 @@ test.describe('a descida se move por entrada humana', () => {
     ).toBeGreaterThan(0)
   })
 
-  test('as setas movem a descida, e o toque no celular também', async ({ browser }) => {
+  test('as setas movem a descida no celular', async ({ browser }) => {
     const ctx = await browser.newContext(IPHONE_13_CHROMIUM)
     const page = await ctx.newPage()
     await page.goto(ROTA)
@@ -550,6 +550,112 @@ test.describe('a descida se move por entrada humana', () => {
  * altura só, ou com um gesto grande, é o que deixou o defeito chegar ao dono
  * duas vezes.
  */
+/**
+ * O TOQUE — a entrada principal do celular, e até agora sem uma linha de
+ * cobertura em todo o ramo.
+ *
+ * O teste que dizia cobri-lo ("as setas movem a descida, e o toque no celular
+ * também") só apertava `ArrowDown` duas vezes: o nome fechava um buraco que o
+ * corpo não fechava. O repasse de `touchstart`/`touchmove` em `Predio.tsx`
+ * existia sem nenhuma prova, num recurso onde celular é requisito duro.
+ *
+ * `page.touchscreen` do Playwright só dá TAP. Para um ARRASTO é preciso
+ * `Input.dispatchTouchEvent` por CDP, com passos intermediários — um
+ * `touchStart` seguido de um `touchEnd` distante não é um gesto de rolagem
+ * para o navegador, é um toque que pulou.
+ */
+test.describe('o toque arrasta a descida', () => {
+  async function arrastar(
+    ctx: import('@playwright/test').BrowserContext,
+    page: import('@playwright/test').Page,
+    x: number,
+    y: number,
+    distancia: number,
+  ) {
+    const cdp = await ctx.newCDPSession(page)
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
+    const passos = 12
+    for (let i = 1; i <= passos; i++) {
+      await cdp.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x, y: y - (distancia * i) / passos }],
+      })
+      await page.waitForTimeout(16)
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await cdp.detach()
+  }
+
+  test('um arrasto no vazio da cena desce o prédio', async ({ browser }) => {
+    const ctx = await browser.newContext(IPHONE_13_CHROMIUM)
+    const page = await ctx.newPage()
+    await page.goto(ROTA)
+    await expect(page.locator('[data-testid="predio-canvas"] canvas')).toBeVisible({ timeout: 8000 })
+    await page.waitForTimeout(1200)
+    const scroller = scrollerLocator(page)
+
+    const tela = page.viewportSize()!
+    await arrastar(ctx, page, Math.round(tela.width / 2), Math.round(tela.height * 0.75), 300)
+    await page.waitForTimeout(800)
+    expect(
+      await scroller.evaluate((el) => el.scrollTop),
+      'o arrasto no vazio da cena não moveu a descida',
+    ).toBeGreaterThan(0)
+    await ctx.close()
+  })
+
+  /**
+   * E o caso que o repasse existe para cobrir: o dedo começando EM CIMA de uma
+   * âncora. As âncoras são o único ponto da camada da cena com
+   * `pointer-events: auto`, e são filhas de um `fixed` que não rola — sem
+   * repasse, o gesto morre ali, do mesmo jeito que a roda morria.
+   */
+  test('um arrasto começando sobre uma âncora também desce', async ({ browser }) => {
+    const ctx = await browser.newContext(IPHONE_13_CHROMIUM)
+    const page = await ctx.newPage()
+    await page.goto(ROTA)
+    await expect(page.locator('[data-testid="predio-canvas"] canvas')).toBeVisible({ timeout: 8000 })
+    await page.waitForTimeout(1500)
+
+    const ancora = page.locator('[data-testid="predio-canvas"] a').first()
+    const caixa = await ancora.boundingBox()
+    expect(caixa, 'nenhuma âncora na tela para começar o arrasto').not.toBeNull()
+    const x = Math.round(caixa!.x + caixa!.width / 2)
+    const y = Math.round(caixa!.y + caixa!.height / 2)
+    expect(
+      await page.evaluate(({ px, py }) => document.elementFromPoint(px, py)?.tagName, { px: x, py: y }),
+      'o ponto escolhido não é a âncora',
+    ).toBe('A')
+
+    const scroller = scrollerLocator(page)
+    await arrastar(ctx, page, x, y, 260)
+    await page.waitForTimeout(800)
+    expect(
+      await scroller.evaluate((el) => el.scrollTop),
+      'o arrasto morreu em cima da âncora',
+    ).toBeGreaterThan(0)
+    await ctx.close()
+  })
+
+  /** Sem a cena — a camada acessível — o dedo também precisa funcionar. */
+  test('sem a cena, o arrasto move o fallback', async ({ browser }) => {
+    const ctx = await browser.newContext({ ...IPHONE_13_CHROMIUM, reducedMotion: 'reduce' })
+    const page = await ctx.newPage()
+    await page.goto(ROTA)
+    await page.waitForTimeout(2500)
+    await expect(page.locator('[data-testid="predio-canvas"] canvas')).toHaveCount(0)
+    const scroller = scrollerLocator(page)
+    const tela = page.viewportSize()!
+    await arrastar(ctx, page, Math.round(tela.width / 2), Math.round(tela.height * 0.75), 300)
+    await page.waitForTimeout(800)
+    expect(
+      await scroller.evaluate((el) => el.scrollTop),
+      'o arrasto não move o fallback sem a cena',
+    ).toBeGreaterThan(0)
+    await ctx.close()
+  })
+})
+
 test.describe('a roda pequena move a descida, em qualquer altura de janela', () => {
   // 720 é a altura padrão do Playwright e a que "funcionava" com 400 px — ela
   // entra justamente para provar que também estava quebrada para gesto de
@@ -616,19 +722,85 @@ test.describe('a roda pequena move a descida, em qualquer altura de janela', () 
   })
 
   /**
-   * A outra metade do contrato: SEM a cena, o fallback é a página visível e a
-   * decisão do dono ("um andar por tela, sem barra de rolagem") continua
-   * valendo inteira — lá o encaixe é o que alinha a seção ao topo, e não há
-   * cena nenhuma para fazer isso em software.
+   * A CAMADA ACESSÍVEL TAMBÉM TEM DE ROLAR — e a versão anterior deste teste
+   * fazia o contrário: afirmava `scrollSnapType === 'y mandatory'` sem a cena,
+   * ou seja, CERTIFICAVA a configuração que este arquivo inteiro já tinha
+   * medido como "qualquer gesto menor que meia tela volta para a origem". A
+   * suíte estava protegendo o defeito de ser consertado.
+   *
+   * O caminho sem cena não é um caso de borda: é o que recebe quem liga
+   * movimento reduzido, quem está num aparelho sem WebGL e quem abre o link
+   * pelo navegador embutido do Instagram — que a spec nomeia como teste
+   * obrigatório. É também a camada em que TODO o argumento de acessibilidade de
+   * `PredioSlot.tsx` se apoia.
    */
-  test('sem a cena, o encaixe obrigatório do fallback continua', async ({ browser }) => {
+  test('sem a cena, a roda e o teclado movem o fallback', async ({ browser }) => {
     const ctx = await browser.newContext({ reducedMotion: 'reduce' })
     const page = await ctx.newPage()
     await page.goto(ROTA)
     await page.waitForTimeout(2500)
+    // Confirma que estamos MESMO no caminho sem cena: sem esta linha o teste
+    // poderia passar medindo a cena montada e não provar nada sobre o fallback.
     await expect(page.locator('[data-testid="predio-canvas"] canvas')).toHaveCount(0)
-    const tipo = await scrollerLocator(page).evaluate((el) => getComputedStyle(el).scrollSnapType)
-    expect(tipo, 'o fallback sozinho perdeu o encaixe que alinha cada andar').toBe('y mandatory')
+
+    const scroller = scrollerLocator(page)
+    expect(await scroller.evaluate((el) => el.scrollTop)).toBe(0)
+
+    // Catraca de roda de verdade, o pior caso para o encaixe obrigatório.
+    await page.mouse.move(640, 360)
+    for (let i = 0; i < 4; i++) {
+      await page.mouse.wheel(0, 120)
+      await page.waitForTimeout(80)
+    }
+    await page.waitForTimeout(600)
+    const comRoda = await scroller.evaluate((el) => el.scrollTop)
+    expect(comRoda, 'a roda não move o fallback sem a cena').toBeGreaterThanOrEqual(440)
+
+    // E o teclado, que sem a cena não tinha handler nenhum: as teclas iam para
+    // o documento, que tem altura exata de uma tela e não rola.
+    await page.keyboard.press('Home')
+    await page.waitForTimeout(400)
+    await page.keyboard.press('PageDown')
+    await page.waitForTimeout(600)
+    expect(
+      await scroller.evaluate((el) => el.scrollTop),
+      'Page Down não move o fallback sem a cena',
+    ).toBeGreaterThan(0)
+
+    await page.keyboard.press('End')
+    await page.waitForTimeout(700)
+    const fim = await scroller.evaluate((el) => el.scrollTop)
+    expect(fim, 'End não leva o fallback até a recepção').toBe(
+      await scroller.evaluate((el) => el.scrollHeight - el.clientHeight),
+    )
     await ctx.close()
+  })
+
+  /**
+   * O mecanismo preso pelo nome, NOS DOIS CAMINHOS. O encaixe obrigatório é a
+   * configuração que devolve todo gesto menor que meia tela — e ele não pode
+   * voltar nem com a cena, nem sem ela.
+   */
+  test('nenhum dos dois caminhos usa encaixe obrigatório', async ({ browser }) => {
+    const comCena = await browser.newContext()
+    const p1 = await comCena.newPage()
+    await p1.goto(ROTA)
+    await expect(p1.locator('[data-testid="predio-canvas"] canvas')).toBeVisible({ timeout: 8000 })
+    expect(
+      await scrollerLocator(p1).evaluate((el) => getComputedStyle(el).scrollSnapType),
+      'o encaixe obrigatório voltou no caminho COM cena',
+    ).toBe('none')
+    await comCena.close()
+
+    const semCena = await browser.newContext({ reducedMotion: 'reduce' })
+    const p2 = await semCena.newPage()
+    await p2.goto(ROTA)
+    await p2.waitForTimeout(2500)
+    await expect(p2.locator('[data-testid="predio-canvas"] canvas')).toHaveCount(0)
+    expect(
+      await scrollerLocator(p2).evaluate((el) => getComputedStyle(el).scrollSnapType),
+      'o encaixe obrigatório voltou no caminho SEM cena',
+    ).toBe('none')
+    await semCena.close()
   })
 })
