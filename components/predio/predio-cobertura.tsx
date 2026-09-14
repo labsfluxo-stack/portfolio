@@ -65,7 +65,7 @@ export function Cobertura({
     // Massa vertical — a parte que faltava.
     const gPoste = new THREE.BoxGeometry(0.14, 2.6, 0.14)
     const gRipaPergola = new THREE.BoxGeometry(0.09, 0.12, 4.6)
-    const gVigaPergola = new THREE.BoxGeometry(9.4, 0.18, 0.16)
+    const gVigaPergola = new THREE.BoxGeometry(12.2, 0.18, 0.16)
     const gMastro = new THREE.BoxGeometry(0.08, 2.2, 0.08)
     const gLona = new THREE.ConeGeometry(1.5, 0.42, 8)
     const gVasoAlto = new THREE.BoxGeometry(0.95, 0.85, 0.95)
@@ -129,26 +129,49 @@ export function Cobertura({
      * cima da tela e recorta o céu. Sem ele o horizonte fica limpo e o andar lê
      * como maquete. As ripas em fuga ainda dão o raio de sol listrado no deck.
      */
-    // Postes dentro de `cabe(zPergolaFrente)` ≈ 9,0 m: o da ponta encosta na
-    // borda do quadro, que é onde ele deve encostar — estrutura cortada pela
-    // moldura diz "continua", estrutura longe da moldura diz "maquete".
-    const xPostes = [-9.0, -6.2, -3.4]
+    /**
+     * O PERGOLADO ATRAVESSA O CENTRO, e essa mudança é a regra do CELULAR.
+     *
+     * A meia-largura visível não é a mesma em todo formato: ela é
+     * `tan(fov/2) · aspecto · distância`. Em 1280×720 dá ±11,5 m na altura das
+     * árvores; em 390×844 o aspecto cai para 0,462 e a mesma conta dá **±2,8 m**.
+     * Medido no render do dono: as árvores em x = −3,0 e x = 1,8 caem em 10 px e
+     * 320 px de uma tela de 390.
+     *
+     * Ou seja, o celular vê uma COLUNA de três metros no meio do prédio. Tudo o
+     * que eu tinha montado — pergolado em −9, guarda-sol em 6, bar em 9 — ficava
+     * inteiro fora dela, e o telefone mostrava laje vazia com um pilar.
+     *
+     * Repare que o andar 07 não sofre disso: o datacenter é denso de ponta a
+     * ponta, então qualquer coluna de três metros pega rack, cabo e LED. A
+     * cobertura era esparsa e organizada nas pontas. A regra que sai daí, e vale
+     * para os cinco andares que ainda não têm conteúdo:
+     *
+     *     TODO ANDAR PRECISA DE UMA COMPOSIÇÃO COMPLETA DENTRO DE |x| < 3.
+     *     O que está além disso é bônus de tela grande, nunca o essencial.
+     *
+     * Não é caso de mexer na lente: em retrato, ver 26 m de largura exigiria ver
+     * 56 m de altura, e o prédio inteiro tem 24,85 m. A geometria não fecha. Quem
+     * se adapta é o conteúdo.
+     */
+    const xPostes = [-8.0, -4.2, -0.4, 3.4]
     for (const x of xPostes)
       for (const z of [zPergolaFrente, zPergolaFundo])
         col.poe('poste', gPoste, mMadeiraEscura, [x, piso + 1.3, z])
     for (const z of [zPergolaFrente, zPergolaFundo])
-      col.poe('viga', gVigaPergola, mMadeiraEscura, [-6.2, piso + 2.5, z])
-    for (let i = 0; i < 15; i++)
+      col.poe('viga', gVigaPergola, mMadeiraEscura, [-2.3, piso + 2.5, z])
+    for (let i = 0; i < 27; i++)
       col.poe('ripaPergola', gRipaPergola, mMadeiraEscura, [
-        -9.3 + i * 0.44,
+        -8.3 + i * 0.46,
         piso + 2.62,
         (zPergolaFrente + zPergolaFundo) / 2,
       ])
 
     // Espreguiçadeiras: silhueta baixa e horizontal, em fila. É a forma que o
-    // olho lê como "descanso" mesmo a quarenta metros. Três sob o pergolado,
-    // três sob os guarda-sóis. Todas dentro de `cabe(zEspreguicadeiras)` ≈ 9,1 m.
-    for (const x of [-8.6, -6.4, -4.2, 4.2, 6.4, 8.6]) {
+    // olho lê como "descanso" mesmo a quarenta metros. O PAR DO MEIO (±2,3) é o
+    // que o celular enxerga — fora ele, o telefone via deck vazio na frente da
+    // piscina. As das pontas continuam para quem abre em tela larga.
+    for (const x of [-8.4, -6.1, -2.3, 2.3, 6.1, 8.4]) {
       const z = zEspreguicadeiras
       col.poe('assento', gAssento, mEspreguicadeira, [x, piso + 0.33, z])
       col.poe('encosto', gEncosto, mEspreguicadeira, [x, piso + 0.52, z - 0.78], [-0.85, 0, 0])
