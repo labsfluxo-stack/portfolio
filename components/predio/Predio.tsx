@@ -202,6 +202,34 @@ const tom = (hex: string, fator: number): string =>
 // o nível é a cor, não o multiplicador.
 const ALBEDO = { laje: 1.15, teto: 0.78, parede: 0.97, viga: 1.06, objeto: 0.51 } as const
 
+/**
+ * AS SUPERFÍCIES DO ANDAR 07, que deixam de sair da paleta.
+ *
+ * O arco de temperatura de `predio-luz.ts` pinta o AR de cada andar, e é uma
+ * boa regra: a cor conta o setor antes de qualquer legenda. Só que o ar do
+ * andar 07 é `#6b5544`, um marrom quente — e multiplicado pelo albedo da laje
+ * ele vira um piso de MADEIRA CLARA. O render mostrou um datacenter inteiro
+ * montado dentro de um galpão de tábua corrida.
+ *
+ * Não é caso de mexer na paleta: `#6b5544` está certo como AR (a penumbra
+ * quente entre os racks vem dele, e o arco depende de ele estar ali). O que
+ * estava errado era deduzir a cor do CONCRETO da cor da luz. Sala de máquina
+ * tem piso epóxi cinza, laje escura e parede escura, e isso não é gosto — é o
+ * que absorve calor e não mancha.
+ *
+ * Fica restrito a este andar de propósito. É a primeira vez que um andar
+ * precisa de superfície própria, e generalizar agora seria inventar uma tabela
+ * para um caso só; quando o segundo andar pedir, a forma da tabela já estará
+ * decidida por dois exemplos em vez de um.
+ */
+const SALA_FRIA = {
+  laje: '#63666d',
+  teto: '#15171a',
+  parede: '#1b1e22',
+  viga: '#2b2f34',
+  objeto: '#2e333a',
+} as const
+
 // Mesma constante que `PredioFallback.tsx`, `Header.tsx` e `lib/seo.ts` usam:
 // a forma canônica de ler o `basePath` fora do que o Next resolve sozinho.
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '/portfolio'
@@ -706,13 +734,22 @@ function AndarVivo({
           vegetação: o mínimo que diz "os negócios vão bem e tranquilos" sem
           escrever isso, que é o que a spec pede deste andar. */}
       {cobertura && (
-        <Cobertura piso={piso} zCentro={zCentro} prof={prof} meiaLargura={MEIA_LARGURA} ceu={CEU} />
+        <Cobertura piso={piso} zCentro={zCentro} prof={prof} meiaLargura={MEIA_LARGURA} />
       )}
       {/* A laje que o andar pisa. É ela que recebe a sombra longa — o único
-          plano da cena em que a mancha de 7 m tem onde cair. */}
+          plano da cena em que a mancha de 7 m tem onde cair.
+
+          No andar 07 ela é PISO EPÓXI: cinza, e com rugosidade baixa o bastante
+          para devolver as barras de LED do corredor. É esse reflexo no chão que
+          vende "moderno" — sem ele o mesmo cinza lê como subsolo. */}
       <mesh receiveShadow castShadow position={[0, piso - LAJE / 2, zCentro]}>
         <boxGeometry args={[MEIA_LARGURA * 2, LAJE, prof]} />
-        <meshStandardMaterial color={tom(ar, ALBEDO.laje)} roughness={0.92} metalness={0} />
+        <meshStandardMaterial
+          color={servidores ? SALA_FRIA.laje : tom(ar, ALBEDO.laje)}
+          roughness={servidores ? 0.26 : 0.92}
+          metalness={servidores ? 0.12 : 0}
+          envMapIntensity={servidores ? 1.3 : 1}
+        />
       </mesh>
 
       {/* Teto só para o andar mais alto da janela: o vizinho que o forneceria
@@ -730,15 +767,37 @@ function AndarVivo({
           longe. */}
       <mesh receiveShadow position={[0, piso + PE_DIREITO / 2, zParede]}>
         <boxGeometry args={[MEIA_LARGURA * 2, PE_DIREITO, 0.3]} />
-        <meshStandardMaterial color={tom(ar, ALBEDO.parede)} roughness={0.96} metalness={0} />
+        <meshStandardMaterial
+          color={servidores ? SALA_FRIA.parede : tom(ar, ALBEDO.parede)}
+          roughness={servidores ? 0.75 : 0.96}
+          metalness={servidores ? 0.2 : 0}
+        />
       </mesh>
 
       {/* Parapeito na cobertura, viga de borda nos andares. É o que dá
-          espessura ao corte visto de frente, e é o que esconde o pé da faixa de
-          céu na cobertura. */}
-      <mesh castShadow receiveShadow position={[0, piso + (cobertura ? 0.44 : 0.16), BORDA - 0.12]}>
-        <boxGeometry args={[MEIA_LARGURA * 2, cobertura ? 0.88 : 0.32, 0.24]} />
-        <meshStandardMaterial color={tom(ar, ALBEDO.viga)} roughness={0.9} metalness={0} />
+          espessura ao corte visto de frente.
+
+          O DA COBERTURA ERA 0,88 m E VIROU UMA VENDA NOS OLHOS. Ele nasceu para
+          "esconder o pé da faixa de céu" quando a cobertura era laje vazia — com
+          nada atrás, um muro alto só melhorava a silhueta. Quando a cobertura
+          ganhou mobília, o mesmo muro virou o problema: 30 m de largura, opaco,
+          a 4,3 m da câmera, tapando o deck inteiro. A sonda mediu — pintado de
+          magenta, ele ocupa a faixa y 455..580 de uma tela de 720, e sobravam 17
+          pixels de deck acima dele. Espelho d'água e espreguiçadeiras estavam
+          atrás de uma parede.
+
+          É a MESMA armadilha de constante emprestada já documentada em
+          `predio-luz.ts`: um número calibrado para um estado do andar que
+          ninguém revisou quando o andar mudou. Agora é um rodapé de laje como
+          nos outros andares, e quem define "terraço" é o guarda-corpo de vidro,
+          que se vê através. */}
+      <mesh castShadow receiveShadow position={[0, piso + (cobertura ? 0.17 : 0.16), BORDA - 0.12]}>
+        <boxGeometry args={[MEIA_LARGURA * 2, cobertura ? 0.34 : 0.32, 0.24]} />
+        <meshStandardMaterial
+          color={servidores ? SALA_FRIA.viga : tom(ar, ALBEDO.viga)}
+          roughness={servidores ? 0.55 : 0.9}
+          metalness={servidores ? 0.35 : 0}
+        />
       </mesh>
 
       {andar.objetos.map((objeto) => (
@@ -746,7 +805,7 @@ function AndarVivo({
           key={objeto.id}
           objeto={objeto}
           base={piso}
-          cor={tom(ar, ALBEDO.objeto)}
+          cor={servidores ? SALA_FRIA.objeto : tom(ar, ALBEDO.objeto)}
           aceso={corDoRotulo(indice)}
           brilhos={brilhos}
         />
