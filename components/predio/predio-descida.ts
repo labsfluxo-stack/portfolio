@@ -4,7 +4,7 @@
  * e a fluidez passa a ter suíte em vez de opinião.
  */
 import { ANDARES } from './predio-programa'
-import { PLANOS, centroDoAndar } from './predio-arquitetura'
+import { ALTURA_ANDAR, PLANOS, centroDoAndar } from './predio-arquitetura'
 
 export type Pose = { y: number; z: number }
 
@@ -30,6 +30,8 @@ const PARADA = 0.45
 
 /** Distância da câmera ao plano da frente, em metros. */
 const RECUO = 11.5
+/** Quanto a camera avanca quando a descida assenta num andar. 11,5 → 5,9. */
+const AVANCO = 5.6
 
 export const TAXA_DE_AMORTECIMENTO = 9
 
@@ -86,8 +88,26 @@ export function quadroDe(progresso: number): Quadro {
   const larguraJanela = janelaFim - janelaInicio
   const estacao = larguraJanela === 0 ? 0 : aparar((suave - janelaInicio) / larguraJanela, 0, 1)
 
+  // AVANÇO DA CÂMERA — a distância deixa de ser fixa.
+  //
+  // O conflito que isto resolve é de formato, e só apareceu quando o conteúdo
+  // do andar 07 virou um datacenter de verdade: o andar tem 3,2 m de pé-direito
+  // por 30 de largura, e a distância que mostra o corte inteiro é a mesma que
+  // reduz cada rack a oito pixels. As duas leituras — "prédio em corte" e
+  // "ambiente com detalhe" — não cabem numa distância só.
+  //
+  // Então a câmera CHEGA quando a descida assenta num andar e RECUA entre
+  // andares. O gancho é a geometria que já existe: quanto mais perto do centro
+  // do andar a câmera está em Y, mais perto ela fica em Z. `smoothstep` para a
+  // aproximação não ter quina — chegada linear lê como zoom de videochamada,
+  // não como movimento de câmera.
+  const centro = centroDoAndar(andar)
+  const desvio = Math.min(1, Math.abs(y - centro) / (ALTURA_ANDAR / 2))
+  const chegada = 1 - desvio
+  const z = RECUO - AVANCO * (chegada * chegada * (3 - 2 * chegada))
+
   return {
-    pose: { y, z: RECUO },
+    pose: { y, z },
     andar,
     estacao,
     // O plano acompanha a descida na fração do seu parallax. O da frente

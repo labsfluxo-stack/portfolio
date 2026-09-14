@@ -131,3 +131,50 @@ describe('amortecimento', () => {
     expect(TAXA_DE_AMORTECIMENTO).toBeGreaterThan(0)
   })
 })
+
+/**
+ * A CÂMERA AVANÇA NA PARADA — decisão do dono em 2026-09-14, depois de ver o
+ * datacenter integrado e cada rack sair com oito pixels de largura.
+ *
+ * O conflito é de formato: o andar tem 3,2 m de pé-direito por 30 de largura, e
+ * para mostrar o corte inteiro a câmera precisa ficar longe — distância em que
+ * todo detalhe vira textura. As duas leituras não cabem numa distância fixa.
+ *
+ * A saída é a distância deixar de ser fixa: longe entre andares, para o prédio
+ * ler como corte; perto quando a descida assenta num andar, para o conteúdo ler
+ * como ambiente. A curva `PARADA` que já desacelera a descida é o gancho —
+ * onde ela segura, a câmera chega.
+ */
+describe('avanço da câmera na parada', () => {
+  it('a câmera fica mais perto no centro do andar do que entre andares', () => {
+    const ultimo = ANDARES.length - 1
+    // Centro do andar 3: progresso que põe `suave` exatamente em 3.
+    const noCentro = quadroDe(3 / ultimo)
+    // Fronteira entre 3 e 4.
+    const naFronteira = quadroDe(3.5 / ultimo)
+    expect(noCentro.pose.z).toBeLessThan(naFronteira.pose.z)
+  })
+
+  it('o avanço é simétrico: entrar e sair do andar afastam igual', () => {
+    const ultimo = ANDARES.length - 1
+    const antes = quadroDe(2.75 / ultimo)
+    const depois = quadroDe(3.25 / ultimo)
+    expect(antes.pose.z).toBeCloseTo(depois.pose.z, 3)
+  })
+
+  it('a distância nunca sai da faixa útil', () => {
+    for (let p = 0; p <= 1; p += 0.005) {
+      const { pose } = quadroDe(p)
+      expect(pose.z).toBeGreaterThan(3)
+      expect(pose.z).toBeLessThanOrEqual(11.5)
+    }
+  })
+
+  it('todos os andares recebem o avanço, não só os do meio', () => {
+    const ultimo = ANDARES.length - 1
+    for (let a = 0; a <= ultimo; a++) {
+      const centro = quadroDe(a / ultimo)
+      expect(centro.pose.z).toBeLessThan(11.5)
+    }
+  })
+})
