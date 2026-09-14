@@ -16,7 +16,7 @@ import {
   topoDoAndar,
 } from './predio-arquitetura'
 import { amortecer, quadroDe } from './predio-descida'
-import { CEU, corDoAndar, corDoRotulo } from './predio-luz'
+import { CENARIO, CENARIO_DISTANTE, CEU, corDoAndar, corDoRotulo } from './predio-luz'
 import { capacidadesDo, temPerspectiva, type Capacidades } from './predio-qualidade'
 // A rolagem mora FORA deste arquivo desde a revisão final, e o motivo é de
 // arquitetura: o atalho de teclado precisa valer também SEM a cena (movimento
@@ -1194,7 +1194,7 @@ function Cena({
             <PlanoDeFundo
               parallax={plano.parallax}
               largura={MEIA_LARGURA}
-              cor={tom(corDoAndar(3), 2.6)}
+              cor={CENARIO}
               espessura={0.34}
             />
           ) : (
@@ -1203,7 +1203,7 @@ function Cena({
               <PlanoDeFundo
                 parallax={plano.parallax}
                 largura={MEIA_LARGURA * 1.3}
-                cor={tom(corDoAndar(4), 1.9)}
+                cor={CENARIO_DISTANTE}
                 espessura={0.5}
               />
             </>

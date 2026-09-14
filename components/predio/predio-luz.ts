@@ -89,3 +89,24 @@ export function corDoRotulo(indice: number): string {
  * compartilhar constante, por mais parecidas que estejam num dado momento.
  */
 export const CEU = '#f4d9a8'
+
+/**
+ * A cor do CENÁRIO de fundo — própria, e esta é a terceira vez nesta feature.
+ *
+ * Os planos de parallax eram pintados com `corDoAndar(3)` e `corDoAndar(4)`.
+ * Não por pertencerem a esses andares: porque geo e automação eram cinza-
+ * ardósia escuro e serviam de "cor neutra" a quem precisasse de uma.
+ *
+ * Quando a paleta abriu, esses dois viraram os andares AZUIS — são o ponto frio
+ * do arco, por definição. Multiplicados pelos fatores do cenário, viraram
+ * lavanda claro, e o fundo do prédio inteiro ficou azul. Pior: o cenário anda em
+ * parallax diferente do prédio, então a faixa desliza e parece passar na frente.
+ *
+ * O PADRÃO, já que é a terceira ocorrência: o céu emprestava a cor do rótulo, o
+ * albedo compensava a paleta, e o cenário emprestava a cor de dois andares.
+ * Nenhum dos três estava errado enquanto a paleta não mudou — e todos quebraram
+ * juntos quando ela mudou. Constante emprestada porque "a cor está parecida" é
+ * dívida silenciosa: ela não documenta a intenção, só o acaso de um momento.
+ */
+export const CENARIO = '#4b4038'
+export const CENARIO_DISTANTE = '#3b332d'
