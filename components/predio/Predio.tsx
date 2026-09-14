@@ -16,7 +16,7 @@ import {
   topoDoAndar,
 } from './predio-arquitetura'
 import { amortecer, quadroDe } from './predio-descida'
-import { corDoAndar, corDoRotulo } from './predio-luz'
+import { CEU, corDoAndar, corDoRotulo } from './predio-luz'
 import { capacidadesDo, temPerspectiva, type Capacidades } from './predio-qualidade'
 // A rolagem mora FORA deste arquivo desde a revisão final, e o motivo é de
 // arquitetura: o atalho de teclado precisa valer também SEM a cena (movimento
@@ -25,6 +25,9 @@ import { capacidadesDo, temPerspectiva, type Capacidades } from './predio-qualid
 // arquivo sem arrastar o three.js inteiro para o HTML inicial.
 import { progressoDoCurso, useRepasseDeRolagem } from './predio-rolagem'
 import { TIERS, type Tier, createMeter, judge, startingStep } from '../three/portico-quality'
+import { Datacenter } from './predio-datacenter'
+import { criaAmbiente } from './predio-ambiente'
+import { Cobertura } from './predio-cobertura'
 
 /**
  * O prédio em corte, em hora dourada — o ÚNICO arquivo do recurso que importa
@@ -187,7 +190,17 @@ const tom = (hex: string, fator: number): string =>
  * inteira, porque todo andar é multiplicado pelo mesmo fator — o que muda é o
  * nível, nunca a relação entre os sete.
  */
-const ALBEDO = { laje: 5.0, teto: 3.4, parede: 4.2, viga: 4.6, objeto: 2.2 } as const
+// REBAIXADOS QUANDO A PALETA ABRIU, e este é o acoplamento que ninguém vê até
+// quebrar: os fatores antigos (5,0 / 3,4 / 4,2 / 4,6 / 2,2) não eram escolha de
+// material, eram COMPENSAÇÃO. A paleta de `predio-luz.ts` era quase preta —
+// nenhum canal acima de 0x44 — e sem multiplicar por cinco a laje sumia.
+//
+// Quando a paleta clareou, a compensação virou estouro: `#d9a066` × 5 satura em
+// branco, e a cobertura virou uma chapa de creme sem forma. As RELAÇÕES entre as
+// cinco superfícies estão preservadas — laje continua a mais clara, objeto a
+// mais escura, na mesma proporção. Só o nível desceu, porque agora quem carrega
+// o nível é a cor, não o multiplicador.
+const ALBEDO = { laje: 1.15, teto: 0.78, parede: 0.97, viga: 1.06, objeto: 0.51 } as const
 
 // Mesma constante que `PredioFallback.tsx`, `Header.tsx` e `lib/seo.ts` usam:
 // a forma canônica de ler o `basePath` fora do que o Next resolve sozinho.
@@ -676,9 +689,25 @@ function AndarVivo({
   const piso = topo - PE_DIREITO
   const ar = corDoAndar(indice)
   const cobertura = indice === 0
+  // O andar 07 (indice 1) deixa de ser mobilia generica e passa a ser um
+  // datacenter de verdade: fileiras frente com frente, 42U no grid de norma,
+  // equipamento de alturas mistas e LEDs piscando. Entra INSTANCIADO — em
+  // componentes nao carregava, porque o custo e a chamada de desenho e nao o
+  // triangulo. Os outros seis andares seguem como estavam ate terem o seu.
+  const servidores = ANDARES[indice]!.chave === 'servidores'
 
   return (
     <group>
+      {servidores && (
+        <Datacenter piso={piso} zCentro={zCentro} prof={prof} meiaLargura={MEIA_LARGURA} />
+      )}
+      {/* A cobertura é o primeiro quadro do site — e estava vazia. Espelho
+          d'água devolvendo o céu, guarda-corpo de vidro, espreguiçadeiras e
+          vegetação: o mínimo que diz "os negócios vão bem e tranquilos" sem
+          escrever isso, que é o que a spec pede deste andar. */}
+      {cobertura && (
+        <Cobertura piso={piso} zCentro={zCentro} prof={prof} meiaLargura={MEIA_LARGURA} ceu={CEU} />
+      )}
       {/* A laje que o andar pisa. É ela que recebe a sombra longa — o único
           plano da cena em que a mancha de 7 m tem onde cair. */}
       <mesh receiveShadow castShadow position={[0, piso - LAJE / 2, zCentro]}>
@@ -809,9 +838,9 @@ function Ceu() {
       // é a ordem de uma hora dourada de verdade. As três cores saem de
       // `predio-luz.ts`; nenhum hex novo entra aqui.
       const grad = ctx.createLinearGradient(0, 0, 0, 256)
-      grad.addColorStop(0, tom(corDoAndar(0), 3.0))
-      grad.addColorStop(0.62, tom(corDoRotulo(0), 0.5))
-      grad.addColorStop(1, corDoRotulo(0))
+      grad.addColorStop(0, tom(CEU, 0.34))
+      grad.addColorStop(0.62, tom(CEU, 0.62))
+      grad.addColorStop(1, CEU)
       ctx.fillStyle = grad
       ctx.fillRect(0, 0, 4, 256)
     }
@@ -918,8 +947,10 @@ function Cena({
   // Largura de janela da última medição das âncoras — ver o aparo no laço.
   const medidasVelhas = useRef(0)
   const ndc = useMemo(() => new THREE.Vector3(), [])
+  /** Andar cujo mapa de ambiente esta montado. -1 forca a primeira geracao. */
+  const andarDoAmbiente = useRef(-1)
 
-  useFrame(({ camera, scene, size }, delta) => {
+  useFrame(({ camera, scene, size, gl }, delta) => {
     // O primeiro quadro fecha a janela que `PredioSlot` abriu com
     // `performance.mark('predio:montagemPedida')`. Sem isto a marca de lá não
     // mede nada; com isto, o custo de subir a cena é lido no aparelho do
@@ -998,6 +1029,32 @@ function Cena({
     // movimento: a cor de limpeza nunca deixa de existir, só muda de valor.
     arAlvo.set(corDoAndar(quadro.andar))
     const passo = 1 - Math.exp(-2.5 * delta)
+
+    // O AMBIENTE ACOMPANHA O ANDAR — e sem ele metal fica PRETO.
+    //
+    // Em PBR, metal não tem cor difusa própria: ele só reflete o que está em
+    // volta. Sem mapa de ambiente, o rack do andar 07 (`metalness: 0.9`)
+    // refletia o nada e renderizava preto por mais lâmpada que se pusesse em
+    // cima. Não era falta de luz — era falta de o que refletir.
+    //
+    // O mapa é DESENHADO, não baixado: um degradê equirretangular com o céu
+    // âmbar em cima, o ar do andar no meio e a laje escura embaixo. HDRI
+    // fotográfico custaria 1,6 MB num site que vive de Lighthouse — e, pior,
+    // seria a foto de OUTRO lugar iluminando os sete andares.
+    //
+    // Refeito só quando o andar ativo troca: `PMREMGenerator` é caro demais
+    // para rodar por quadro, e o degradê só muda de cor quando o andar muda.
+    if (andarDoAmbiente.current !== quadro.andar) {
+      andarDoAmbiente.current = quadro.andar
+      scene.environment?.dispose()
+      scene.environment = criaAmbiente(
+        gl,
+        corDoAndar(0),
+        corDoAndar(quadro.andar),
+        tom(corDoAndar(quadro.andar), 0.35),
+      )
+    }
+
     if (scene.background instanceof THREE.Color) {
       scene.background.lerp(arAlvo, passo)
       if (scene.fog instanceof THREE.Fog) scene.fog.color.copy(scene.background)
