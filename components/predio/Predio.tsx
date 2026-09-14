@@ -776,18 +776,51 @@ function PlanoDeFundo({
   largura,
   cor,
   espessura,
+  andarAtivo,
 }: {
   parallax: number
   largura: number
   cor: string
   espessura: number
+  andarAtivo: number
 }) {
   const ladrilhos = useMemo(() => ladrilhosDoPlano(parallax), [parallax])
   const material = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: cor, roughness: 0.98, metalness: 0 }),
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: cor,
+        roughness: 0.98,
+        metalness: 0,
+        transparent: true,
+      }),
     [cor],
   )
   useEffect(() => () => material.dispose(), [material])
+
+  /**
+   * O CENÁRIO RECUA ONDE O ANDAR TEM O SEU — e isto não é ajuste de gosto.
+   *
+   * Estas barras horizontais, uma a cada altura de andar, existem para dar
+   * profundidade por parallax: andam mais devagar que o prédio, e o cérebro lê a
+   * diferença como distância. Foram desenhadas para uma cena VAZIA — quando cada
+   * andar tinha quatro caixas e muito vão, elas eram o que preenchia o fundo.
+   *
+   * O andar 07 agora tem sessenta e quatro racks, parede e fileira de trás. O
+   * fundo deixou de estar vazio, e a barra deixou de ser profundidade: virou uma
+   * faixa atravessando a sala, cortando os racks na horizontal. Foi o que o dono
+   * viu e chamou de "faixa" — primeiro azul, depois marrom, porque na primeira
+   * vez eu troquei a cor dela e não a causa.
+   *
+   * Então o andar diz o que precisa, do mesmo jeito que a janela de três andares
+   * já faz: quem tem cenário próprio dispensa o ritmo genérico; quem não tem
+   * continua recebendo. Por opacidade AMORTECIDA e não por `visible`, senão a
+   * barra sumiria de um quadro para o outro no meio da descida.
+   */
+  useFrame((_, delta) => {
+    const alvo = ANDARES[andarAtivo]?.chave === 'servidores' ? 0 : 1
+    material.opacity = amortecer(material.opacity, alvo, delta)
+    material.visible = material.opacity > 0.02
+  })
 
   const alto = ladrilhos[0] ?? 0
   const baixo = ladrilhos[ladrilhos.length - 1] ?? 0
@@ -887,12 +920,14 @@ type Alvo = {
 function Cena({
   vsync,
   vivos,
+  andarAtivo,
   brilhos,
   alvos,
   aoTrocarDeAndar,
 }: {
   vsync: number
   vivos: number[]
+  andarAtivo: number
   brilhos: RefObject<Map<string, boolean>>
   alvos: RefObject<Map<string, Alvo>>
   aoTrocarDeAndar: (andar: number) => void
@@ -1196,6 +1231,7 @@ function Cena({
               largura={MEIA_LARGURA}
               cor={CENARIO}
               espessura={0.34}
+              andarAtivo={andarAtivo}
             />
           ) : (
             <>
@@ -1205,6 +1241,7 @@ function Cena({
                 largura={MEIA_LARGURA * 1.3}
                 cor={CENARIO_DISTANTE}
                 espessura={0.5}
+                andarAtivo={andarAtivo}
               />
             </>
           )}
@@ -1390,6 +1427,7 @@ export function Predio({ dict, locale, vsync }: { dict: Dictionary; locale: Loca
         <Cena
           vsync={vsync}
           vivos={vivos}
+          andarAtivo={andar}
           brilhos={brilhos}
           alvos={alvos}
           aoTrocarDeAndar={setAndar}
