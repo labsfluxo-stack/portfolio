@@ -202,7 +202,7 @@ export function Cobertura({
      * verso metade do tempo, e face unica faria metade da copa sumir.
      */
     // O raminho que carrega o ramalhete de folhas. Escalado em Y por ramo.
-    const gRaminho = new THREE.CylinderGeometry(0.004, 0.011, 0.3, 4)
+    const gRaminho = new THREE.CylinderGeometry(0.0035, 0.008, 0.3, 4)
 
     // PALMEIRA. O estipe e aneladissimo — cada anel e a cicatriz de uma fronde
     // que caiu — mas a essa distancia o anel nao resolve; o que resolve e o
@@ -247,7 +247,11 @@ export function Cobertura({
     // Folha de oliveira e LANCEOLADA: estreita e comprida, quase uma lamina.
     // O quad e mais LARGO que a folha: o recorte por alfa come as pontas, entao a
     // folha util fica com cerca de 55% da area. A geometria compensa a diferenca.
-    const gFolhaOliva = new THREE.PlaneGeometry(0.21, 0.075)
+    // FOLHA MAIOR QUE O RAMINHO QUE A SUSTENTA. A 0,21 x 0,075 ela era um ponto
+    // ao longo de um galho de meio metro, e o que se via de perto era GALHO com
+    // uns pontinhos verdes — copa de arvore seca. Numa oliveira de verdade a
+    // folhagem esconde o ramo quase inteiro; o ramo so aparece nos vaos.
+    const gFolhaOliva = new THREE.PlaneGeometry(0.3, 0.115)
 
     // GUARDA-SOL. Perfil em `Lathe` com CAIMENTO: lona esticada por varetas
     // afunda entre elas, então o corte não é reto — é uma curva côncava. Cone
@@ -480,7 +484,25 @@ export function Cobertura({
     // Porta de saida: vidro escuro com caixilho. Escuro porque o que esta atras
     // dela e uma escada sem luz, e vidro devolve o que ha atras.
     const mJunta = new THREE.MeshStandardMaterial({ color: '#7d715f', roughness: 0.98 })
-    const mMadeiraClara = new THREE.MeshStandardMaterial({ color: '#9a8b76', roughness: 0.93 })
+    /**
+     * CASCA DE OLIVEIRA, e ela reaproveita o grao da madeira de deck.
+     *
+     * O tronco era um cilindro liso em cinza claro, e no zoom isso lia como tubo
+     * de concreto. Casca de oliveira e cinza-parda, RACHADA no comprimento e
+     * muito mais escura que o cinza que estava ali — tronco claro demais nao
+     * segura a copa escura em cima, e a arvore parece pousada.
+     *
+     * O mapa e o mesmo da regua de deck: grao correndo no comprimento e nos
+     * esparsos e exatamente o que casca tem, e a repeticao aperta para o padrao
+     * ficar na escala de um tronco e nao de uma tabua.
+     */
+    const mMadeiraClara = new THREE.MeshStandardMaterial({
+      color: '#6f6253',
+      roughness: 0.97,
+      map: madeira.map,
+      normalMap: madeira.normalMap,
+      roughnessMap: madeira.roughnessMap,
+    })
     // Buxo: verde profundo e FOSCO, sem faceta. Contraponto da gramineea.
     const mBuxo = new THREE.MeshStandardMaterial({ color: '#3f5a32', roughness: 0.97 })
     // Agave: verde-azulado com cera — a folha tem brilho, ao contrario das outras.
@@ -1012,16 +1034,16 @@ export function Cobertura({
       // NUCLEO: oito tufos solidos no miolo, so para a copa ter massa escura por
       // tras das folhas. Sem eles ve-se o ceu atraves da arvore inteira e ela
       // perde peso; com eles, as folhas chatas ficam recortadas contra algo.
-      for (let t = 0; t < 22; t++) {
+      for (let t = 0; t < 40; t++) {
         const a = ruido(t, 55 + k) * Math.PI * 2
-        const r = ruido(t, 56 + k) * 0.66
+        const r = ruido(t, 56 + k) * 0.78
         col.poe(
           'nucleoOliva',
           gTufoOliva,
           mFolhaSolida,
-          [x + Math.sin(a) * r, piso + 3.2 + ruido(t, 57 + k) * 0.7, zArvores + Math.cos(a) * r],
+          [x + Math.sin(a) * r, piso + 3.1 + ruido(t, 57 + k) * 1.1, zArvores + Math.cos(a) * r],
           [ruido(t, 58 + k) * 3, ruido(t, 59 + k) * 3, 0],
-          [1.3, 0.95, 1.3],
+          [1.7, 1.25, 1.7],
           TONS_DE_OLIVA[0]!,
         )
       }
@@ -1051,23 +1073,26 @@ export function Cobertura({
        */
       // Mais ramalhetes e mais folha por ramalhete: o recorte por alfa tirou
       // quase metade da area de cada quad, e sem repor a copa RAREIA.
-      const ramalhetes = 62
+      const ramalhetes = 118
       for (let b = 0; b < ramalhetes; b++) {
         // O pé do raminho fica na casca da copa. A raiz quadrada empurra para
         // FORA, porque o miolo é oco — é na periferia que está a luz.
         const az = ruido(b, 50 + k) * Math.PI * 2
-        const rBase = 0.24 + Math.sqrt(ruido(b, 60 + k)) * 1.02
+        // Copa REDONDA, nao disco. Com raio ate 1,04 e altura de 1,15 ela era duas
+        // vezes mais larga que alta, e de perto isso le como tapete de folha
+        // pousado no galho. Oliveira adulta tem copa quase tao alta quanto larga.
+        const rBase = 0.18 + Math.sqrt(ruido(b, 60 + k)) * 0.76
         // ALTURA CHEIA DE VOLTA: fora do vao do pergolado ela nao disputa com
         // nada, e pode ter a copa alta que uma oliveira adulta tem. A copa comeca
         // acima do topo do arbusto do canteiro (2,4), entao ela se destaca contra
         // o ceu em vez de se fundir com o verde de tras.
-        const yBase = piso + 3.1 + ruido(b, 70 + k) * 1.05
+        const yBase = piso + 2.85 + ruido(b, 70 + k) * 1.55
         const bx = x + Math.sin(az) * rBase
         const bz = zArvores + Math.cos(az) * rBase * 0.78
         // A maioria PENDE: galho carregado de folha não fica na horizontal, e o
         // −0,62 no deslocamento é o que inclina a distribuição para baixo.
         const inclina = (ruido(b, 75 + k) - 0.62) * 1.1
-        const comp = 0.26 + ruido(b, 76 + k) * 0.3
+        const comp = 0.2 + ruido(b, 76 + k) * 0.22
 
         // O raminho em si. Sem ele o grumo flutua desligado da árvore.
         col.poe(
@@ -1092,9 +1117,9 @@ export function Cobertura({
             gFolhaOliva,
             mFolha,
             [
-              bx + Math.sin(az) * comp * u + (ruido(g, 80 + k) - 0.5) * 0.12,
-              yBase + inclina * comp * u + (ruido(g, 85 + k) - 0.5) * 0.11,
-              bz + Math.cos(az) * comp * u + (ruido(g, 90 + k) - 0.5) * 0.12,
+              bx + Math.sin(az) * comp * u + (ruido(g, 80 + k) - 0.5) * 0.075,
+              yBase + inclina * comp * u + (ruido(g, 85 + k) - 0.5) * 0.07,
+              bz + Math.cos(az) * comp * u + (ruido(g, 90 + k) - 0.5) * 0.075,
             ],
             // Segue o eixo do raminho, com dispersão. O terceiro ângulo é o
             // ROLAMENTO da folha em torno do próprio pecíolo, e é ele que faz

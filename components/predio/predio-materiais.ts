@@ -411,11 +411,22 @@ export function folha(): { mapa: THREE.Texture; alfa: THREE.Texture } {
   // A lanceolada: duas curvas espelhadas que se encontram em ponta nas duas
   // extremidades. É o contorno da folha de oliveira, de louro, de salgueiro —
   // a forma mais comum que existe, e a que menos parece um retângulo.
+  /**
+   * A CURVA VIROU CUBICA, e o motivo aparece no zoom. Com uma quadratica de um
+   * ponto de controle so, o contorno sai PONTUDO nas duas extremidades e a folha
+   * le como estrela de quatro pontas — vista de perto, uma copa inteira dessas
+   * vira um amontoado de espinhos.
+   *
+   * Folha lanceolada e cheia no meio e afina SO na ponta: a base e arredondada,
+   * onde ela se prende ao peciolo. Dois pontos de controle dao exatamente isso —
+   * o primeiro abre a barriga logo depois da base, o segundo a fecha devagar ate
+   * a ponta.
+   */
   const contorno = (ctx: CanvasRenderingContext2D) => {
     ctx.beginPath()
-    ctx.moveTo(1, n / 2)
-    ctx.quadraticCurveTo(n * 0.35, 2, n - 1, n / 2)
-    ctx.quadraticCurveTo(n * 0.35, n - 2, 1, n / 2)
+    ctx.moveTo(2, n / 2)
+    ctx.bezierCurveTo(n * 0.12, 4, n * 0.62, 6, n - 2, n / 2)
+    ctx.bezierCurveTo(n * 0.62, n - 6, n * 0.12, n - 4, 2, n / 2)
     ctx.closePath()
   }
 
