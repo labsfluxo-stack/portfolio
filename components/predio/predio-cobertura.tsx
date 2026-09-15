@@ -134,11 +134,15 @@ export function Cobertura({
     const gRipa = new RoundedBoxGeometry(0.16, 0.022, prof * 0.92, 1, 0.005)
 
     // ESPREGUIÇADEIRA. Estrutura tubular + estofado, não duas caixas.
-    const gAssento = new RoundedBoxGeometry(0.68, 0.12, 1.2, 2, 0.05)
-    const gEncosto = new RoundedBoxGeometry(0.68, 0.11, 0.82, 2, 0.048)
-    const gTuboLado = new THREE.CylinderGeometry(0.021, 0.021, 1.98, 8)
-    const gPernaEspr = new THREE.CylinderGeometry(0.017, 0.017, 0.32, 6)
-    const gRoda = new THREE.CylinderGeometry(0.055, 0.055, 0.032, 12)
+    // GOMOS, nao uma almofada inteira: e a costura que faz o estofado ler como
+    // macio. Ver o comentario no ponto de uso.
+    const gGomoAssento = new RoundedBoxGeometry(0.68, 0.13, 0.38, 2, 0.055)
+    const gGomoEncosto = new RoundedBoxGeometry(0.68, 0.12, 0.4, 2, 0.05)
+    // Doze lados e nao oito: com a camera assentando a 5,9 m, um tubo de oito
+    // lados mostra a faceta e o reflexo anda em degraus ao longo dele.
+    const gTuboLado = new THREE.CylinderGeometry(0.021, 0.021, 1.98, 12)
+    const gPernaEspr = new THREE.CylinderGeometry(0.017, 0.017, 0.32, 8)
+    const gRoda = new THREE.CylinderGeometry(0.055, 0.055, 0.032, 16)
     const gToalha = new RoundedBoxGeometry(0.52, 0.035, 1.0, 1, 0.017)
 
     // PERGOLADO. Viga com chanfro e chapa de aço no encontro com o poste — é a
@@ -166,9 +170,16 @@ export function Cobertura({
     // 8 segmentos de propósito: a borda sai recortada em oito pontas, que é
     // exatamente o número de varetas de um guarda-sol de mercado.
     const gLona = new THREE.LatheGeometry(perfilLona, 8)
-    const gMastro = new THREE.CylinderGeometry(0.036, 0.042, 2.3, 10)
+    const gMastro = new THREE.CylinderGeometry(0.036, 0.042, 2.3, 14)
     const gVareta = new THREE.BoxGeometry(0.018, 0.016, 1.34)
     const gPonteira = new THREE.ConeGeometry(0.055, 0.16, 8)
+    // CUBO DAS VARETAS: o anel onde as oito varetas se encontram no mastro.
+    // Sem ele as varetas nascem do nada no meio do ar.
+    const gCubo8 = new THREE.CylinderGeometry(0.075, 0.09, 0.11, 8)
+    // BASE do guarda-sol: disco pesado de concreto. Guarda-sol sem base voa, e
+    // o olho sabe disso mesmo sem pensar — mastro entrando direto no deck le
+    // como adereco espetado.
+    const gBaseSol = new THREE.CylinderGeometry(0.3, 0.34, 0.09, 16)
 
     // VASO. Tronco de cone com BORDA — é a borda que o olho lê como vaso.
     const perfilVaso = [
@@ -186,7 +197,6 @@ export function Cobertura({
     const gTerra = new THREE.CircleGeometry(0.38, 16)
     const perfilVasinho = perfilVaso.map((p) => new THREE.Vector2(p.x * 0.62, p.y * 0.55))
     const gVaso = new THREE.LatheGeometry(perfilVasinho, 14)
-    const gTerrinha = new THREE.CircleGeometry(0.24, 12)
 
     // ÁRVORE. Tronco CÔNICO, galhos e copa de muitos tufos facetados. O
     // icosaedro sem subdivisão é melhor que esfera aqui: a faceta lê como massa
@@ -340,9 +350,6 @@ export function Cobertura({
     )
     // Folhagem com cinco verdes. Copa de UM verde só é o segundo tell mais forte
     // de árvore renderizada — folha real varia com idade, sol e sombra própria.
-    const TONS_DE_FOLHA = ['#5f7a47', '#6d8a4f', '#546d3f', '#7a9659', '#496035'].map(
-      (c) => new THREE.Color(c),
-    )
     // OLIVEIRA: cinza-esverdeado PRATEADO, nao verde folha. E a cor que a
     // identifica a distancia — a face de baixo da folha e quase branca, e e ela
     // que o vento vira para cima. Verde-escuro aqui seria outra arvore.
@@ -501,8 +508,33 @@ export function Cobertura({
           col.poe('pernaEspr', gPernaEspr, mMetal, p(dx, 0.17, dz))
         col.poe('roda', gRoda, mAco, p(dx, 0.055, 0.92), [0, giro, Math.PI / 2])
       }
-      col.poe('assento', gAssento, mTecido, p(0, 0.4, 0.16), [0, giro, 0])
-      col.poe('encosto', gEncosto, mTecido, p(0, 0.62, -0.72), [reclina, giro, 0])
+      /**
+       * A ALMOFADA É SEGMENTADA, e este é o detalhe que separa "estofado" de
+       * "bloco de espuma".
+       *
+       * Almofada de espreguiçadeira não é um paralelepípedo: é costurada em
+       * gomos, porque precisa DOBRAR onde o encosto articula e porque a costura
+       * impede o enchimento de migrar para uma ponta. Visualmente, esses vincos
+       * são o que o olho usa para ler espessura MACIA — volume sem vinco lê como
+       * plástico rígido, por mais arredondada que esteja a aresta.
+       *
+       * A folga de 2 cm entre gomos É o vinco: ela deixa passar a sombra e
+       * desenha a linha escura que uma costura desenha.
+       */
+      for (let g = 0; g < 3; g++)
+        col.poe('gomoAssento', gGomoAssento, mTecido, p(0, 0.4, 0.56 - g * 0.4), [0, giro, 0])
+      for (let g = 0; g < 2; g++) {
+        // Os gomos do encosto sobem ao LONGO da inclinação, não em linha reta —
+        // senão o de cima sai flutuando fora da estrutura reclinada.
+        const d = 0.21 - g * 0.42
+        col.poe(
+          'gomoEncosto',
+          gGomoEncosto,
+          mTecido,
+          p(0, 0.62 - Math.sin(reclina) * d, -0.72 + Math.cos(reclina) * d),
+          [reclina, giro, 0],
+        )
+      }
       // Almofada de cabeça em duas das seis.
       if (k % 3 === 1)
         col.poe('travesseiro', gArbusto, mTecido, p(0, 0.86, -0.96), [0, giro + 0.4, 0], [1.5, 0.7, 1.0])
@@ -525,7 +557,9 @@ export function Cobertura({
     for (const x of [5.0, 7.8]) {
       const z = zEspreguicadeiras - 0.4
       sombra(x, z, 1.2, 1.2)
+      col.poe('baseSol', gBaseSol, mPedra, [x, piso + 0.06, z])
       col.poe('mastro', gMastro, mMetal, [x, piso + 1.15, z])
+      col.poe('cubo8', gCubo8, mMetal, [x, piso + 2.18, z])
       col.poe('lona', gLona, mLonaSol, [x, piso + 2.28, z])
       col.poe('ponteira', gPonteira, mMetal, [x, piso + 2.72, z])
       // As varetas por baixo: sem elas a lona é uma casca flutuando.
@@ -815,9 +849,41 @@ export function Cobertura({
        * tinha o topo 2,5 cm ACIMA do plano d'água e cobria a lâmina inteira, o
        * que se via era uma laje branca. Agora o topo fica 1 cm abaixo e a pedra
        * aparece como moldura em volta. */}
-      <mesh position={[1, piso + 0.005, zEspelho]}>
-        <boxGeometry args={[9.9, 0.09, prof * 0.32]} />
-        <meshStandardMaterial color="#cfc4ad" roughness={0.82} />
+      {/* VIROU QUATRO PEÇAS, e a mudança é de leitura e não de forma. Era uma
+       * caixa cheia por baixo da água: servia de moldura vista de cima, mas por
+       * trás dela não havia nada — a lâmina simplesmente terminava. Piscina de
+       * verdade tem BORDA DE ACABAMENTO, uma peça que envolve o tanque e sobe um
+       * pouco ACIMA do nível da água. É esse degrau de um centímetro que diz que
+       * a água está CONTIDA; sem ele a lâmina lê como poça sobre o deck.
+       *
+       * Quatro peças porque a moldura precisa ter espessura visível nos quatro
+       * lados, e uma caixa só mostra o lado de fora. */}
+      {[prof * 0.145, -prof * 0.145].map((dz) => (
+        <mesh key={dz} position={[1, piso + 0.045, zEspelho + dz]}>
+          <boxGeometry args={[9.9, 0.09, 0.42]} />
+          <meshStandardMaterial color="#cfc4ad" roughness={0.82} />
+        </mesh>
+      ))}
+      {[-3.74, 5.74].map((bx) => (
+        <mesh key={bx} position={[bx, piso + 0.045, zEspelho]}>
+          <boxGeometry args={[0.42, 0.09, prof * 0.29]} />
+          <meshStandardMaterial color="#cfc4ad" roughness={0.82} />
+        </mesh>
+      ))}
+      {/* O TANQUE: as paredes que seguram a água. Sem elas o fundo escuro fica
+       * flutuando e vê-se o deck por baixo pela lateral.
+       *
+       * O TOPO DELE FICA ABAIXO DA LÂMINA, e isso não é detalhe: na primeira
+       * versão o centro em "piso − 0,10" com 0,34 de altura punha a face de cima
+       * em "piso + 0,07", um centímetro ACIMA do plano d'água em "piso + 0,06".
+       * O resultado foi a tampa escura do tanque cobrindo a água inteira e a
+       * piscina virando uma faixa azul-marinho. É exatamente o mesmo erro da
+       * pedra que já engoliu a lâmina uma vez, agora vindo por baixo — e a lição
+       * é a mesma: numa pilha de planos separados por centímetros, é a ORDEM em
+       * y que decide o que se vê, não a intenção de quem escreveu. */}
+      <mesh position={[1, piso - 0.2, zEspelho]}>
+        <boxGeometry args={[9.04, 0.34, prof * 0.27]} />
+        <meshStandardMaterial color="#1d5b6d" roughness={0.75} />
       </mesh>
       {/* O VIDRO DO GUARDA-CORPO, com 0,07 de opacidade — medido. Um plano de
        * 30 m a 5,6 m da câmera cobre a faixa y 407..495 da tela, que é
@@ -837,8 +903,14 @@ export function Cobertura({
           depthWrite={false}
         />
       </mesh>
-      <mesh position={[0, piso + 1.17, zGuardaCorpo]}>
-        <boxGeometry args={[meiaLargura * 2, 0.055, 0.085]} />
+      {/* CORRIMAO REDONDO. Perfil quadrado num corrimao e o que nenhuma
+       * serralheria entrega, porque ninguem quer apoiar a mao numa quina — e o
+       * tubo redondo tem outra vantagem otica: ele devolve um FILETE de sol
+       * continuo ao longo de toda a extensao, e e esse filete que desenha a
+       * linha do terraco contra o ceu. Uma barra chata so acende quando a
+       * normal dela aponta para o sol, e nesta cena ela nao aponta. */}
+      <mesh position={[0, piso + 1.17, zGuardaCorpo]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.023, 0.023, meiaLargura * 2, 12]} />
         <meshStandardMaterial color="#d8cdb8" metalness={0.85} roughness={0.28} />
       </mesh>
     </>
