@@ -13,7 +13,7 @@ import {
 } from '@/components/predio/Predio'
 import { progressoDoCurso } from '@/components/predio/predio-rolagem'
 import { ANDARES } from '@/components/predio/predio-programa'
-import { ALTURA_ANDAR, PILARES, PLANOS } from '@/components/predio/predio-arquitetura'
+import { ALTURA_ANDAR, MEIA_LARGURA_UTIL, PLANOS } from '@/components/predio/predio-arquitetura'
 import { quadroDe } from '@/components/predio/predio-descida'
 import { DEGRAU_DA_PERSPECTIVA, capacidadesDo } from '@/components/predio/predio-qualidade'
 import { startingStep } from '@/components/three/portico-quality'
@@ -271,7 +271,7 @@ describe('geometria procedural dos objetos', () => {
   /** O vão útil fica DENTRO dos pilares: um móvel nascendo em cima de uma
    *  coluna é o defeito que essa conta existe para não ter. */
   it('todo objeto do programa cai dentro do vão dos pilares', () => {
-    const limite = Math.max(...PILARES.map(Math.abs))
+    const limite = MEIA_LARGURA_UTIL
     expect(xDoObjeto(0.5)).toBeCloseTo(0, 9)
     for (const andar of ANDARES) {
       for (const objeto of andar.objetos) {

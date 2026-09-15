@@ -19,24 +19,28 @@ export const ALTURA_ANDAR = PE_DIREITO + LAJE
  * ser uma queda. São eles que costuram as sete paradas numa coisa só.
  */
 /**
- * QUATRO PILARES, E NENHUM NO CENTRO — e isso e correcao de composicao, nao
- * capricho.
+ * A MEIA-LARGURA DO VÃO ESTRUTURAL — e o que sobrou de .
  *
- * Eram tres, em -6,4 / 0 / 6,4. O do MEIO caia exatamente no eixo da camera e
- * partia o quadro em dois: a piscina de um lado, o bar do outro, e uma barra
- * escura no meio do que deveria ser a vista. O dono reclamou disso olhando a
- * tela, e estava certo.
+ * O prédio TINHA pilares desenhados atravessando a descida, e a razão estava na
+ * spec: sem um elemento contínuo, cada andar entra e sai como um slide e a
+ * queda deixa de ser uma queda. Eram eles que costuravam as sete paradas numa
+ * coisa só.
  *
- * Quatro pilares em vao par deixam o CENTRO LIVRE, que e onde o olho entra. Nao
- * e licenca estrutural: malha de pilar com vao no eixo e o arranjo normal de
- * qualquer planta livre — a estrutura acompanha o programa, e o programa aqui
- * quer o meio desimpedido.
+ * O DONO PEDIU PARA TIRÁ-LOS, e pediu três vezes, depois de duas tentativas
+ * minhas de salvá-los afinando e recuando. A razão dele é de composição e é
+ * legítima: quatro colunas verticais atravessando o quadro de cima a baixo
+ * disputam a vista com tudo o que a cobertura tem para mostrar.
  *
- * Eles continuam atravessando a descida inteira, que e a razao de existirem:
- * sem um elemento continuo cada andar entra e sai como um slide e a queda deixa
- * de ser uma queda.
+ * O QUE SE PERDE, dito claro: a costura vertical da descida. O que segura essa
+ * função agora são os montantes contínuos dos planos de parallax, que já
+ * existiam e fazem o mesmo trabalho com menos peso — mas eles estão ATRÁS, e
+ * costuram com menos força do que uma coluna no plano da frente costurava.
+ *
+ * A constante sobrevive porque ela também era outra coisa: o limite lateral do
+ * vão onde os objetos clicáveis podem morar. Esse uso não tinha nada a ver com
+ * pilar, e é o que  mede.
  */
-export const PILARES = [-9.4, -3.1, 3.1, 9.4] as const
+export const MEIA_LARGURA_UTIL = 9.4
 
 /**
  * Os três planos de profundidade, do fundo para a frente.

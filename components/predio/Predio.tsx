@@ -9,7 +9,6 @@ import {
   ALTURA_ANDAR,
   LAJE,
   PE_DIREITO,
-  PILARES,
   PLANOS,
   SOL,
   alturaTotal,
@@ -143,23 +142,6 @@ const BORDA = 1.6
 
 /** Onde os objetos clicáveis e os pilares moram, em z. */
 const Z_OBJETO = 0.2
-/**
- * O PILAR FOI PARA O FUNDO, e foram dois passos.
- *
- * Ele nasceu em z = -1,15, quase colado na camera: a 7 m de distancia, 0,52 m
- * de largura viravam 44 pixels, e quatro barras dessas cortavam a vista de cima
- * a baixo. Recuei para -3,4 e ainda atrapalhava — o dono viu e disse.
- *
- * Agora vai para -8,2, rente ao terco de tras do andar. A 14 m ele mede 17
- * pixels e passa a estar ATRAS de tudo: do guarda-corpo, das espreguicadeiras,
- * da piscina e do pergolado. Continua costurando a descida inteira, que e a
- * razao de ele existir, mas para de disputar o primeiro plano com o conteudo.
- *
- * A licao geral, que vale para todo elemento estrutural desta cena: profundidade
- * e o controle de volume de um objeto. A mesma peca a 7 m grita e a 14 m
- * acompanha, sem mudar um centimetro de tamanho real.
- */
-const Z_PILAR = -8.2
 
 /** Meia-altura visível folgada, usada para dimensionar os planos de fundo. */
 const MARGEM_VISIVEL = 9
@@ -602,30 +584,6 @@ function Enquadramento() {
 
 // ── Peças do prédio ───────────────────────────────────────────────────────
 
-/**
- * Os pilares. Uma peça só de ponta a ponta, e é o elemento mais importante da
- * cena depois do sol: "sem eles as faixas viram slides soltos e a descida deixa
- * de ser uma descida" (spec).
- *
- * Vivem no grupo da FRENTE, que é o de deslocamento zero — ou seja, em
- * coordenada de mundo — e por isso atravessam a queda inteira sem depender de
- * nenhum andar estar vivo. Ficam ATRÁS dos objetos em z: o `formulario` mora em
- * x = 0,5 (o meio exato do vão), que é onde está o pilar central, e um balcão
- * na frente de uma coluna é o que um térreo de verdade tem.
- */
-function Pilares({ material }: { material: THREE.Material }) {
-  const altura = alturaTotal() + ALTURA_ANDAR * 2
-  const centro = ALTURA_ANDAR - altura / 2
-  return (
-    <>
-      {PILARES.map((x) => (
-        <mesh key={x} castShadow receiveShadow position={[x, centro, Z_PILAR]} material={material}>
-          <boxGeometry args={[0.4, altura, 0.56]} />
-        </mesh>
-      ))}
-    </>
-  )
-}
 
 /**
  * O CHÃO — a coisa em que a queda aterrissa.
@@ -948,8 +906,23 @@ function PlanoDeFundo({
         </mesh>
       ))}
       {/* Montantes CONTÍNUOS: são eles que dão verticalidade ao plano sem
-          precisar de registro com andar nenhum. */}
-      {[-largura * 0.56, 0, largura * 0.56].map((x) => (
+          precisar de registro com andar nenhum.
+
+          O DO EIXO SAIU, e ele era o último obstáculo da vista. Depois de eu
+          afinar, recuar e por fim REMOVER os pilares do plano da frente, o dono
+          mandou mais uma captura com uma barra escura ainda cortando o quadro ao
+          meio — e era esta. Vertical contínua em x = 0, atravessando a cena de
+          cima a baixo, num plano de fundo que ninguém suspeita.
+
+          A lição, e ela vale para a próxima caça: quando o defeito SOBREVIVE à
+          correção do suspeito óbvio, o suspeito era outro. Eu mexi nos pilares
+          três vezes sem conferir se a barra que aparecia na tela era mesmo
+          pilar.
+
+          As duas laterais ficam. Elas caem nas bordas do quadro, onde emolduram
+          em vez de obstruir, e continuam entregando a verticalidade contínua que
+          costura a descida — que era a função original dos pilares. */}
+      {[-largura * 0.56, largura * 0.56].map((x) => (
         <mesh key={x} position={[x, (alto + baixo) / 2, -0.2]} material={material}>
           <boxGeometry args={[espessura * 0.9, vao + ALTURA_ANDAR, 0.24]} />
         </mesh>
@@ -1069,28 +1042,6 @@ function Cena({
   const primeiroQuadro = useRef(true)
   const ultimoAndar = useRef(-1)
 
-  const pilar = useMemo(
-    () =>
-      /**
-       * COR PROPRIA, e esta e a QUINTA armadilha de constante emprestada nesta
-       * feature. O pilar era pintado com `tom(corDoRotulo(0), 0.3)` — a tinta do
-       * ROTULO da cobertura, multiplicada por 0,3. Funcionava por acaso enquanto
-       * aquele rotulo era escuro, e o resultado era um preto quase absoluto:
-       * quatro barras pretas cortando a vista.
-       *
-       * Pilar e CONCRETO ESTRUTURAL. Concreto nao e preto em hora nenhuma do
-       * dia, e um pilar de concreto aparente na penumbra e cinza medio. A lista
-       * das cinco esta em `predio-luz.ts`: ceu <- rotulo, albedo <- paleta,
-       * cenario <- andares, brilho do sol <- azimute, e agora pilar <- rotulo.
-       */
-      new THREE.MeshStandardMaterial({
-        color: '#6c625a',
-        roughness: 0.9,
-        metalness: 0.04,
-      }),
-    [],
-  )
-  useEffect(() => () => pilar.dispose(), [pilar])
 
   // A terra sob o térreo: a cor da recepção puxada bem para baixo. Escura
   // porque é massa, não superfície iluminada — mas ainda dentro do arco de
@@ -1367,7 +1318,6 @@ function Cena({
                   linha do horizonte durante a descida. Ver o cabeçalho de
                   `predio-cidade.tsx` para o intervalo de z em que ela cabe. */}
               <Cidade cor={CIDADE} corDistante={CIDADE_DISTANTE} ceu={CEU} />
-              <Pilares material={pilar} />
               <Chao material={terra} />
               {vivos.map((indice) => (
                 <AndarVivo

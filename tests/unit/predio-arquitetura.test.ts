@@ -3,7 +3,7 @@ import {
   ALTURA_ANDAR,
   LAJE,
   PE_DIREITO,
-  PILARES,
+  MEIA_LARGURA_UTIL,
   PLANOS,
   SOL,
   alturaTotal,
@@ -95,22 +95,20 @@ describe('arquitetura do prédio', () => {
   })
 
   /**
-   * ERA `toContain(0)` — "há pilar no centro" — e o teste foi SUBSTITUÍDO, não
-   * afrouxado.
+   * ERA UM TESTE SOBRE PILARES, e os pilares saíram da cena a pedido do dono.
    *
-   * Aquele pilar central caía exatamente no eixo da câmera e partia o quadro em
-   * dois, com uma barra escura no meio do que deveria ser a vista. O dono
-   * reclamou olhando a tela. Malha de pilar com VÃO no eixo é o arranjo normal
-   * de planta livre, então a correção é arquitetonicamente honesta.
+   * O teste morreu junto, e é o desfecho certo: guardar a posição de um objeto
+   * que não é mais desenhado seria uma asserção que passa para sempre sem
+   * proteger nada — pior que nenhum teste, porque parece cobertura.
    *
-   * O que o teste guarda agora é o que sempre importou de verdade: que existam
-   * pilares dos dois lados (é a continuidade deles que costura a descida) e que
-   * o EIXO FIQUE LIVRE, que é a propriedade nova.
+   * O que sobrevive é a outra metade da constante, que nunca teve a ver com
+   * pilar: o VÃO ÚTIL, o limite lateral dentro do qual o objeto clicável pode
+   * morar. Quem mede isso é `predio-scene.test.tsx`; aqui fica só a sanidade do
+   * número contra a largura do prédio.
    */
-  it('há pilar dos dois lados e o eixo central fica livre', () => {
-    expect(PILARES.some((x) => x < 0)).toBe(true)
-    expect(PILARES.some((x) => x > 0)).toBe(true)
-    // Meia-largura do pilar é 0,2: nenhum pode encostar no eixo da câmera.
-    expect(PILARES.every((x) => Math.abs(x) > 0.2)).toBe(true)
+  it('o vão útil cabe dentro da largura do prédio', () => {
+    expect(MEIA_LARGURA_UTIL).toBeGreaterThan(0)
+    // A laje tem meia-largura 15: o vão dos objetos tem de ficar bem dentro dela.
+    expect(MEIA_LARGURA_UTIL).toBeLessThan(15)
   })
 })
