@@ -211,7 +211,7 @@ export function Cobertura({
     // ESTIPE ALTO de proposito: palmeira so le como palmeira se a copa SUBIR acima
     // do resto do plantio. Na altura da graminea ela vira mais um tufo, e o gesto
     // — estipe fino, copa em arco la em cima — e justamente o que a identifica.
-    const gEstipe = new THREE.CylinderGeometry(0.048, 0.09, 2.9, 8)
+    const gEstipe = new THREE.CylinderGeometry(0.052, 0.1, 4.2, 8)
     const gFronde = new THREE.PlaneGeometry(1.7, 0.78)
     // FLOR. Um tufo minusculo: a essa distancia flor nao tem petala, tem MANCHA.
     // FLOR PEQUENA. A 0,08 com escala 1,3 ela virava uma bola de 10 cm — a essa
@@ -300,8 +300,11 @@ export function Cobertura({
     // de folhagem, a esfera lisa lê como bola.
     // OLIVEIRA. Tronco curto e grosso em relacao a copa — oliveira nao e alta,
     // e ampla. Tres deles saem da mesma base.
-    const gTroncoOliva = new THREE.CylinderGeometry(0.055, 0.1, 1.55, 7)
-    const gGalhoOliva = new THREE.CylinderGeometry(0.018, 0.042, 0.58, 5)
+    // TRONCO DE ARVORE ADULTA. Oliveira de terraco chega facil a 4 m, e a
+    // cobertura e CEU ABERTO — nada impede a copa de passar da linha do predio.
+    // Arvore que termina abaixo do parapeito le como arbusto em vaso grande.
+    const gTroncoOliva = new THREE.CylinderGeometry(0.07, 0.13, 2.4, 7)
+    const gGalhoOliva = new THREE.CylinderGeometry(0.022, 0.05, 0.8, 5)
     // Tufo PEQUENO: a copa aberta precisa de muitos pequenos, nao poucos grandes.
     const gTufoOliva = new THREE.IcosahedronGeometry(0.27, 0)
     const gArbusto = new THREE.IcosahedronGeometry(0.2, 0)
@@ -959,7 +962,18 @@ export function Cobertura({
      * fazendo o trabalho de verticalidade no resto da largura — e elas ja estao
      * acima da viga, entao nunca disputaram.
      */
-    for (const [k, x] of [-11.4].entries()) {
+    // x = -10,6 e 3,6, e o segundo numero e o que importa: 3,6 e o unico VAO
+    // LIVRE da metade direita. A viga do pergolado termina em 2,9, os guarda-sois
+    // estao em 5,0 e 7,8 mas numa profundidade a frente, e o bar comeca em 6,7.
+    // Sobra a faixa de 2,9 a 6,7, e a arvore fica no meio dela — visivel de
+    // corpo inteiro, sem nada na frente e sem nada atras para se fundir.
+    //
+    // As posicoes anteriores (-11,4 / 12,6 e depois -10,6 / 12,2) Em zArvores (14,4 m da camera) a
+    // escala e 41,6 px/m, entao -11,4 e 12,6 caiam em 166 e 1164 de uma tela de
+    // 1280 — ou seja, colados nas bordas e metade fora. A esquerda desloca para
+    // dentro; a direita passa do bar (que termina em 11,3) para o tronco nao
+    // nascer atras dele e a copa nao ficar boiando.
+    for (const [k, x] of [-10.6, 3.6].entries()) {
       sombra(x, zArvores, 2.4, 2.4)
       col.poe('vasoAlto', gVasoAlto, mVaso, [x, piso, zArvores])
       col.poe('terra', gTerra, mTerra, [x, piso + 0.66, zArvores], [-Math.PI / 2, 0, 0])
@@ -977,14 +991,14 @@ export function Cobertura({
           'troncoOliva',
           gTroncoOliva,
           mMadeiraClara,
-          [x + dx, piso + 1.4 + t * 0.06, zArvores + dz],
+          [x + dx, piso + 1.75 + t * 0.08, zArvores + dz],
           [Math.cos(tr.a) * tr.incl, 0, -Math.sin(tr.a) * tr.incl],
         )
         col.poe(
           'galhoOliva',
           gGalhoOliva,
           mMadeiraClara,
-          [x + dx * 2.6, piso + 2.15 + t * 0.12, zArvores + dz * 2.6],
+          [x + dx * 2.6, piso + 3.0 + t * 0.16, zArvores + dz * 2.6],
           [Math.cos(tr.a) * 0.65, 0, -Math.sin(tr.a) * 0.65],
         )
       }
@@ -998,14 +1012,14 @@ export function Cobertura({
       // NUCLEO: oito tufos solidos no miolo, so para a copa ter massa escura por
       // tras das folhas. Sem eles ve-se o ceu atraves da arvore inteira e ela
       // perde peso; com eles, as folhas chatas ficam recortadas contra algo.
-      for (let t = 0; t < 14; t++) {
+      for (let t = 0; t < 22; t++) {
         const a = ruido(t, 55 + k) * Math.PI * 2
-        const r = ruido(t, 56 + k) * 0.5
+        const r = ruido(t, 56 + k) * 0.66
         col.poe(
           'nucleoOliva',
           gTufoOliva,
           mFolhaSolida,
-          [x + Math.sin(a) * r, piso + 2.18 + ruido(t, 57 + k) * 0.4, zArvores + Math.cos(a) * r],
+          [x + Math.sin(a) * r, piso + 3.2 + ruido(t, 57 + k) * 0.7, zArvores + Math.cos(a) * r],
           [ruido(t, 58 + k) * 3, ruido(t, 59 + k) * 3, 0],
           [1.3, 0.95, 1.3],
           TONS_DE_OLIVA[0]!,
@@ -1037,17 +1051,17 @@ export function Cobertura({
        */
       // Mais ramalhetes e mais folha por ramalhete: o recorte por alfa tirou
       // quase metade da area de cada quad, e sem repor a copa RAREIA.
-      const ramalhetes = 38
+      const ramalhetes = 62
       for (let b = 0; b < ramalhetes; b++) {
         // O pé do raminho fica na casca da copa. A raiz quadrada empurra para
         // FORA, porque o miolo é oco — é na periferia que está a luz.
         const az = ruido(b, 50 + k) * Math.PI * 2
-        const rBase = 0.2 + Math.sqrt(ruido(b, 60 + k)) * 0.72
+        const rBase = 0.24 + Math.sqrt(ruido(b, 60 + k)) * 1.02
         // ALTURA CHEIA DE VOLTA: fora do vao do pergolado ela nao disputa com
         // nada, e pode ter a copa alta que uma oliveira adulta tem. A copa comeca
         // acima do topo do arbusto do canteiro (2,4), entao ela se destaca contra
         // o ceu em vez de se fundir com o verde de tras.
-        const yBase = piso + 2.35 + ruido(b, 70 + k) * 0.7
+        const yBase = piso + 3.1 + ruido(b, 70 + k) * 1.05
         const bx = x + Math.sin(az) * rBase
         const bz = zArvores + Math.cos(az) * rBase * 0.78
         // A maioria PENDE: galho carregado de folha não fica na horizontal, e o
@@ -1069,9 +1083,9 @@ export function Cobertura({
           [1, comp / 0.3, 1],
         )
 
-        for (let f = 0; f < 16; f++) {
+        for (let f = 0; f < 19; f++) {
           // Ao LONGO do raminho, e não em volta dele.
-          const u = 0.12 + (f / 16) * 0.98
+          const u = 0.12 + (f / 19) * 0.98
           const g = b * 17 + f
           col.poe(
             'folhaOliva',
@@ -1221,9 +1235,9 @@ export function Cobertura({
      */
     for (let m = 0; m < 46; m++) {
       const xm = -meiaLargura + 0.6 + (m / 45) * (meiaLargura * 2 - 1.2)
-      const alturaMoita = 1.0 + ruido(m, 400) * 0.9
+      const alturaMoita = 1.1 + ruido(m, 400) * 1.05
       const zm = zFundoVerde + (ruido(m, 401) - 0.5) * 0.5
-      for (let f = 0; f < 26; f++) {
+      for (let f = 0; f < 44; f++) {
         const a = ruido(f, 410 + m) * Math.PI * 2
         const r = Math.sqrt(ruido(f, 411 + m)) * 0.52
         col.poe(
@@ -1251,12 +1265,12 @@ export function Cobertura({
      * outro projeto.
      */
     for (const [q, xp] of [-11.8, -6.2, -0.4, 5.6, 11.2].entries()) {
-      col.poe('estipe', gEstipe, mMadeiraClara, [xp, piso + 1.95, zFundoVerde], [0.05, 0, 0.04])
-      for (let fr = 0; fr < 9; fr++) {
-        const a = (fr / 9) * Math.PI * 2 + q
+      col.poe('estipe', gEstipe, mMadeiraClara, [xp, piso + 2.6, zFundoVerde], [0.05, 0, 0.04])
+      for (let fr = 0; fr < 14; fr++) {
+        const a = (fr / 14) * Math.PI * 2 + q
         // As de baixo caem mais: índice alto recebe inclinação maior. Fronde
         // toda no mesmo ângulo lê como leque de papel.
-        const cai = 0.12 + (fr / 9) * 0.95
+        const cai = 0.12 + (fr / 14) * 0.95
         col.poe(
           'fronde',
           gFronde,
@@ -1279,7 +1293,7 @@ export function Cobertura({
      */
     for (let c = 0; c < 22; c++) {
       const xc = -meiaLargura + 0.8 + (c / 21) * (meiaLargura * 2 - 1.6)
-      for (let b = 0; b < 40; b++) {
+      for (let b = 0; b < 54; b++) {
         const a = ruido(b, 420 + c) * Math.PI * 2
         const raio = ruido(b, 421 + c) * 0.34
         const alt = 0.5 + ruido(b, 422 + c) * 0.8
@@ -1340,7 +1354,7 @@ export function Cobertura({
         [1, comp / 0.42, 1],
         TONS_DE_OLIVA[c % TONS_DE_OLIVA.length]!,
       )
-      for (let fo = 0; fo < 6; fo++)
+      for (let fo = 0; fo < 9; fo++)
         col.poe(
           'folhaLarga',
           gFolhaLarga,
@@ -1398,7 +1412,7 @@ export function Cobertura({
        */
       // Massa de folha larga preenchendo o vaso, e pendente derramando pela
       // borda: sem isso o estipe sai de terra nua e a peça lê como vaso de loja.
-      for (let f = 0; f < 46; f++) {
+      for (let f = 0; f < 82; f++) {
         const a = ruido(f, 460 + v) * Math.PI * 2
         const r = Math.sqrt(ruido(f, 461 + v)) * 0.42
         col.poe(
