@@ -190,7 +190,8 @@ export function Cobertura({
      * O material tem de ser DE DUAS FACES: folha orientada ao acaso mostra o
      * verso metade do tempo, e face unica faria metade da copa sumir.
      */
-    const gFolhaChata = new THREE.PlaneGeometry(0.14, 0.072)
+    // O raminho que carrega o ramalhete de folhas. Escalado em Y por ramo.
+    const gRaminho = new THREE.CylinderGeometry(0.004, 0.011, 0.3, 4)
     // Folha de oliveira e LANCEOLADA: estreita e comprida, quase uma lamina.
     const gFolhaOliva = new THREE.PlaneGeometry(0.19, 0.048)
 
@@ -434,21 +435,16 @@ export function Cobertura({
     // Trepadeira: verde ESCURO e saturado. A oliveira e prateada; se as duas
     // tivessem o mesmo verde, o pergolado e a copa virariam uma mancha so.
     /**
-     * PALETA BIMODAL, e a bimodalidade E o efeito.
+     * A FAIXA CLARA E SALVIA ILUMINADA, NAO NEVE. A primeira paleta bimodal poe
+     * duas entradas quase brancas e a copa saiu parecendo florada — o contraste
+     * estava certo, o VALOR nao. Folha de oliveira em contraluz chega a um verde
+     * palido acinzentado, nunca ao branco: o que e branco numa foto de arvore e
+     * o ceu aparecendo pelos vaos, e disso a copa aberta ja cuida sozinha.
      *
-     * Numa copa em contraluz nao existe "verde medio": existe a folha que o sol
-     * ATRAVESSA, verde-limao quase amarela, e a folha de costas, que e recorte
-     * escuro. A media entre as duas nao aparece em lugar nenhum da copa — e era
-     * justamente a media que a paleta anterior tinha, cinco verdes todos no
-     * mesmo valor.
-     *
-     * Duas das seis entradas sao as ACESAS. Uma em tres e proporcao alta para
-     * folha iluminada, e e proposital: elas sao o que faz a copa cintilar.
+     * Quatro escuras contra duas claras, e nao tres a tres — a copa tem de ter
+     * PESO, e peso vem do lado escuro.
      */
-    const TONS_DE_TREPADEIRA = ['#2e4f22', '#40662f', '#9fc56a', '#365a27', '#c3e08a', '#4d7538'].map(
-      (c) => new THREE.Color(c),
-    )
-    const TONS_DE_OLIVA = ['#6e8168', '#8d9c85', '#d8e0c6', '#7d8e74', '#eef0dc', '#9aa892'].map(
+    const TONS_DE_OLIVA = ['#5f7361', '#6e8168', '#aab89b', '#7d8e74', '#c0cbae', '#8d9c85'].map(
       (c) => new THREE.Color(c),
     )
     // GRAMINEA em contraluz: palha dourada, nao verde. A lamina seca da ponta e
@@ -554,76 +550,6 @@ export function Cobertura({
         piso + 2.63,
         (zPergolaFrente + zPergolaFundo) / 2,
       ])
-
-    /**
-     * A TREPADEIRA — e ela e o que transforma pergolado em pergolado VIVO.
-     *
-     * Pergolado existe para sustentar planta: e essa a funcao original da peca,
-     * antes de virar so sombra decorativa. Uma estrutura de madeira limpa le
-     * como recem-entregue; com a trepadeira subindo pelo poste e correndo pela
-     * viga, ela passa a ter IDADE — e idade e a coisa mais dificil de fingir
-     * numa cena construida do zero.
-     *
-     * A folhagem se concentra sobre a viga do FUNDO e rala em direcao a frente,
-     * porque planta cresce na direcao da luz e o sol esta atras. Distribuicao
-     * uniforme seria o tell de sempre.
-     */
-    /**
-     * EM MOITAS, e nao espalhada por igual — a primeira versao distribuiu 150
-     * folhas uniformemente pelo pergolado e o resultado foi CONFETE VERDE, nao
-     * planta. Trepadeira nasce de um pe, sobe por um poste e se espalha a partir
-     * dali: a densidade cai com a distancia da raiz. Tres pes, e a folha se
-     * agrupa em volta de cada um.
-     */
-    const pesDaTrepadeira = [-8.0, -0.4, 3.4]
-    for (let f = 0; f < 760; f++) {
-      const pe = pesDaTrepadeira[f % pesDaTrepadeira.length]!
-      // Distancia ao pe com expoente: concentra perto e rareia longe.
-      const alcance = ruido(f, 251) ** 1.7 * 5.2
-      const x = pe + (ruido(f, 240) > 0.5 ? alcance : -alcance)
-      // Adensa no fundo: a raiz quadrada empurra a maioria para z de tras.
-      const dz = Math.sqrt(ruido(f, 241)) * (zPergolaFrente - zPergolaFundo)
-      const z = zPergolaFundo + dz
-      // Uma parte pendura ABAIXO da viga: e a gavinha solta que denuncia planta
-      // em vez de tapete verde colado em cima.
-      const pendura = ruido(f, 242) > 0.76 ? ruido(f, 243) * 0.62 : 0
-      col.poe(
-        'folhaTrepa',
-        gFolhaChata,
-        mFolha,
-        [
-          x + (ruido(f, 244) - 0.5) * 0.3,
-          piso + 2.68 + ruido(f, 245) * 0.12 - pendura,
-          z + (ruido(f, 246) - 0.5) * 0.35,
-        ],
-        [ruido(f, 247) * 3, ruido(f, 248) * 3, ruido(f, 249) * 3],
-        (() => {
-          const e = 0.85 + ruido(f, 250) * 0.95
-          return [e, e * 0.45, e] as [number, number, number]
-        })(),
-        TONS_DE_TREPADEIRA[f % TONS_DE_TREPADEIRA.length]!,
-      )
-    }
-    // A GAVINHA SUBINDO PELO POSTE. Sem ela a folhagem flutua sobre a viga sem
-    // origem — e o pe da planta e justamente o que prova que ela cresceu ali em
-    // vez de ter sido pousada em cima.
-    for (const pe of pesDaTrepadeira)
-      for (let f = 0; f < 54; f++) {
-        const h = ruido(f, 260) * 2.3
-        const a = h * 2.4 + ruido(f, 261) * 0.7
-        col.poe(
-          'folhaTrepa',
-          gFolhaChata,
-          mFolha,
-          [pe + Math.sin(a) * 0.12, piso + 0.3 + h, zPergolaFundo + Math.cos(a) * 0.12],
-          [ruido(f, 262) * 3, a, ruido(f, 263) * 3],
-          (() => {
-            const e = 0.6 + ruido(f, 264) * 0.6
-            return [e, e * 0.5, e] as [number, number, number]
-          })(),
-          TONS_DE_TREPADEIRA[f % TONS_DE_TREPADEIRA.length]!,
-        )
-      }
 
     /**
      * VARAL DE LUZES sobre o pergolado — o detalhe que mais diz "cobertura de
@@ -902,32 +828,86 @@ export function Cobertura({
           TONS_DE_OLIVA[0]!,
         )
       }
-      // O ENXAME DE FOLHA. 220 laminas lanceoladas em vez de 36 blocos: mesmo
-      // orcamento de triangulo (o plano tem 2, o icosaedro tem 20) e dez vezes
-      // a densidade. E a densidade que faz a copa cintilar.
-      for (let t = 0; t < 330; t++) {
-        const a = ruido(t, 50 + k) * Math.PI * 2
-        // Raiz quadrada empurra os tufos para FORA: distribuição uniforme em
-        // raio amontoa tudo no centro, que é justamente o miolo que deve ser oco.
-        const r = 0.16 + Math.sqrt(ruido(t, 60 + k)) * 0.8
+      /**
+       * A FOLHA NASCE EM RAMALHETE, e este era o erro que ainda restava.
+       *
+       * A versão anterior espalhou 330 folhas soltas dentro do volume da copa,
+       * cada uma girada ao acaso nos três eixos. Aquilo resolveu o problema do
+       * sólido — passou a cintilar —, mas trouxe outro: CONFETE. Folha não
+       * flutua distribuída num volume. Ela nasce em sequência ao longo de um
+       * raminho, o raminho nasce num galho, e por isso a copa de qualquer árvore
+       * é feita de GRUMOS e não de uma nuvem uniforme.
+       *
+       * O grumo produz as três coisas que faltavam:
+       *
+       * - AUTO-SOMBRA. Um grumo denso tem lado claro e lado escuro. Folha
+       *   dispersa recebe luz de todos os lados e achata.
+       * - SILHUETA RECORTADA. O contorno de uma copa real é serrilhado pelos
+       *   ramalhetes da periferia; não é um círculo difuso.
+       * - DIREÇÃO. As folhas de um mesmo raminho apontam quase todas para o
+       *   mesmo lado, e é essa concordância LOCAL que o olho lê como crescimento
+       *   em vez de espalhamento.
+       *
+       * E a orientação deixa de ser aleatória: ela segue o eixo do raminho, com
+       * dispersão em volta. O giro livre nos três eixos foi exatamente o que fez
+       * a versão anterior parecer papel picado suspenso.
+       */
+      const ramalhetes = 30
+      for (let b = 0; b < ramalhetes; b++) {
+        // O pé do raminho fica na casca da copa. A raiz quadrada empurra para
+        // FORA, porque o miolo é oco — é na periferia que está a luz.
+        const az = ruido(b, 50 + k) * Math.PI * 2
+        const rBase = 0.2 + Math.sqrt(ruido(b, 60 + k)) * 0.72
+        const yBase = piso + 2.0 + ruido(b, 70 + k) * 0.72
+        const bx = x + Math.sin(az) * rBase
+        const bz = zArvores + Math.cos(az) * rBase * 0.78
+        // A maioria PENDE: galho carregado de folha não fica na horizontal, e o
+        // −0,62 no deslocamento é o que inclina a distribuição para baixo.
+        const inclina = (ruido(b, 75 + k) - 0.62) * 1.1
+        const comp = 0.26 + ruido(b, 76 + k) * 0.3
+
+        // O raminho em si. Sem ele o grumo flutua desligado da árvore.
         col.poe(
-          'folhaOliva',
-          gFolhaOliva,
-          mFolha,
+          'raminho',
+          gRaminho,
+          mMadeiraClara,
           [
-            x + Math.sin(a) * r,
-            piso + 2.02 + ruido(t, 70 + k) * 0.7,
-            zArvores + Math.cos(a) * r * 0.78,
+            bx + Math.sin(az) * comp * 0.4,
+            yBase + inclina * comp * 0.4,
+            bz + Math.cos(az) * comp * 0.4,
           ],
-          // Orientacao nos TRES eixos: e o angulo da folha, e nao a cor dela,
-          // que produz a variacao de brilho numa copa de verdade.
-          [ruido(t, 80 + k) * 6, ruido(t, 90 + k) * 6, ruido(t, 95 + k) * 6],
-          (() => {
-            const s = 0.75 + ruido(t, 100 + k) * 0.6
-            return [s, s, s] as [number, number, number]
-          })(),
-          TONS_DE_OLIVA[(t * 3 + k) % TONS_DE_OLIVA.length]!,
+          [Math.cos(az) * -inclina, az, Math.sin(az) * inclina],
+          [1, comp / 0.3, 1],
         )
+
+        for (let f = 0; f < 11; f++) {
+          // Ao LONGO do raminho, e não em volta dele.
+          const u = 0.15 + (f / 11) * 0.95
+          const g = b * 17 + f
+          col.poe(
+            'folhaOliva',
+            gFolhaOliva,
+            mFolha,
+            [
+              bx + Math.sin(az) * comp * u + (ruido(g, 80 + k) - 0.5) * 0.12,
+              yBase + inclina * comp * u + (ruido(g, 85 + k) - 0.5) * 0.11,
+              bz + Math.cos(az) * comp * u + (ruido(g, 90 + k) - 0.5) * 0.12,
+            ],
+            // Segue o eixo do raminho, com dispersão. O terceiro ângulo é o
+            // ROLAMENTO da folha em torno do próprio pecíolo, e é ele que faz
+            // uma pegar sol enquanto a vizinha fica de perfil.
+            [
+              Math.cos(az) * -inclina + (ruido(g, 95 + k) - 0.5) * 0.9,
+              az + (ruido(g, 100 + k) - 0.5) * 1.1,
+              ruido(g, 105 + k) * 6.3,
+            ],
+            (() => {
+              const e = 0.78 + ruido(g, 110 + k) * 0.5
+              return [e, e, e] as [number, number, number]
+            })(),
+            TONS_DE_OLIVA[(g * 3 + k) % TONS_DE_OLIVA.length]!,
+          )
+        }
       }
     }
 
