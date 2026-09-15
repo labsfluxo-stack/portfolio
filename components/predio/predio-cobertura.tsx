@@ -39,6 +39,32 @@ import { Coletor } from './predio-instancias'
  * Tudo instanciado: poste, ripa, banqueta e folhagem se repetem, e repetição é
  * exatamente o que a instância existe para baratear.
  */
+/**
+ * A mancha de sombra de contato, desenhada em canvas.
+ *
+ * Um degradê radial usado como MAPA DE ALFA: opaco no centro, transparente na
+ * borda. Vira a sombra macia que um objeto apoiado projeta na junta com o chão —
+ * a oclusão de ambiente que uma cena com uma luz direcional só não calcula.
+ *
+ * Não é a sombra do sol: essa existe e é projetada de verdade, mas com o sol a
+ * 8,5° de elevação ela sai 6,7 vezes a altura do objeto e cai longe, fora do
+ * quadro. A de contato é a outra, a que fica embaixo — e é ela que ancora.
+ */
+function manchaDeSombra(): THREE.CanvasTexture {
+  const n = 128
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = n
+  const ctx = cv.getContext('2d')!
+  const g = ctx.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2)
+  g.addColorStop(0, 'rgba(255,255,255,1)')
+  g.addColorStop(0.42, 'rgba(255,255,255,0.62)')
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, n, n)
+  const t = new THREE.CanvasTexture(cv)
+  return t
+}
+
 export function Cobertura({
   piso,
   zCentro,
@@ -78,7 +104,35 @@ export function Cobertura({
     const gPernaBanqueta = new THREE.BoxGeometry(0.06, 0.74, 0.06)
     const gMontanteVidro = new THREE.BoxGeometry(0.05, 0.86, 0.05)
 
-    const mDeck = new THREE.MeshStandardMaterial({ color: '#a97a4e', roughness: 0.82 })
+    /**
+     * O DECK É BRANCO NO MATERIAL, e a cor mora em cada instância.
+     *
+     * `instanceColor` MULTIPLICA a cor do material, então material branco faz da
+     * cor da cópia a cor final. É o único jeito de dar tom próprio a cada régua
+     * sem sair da instância — material por cópia é justamente o que uma
+     * `InstancedMesh` não carrega.
+     *
+     * E a variação importa mais aqui do que em qualquer outro lugar da cobertura:
+     * o deck ocupa um quarto da tela, e 125 réguas do MESMO marrom leem como uma
+     * superfície de plástico com linhas desenhadas em cima. Madeira de verdade
+     * não tem duas tábuas da mesma cor — é a diferença entre elas que o olho usa
+     * para reconhecer o material, antes de qualquer textura.
+     */
+    const mDeck = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.84 })
+    const TONS_DE_DECK = ['#b0804f', '#a2753f', '#b98a5b', '#9a6d3c', '#ab7c4a', '#c0915f'].map(
+      (c) => new THREE.Color(c),
+    )
+    // Sombra de contato: um decalque escuro e macio embaixo de cada móvel.
+    // Sem ele o objeto FLUTUA — o olho lê "apoiado no chão" pelo escurecimento
+    // que a luz indireta não alcança na junta, e é a primeira coisa que falta
+    // numa cena com uma luz só. Custa um quad com mapa de alfa em degradê radial.
+    const mSombra = new THREE.MeshBasicMaterial({
+      color: '#4a3524',
+      transparent: true,
+      opacity: 0.34,
+      alphaMap: manchaDeSombra(),
+      depthWrite: false,
+    })
     const mEspreguicadeira = new THREE.MeshStandardMaterial({ color: '#e8dccb', roughness: 0.7 })
     const mMetal = new THREE.MeshStandardMaterial({ color: '#cfc3ae', metalness: 0.7, roughness: 0.32 })
     const mVaso = new THREE.MeshStandardMaterial({ color: '#8d7256', roughness: 0.9 })
@@ -108,6 +162,12 @@ export function Cobertura({
      * Quanto mais à frente, mais estreita — é o inverso da intuição de planta
      * baixa, e é o erro que este comentário existe para não se repetir.
      */
+    // Um quad deitado, logo acima das réguas, com a mancha em degradê. Fica
+    // `depthWrite: false` para não brigar em z com o deck que está 8 mm abaixo.
+    const gSombra = new THREE.PlaneGeometry(1, 1)
+    const sombra = (x: number, z: number, larg: number, profund: number) =>
+      col.poe('sombra', gSombra, mSombra, [x, piso + 0.021, z], [-Math.PI / 2, 0, 0], [larg, profund, 1])
+
     const zEspreguicadeiras = zCentro + prof * 0.1
     const zPergolaFrente = zCentro + prof * 0.108
     const zPergolaFundo = zCentro - prof * 0.17
@@ -119,7 +179,17 @@ export function Cobertura({
     // é uma superfície infinita sem escala, que foi o defeito do piso liso.
     const ripas = Math.floor((meiaLargura * 2) / 0.24)
     for (let i = 0; i < ripas; i++)
-      col.poe('ripa', gRipa, mDeck, [-meiaLargura + 0.12 + i * 0.24, piso + 0.012, zCentro])
+      col.poe(
+        'ripa',
+        gRipa,
+        mDeck,
+        [-meiaLargura + 0.12 + i * 0.24, piso + 0.012, zCentro],
+        [0, 0, 0],
+        [1, 1, 1],
+        // A sequência é irregular de propósito: `i % 6` daria um padrão que o
+        // olho pega em dois segundos e lê como ladrilho, não como madeira.
+        TONS_DE_DECK[(i * 5 + ((i * i) % 7)) % TONS_DE_DECK.length]!,
+      )
 
     /**
      * O PERGOLADO — o elemento que mais trabalha no quadro.
@@ -156,8 +226,10 @@ export function Cobertura({
      */
     const xPostes = [-8.0, -4.2, -0.4, 3.4]
     for (const x of xPostes)
-      for (const z of [zPergolaFrente, zPergolaFundo])
+      for (const z of [zPergolaFrente, zPergolaFundo]) {
+        sombra(x, z, 0.9, 0.9)
         col.poe('poste', gPoste, mMadeiraEscura, [x, piso + 1.3, z])
+      }
     for (const z of [zPergolaFrente, zPergolaFundo])
       col.poe('viga', gVigaPergola, mMadeiraEscura, [-2.3, piso + 2.5, z])
     for (let i = 0; i < 27; i++)
@@ -173,6 +245,7 @@ export function Cobertura({
     // piscina. As das pontas continuam para quem abre em tela larga.
     for (const x of [-8.4, -6.1, -2.3, 2.3, 6.1, 8.4]) {
       const z = zEspreguicadeiras
+      sombra(x, z, 2.5, 3.0)
       col.poe('assento', gAssento, mEspreguicadeira, [x, piso + 0.33, z])
       col.poe('encosto', gEncosto, mEspreguicadeira, [x, piso + 0.52, z - 0.78], [-0.85, 0, 0])
       for (const dx of [-0.24, 0.24])
@@ -183,6 +256,7 @@ export function Cobertura({
     // Guarda-sóis: o lado direito não tem pergolado, e sem eles aquela metade da
     // tela volta a ser deck raso. O cone a 2,3 m faz o mesmo serviço de recorte.
     for (const x of [5.0, 7.8]) {
+      sombra(x, zEspreguicadeiras - 0.4, 1.1, 1.1)
       col.poe('mastro', gMastro, mMetal, [x, piso + 1.1, zEspreguicadeiras - 0.4])
       col.poe('lona', gLona, mLona, [x, piso + 2.3, zEspreguicadeiras - 0.4])
     }
@@ -201,6 +275,7 @@ export function Cobertura({
      * primeira versão, invisível.
      */
     const xBar = 9.0
+    sombra(xBar, zBar, 5.6, 1.9)
     col.poe('balcao', gBalcao, mMadeiraEscura, [xBar, piso + 0.52, zBar])
     col.poe('tampo', gTampo, mPedra, [xBar, piso + 1.08, zBar])
     col.poe('estante', gEstante, mMadeiraEscura, [xBar, piso + 0.95, zBar - 1.6])
@@ -212,6 +287,7 @@ export function Cobertura({
     // Árvores em vaso: o volume orgânico contra tanta linha reta, agora ALTO o
     // bastante para contar. Copa a ~2,3 m, na mesma faixa de tela do pergolado.
     for (const x of [-12.4, -3.0, 1.8]) {
+      sombra(x, zArvores, 2.0, 2.0)
       col.poe('vasoAlto', gVasoAlto, mVaso, [x, piso + 0.42, zArvores])
       col.poe('tronco', gTronco, mMadeiraEscura, [x, piso + 1.5, zArvores])
       col.poe('copa', gCopa, mFolha, [x, piso + 2.18, zArvores], [0, 0.4, 0], [1.15, 0.9, 1.15])
@@ -230,6 +306,7 @@ export function Cobertura({
     // Canteiro rente à parede do fundo: uma faixa verde baixa que fecha a
     // composição por trás sem disputar altura com as árvores.
     for (const x of [-13.2, -9.4, -5.6, -1.8, 2.0, 5.8, 9.6, 13.4]) {
+      sombra(x, zCanteiro, 1.5, 1.5)
       col.poe('vaso', gVaso, mVaso, [x, piso + 0.21, zCanteiro])
       col.poe('folha', gFolhagem, mFolha, [x, piso + 0.62, zCanteiro], [0, 0.4, 0], [1, 0.82, 1])
       col.poe('folha', gFolhagem, mFolha, [x + 0.22, piso + 0.5, zCanteiro + 0.14], [0, 1.1, 0], [0.7, 0.6, 0.7])

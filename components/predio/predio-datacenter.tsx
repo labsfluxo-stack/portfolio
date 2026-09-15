@@ -548,7 +548,7 @@ export function Datacenter({
      */
     col.poe(
       'forro',
-      new THREE.BoxGeometry(largura, 0.05, prof * 0.98),
+      new THREE.BoxGeometry(largura, 0.05, prof),
       new THREE.MeshStandardMaterial({ color: '#15171a', roughness: 0.9, metalness: 0.1 }),
       [0, piso + PE_DIREITO - 0.03, zCentro],
     )

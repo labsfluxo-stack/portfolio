@@ -4,7 +4,7 @@ import type { AnchorHTMLAttributes, ReactNode, Ref, RefObject } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { Dictionary, Locale } from '@/content/types'
-import { ANDARES, type ObjetoDoAndar } from './predio-programa'
+import { ANDARES, type ChaveAndar, type ObjetoDoAndar } from './predio-programa'
 import {
   ALTURA_ANDAR,
   LAJE,
@@ -26,7 +26,7 @@ import { capacidadesDo, temPerspectiva, type Capacidades } from './predio-qualid
 import { progressoDoCurso, useRepasseDeRolagem } from './predio-rolagem'
 import { TIERS, type Tier, createMeter, judge, startingStep } from '../three/portico-quality'
 import { Datacenter } from './predio-datacenter'
-import { criaAmbiente } from './predio-ambiente'
+import { criaAmbiente, texturaDeCeu } from './predio-ceu'
 import { Cobertura } from './predio-cobertura'
 import { Cidade } from './predio-cidade'
 
@@ -204,32 +204,47 @@ const tom = (hex: string, fator: number): string =>
 const ALBEDO = { laje: 1.15, teto: 0.78, parede: 0.97, viga: 1.06, objeto: 0.51 } as const
 
 /**
- * AS SUPERFÍCIES DO ANDAR 07, que deixam de sair da paleta.
+ * AS SUPERFÍCIES POR ANDAR — e aqui a tabela nasce com dois exemplos, que era a
+ * condição que eu tinha escrito para generalizar.
  *
- * O arco de temperatura de `predio-luz.ts` pinta o AR de cada andar, e é uma
- * boa regra: a cor conta o setor antes de qualquer legenda. Só que o ar do
- * andar 07 é `#6b5544`, um marrom quente — e multiplicado pelo albedo da laje
- * ele vira um piso de MADEIRA CLARA. O render mostrou um datacenter inteiro
- * montado dentro de um galpão de tábua corrida.
+ * O arco de temperatura de `predio-luz.ts` pinta o AR de cada andar, e é uma boa
+ * regra: a cor conta o setor antes de qualquer legenda. O erro era deduzir a cor
+ * do CONCRETO da cor da luz — multiplicar o ar pelo albedo e chamar o resultado
+ * de laje.
  *
- * Não é caso de mexer na paleta: `#6b5544` está certo como AR (a penumbra
- * quente entre os racks vem dele, e o arco depende de ele estar ali). O que
- * estava errado era deduzir a cor do CONCRETO da cor da luz. Sala de máquina
- * tem piso epóxi cinza, laje escura e parede escura, e isso não é gosto — é o
- * que absorve calor e não mancha.
+ * Os dois andares que já têm conteúdo mostraram o mesmo defeito, por caminhos
+ * opostos:
  *
- * Fica restrito a este andar de propósito. É a primeira vez que um andar
- * precisa de superfície própria, e generalizar agora seria inventar uma tabela
- * para um caso só; quando o segundo andar pedir, a forma da tabela já estará
- * decidida por dois exemplos em vez de um.
+ * - ANDAR 07: o ar é `#6b5544`, marrom quente; vezes o albedo da laje virou piso
+ *   de MADEIRA CLARA, e o render mostrou um datacenter montado dentro de um
+ *   galpão de tábua corrida. Sala de máquina tem piso epóxi cinza, laje escura e
+ *   parede escura — não é gosto, é o que absorve calor e não mancha.
+ * - COBERTURA: o ar é `#d9a066`, o ponto mais claro do prédio; vezes o albedo, o
+ *   parapeito e a borda da laje viraram uma faixa de tinta LARANJA de 30 m no pé
+ *   do primeiro quadro do site. Concreto em hora dourada é bege quente, não
+ *   laranja saturado — a luz é dourada, a superfície não.
+ *
+ * A paleta continua certa nos dois casos; ela descreve LUZ. O que faltava era
+ * dizer de que material a superfície é feita, e isso nenhuma cor de ar consegue
+ * adivinhar. Andar sem entrada aqui continua derivando do ar, que é o
+ * comportamento certo para andar que ainda não tem conteúdo definido.
  */
-const SALA_FRIA = {
-  laje: '#63666d',
-  teto: '#15171a',
-  parede: '#1b1e22',
-  viga: '#2b2f34',
-  objeto: '#2e333a',
-} as const
+const SUPERFICIES: Partial<Record<ChaveAndar, Record<string, string>>> = {
+  cobertura: {
+    laje: '#c7b9a2',
+    teto: '#b9ab94',
+    parede: '#bcae97',
+    viga: '#d4c6ad',
+    objeto: '#b3a794',
+  },
+  servidores: {
+    laje: '#63666d',
+    teto: '#15171a',
+    parede: '#1b1e22',
+    viga: '#2b2f34',
+    objeto: '#2e333a',
+  },
+}
 
 // Mesma constante que `PredioFallback.tsx`, `Header.tsx` e `lib/seo.ts` usam:
 // a forma canônica de ler o `basePath` fora do que o Next resolve sozinho.
@@ -724,6 +739,9 @@ function AndarVivo({
   // componentes nao carregava, porque o custo e a chamada de desenho e nao o
   // triangulo. Os outros seis andares seguem como estavam ate terem o seu.
   const servidores = ANDARES[indice]!.chave === 'servidores'
+  // Superficie propria do andar, quando ele tem uma. Sem entrada, deriva do ar.
+  const sup = SUPERFICIES[andar.chave]
+  const face = (parte: keyof typeof ALBEDO) => sup?.[parte] ?? tom(ar, ALBEDO[parte])
 
   return (
     <group>
@@ -746,7 +764,7 @@ function AndarVivo({
       <mesh receiveShadow castShadow position={[0, piso - LAJE / 2, zCentro]}>
         <boxGeometry args={[MEIA_LARGURA * 2, LAJE, prof]} />
         <meshStandardMaterial
-          color={servidores ? SALA_FRIA.laje : tom(ar, ALBEDO.laje)}
+          color={face('laje')}
           roughness={servidores ? 0.26 : 0.92}
           metalness={servidores ? 0.12 : 0}
           envMapIntensity={servidores ? 1.3 : 1}
@@ -759,7 +777,7 @@ function AndarVivo({
       {comTeto && !cobertura && (
         <mesh receiveShadow position={[0, topo + LAJE / 2, zCentro]}>
           <boxGeometry args={[MEIA_LARGURA * 2, LAJE, prof]} />
-          <meshStandardMaterial color={tom(ar, ALBEDO.teto)} roughness={0.95} metalness={0} />
+          <meshStandardMaterial color={face('teto')} roughness={0.95} metalness={0} />
         </mesh>
       )}
 
@@ -769,7 +787,7 @@ function AndarVivo({
       <mesh receiveShadow position={[0, piso + PE_DIREITO / 2, zParede]}>
         <boxGeometry args={[MEIA_LARGURA * 2, PE_DIREITO, 0.3]} />
         <meshStandardMaterial
-          color={servidores ? SALA_FRIA.parede : tom(ar, ALBEDO.parede)}
+          color={face('parede')}
           roughness={servidores ? 0.75 : 0.96}
           metalness={servidores ? 0.2 : 0}
         />
@@ -795,7 +813,7 @@ function AndarVivo({
       <mesh castShadow receiveShadow position={[0, piso + (cobertura ? 0.17 : 0.16), BORDA - 0.12]}>
         <boxGeometry args={[MEIA_LARGURA * 2, cobertura ? 0.34 : 0.32, 0.24]} />
         <meshStandardMaterial
-          color={servidores ? SALA_FRIA.viga : tom(ar, ALBEDO.viga)}
+          color={face('viga')}
           roughness={servidores ? 0.55 : 0.9}
           metalness={servidores ? 0.35 : 0}
         />
@@ -806,7 +824,7 @@ function AndarVivo({
           key={objeto.id}
           objeto={objeto}
           base={piso}
-          cor={servidores ? SALA_FRIA.objeto : tom(ar, ALBEDO.objeto)}
+          cor={face('objeto')}
           aceso={corDoRotulo(indice)}
           brilhos={brilhos}
         />
@@ -921,26 +939,12 @@ function PlanoDeFundo({
  * porque o céu é a referência de exposição da cena, não um material dentro dela.
  */
 function Ceu() {
-  const textura = useMemo(() => {
-    const canvas = document.createElement('canvas')
-    canvas.width = 4
-    canvas.height = 256
-    const ctx = canvas.getContext('2d')
-    if (ctx) {
-      // De cima para baixo: zênite fechado, meio quente, horizonte aceso — que
-      // é a ordem de uma hora dourada de verdade. As três cores saem de
-      // `predio-luz.ts`; nenhum hex novo entra aqui.
-      const grad = ctx.createLinearGradient(0, 0, 0, 256)
-      grad.addColorStop(0, tom(CEU, 0.34))
-      grad.addColorStop(0.62, tom(CEU, 0.62))
-      grad.addColorStop(1, CEU)
-      ctx.fillStyle = grad
-      ctx.fillRect(0, 0, 4, 256)
-    }
-    const t = new THREE.CanvasTexture(canvas)
-    t.colorSpace = THREE.SRGBColorSpace
-    return t
-  }, [])
+  // PINTADO EM `predio-ceu.ts`, e de lá sai também o mapa de ambiente: o céu que
+  // se vê e o céu que a piscina reflete passam a ser o MESMO. Enquanto eram dois
+  // degradês escritos em arquivos diferentes, a lâmina d'água devolvia um céu que
+  // não estava na tela — ninguém nota conscientemente, e é justamente esse tipo
+  // de desacordo que faz uma cena parecer desenhada em vez de fotografada.
+  const textura = useMemo(() => texturaDeCeu(), [])
   useEffect(() => () => textura.dispose(), [textura])
 
   const altura = 46
@@ -1144,9 +1148,11 @@ function Cena({
       scene.environment?.dispose()
       scene.environment = criaAmbiente(
         gl,
-        corDoAndar(0),
         corDoAndar(quadro.andar),
         tom(corDoAndar(quadro.andar), 0.35),
+        // So a cobertura tem ceu aberto em volta. Num andar interno, refletir
+        // sol e nuvem seria a mesma incoerencia que refletir nada.
+        quadro.andar === 0,
       )
     }
 
