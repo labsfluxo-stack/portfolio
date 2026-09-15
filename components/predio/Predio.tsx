@@ -1330,7 +1330,7 @@ function Cena({
                   parallax certo sozinha, e parallax fabricado desalinharia a
                   linha do horizonte durante a descida. Ver o cabeçalho de
                   `predio-cidade.tsx` para o intervalo de z em que ela cabe. */}
-              <Cidade cor={CENARIO} corDistante={CENARIO_DISTANTE} />
+              <Cidade cor={CENARIO} corDistante={CENARIO_DISTANTE} ceu={CEU} />
               <Pilares material={pilar} />
               <Chao material={terra} />
               {vivos.map((indice) => (

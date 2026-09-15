@@ -181,6 +181,7 @@ function pintaDisco(
   ctx.fill()
 }
 
+
 /**
  * O céu do PLANO DE FUNDO.
  *

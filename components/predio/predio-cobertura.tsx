@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Coletor } from './predio-instancias'
 import { concreto, madeiraDeDeck, normalDeAgua, tecido } from './predio-materiais'
 
@@ -76,6 +77,37 @@ function ruido(i: number, k: number): number {
   return s - Math.floor(s)
 }
 
+/**
+ * A curva de um fio pendurado — catenária, `y = a·cosh(x/a)`, não parábola.
+ *
+ * Fio solto pelo próprio peso tem componente horizontal de tensão constante e
+ * vertical crescendo ao longo do arco. Parece parábola e não é; a diferença
+ * aparece justamente perto dos apoios, que é onde o olho repara. A mesma conta
+ * já governa o cabeamento do datacenter, e pelo mesmo motivo: fio reto é o erro
+ * que denuncia cena montada.
+ *
+ * Parametrizada pela FLECHA — o quanto afunda no meio — porque é a barriga que
+ * se ajusta a olho, não a densidade linear.
+ */
+function catenaria(
+  de: THREE.Vector3,
+  ate: THREE.Vector3,
+  flecha: number,
+  n: number,
+): THREE.Vector3[] {
+  const c = 2.2
+  const base = Math.cosh(c) - 1
+  const pontos: THREE.Vector3[] = []
+  for (let i = 0; i <= n; i++) {
+    const u = i / n
+    const t = u * 2 - 1
+    const p = new THREE.Vector3().lerpVectors(de, ate, u)
+    p.y -= flecha * ((Math.cosh(c) - Math.cosh(c * t)) / base)
+    pontos.push(p)
+  }
+  return pontos
+}
+
 export function Cobertura({
   piso,
   zCentro,
@@ -107,6 +139,7 @@ export function Cobertura({
     const gTuboLado = new THREE.CylinderGeometry(0.021, 0.021, 1.98, 8)
     const gPernaEspr = new THREE.CylinderGeometry(0.017, 0.017, 0.32, 6)
     const gRoda = new THREE.CylinderGeometry(0.055, 0.055, 0.032, 12)
+    const gToalha = new RoundedBoxGeometry(0.52, 0.035, 1.0, 1, 0.017)
 
     // PERGOLADO. Viga com chanfro e chapa de aço no encontro com o poste — é a
     // ferragem que diz "construído" em vez de "empilhado".
@@ -115,6 +148,8 @@ export function Cobertura({
     const gVigaPergola = new RoundedBoxGeometry(12.2, 0.2, 0.17, 1, 0.008)
     const gChapa = new THREE.BoxGeometry(0.19, 0.22, 0.012)
     const gParafuso = new THREE.CylinderGeometry(0.012, 0.012, 0.03, 6)
+    const gSoquete = new THREE.CylinderGeometry(0.016, 0.02, 0.055, 6)
+    const gLampada = new THREE.SphereGeometry(0.038, 8, 6)
 
     // GUARDA-SOL. Perfil em `Lathe` com CAIMENTO: lona esticada por varetas
     // afunda entre elas, então o corte não é reto — é uma curva côncava. Cone
@@ -211,6 +246,16 @@ export function Cobertura({
       metalness: 0.88,
       roughness: 0.34,
     })
+    // Lampada: emissivo moderado + `toneMapped: false` para o vidro nao ser
+    // comido pela curva de exposicao do fim de tarde.
+    const mLampada = new THREE.MeshStandardMaterial({
+      color: '#ffd9a0',
+      emissive: new THREE.Color('#ffcf8a'),
+      emissiveIntensity: 1.35,
+      roughness: 0.25,
+      toneMapped: false,
+    })
+    const mFio = new THREE.MeshStandardMaterial({ color: '#26221e', roughness: 0.9 })
     const mAco = new THREE.MeshStandardMaterial({ color: '#8f8b84', metalness: 0.9, roughness: 0.42 })
     const mVaso = new THREE.MeshStandardMaterial({
       color: '#a89c86',
@@ -236,6 +281,15 @@ export function Cobertura({
       transparent: true,
       opacity: 0.82,
     })
+    // Toalha: listrada nao da para desenhar sem outra textura, mas a COR fria
+    // no meio de um deck ambar ja faz o trabalho — e pano de praia raramente e
+    // da cor da mobilia.
+    const mToalha = new THREE.MeshStandardMaterial({
+      color: '#9fb6c4',
+      roughness: 0.96,
+      map: lona.map,
+      normalMap: lona.normalMap,
+    })
     const mSombra = new THREE.MeshBasicMaterial({
       color: '#4a3524',
       transparent: true,
@@ -255,6 +309,8 @@ export function Cobertura({
     const TONS_DE_GARRAFA = ['#3f5f3a', '#6b4326', '#2f4a5e', '#7a6a3a', '#53304a'].map(
       (c) => new THREE.Color(c),
     )
+
+    const fiosDoVaral: THREE.BufferGeometry[] = []
 
     const sombra = (x: number, z: number, larg: number, profund: number) =>
       col.poe(
@@ -312,29 +368,105 @@ export function Cobertura({
         (zPergolaFrente + zPergolaFundo) / 2,
       ])
 
-    // ── espreguiçadeiras ──────────────────────────────────────────────────
-    // O par do meio (±2,3) é o que o celular enxerga; as das pontas são para
-    // quem abre em tela larga.
-    for (const [k, x] of [-8.4, -6.1, -2.3, 2.3, 6.1, 8.4].entries()) {
-      const z = zEspreguicadeiras
+    /**
+     * VARAL DE LUZES sobre o pergolado — o detalhe que mais diz "cobertura de
+     * empresa" com menos geometria.
+     *
+     * Resolve duas coisas de uma vez. A primeira é semântica: pergolado com
+     * varal de lâmpada é o vocabulário de terraço que RECEBE gente, e a spec
+     * pede que este andar diga "os negócios vão bem" sem escrever. A segunda é
+     * de composição: são três linhas CURVAS atravessando uma região que só tinha
+     * retas paralelas, e é a curva contra a reta que impede o pergolado de ler
+     * como grade.
+     *
+     * As lâmpadas ficam com emissivo MODERADO de propósito. O sol ainda está
+     * acima do horizonte, e varal estourado às cinco da tarde é erro de
+     * continuidade — a essa hora ele mal se distingue, e é justamente esse
+     * "acabaram de acender" que situa o horário.
+     */
+    const zsVaral = [zPergolaFrente, (zPergolaFrente + zPergolaFundo) / 2, zPergolaFundo]
+    for (const [v, zv] of zsVaral.entries()) {
+      const a = new THREE.Vector3(-8.0, piso + 2.56, zv)
+      const b = new THREE.Vector3(3.4, piso + 2.56, zv)
+      const flecha = 0.32 + v * 0.07
+      const curva = new THREE.CatmullRomCurve3(catenaria(a, b, flecha, 16))
+      fiosDoVaral.push(new THREE.TubeGeometry(curva, 34, 0.0085, 4, false))
+      // As lâmpadas seguem a posição EXATA da curva. Interpoladas em linha reta
+      // elas flutuariam acima da barriga do fio no meio do vão — que é o erro
+      // clássico de varal desenhado.
+      for (const [i, pt] of catenaria(a, b, flecha, 21).entries()) {
+        if (i === 0 || i === 21) continue
+        col.poe('soquete', gSoquete, mAco, [pt.x, pt.y - 0.042, pt.z])
+        col.poe('lampada', gLampada, mLampada, [pt.x, pt.y - 0.1, pt.z])
+      }
+    }
+
+    /**
+     * ESPREGUIÇADEIRAS — e aqui entra o tell mais forte que sobrou na cena:
+     * NADA NO MUNDO REAL ESTÁ ALINHADO.
+     *
+     * Seis espreguiçadeiras em x exato, todas no mesmo z, todas no mesmo ângulo,
+     * todas com o encosto na mesma reclinação. Isso não existe nem em foto de
+     * catálogo — porque alguém sempre arrastou uma para pegar sol, outra para
+     * fugir dele, e ninguém recoloca nada no lugar. Enquanto a fila está
+     * perfeita, o olho lê "array" antes de ler "móvel", e nenhuma quantidade de
+     * textura desfaz isso.
+     *
+     * Então cada uma ganha: giro próprio de até ±7°, deslocamento próprio em z,
+     * e reclinação de encosto própria. São três números por peça, vindos do
+     * mesmo ruído determinístico — a cena continua idêntica a cada carregamento,
+     * que é regra da casa, mas deixa de ser uma grade.
+     *
+     * A de índice 4 é a exceção deliberada: girada 24°, puxada para fora da
+     * fila. É "a que alguém mexeu", e uma só basta para o conjunto inteiro
+     * deixar de parecer arrumado por software.
+     */
+    const espreguicadeiras = [-8.4, -6.1, -2.3, 2.3, 6.1, 8.4]
+    for (const [k, xBase] of espreguicadeiras.entries()) {
+      const foraDaFila = k === 4
+      const giro = foraDaFila ? 0.42 : (ruido(k, 200) - 0.5) * 0.24
+      const x = xBase + (ruido(k, 201) - 0.5) * 0.3
+      const z = zEspreguicadeiras + (ruido(k, 202) - 0.5) * 0.55 + (foraDaFila ? 0.5 : 0)
+      // Reclinação própria: entre 32° e 46°. Ninguém deixa duas no mesmo ponto.
+      const reclina = -(0.56 + ruido(k, 203) * 0.25)
+      const cos = Math.cos(giro)
+      const sen = Math.sin(giro)
+      // Ponto local da peça para o mundo, já girado em torno do próprio centro.
+      const p = (lx: number, ly: number, lz: number): [number, number, number] => [
+        x + lx * cos + lz * sen,
+        piso + ly,
+        z - lx * sen + lz * cos,
+      ]
+
       sombra(x, z, 2.4, 3.1)
       // Estrutura tubular: dois tubos correndo o comprimento, quatro pés e duas
       // rodas na cabeceira. É o esqueleto que a espreguiçadeira de verdade tem —
-      // e são as rodas que dizem "isto se arrasta pelo deck", que é o detalhe
-      // que faz o objeto parecer usado em vez de colocado.
+      // e são as rodas que dizem "isto se arrasta pelo deck", o detalhe que faz o
+      // objeto parecer usado em vez de colocado.
       for (const dx of [-0.33, 0.33]) {
-        col.poe('tuboLado', gTuboLado, mMetal, [x + dx, piso + 0.33, z], [Math.PI / 2, 0, 0])
+        col.poe('tuboLado', gTuboLado, mMetal, p(dx, 0.33, 0), [Math.PI / 2, giro, 0])
         for (const dz of [-0.72, 0.62])
-          col.poe('pernaEspr', gPernaEspr, mMetal, [x + dx, piso + 0.17, z + dz])
-        col.poe('roda', gRoda, mAco, [x + dx, piso + 0.055, z + 0.92], [0, 0, Math.PI / 2])
+          col.poe('pernaEspr', gPernaEspr, mMetal, p(dx, 0.17, dz))
+        col.poe('roda', gRoda, mAco, p(dx, 0.055, 0.92), [0, giro, Math.PI / 2])
       }
-      col.poe('assento', gAssento, mTecido, [x, piso + 0.4, z + 0.16])
-      // Encosto reclinado a 38°, e o ângulo importa: mais reto lê como cadeira,
-      // mais deitado lê como cama. 38° é a inclinação de descanso.
-      col.poe('encosto', gEncosto, mTecido, [x, piso + 0.62, z - 0.72], [-0.66, 0, 0])
-      // Almofada de cabeça numa em cada três: fila idêntica denuncia cópia.
+      col.poe('assento', gAssento, mTecido, p(0, 0.4, 0.16), [0, giro, 0])
+      col.poe('encosto', gEncosto, mTecido, p(0, 0.62, -0.72), [reclina, giro, 0])
+      // Almofada de cabeça em duas das seis.
       if (k % 3 === 1)
-        col.poe('travesseiro', gArbusto, mTecido, [x, piso + 0.86, z - 0.96], [0, 0.4, 0], [1.5, 0.7, 1.0])
+        col.poe('travesseiro', gArbusto, mTecido, p(0, 0.86, -0.96), [0, giro + 0.4, 0], [1.5, 0.7, 1.0])
+      /**
+       * A TOALHA — e ela é o objeto mais barato de todos com o maior retorno.
+       *
+       * Espreguiçadeira vazia é mobiliário; espreguiçadeira com toalha jogada é
+       * LUGAR ONDE ALGUÉM ESTEVE. É a mesma lógica do carrinho de serviço no
+       * datacenter: a única coisa da cena que não foi instalada, foi deixada.
+       * Duas das seis, em ângulos diferentes, uma caída até o deck.
+       */
+      if (k === 1 || k === 4) {
+        col.poe('toalha', gToalha, mToalha, p(0.02, 0.48, 0.1), [0.06, giro + 0.1, 0])
+        if (k === 4)
+          col.poe('toalha', gToalha, mToalha, p(0.36, 0.2, 0.72), [1.2, giro - 0.3, 0], [1, 0.7, 1])
+      }
     }
 
     // ── guarda-sóis ───────────────────────────────────────────────────────
@@ -461,7 +593,20 @@ export function Cobertura({
         col.poe('espacador', gEspacador, mMetal, [x, piso + dy, zGuarda + 0.04], [Math.PI / 2, 0, 0])
     }
 
-    return col.colhe()
+    const saida: THREE.Object3D[] = col.colhe()
+    // Os fios do varal sao FUNDIDOS, nao instanciados: tres catenarias entre
+    // pontos diferentes nao sao a mesma curva escalada — esticar em X e achatar
+    // em Y deforma a secao do tubo e vira fita. E a mesma razao do cabeamento do
+    // andar 07, e o mesmo remedio: uma malha para os tres fios.
+    const fundida = fiosDoVaral.length ? mergeGeometries(fiosDoVaral, false) : null
+    for (const g of fiosDoVaral) g.dispose()
+    if (fundida) {
+      const fio = new THREE.Mesh(fundida, mFio)
+      fio.castShadow = true
+      fio.frustumCulled = false
+      saida.push(fio)
+    }
+    return saida
   }, [piso, zCentro, prof, meiaLargura])
 
   useMemo(() => {

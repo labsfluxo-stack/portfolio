@@ -57,13 +57,26 @@ function ruido(i: number, k: number): number {
   return s - Math.floor(s)
 }
 
-/** Onde as duas fileiras moram, em z de mundo. */
+/**
+ * As fileiras, e a terceira entrou por PERSPECTIVA ATMOSFÉRICA.
+ *
+ * Com duas faixas da mesma cor, a cidade lia como um recorte de papel: dois
+ * planos e um vazio atrás. O que dá distância a uma paisagem não é só o
+ * tamanho — é o CONTRASTE CAINDO. Ar tem partícula, e a cada quilômetro ele
+ * rouba um pouco de escuro e devolve um pouco da cor do céu. Um prédio a 3 km
+ * não é um prédio pequeno: é um prédio PÁLIDO.
+ *
+ * `clareia` é a fração de cor do céu misturada à silhueta daquela faixa. A
+ * névoa da cena já faz parte disso, mas ela satura rápido e é a mesma para
+ * tudo; este número é o que separa as três camadas entre si.
+ */
 const FAIXAS = [
-  { z: -13.5, n: 23, passo: 2.55, largura: [2.0, 4.4], topo: [1.1, 7.6], janelas: true },
-  { z: -17.6, n: 27, passo: 2.2, largura: [1.7, 3.6], topo: [0.6, 5.4], janelas: false },
+  { z: -13.5, n: 23, passo: 2.55, largura: [2.0, 4.4], topo: [1.1, 7.6], janelas: true, clareia: 0 },
+  { z: -17.6, n: 27, passo: 2.2, largura: [1.7, 3.6], topo: [0.6, 5.4], janelas: false, clareia: 0.3 },
+  { z: -19.4, n: 31, passo: 1.9, largura: [1.3, 2.9], topo: [0.2, 3.6], janelas: false, clareia: 0.58 },
 ] as const
 
-export function Cidade({ cor, corDistante }: { cor: string; corDistante: string }) {
+export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: string; ceu: string }) {
   const { scene } = useThree()
 
   const malhas = useMemo(() => {
@@ -73,8 +86,18 @@ export function Cidade({ cor, corDistante }: { cor: string; corDistante: string 
     // corta. Assim nenhuma silhueta tem "pé" visível flutuando no ar.
     const BASE = -7
 
-    const mPerto = new THREE.MeshStandardMaterial({ color: cor, roughness: 0.95, metalness: 0 })
-    const mLonge = new THREE.MeshStandardMaterial({ color: corDistante, roughness: 0.97, metalness: 0 })
+    // Um material por faixa, cada um com a silhueta ja misturada com a cor do
+    // ceu na fracao de `clareia`. E a mesma conta que o ar faz: distancia rouba
+    // contraste e devolve a cor do horizonte.
+    const corDoCeu = new THREE.Color(ceu)
+    const materiais = FAIXAS.map((faixa, f) => {
+      const base = new THREE.Color(f === 0 ? cor : corDistante)
+      return new THREE.MeshStandardMaterial({
+        color: base.lerp(corDoCeu, faixa.clareia),
+        roughness: 0.96,
+        metalness: 0,
+      })
+    })
     /**
      * As janelas acesas são `MeshBasicMaterial`, e não emissivas.
      *
@@ -86,14 +109,25 @@ export function Cidade({ cor, corDistante }: { cor: string; corDistante: string 
      * profundidade que a névoa acabou de construir.
      */
     const mJanela = new THREE.MeshBasicMaterial({ color: '#ffeccd' })
+    // Janela APAGADA nao e um buraco preto: e vidro refletindo o ceu de fim de
+    // tarde, entao ela e mais CLARA que a fachada e levemente azulada. Pintar de
+    // preto e o erro que faz predio distante parecer queimado.
+    const mVidroEscuro = new THREE.MeshStandardMaterial({
+      color: '#6d6a7a',
+      roughness: 0.22,
+      metalness: 0.35,
+    })
 
     const gCubo = new THREE.BoxGeometry(1, 1, 1)
-    const gJanela = new THREE.BoxGeometry(0.34, 0.5, 0.04)
+    const gJanela = new THREE.BoxGeometry(0.25, 0.38, 0.04)
     const gAntena = new THREE.BoxGeometry(0.17, 2.0, 0.17)
     const gCaixa = new THREE.BoxGeometry(1.2, 0.6, 1.2)
+    const gPlatibanda = new THREE.BoxGeometry(1, 0.26, 1)
+    const gFaixaLaje = new THREE.BoxGeometry(1, 0.09, 1)
+    const gArCondicionado = new THREE.BoxGeometry(0.62, 0.36, 0.5)
 
     FAIXAS.forEach((faixa, f) => {
-      const material = f === 0 ? mPerto : mLonge
+      const material = materiais[f]!
       const inicio = -(faixa.n - 1) * faixa.passo * 0.5
       for (let i = 0; i < faixa.n; i++) {
         // Deslocamento lateral próprio: fileira em passo exato lê como pente.
@@ -147,17 +181,79 @@ export function Cidade({ cor, corDistante }: { cor: string; corDistante: string 
           col.poe('caixa', gCaixa, material, [x, topo + 0.3, z])
 
         if (!faixa.janelas) continue
-        // Janelas acesas, esparsas: só a faixa da frente, e nem em todo andar.
-        const colunas = Math.max(1, Math.floor(larg / 0.85))
-        const linhas = Math.max(1, Math.floor((topo - 0.2) / 0.95))
-        for (let c = 0; c < colunas; c++)
-          for (let l = 0; l < linhas; l++) {
-            if (ruido(i * 31 + c * 7 + l, f + 11) < 0.62) continue
-            col.poe('janela', gJanela, mJanela, [
-              x - (colunas - 1) * 0.42 + c * 0.85,
-              topo - 0.55 - l * 0.95,
-              z + prof / 2 + 0.03,
+
+        /**
+         * O QUE FAZ UMA CAIXA VIRAR UM PRÉDIO, e nenhum dos três é a janela.
+         *
+         * A PLATIBANDA. Toda laje de cobertura termina numa mureta que sobe
+         * acima do telhado, para esconder a impermeabilização e as máquinas. Ela
+         * é sempre um pouco MAIS LARGA que a fachada, e é essa saliência de dez
+         * centímetros que corta a silhueta com uma linha horizontal no topo.
+         * Sem ela, a caixa termina no ar e lê como bloco.
+         *
+         * A LINHA DE LAJE. Prédio tem andar, e o andar aparece na fachada como
+         * uma faixa horizontal a cada pé-direito — viga aparente, testeira de
+         * varanda, mudança de material. É o que dá ESCALA: sem essa repetição
+         * horizontal não há como saber se a caixa tem quatro andares ou quarenta.
+         *
+         * O AR-CONDICIONADO NA COBERTURA. Nenhuma laje de cidade está limpa. São
+         * duas caixas cinza fora de alinhamento, e é justamente o desalinho que
+         * diz "isto foi instalado por alguém depois que o prédio ficou pronto".
+         */
+        col.poe(
+          'platibanda',
+          gPlatibanda,
+          material,
+          [x, topo + 0.13, z],
+          [0, 0, 0],
+          [larg + 0.16, 1, prof + 0.16],
+        )
+        const andares = Math.max(1, Math.floor((topo - BASE - 0.6) / 0.95))
+        for (let l = 0; l < andares; l++)
+          col.poe(
+            'faixaLaje',
+            gFaixaLaje,
+            material,
+            [x, topo - 0.95 - l * 0.95, z],
+            [0, 0, 0],
+            [larg + 0.07, 1, prof + 0.07],
+          )
+        if (topo > 2.4)
+          for (let m = 0; m < 2; m++)
+            col.poe('ar', gArCondicionado, material, [
+              x + (ruido(i * 5 + m, 71) - 0.5) * larg * 0.6,
+              topo + 0.44,
+              z + (ruido(i * 5 + m, 72) - 0.5) * prof * 0.5,
             ])
+
+        /**
+         * JANELAS EM GRADE, e a grade importa mais que a janela.
+         *
+         * A versão anterior sorteava cada janela com 38% de chance, e o
+         * resultado era um salpicado — fachada de prédio não tem janela em
+         * posição arbitrária, tem MALHA, porque as lajes e os pilares mandam.
+         * Agora toda posição da grade recebe janela; o que varia é se ela está
+         * ACESA ou escura, que é o que varia numa cidade de verdade às cinco da
+         * tarde. A malha aparece, e é ela que faz a caixa ler como edifício.
+         */
+        const colunas = Math.max(1, Math.floor(larg / 0.56))
+        const passoC = larg / (colunas + 0.5)
+        for (let c = 0; c < colunas; c++)
+          for (let l = 0; l < andares; l++) {
+            // Uma em cada quatro acesa: as cinco da tarde ainda ha luz de fora,
+            // entao quase ninguem acendeu. Fachada com metade das janelas acesa e
+            // noite, nao fim de tarde.
+            const acesa = ruido(i * 31 + c * 7 + l, f + 11) > 0.76
+            col.poe(
+              acesa ? 'janelaAcesa' : 'janelaApagada',
+              gJanela,
+              acesa ? mJanela : mVidroEscuro,
+              [
+                x - ((colunas - 1) * passoC) / 2 + c * passoC,
+                topo - 0.52 - l * 0.95,
+                z + prof / 2 + 0.03,
+              ],
+            )
           }
       }
     })
@@ -171,7 +267,7 @@ export function Cidade({ cor, corDistante }: { cor: string; corDistante: string 
       m.receiveShadow = false
     }
     return saida
-  }, [cor, corDistante])
+  }, [cor, corDistante, ceu])
 
   useMemo(() => {
     for (const m of malhas) scene.add(m)
