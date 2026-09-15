@@ -295,7 +295,7 @@ export function Cobertura({
     // de folhagem, a esfera lisa lê como bola.
     // OLIVEIRA. Tronco curto e grosso em relacao a copa — oliveira nao e alta,
     // e ampla. Tres deles saem da mesma base.
-    const gTroncoOliva = new THREE.CylinderGeometry(0.055, 0.1, 1.2, 7)
+    const gTroncoOliva = new THREE.CylinderGeometry(0.055, 0.1, 0.95, 7)
     const gGalhoOliva = new THREE.CylinderGeometry(0.018, 0.042, 0.58, 5)
     // Tufo PEQUENO: a copa aberta precisa de muitos pequenos, nao poucos grandes.
     const gTufoOliva = new THREE.IcosahedronGeometry(0.27, 0)
@@ -914,14 +914,14 @@ export function Cobertura({
           'troncoOliva',
           gTroncoOliva,
           mMadeiraClara,
-          [x + dx, piso + 1.24 + t * 0.06, zArvores + dz],
+          [x + dx, piso + 1.1 + t * 0.05, zArvores + dz],
           [Math.cos(tr.a) * tr.incl, 0, -Math.sin(tr.a) * tr.incl],
         )
         col.poe(
           'galhoOliva',
           gGalhoOliva,
           mMadeiraClara,
-          [x + dx * 2.6, piso + 1.9 + t * 0.12, zArvores + dz * 2.6],
+          [x + dx * 2.6, piso + 1.6 + t * 0.1, zArvores + dz * 2.6],
           [Math.cos(tr.a) * 0.65, 0, -Math.sin(tr.a) * 0.65],
         )
       }
@@ -980,7 +980,16 @@ export function Cobertura({
         // FORA, porque o miolo é oco — é na periferia que está a luz.
         const az = ruido(b, 50 + k) * Math.PI * 2
         const rBase = 0.2 + Math.sqrt(ruido(b, 60 + k)) * 0.72
-        const yBase = piso + 2.0 + ruido(b, 70 + k) * 0.72
+        // A COPA BAIXOU PARA PASSAR SOB O PERGOLADO. Duas das tres oliveiras
+        // ficam dentro do vao dele (x = -3,0 e 1,8, e o pergolado vai de -8,4 a
+        // 2,0), e com a copa comecando em piso + 2,0 ela subia ate perto de 2,9 —
+        // exatamente a altura das ripas em 2,93. Arvore e estrutura viravam uma
+        // massa marrom-verde so.
+        //
+        // Comecando em 1,5 a copa termina por volta de 2,35 e sobra quase meio
+        // metro de vao ate a face inferior da viga. Arvore sob pergolado COM
+        // folga le como plantada ali; sem folga le como colagem.
+        const yBase = piso + 1.5 + ruido(b, 70 + k) * 0.55
         const bx = x + Math.sin(az) * rBase
         const bz = zArvores + Math.cos(az) * rBase * 0.78
         // A maioria PENDE: galho carregado de folha não fica na horizontal, e o

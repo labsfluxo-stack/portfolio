@@ -888,8 +888,30 @@ function PlanoDeFundo({
    * continua recebendo. Por opacidade AMORTECIDA e não por `visible`, senão a
    * barra sumiria de um quadro para o outro no meio da descida.
    */
+  /**
+   * A COBERTURA ENTROU NA LISTA, e ela fecha a caça que consumiu quatro
+   * tentativas.
+   *
+   * O dono reclamou de barras cortando a vista. Eu afinei os pilares, recuei os
+   * pilares, removi os pilares e tirei o montante central deste plano — e a
+   * captura seguinte ainda tinha barra vertical E horizontal. Porque o que
+   * sobrou é o PLANO INTEIRO: os ladrilhos daqui são faixas horizontais de
+   * `largura * 2` a cada pé-direito, e os montantes laterais são verticais
+   * contínuas. Eu vinha caçando peças; o problema era a camada.
+   *
+   * E a razão de ela poder sair é a mesma que já valia para o andar 07: este
+   * cenário existe para dar ritmo de fundo a andar que NÃO TEM fundo próprio.
+   * A cobertura tem — ela ganhou uma cidade inteira atrás dela, em três faixas
+   * com perspectiva atmosférica. O ritmo genérico deixou de ser o fundo e virou
+   * uma grade ENTRE o terraço e a vista que ele existe para mostrar.
+   *
+   * Por opacidade amortecida e não por `visible`: senão a camada sumiria de um
+   * quadro para o outro no meio da descida.
+   */
+  const semCenarioGenerico = new Set(['cobertura', 'servidores'])
   useFrame((_, delta) => {
-    const alvo = ANDARES[andarAtivo]?.chave === 'servidores' ? 0 : 1
+    const chave = ANDARES[andarAtivo]?.chave
+    const alvo = chave && semCenarioGenerico.has(chave) ? 0 : 1
     material.opacity = amortecer(material.opacity, alvo, delta)
     material.visible = material.opacity > 0.02
   })
