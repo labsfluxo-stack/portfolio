@@ -950,19 +950,48 @@ function PlanoDeFundo({
  * câmera a névoa dissolveria o céu inteiro na cor do fundo; `toneMapped={false}`
  * porque o céu é a referência de exposição da cena, não um material dentro dela.
  */
+const CEU_ALTURA = 46
+const CEU_LARGURA = 140
+const CEU_Z_LOCAL = -16
+
 function Ceu() {
+  /**
+   * ONDE O SOL CAI NESTE PLANO — projetado, não escolhido a olho.
+   *
+   * Traça-se o raio que sai da câmera parada na cobertura, na direção de `SOL`,
+   * e vê-se onde ele fura o plano do céu. É a mesma conta que a luz direcional
+   * já faz, resolvida em coordenada de textura em vez de em sombra.
+   *
+   * Existe porque a versão anterior CRAVAVA o brilho no canto do canvas,
+   * combinando a olho com uma direção de luz que morava em outro arquivo.
+   * Funcionava enquanto ninguém mexesse no sol — e o sol acabou de mudar de 8,5°
+   * para 24°. É a quarta ocorrência da mesma armadilha nesta feature (céu ←
+   * rótulo, albedo ← paleta, cenário ← andares, agora brilho ← azimute), e por
+   * isso ela vira conta em vez de constante.
+   */
+  const { u, v } = useMemo(() => {
+    const pose = quadroDe(0).pose
+    // O plano vive no grupo do fundo, deslocado em `pose.y · (1 − parallax)`.
+    const grupoY = pose.y * (1 - PLANOS[0]!.parallax)
+    const zMundo = CEU_Z_LOCAL + PLANOS[0]!.z
+    const t = (zMundo - pose.z) / DIRECAO_DO_SOL.z
+    const x = DIRECAO_DO_SOL.x * t
+    const y = pose.y + DIRECAO_DO_SOL.y * t
+    // A textura tem v = 0 no TOPO do canvas; o plano tem a base em `grupoY`.
+    return { u: x / CEU_LARGURA + 0.5, v: 1 - (y - grupoY) / CEU_ALTURA }
+  }, [])
+
   // PINTADO EM `predio-ceu.ts`, e de lá sai também o mapa de ambiente: o céu que
   // se vê e o céu que a piscina reflete passam a ser o MESMO. Enquanto eram dois
   // degradês escritos em arquivos diferentes, a lâmina d'água devolvia um céu que
   // não estava na tela — ninguém nota conscientemente, e é justamente esse tipo
   // de desacordo que faz uma cena parecer desenhada em vez de fotografada.
-  const textura = useMemo(() => texturaDeCeu(), [])
+  const textura = useMemo(() => texturaDeCeu(u, v), [u, v])
   useEffect(() => () => textura.dispose(), [textura])
 
-  const altura = 46
   return (
-    <mesh position={[0, altura / 2, -16]}>
-      <planeGeometry args={[140, altura]} />
+    <mesh position={[0, CEU_ALTURA / 2, CEU_Z_LOCAL]}>
+      <planeGeometry args={[CEU_LARGURA, CEU_ALTURA]} />
       <meshBasicMaterial map={textura} toneMapped={false} fog={false} />
     </mesh>
   )
@@ -1157,6 +1186,11 @@ function Cena({
     // para rodar por quadro, e o degradê só muda de cor quando o andar muda.
     if (andarDoAmbiente.current !== quadro.andar) {
       andarDoAmbiente.current = quadro.andar
+      // O AMBIENTE PRECISA CEDER PARA A SOMBRA EXISTIR. Ele ilumina por igual e
+      // nao e sombreado: com intensidade cheia ele preenchia a sombra do sol por
+      // completo, e a cena tinha sol sem ter UMA sombra visivel. 0,5 mantem o
+      // metal com o que refletir e devolve o contraste ao facho.
+      scene.environmentIntensity = 0.5
       scene.environment?.dispose()
       scene.environment = criaAmbiente(
         gl,
@@ -1261,16 +1295,16 @@ function Cena({
         ref={sol}
         castShadow
         color={corDoRotulo(0)}
-        intensity={5.4}
+        intensity={7.4}
         shadow-mapSize={[tier.shadow, tier.shadow]}
-        shadow-camera-left={-17}
-        shadow-camera-right={17}
-        shadow-camera-top={9}
-        shadow-camera-bottom={-9}
+        shadow-camera-left={-22}
+        shadow-camera-right={22}
+        shadow-camera-top={12}
+        shadow-camera-bottom={-12}
         shadow-camera-near={6}
         shadow-camera-far={64}
-        shadow-bias={-0.0008}
-        shadow-normalBias={0.04}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.012}
       />
       {/*
         O preenchimento. NÃO projeta — é o que levanta a face virada para a
@@ -1278,7 +1312,7 @@ function Cena({
         cobertura, chão na cor do andar mais frio: o arco de temperatura entra
         até no ambiente.
       */}
-      <hemisphereLight args={[tom(corDoAndar(0), 7), tom(corDoAndar(4), 4.5), 1.9]} />
+      <hemisphereLight args={[tom(corDoAndar(0), 7), tom(corDoAndar(4), 4.5), 0.78]} />
 
       {/* Um grupo por plano de `PLANOS`, deslocado no laço de quadro acima. */}
       {PLANOS.map((plano, i) => (

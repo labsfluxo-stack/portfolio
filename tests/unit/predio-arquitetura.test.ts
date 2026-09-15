@@ -51,13 +51,47 @@ describe('arquitetura do prédio', () => {
   })
 
   /**
-   * Sol BAIXO. Elevação alta anula a sombra lateral, e sem sombra lateral os
-   * três planos colapsam num só: some exatamente a profundidade que eles
-   * existem para criar. Ver a spec, "por que a hora dourada".
+   * O SOL MUDOU DE 8,5° PARA 24°, E ESTE TESTE MUDOU JUNTO — de propósito, e a
+   * razão fica escrita, porque teste afrouxado sem explicação é pior que teste
+   * nenhum.
+   *
+   * A regra antiga era `elevacao < 18`, e o comentário dela dizia que elevação
+   * alta anula a sombra lateral e colapsa os três planos de parallax. Era
+   * verdade enquanto o prédio era relevo raso: a sombra longa ERA a
+   * profundidade. Deixou de ser quando os andares ganharam conteúdo
+   * tridimensional, e aí o mesmo número virou o problema oposto. Medido: a 8,5°
+   * a sombra sai 6,7 vezes a altura do objeto, então o pergolado de 2,63 m
+   * projetava 17,6 m e caía a 20 m à esquerda do deck. A cena tinha sol e
+   * nenhuma sombra visível.
+   *
+   * O que se guarda agora não é o ÂNGULO: é a CONSEQUÊNCIA dele, que é o que
+   * importava desde o começo.
    */
-  it('o sol é rasante', () => {
-    expect(SOL.elevacao).toBeGreaterThan(0)
-    expect(SOL.elevacao).toBeLessThan(18)
+  it('a sombra é de fim de tarde: longa, mas cai dentro da laje', () => {
+    const comprimentoPorAltura = 1 / Math.tan((SOL.elevacao * Math.PI) / 180)
+    // Abaixo de 1,5 é sol alto: sombra curta embaixo do objeto, luz de meio-dia.
+    expect(comprimentoPorAltura).toBeGreaterThan(1.5)
+    // Acima de 3, a sombra de qualquer coisa com mais de 2 m sai da laje de 13 m
+    // de profundidade e não é vista por ninguém.
+    expect(comprimentoPorAltura).toBeLessThan(3)
+  })
+
+  /**
+   * O SOL PRECISA APARECER NO QUADRO, e esta é uma restrição de azimute que não
+   * existia antes: a versão anterior tinha o disco fora da tela e só a cauda do
+   * brilho entrava.
+   *
+   * A câmera olha ao longo de −z, então o sol tem de estar do lado de lá do
+   * prédio (componente z NEGATIVA) e dentro do cone da lente. A meia-abertura
+   * horizontal medida na descida é 46,9°; 40° deixa margem para a lente apertar
+   * em tela mais estreita sem o disco escapar pela borda.
+   */
+  it('o sol fica atrás do prédio e dentro do cone da lente', () => {
+    const rad = (SOL.azimute * Math.PI) / 180
+    const z = Math.cos(rad)
+    expect(z).toBeLessThan(0)
+    const anguloDoEixoDaCamera = (Math.atan2(Math.abs(Math.sin(rad)), -z) * 180) / Math.PI
+    expect(anguloDoEixoDaCamera).toBeLessThan(40)
   })
 
   it('há pilar no centro e um de cada lado', () => {

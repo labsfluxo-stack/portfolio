@@ -36,13 +36,30 @@ export const PLANOS = [
 ] as const
 
 /**
- * Hora dourada: sol rasante entrando pela direita.
+ * Hora dourada, com o sol DENTRO do quadro.
  *
- * `elevacao` em graus acima do horizonte. Baixo de propósito — é a inclinação
- * que joga a sombra longa e horizontal que separa os três planos. Subir este
- * número achata a cena inteira, e nenhum outro ajuste compensa.
+ * ERA 104° / 8,5°, e os dois números mudaram pela mesma razão. O comentário
+ * antigo dizia que 8,5° era "a inclinação que joga a sombra longa e horizontal
+ * que separa os três planos", e isso era verdade quando o prédio era relevo raso
+ * — mas deixou de ser quando os andares ganharam conteúdo de verdade. Medido: a
+ * 8,5° a sombra de um objeto sai 6,7 vezes a altura dele, então o pergolado de
+ * 2,63 m projetava 17,6 m e aterrissava a 20 m à esquerda do deck. A cena tinha
+ * sol e não tinha UMA sombra visível.
+ *
+ * A 24° a mesma sombra sai 5,9 m e cai no deck, entre o pergolado e a câmera.
+ * É ela que devolve o desenho de luz que uma foto de fim de tarde tem.
+ *
+ * O AZIMUTE É A OUTRA METADE, e as duas são inseparáveis: para o sol APARECER,
+ * ele precisa estar do lado de lá do prédio, porque a câmera olha para −z. Com
+ * 152° o ângulo horizontal em relação ao eixo da câmera é 28°, dentro dos 46,9°
+ * de meia-abertura — o sol cai no terço direito da tela, entre os pilares.
+ *
+ * O PREÇO, dito claro: a cena passa a ser CONTRALUZ. As faces viradas para a
+ * câmera recebem sol rasante em vez de sol de frente, e quem as levanta é a luz
+ * de preenchimento. É o que uma cobertura fotografada contra o poente é de
+ * verdade — mas é uma troca, não um ajuste: mais contraste, menos cor local.
  */
-export const SOL = { azimute: 104, elevacao: 8.5 } as const
+export const SOL = { azimute: 152, elevacao: 24 } as const
 
 export function alturaTotal(): number {
   return ALTURA_ANDAR * ANDARES.length

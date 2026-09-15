@@ -144,6 +144,44 @@ function pintaBrilho(
 }
 
 /**
+ * O DISCO DO SOL.
+ *
+ * Desenhado maior que o real de propósito, e a licença está declarada: o sol tem
+ * meio grau de diâmetro, o que nesta textura daria dois pixels. Dois pixels não
+ * leem como sol — leem como poeira no sensor. O que o olho reconhece como sol é
+ * o conjunto NÚCLEO ESTOURADO + HALO APERTADO + brilho largo em volta, que é o
+ * que uma lente faz com uma fonte muito mais brilhante que o resto da cena.
+ *
+ * Três camadas, de fora para dentro, porque uma só vira adesivo: o brilho largo
+ * (já pintado antes), um halo apertado, e o núcleo branco de borda dura. É a
+ * borda dura do núcleo, contra o halo macio, que dá a impressão de intensidade.
+ */
+function pintaDisco(
+  ctx: CanvasRenderingContext2D,
+  largura: number,
+  altura: number,
+  u: number,
+  v: number,
+  raio: number,
+) {
+  const x = u * largura
+  const y = v * altura
+  const halo = ctx.createRadialGradient(x, y, raio * 0.6, x, y, raio * 7)
+  halo.addColorStop(0, 'rgba(255,248,225,0.85)')
+  halo.addColorStop(0.35, 'rgba(255,229,178,0.34)')
+  halo.addColorStop(1, 'rgba(255,214,150,0)')
+  ctx.fillStyle = halo
+  ctx.beginPath()
+  ctx.arc(x, y, raio * 7, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.fillStyle = 'rgba(255,252,240,1)'
+  ctx.beginPath()
+  ctx.arc(x, y, raio, 0, Math.PI * 2)
+  ctx.fill()
+}
+
+/**
  * O céu do PLANO DE FUNDO.
  *
  * `fracaoVisivel` é a parte de baixo do plano que a câmera de fato enquadra: o
@@ -152,7 +190,11 @@ function pintaBrilho(
  * só os dois primeiros centímetros do degradê e o céu volta a ser monocromático,
  * que era o defeito de origem.
  */
-export function texturaDeCeu(fracaoVisivel = 0.46): THREE.CanvasTexture {
+export function texturaDeCeu(
+  solU: number,
+  solV: number,
+  fracaoVisivel = 0.46,
+): THREE.CanvasTexture {
   const largura = 1024
   const altura = 512
   const cv = document.createElement('canvas')
@@ -167,11 +209,25 @@ export function texturaDeCeu(fracaoVisivel = 0.46): THREE.CanvasTexture {
   ctx.fillStyle = g
   ctx.fillRect(0, 0, largura, altura)
 
-  // O sol está muito à direita e fora do recorte visível; o que entra no quadro
-  // é a CAUDA do brilho dele. Por isso o centro fica além da borda e o raio é
-  // grande: o que se quer é o lado direito do céu mais aceso, não um disco.
-  pintaBrilho(ctx, largura, altura, 0.93, 0.995, largura * 0.62)
+  /**
+   * A POSIÇÃO DO SOL VEM DE FORA, e isso é o ponto.
+   *
+   * A versão anterior cravava o brilho em (0,93, 0,995) — o canto direito de
+   * baixo — porque com o sol a 8,5° de elevação e 104° de azimute ele caía fora
+   * do recorte visível e só a cauda entrava. Número escolhido a olho para
+   * combinar com uma direção de luz que morava em outro arquivo: exatamente a
+   * armadilha de constante emprestada que `predio-luz.ts` já documenta três
+   * vezes.
+   *
+   * Agora quem chama projeta `SOL` na geometria do plano e passa o resultado.
+   * Mudar a elevação ou o azimute move o disco junto, sem ninguém lembrar de
+   * vir aqui.
+   */
+  pintaBrilho(ctx, largura, altura, solU, solV, largura * 0.46)
   pintaNuvens(ctx, largura, altura, 1 - fracaoVisivel * 0.82, 0.995, 26, 1)
+  // O disco vem DEPOIS das nuvens: sol atrás de nuvem fica encoberto, e aqui ele
+  // está acima da camada. Antes delas, o halo ficaria lavado por cima.
+  pintaDisco(ctx, largura, altura, solU, solV, 9)
 
   const tex = new THREE.CanvasTexture(cv)
   tex.colorSpace = THREE.SRGBColorSpace
