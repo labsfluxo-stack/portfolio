@@ -191,10 +191,24 @@ export function Cobertura({
     // ÁRVORE. Tronco CÔNICO, galhos e copa de muitos tufos facetados. O
     // icosaedro sem subdivisão é melhor que esfera aqui: a faceta lê como massa
     // de folhagem, a esfera lisa lê como bola.
-    const gTronco = new THREE.CylinderGeometry(0.062, 0.105, 1.4, 8)
-    const gGalho = new THREE.CylinderGeometry(0.022, 0.045, 0.62, 6)
-    const gTufo = new THREE.IcosahedronGeometry(0.33, 0)
+    // OLIVEIRA. Tronco curto e grosso em relacao a copa — oliveira nao e alta,
+    // e ampla. Tres deles saem da mesma base.
+    const gTroncoOliva = new THREE.CylinderGeometry(0.055, 0.1, 1.2, 7)
+    const gGalhoOliva = new THREE.CylinderGeometry(0.018, 0.042, 0.58, 5)
+    // Tufo PEQUENO: a copa aberta precisa de muitos pequenos, nao poucos grandes.
+    const gTufoOliva = new THREE.IcosahedronGeometry(0.27, 0)
     const gArbusto = new THREE.IcosahedronGeometry(0.2, 0)
+    // BUXO: subdividido uma vez. Arbusto APARADO e liso — a faceta grossa que
+    // serve para folhagem solta aqui contaria a historia errada.
+    const gBuxo = new THREE.IcosahedronGeometry(0.36, 1)
+    // GRAMINEA: lamina de 3 cm, escalada em Y por muda. Caixa e nao folha
+    // modelada porque a 37 px/m ela ocupa pouco mais de um pixel.
+    const gLamina = new THREE.BoxGeometry(0.03, 1, 0.007)
+    // AGAVE: cone de 4 lados = folha rigida que afina ate a ponta.
+    const gFolhaAgave = new THREE.CylinderGeometry(0.006, 0.055, 0.72, 4)
+    // JARDINEIRA LINEAR de corten — calha corrida, nao vaso pontual.
+    const gJardineira = new RoundedBoxGeometry(3.4, 0.54, 0.8, 1, 0.018)
+    const gTerraLinear = new THREE.PlaneGeometry(3.16, 0.6)
 
     // BAR. Tampo em BALANÇO sobre o balcão (a sombra fina embaixo do tampo é o
     // que dá espessura ao móvel) e apoio de pé em tubo.
@@ -267,6 +281,29 @@ export function Cobertura({
     })
     const mTerra = new THREE.MeshStandardMaterial({ color: '#3f3227', roughness: 0.99 })
     const mFolha = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.9, flatShading: true })
+    // Madeira de oliveira e CLARA e acinzentada, nao marrom escura.
+    const mMadeiraClara = new THREE.MeshStandardMaterial({ color: '#9a8b76', roughness: 0.93 })
+    // Buxo: verde profundo e FOSCO, sem faceta. Contraponto da gramineea.
+    const mBuxo = new THREE.MeshStandardMaterial({ color: '#3f5a32', roughness: 0.97 })
+    // Agave: verde-azulado com cera — a folha tem brilho, ao contrario das outras.
+    const mAgave = new THREE.MeshStandardMaterial({ color: '#7d9b86', roughness: 0.55, flatShading: true })
+    // Graminea: branca no material, cor na instancia, e DUPLA FACE porque a
+    // lamina e fina o bastante para a camera ver o verso dela o tempo todo.
+    const mGramineaMat = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.82,
+      side: THREE.DoubleSide,
+    })
+    // CORTEN: aco que enferruja de proposito e para. Ferrugem tem textura, entao
+    // reaproveita o relevo do concreto — poro e mancha servem aos dois.
+    const mCorten = new THREE.MeshStandardMaterial({
+      color: '#7d4a30',
+      roughness: 0.88,
+      metalness: 0.22,
+      map: pedra.map,
+      normalMap: pedra.normalMap,
+      roughnessMap: pedra.roughnessMap,
+    })
     const mPedra = new THREE.MeshStandardMaterial({
       color: '#cfc4ad',
       roughness: 0.8,
@@ -304,6 +341,21 @@ export function Cobertura({
     // Folhagem com cinco verdes. Copa de UM verde só é o segundo tell mais forte
     // de árvore renderizada — folha real varia com idade, sol e sombra própria.
     const TONS_DE_FOLHA = ['#5f7a47', '#6d8a4f', '#546d3f', '#7a9659', '#496035'].map(
+      (c) => new THREE.Color(c),
+    )
+    // OLIVEIRA: cinza-esverdeado PRATEADO, nao verde folha. E a cor que a
+    // identifica a distancia — a face de baixo da folha e quase branca, e e ela
+    // que o vento vira para cima. Verde-escuro aqui seria outra arvore.
+    const TONS_DE_OLIVA = ['#8d9c85', '#7d8e74', '#9aa892', '#6e8168', '#a7b29c'].map(
+      (c) => new THREE.Color(c),
+    )
+    // GRAMINEA em contraluz: palha dourada, nao verde. A lamina seca da ponta e
+    // a que pega o sol de fim de tarde, e e por isso que graminea e a unica
+    // vegetacao que ACENDE quando o sol esta atras dela.
+    // Metade PALHA, metade VERDE. So palha lia como mato seco; graminea viva tem
+    // a base verde e a ponta dourada, e e a mistura das duas que da o efeito de
+    // contraluz em vez de campo queimado.
+    const TONS_DE_GRAMINEA = ['#c2ab72', '#7f8b52', '#d4c088', '#6d7c46', '#b9a86a', '#8c9558'].map(
       (c) => new THREE.Color(c),
     )
     const TONS_DE_GARRAFA = ['#3f5f3a', '#6b4326', '#2f4a5e', '#7a6a3a', '#53304a'].map(
@@ -516,68 +568,173 @@ export function Cobertura({
       col.poe('pernaBanqueta', gPernaBanqueta, mMetal, [x, piso + 0.38, zBar + 0.85])
     }
 
-    // ── árvores ───────────────────────────────────────────────────────────
+    /**
+     * ═══ A VEGETAÇÃO, REFEITA COM O VOCABULÁRIO DE COBERTURA CONTEMPORÂNEA ═══
+     *
+     * O que estava aqui era "planta genérica": tronco reto, copa de esferas verde
+     * floresta, vasinhos redondos em fila. Isso não é paisagismo de cobertura —
+     * é o verde que se desenha quando não se olhou nenhuma. Cobertura moderna
+     * tem uma gramática bem definida, e ela é feita de quatro coisas:
+     *
+     * 1. OLIVEIRA MULTITRONCO. É A árvore de terraço contemporâneo, e por razões
+     *    práticas antes de estéticas: aguenta vento, sol direto, raiz rasa e
+     *    pouca água — exatamente as condições de uma laje. Visualmente ela é o
+     *    oposto da árvore genérica: troncos MÚLTIPLOS saindo tortos da mesma
+     *    base, copa ABERTA (vê-se céu através dela) e folha PRATEADA, cinza-esverdeada.
+     *    Copa fechada verde-escura é árvore de parque, não de cobertura.
+     *
+     * 2. GRAMÍNEA ORNAMENTAL EM MASSA. É a assinatura do paisagismo moderno, e o
+     *    ponto não é a planta, é a REPETIÇÃO: uma espécie só, muitas mudas,
+     *    plantadas em faixa contínua. Mistura de espécies lê como jardim de
+     *    casa; massa de uma só lê como projeto. E em contraluz de fim de tarde a
+     *    lâmina fina ACENDE — é a única vegetação que fica dourada em vez de
+     *    escura quando o sol está atrás, e esta cena é toda em contraluz.
+     *
+     * 3. JARDINEIRA LINEAR, não vaso redondo. Vaso pontual é decoração; calha
+     *    corrida é ARQUITETURA — ela desenha uma linha reta no piso e é essa
+     *    linha que amarra o terraço. Corten (aço que enferruja de propósito e
+     *    para de enferrujar) é o material canônico desde os anos 2000.
+     *
+     * 4. BUXO APARADO EM FILEIRA. Geometria repetida — esferas idênticas,
+     *    espaçamento igual. É o contraponto formal da gramínea solta, e é a
+     *    única coisa do jardim onde a REGULARIDADE é o efeito desejado.
+     */
+
+    // ── oliveiras multitronco ─────────────────────────────────────────────
     for (const [k, x] of [-12.4, -3.0, 1.8].entries()) {
-      sombra(x, zArvores, 2.2, 2.2)
+      sombra(x, zArvores, 2.4, 2.4)
       col.poe('vasoAlto', gVasoAlto, mVaso, [x, piso, zArvores])
       col.poe('terra', gTerra, mTerra, [x, piso + 0.66, zArvores], [-Math.PI / 2, 0, 0])
-      col.poe('tronco', gTronco, mMadeiraEscura, [x, piso + 1.34, zArvores])
-      // Três galhos saindo em ângulos diferentes: é a ramificação, mais que a
-      // copa, que faz a silhueta ler como árvore e não como arbusto em pedestal.
-      for (let g = 0; g < 3; g++) {
-        const a = (g / 3) * Math.PI * 2 + k
+      // Três troncos saindo tortos da mesma base. É a base MÚLTIPLA que
+      // identifica a oliveira à distância — um tronco só já seria outra árvore.
+      const troncos = [
+        { a: 0.3 + k, incl: 0.16 },
+        { a: 2.4 + k, incl: 0.23 },
+        { a: 4.3 + k, incl: 0.11 },
+      ]
+      for (const [t, tr] of troncos.entries()) {
+        const dx = Math.sin(tr.a) * 0.13
+        const dz = Math.cos(tr.a) * 0.13
         col.poe(
-          'galho',
-          gGalho,
-          mMadeiraEscura,
-          [x + Math.sin(a) * 0.2, piso + 1.82 + g * 0.1, zArvores + Math.cos(a) * 0.2],
-          [Math.cos(a) * 0.6, 0, -Math.sin(a) * 0.6],
+          'troncoOliva',
+          gTroncoOliva,
+          mMadeiraClara,
+          [x + dx, piso + 1.24 + t * 0.06, zArvores + dz],
+          [Math.cos(tr.a) * tr.incl, 0, -Math.sin(tr.a) * tr.incl],
+        )
+        col.poe(
+          'galhoOliva',
+          gGalhoOliva,
+          mMadeiraClara,
+          [x + dx * 2.6, piso + 1.9 + t * 0.12, zArvores + dz * 2.6],
+          [Math.cos(tr.a) * 0.65, 0, -Math.sin(tr.a) * 0.65],
         )
       }
-      // Copa: 15 tufos de tamanhos e verdes diferentes, distribuídos numa
-      // elipse achatada. Copa é volume irregular — a esfera única era o tell.
-      for (let t = 0; t < 22; t++) {
+      /**
+       * COPA ABERTA, e a abertura é o ponto. Trinta tufos PEQUENOS espalhados
+       * num volume largo, em vez de poucos tufos grandes — assim sobra céu entre
+       * eles e a árvore respira. Copa maciça é o erro que faz qualquer árvore
+       * modelada parecer brócolis: na natureza a folha se organiza em camadas
+       * finas na periferia, porque é lá que está a luz, e o miolo é vazio.
+       */
+      for (let t = 0; t < 36; t++) {
         const a = ruido(t, 50 + k) * Math.PI * 2
-        const r = 0.3 + ruido(t, 60 + k) * 0.78
-        const h = ruido(t, 70 + k)
+        // Raiz quadrada empurra os tufos para FORA: distribuição uniforme em
+        // raio amontoa tudo no centro, que é justamente o miolo que deve ser oco.
+        const r = 0.22 + Math.sqrt(ruido(t, 60 + k)) * 0.66
         col.poe(
-          'tufo',
-          gTufo,
+          'tufoOliva',
+          gTufoOliva,
           mFolha,
           [
             x + Math.sin(a) * r,
-            piso + 1.98 + h * 0.66,
-            zArvores + Math.cos(a) * r * 0.8,
+            piso + 2.02 + ruido(t, 70 + k) * 0.7,
+            zArvores + Math.cos(a) * r * 0.78,
           ],
           [ruido(t, 80 + k) * 3, ruido(t, 90 + k) * 3, 0],
           (() => {
-            const s = 0.7 + ruido(t, 100 + k) * 0.75
-            return [s, s * 0.82, s] as [number, number, number]
+            const s = 0.66 + ruido(t, 100 + k) * 0.6
+            return [s, s * 0.74, s] as [number, number, number]
           })(),
-          TONS_DE_FOLHA[(t * 3 + k) % TONS_DE_FOLHA.length]!,
+          TONS_DE_OLIVA[(t * 3 + k) % TONS_DE_OLIVA.length]!,
         )
       }
     }
 
-    // ── canteiro do fundo ─────────────────────────────────────────────────
-    for (const [k, x] of [-13.2, -9.4, -5.6, -1.8, 2.0, 5.8, 9.6, 13.4].entries()) {
-      sombra(x, zCanteiro, 1.4, 1.4)
-      col.poe('vaso', gVaso, mVaso, [x, piso, zCanteiro])
-      col.poe('terrinha', gTerrinha, mTerra, [x, piso + 0.37, zCanteiro], [-Math.PI / 2, 0, 0])
-      for (let t = 0; t < 6; t++) {
-        const a = ruido(t, 110 + k) * Math.PI * 2
-        const r = ruido(t, 120 + k) * 0.22
+    // ── jardineiras de corten com gramíneas em massa ──────────────────────
+    for (const [j, xj] of [-11.5, -7.7, -3.9, -0.1, 3.7, 7.5, 11.3].entries()) {
+      sombra(xj, zCanteiro, 4.0, 1.5)
+      col.poe('jardineira', gJardineira, mCorten, [xj, piso + 0.27, zCanteiro])
+      col.poe('terraLinear', gTerraLinear, mTerra, [xj, piso + 0.5, zCanteiro], [-Math.PI / 2, 0, 0])
+      /**
+       * A LÂMINA, e a razão de ela ser uma caixa fina e não uma folha modelada:
+       * nesta profundidade a escala é 37 px/m, então uma lâmina de 3 cm ocupa
+       * pouco mais de um pixel. O que o olho resolve não é a folha — é a
+       * SILHUETA DO TUFO e a luz passando por ela. Modelar nervura aqui seria
+       * pagar triângulo por informação que não chega à tela, que é o mesmo erro
+       * dos furos de rack que eu já cortei no andar 07.
+       *
+       * Cada lâmina se inclina para FORA do centro do tufo, em ângulo próprio.
+       * É o que produz o formato de chafariz que a gramínea tem — folha reta
+       * para cima lê como cebolinha.
+       */
+      for (let c = 0; c < 3; c++) {
+        const xc = xj - 1.1 + c * 1.1
+        for (let b = 0; b < 44; b++) {
+          const a = ruido(b, 170 + j * 3 + c) * Math.PI * 2
+          const raio = ruido(b, 180 + j * 3 + c) * 0.24
+          const alt = 0.42 + ruido(b, 190 + j * 3 + c) * 0.74
+          const incl = 0.1 + ruido(b, 200 + j * 3 + c) * 0.72
+          col.poe(
+            'lamina',
+            gLamina,
+            mGramineaMat,
+            [xc + Math.sin(a) * raio, piso + 0.52 + alt / 2, zCanteiro + Math.cos(a) * raio * 0.6],
+            [Math.cos(a) * incl, a, -Math.sin(a) * incl],
+            [1, alt, 1],
+            TONS_DE_GRAMINEA[(b + c + j) % TONS_DE_GRAMINEA.length]!,
+          )
+        }
+      }
+    }
+
+    /**
+     * BUXO APARADO — a única fileira da cena onde a regularidade é o efeito.
+     *
+     * Tudo o mais na cobertura ganhou assimetria de propósito, porque nada no
+     * mundo real está alinhado. O buxo é a exceção legítima: ele É aparado, ele É
+     * plantado em espaçamento de régua, e o que se lê nele é justamente a mão do
+     * projetista contra a desordem do resto. Assimetria aqui destruiria o
+     * sentido do objeto.
+     */
+    for (let b = 0; b < 5; b++) {
+      const x = 2.6 + b * 1.25
+      sombra(x, zCentro - prof * 0.33, 1.0, 1.0)
+      col.poe('buxo', gBuxo, mBuxo, [x, piso + 0.34, zCentro - prof * 0.33], [0, b * 0.7, 0])
+    }
+
+    /**
+     * AGAVE — a planta arquitetônica, e ela entra por CONTRASTE DE FORMA.
+     *
+     * O jardim ficou feito de duas texturas macias: tufo de oliveira e chafariz
+     * de gramínea. Sem uma forma DURA no meio, tudo lê como a mesma massa verde.
+     * A roseta de folha rígida e pontuda é a peça que quebra isso — e é, junto
+     * com o buxo, o que diz "isto foi projetado" em vez de "isto cresceu".
+     */
+    for (const [k, x] of [-5.6, 6.4].entries()) {
+      const z = zCanteiro + 0.95
+      sombra(x, z, 1.3, 1.3)
+      col.poe('vaso', gVaso, mVaso, [x, piso, z])
+      for (let f = 0; f < 11; f++) {
+        const a = (f / 11) * Math.PI * 2 + k
+        const abre = 0.55 + ruido(f, 210 + k) * 0.55
         col.poe(
-          'arbusto',
-          gArbusto,
-          mFolha,
-          [x + Math.sin(a) * r, piso + 0.46 + ruido(t, 130 + k) * 0.26, zCanteiro + Math.cos(a) * r],
-          [ruido(t, 140 + k) * 3, ruido(t, 150 + k) * 3, 0],
-          (() => {
-            const s = 0.6 + ruido(t, 160 + k) * 0.7
-            return [s, s * 0.8, s] as [number, number, number]
-          })(),
-          TONS_DE_FOLHA[(t * 2 + k) % TONS_DE_FOLHA.length]!,
+          'folhaAgave',
+          gFolhaAgave,
+          mAgave,
+          [x + Math.sin(a) * 0.14, piso + 0.58, z + Math.cos(a) * 0.14],
+          [Math.cos(a) * abre, a, -Math.sin(a) * abre],
+          [1, 0.75 + ruido(f, 220 + k) * 0.5, 1],
         )
       }
     }
