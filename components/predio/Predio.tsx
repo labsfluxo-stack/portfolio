@@ -29,6 +29,7 @@ import { Datacenter } from './predio-datacenter'
 import { criaAmbiente, texturaDeCeu } from './predio-ceu'
 import { Cobertura } from './predio-cobertura'
 import { Cidade } from './predio-cidade'
+import { comRepeticao, concretoCompartilhado } from './predio-materiais'
 
 /**
  * O prédio em corte, em hora dourada — o ÚNICO arquivo do recurso que importa
@@ -742,6 +743,14 @@ function AndarVivo({
   // Superficie propria do andar, quando ele tem uma. Sem entrada, deriva do ar.
   const sup = SUPERFICIES[andar.chave]
   const face = (parte: keyof typeof ALBEDO) => sup?.[parte] ?? tom(ar, ALBEDO[parte])
+  // Concreto aparente NA COBERTURA. E a maior area chapada do primeiro quadro:
+  // parapeito, borda de laje e parede do fundo somam mais pixel que toda a
+  // mobilia junta, e sem poro nem mosqueado leem como cartolina. A repeticao
+  // muda por peca porque as pecas tem escalas muito diferentes.
+  const pele = cobertura ? concretoCompartilhado() : null
+  const peleLaje = useMemo(() => (pele ? comRepeticao(pele, 15, 0.18) : null), [pele])
+  const peleParede = useMemo(() => (pele ? comRepeticao(pele, 15, 1.6) : null), [pele])
+  const peleViga = useMemo(() => (pele ? comRepeticao(pele, 15, 0.17) : null), [pele])
 
   return (
     <group>
@@ -768,6 +777,7 @@ function AndarVivo({
           roughness={servidores ? 0.26 : 0.92}
           metalness={servidores ? 0.12 : 0}
           envMapIntensity={servidores ? 1.3 : 1}
+          {...(peleLaje ?? {})}
         />
       </mesh>
 
@@ -790,6 +800,7 @@ function AndarVivo({
           color={face('parede')}
           roughness={servidores ? 0.75 : 0.96}
           metalness={servidores ? 0.2 : 0}
+          {...(peleParede ?? {})}
         />
       </mesh>
 
@@ -816,6 +827,7 @@ function AndarVivo({
           color={face('viga')}
           roughness={servidores ? 0.55 : 0.9}
           metalness={servidores ? 0.35 : 0}
+          {...(peleViga ?? {})}
         />
       </mesh>
 
