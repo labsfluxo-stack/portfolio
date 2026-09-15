@@ -144,6 +144,12 @@ export function Cobertura({
     const gPernaEspr = new THREE.CylinderGeometry(0.017, 0.017, 0.32, 8)
     const gRoda = new THREE.CylinderGeometry(0.055, 0.055, 0.032, 16)
     const gToalha = new RoundedBoxGeometry(0.52, 0.035, 1.0, 1, 0.017)
+    // A almofada nao fica solta em cima do tubo: ela assenta DENTRO de um
+    // caixilho. E a longarina do caixilho, aparecendo rente ao estofado, que diz
+    // que a peca tem estrutura por baixo em vez de ser um colchao no chao.
+    const gLongarina = new RoundedBoxGeometry(0.045, 0.055, 1.94, 1, 0.012)
+    const gBraco = new THREE.TorusGeometry(0.17, 0.019, 6, 10, Math.PI)
+    const gSapata = new THREE.CylinderGeometry(0.026, 0.032, 0.018, 8)
 
     // PERGOLADO. Viga com chanfro e chapa de aço no encontro com o poste — é a
     // ferragem que diz "construído" em vez de "empilhado".
@@ -154,6 +160,12 @@ export function Cobertura({
     const gParafuso = new THREE.CylinderGeometry(0.012, 0.012, 0.03, 6)
     const gSoquete = new THREE.CylinderGeometry(0.016, 0.02, 0.055, 6)
     const gLampada = new THREE.SphereGeometry(0.038, 8, 6)
+    // MAO-FRANCESA: a diagonal entre poste e viga. Portico so com pecas
+    // ortogonais e instavel de verdade, e o olho conhece isso — pergolado sem
+    // contraventamento le como montagem provisoria.
+    const gMaoFrancesa = new RoundedBoxGeometry(0.075, 0.075, 0.62, 1, 0.006)
+    // Folha de trepadeira: a planta que sobe pelo pergolado. Achatada e miuda.
+    const gFolhaTrepa = new THREE.IcosahedronGeometry(0.085, 0)
 
     // GUARDA-SOL. Perfil em `Lathe` com CAIMENTO: lona esticada por varetas
     // afunda entre elas, então o corte não é reto — é uma curva côncava. Cone
@@ -176,6 +188,9 @@ export function Cobertura({
     // CUBO DAS VARETAS: o anel onde as oito varetas se encontram no mastro.
     // Sem ele as varetas nascem do nada no meio do ar.
     const gCubo8 = new THREE.CylinderGeometry(0.075, 0.09, 0.11, 8)
+    // BABADO do guarda-sol: a saia curta que pende da borda. E o detalhe que
+    // separa guarda-sol de mercado de cone de papel.
+    const gBabado = new THREE.CylinderGeometry(1.5, 1.44, 0.13, 8, 1, true)
     // BASE do guarda-sol: disco pesado de concreto. Guarda-sol sem base voa, e
     // o olho sabe disso mesmo sem pensar — mastro entrando direto no deck le
     // como adereco espetado.
@@ -235,6 +250,24 @@ export function Cobertura({
     // os ESPAÇADORES que prendem o vidro — é a ferragem que dá escala.
     const gMontanteVidro = new THREE.BoxGeometry(0.035, 0.9, 0.06)
     const gEspacador = new THREE.CylinderGeometry(0.019, 0.019, 0.05, 10)
+    // Chapa de base do montante, parafusada no deck. Nenhum guarda-corpo brota
+    // do piso: ele e aparafusado, e a chapa e a prova disso.
+    const gChapaBase = new THREE.BoxGeometry(0.12, 0.014, 0.12)
+    // Rodape de borda do deck: a tabua de acabamento que fecha a topeira das
+    // reguas. Sem ela o deck termina mostrando o corte da madeira.
+    const gRodapeDeck = new THREE.BoxGeometry(0.03, 0.055, 1)
+    // Ralo do deck, em grelha.
+    const gRalo = new THREE.BoxGeometry(0.26, 0.012, 0.26)
+    const gBarraRalo = new THREE.BoxGeometry(0.018, 0.016, 0.24)
+    // PISCINA: corrimao de escada em U invertido, e a faixa de pastilha da linha
+    // d'agua — as duas coisas que nenhuma piscina deixa de ter.
+    const gCorrimaoEscada = new THREE.TorusGeometry(0.18, 0.019, 6, 12, Math.PI)
+    const gHasteEscada = new THREE.CylinderGeometry(0.019, 0.019, 0.52, 8)
+    const gDegrauSubmerso = new THREE.BoxGeometry(1.5, 0.06, 0.34)
+    // Copo de bar, e um copo virado de boca para baixo no balcao e o sinal
+    // universal de bar aberto e limpo.
+    const gCopo = new THREE.CylinderGeometry(0.031, 0.026, 0.11, 8)
+    const gTorneira = new THREE.CylinderGeometry(0.022, 0.022, 0.26, 8)
     const gSombra = new THREE.PlaneGeometry(1, 1)
 
     // ── materiais ─────────────────────────────────────────────────────────
@@ -353,6 +386,11 @@ export function Cobertura({
     // OLIVEIRA: cinza-esverdeado PRATEADO, nao verde folha. E a cor que a
     // identifica a distancia — a face de baixo da folha e quase branca, e e ela
     // que o vento vira para cima. Verde-escuro aqui seria outra arvore.
+    // Trepadeira: verde ESCURO e saturado. A oliveira e prateada; se as duas
+    // tivessem o mesmo verde, o pergolado e a copa virariam uma mancha so.
+    const TONS_DE_TREPADEIRA = ['#40662f', '#4d7538', '#365a27', '#578042', '#2e4f22'].map(
+      (c) => new THREE.Color(c),
+    )
     const TONS_DE_OLIVA = ['#8d9c85', '#7d8e74', '#9aa892', '#6e8168', '#a7b29c'].map(
       (c) => new THREE.Color(c),
     )
@@ -389,6 +427,7 @@ export function Cobertura({
     const zArvores = zCentro - prof * 0.277
     const zCanteiro = zCentro - prof * 0.4
     const zGuarda = zCentro + prof * 0.4
+    const zEspelhoLocal = zCentro - prof * 0.03
 
     // ── deck ──────────────────────────────────────────────────────────────
     const ripas = Math.floor((meiaLargura * 2) / 0.24)
@@ -405,6 +444,27 @@ export function Cobertura({
         TONS_DE_DECK[(i * 5 + ((i * i) % 7)) % TONS_DE_DECK.length]!,
       )
 
+    // ACABAMENTO DO DECK: rodape na topeira e ralo. A regua termina mostrando o
+    // corte da madeira, e madeira de topo nao se deixa exposta ao tempo — e por
+    // onde a agua entra. A tabua de acabamento e obrigatoria na obra e e ela que
+    // fecha a linha do deck contra o parapeito.
+    col.poe(
+      'rodapeDeck',
+      gRodapeDeck,
+      mDeck,
+      [0, piso + 0.03, zCentro + prof * 0.46],
+      [0, Math.PI / 2, 0],
+      [1, 1, meiaLargura * 2],
+      TONS_DE_DECK[2]!,
+    )
+    // RALO. Laje de cobertura escoa agua, e o ralo e o unico objeto do piso que
+    // prova isso. Fica no ponto baixo, perto da borda.
+    for (const xr of [-6.2, 4.8]) {
+      col.poe('ralo', gRalo, mAco, [xr, piso + 0.026, zCentro + prof * 0.3])
+      for (let b = 0; b < 5; b++)
+        col.poe('barraRalo', gBarraRalo, mAco, [xr - 0.1 + b * 0.05, piso + 0.032, zCentro + prof * 0.3])
+    }
+
     // ── pergolado ─────────────────────────────────────────────────────────
     const xPostes = [-8.0, -4.2, -0.4, 3.4]
     for (const x of xPostes)
@@ -417,6 +477,17 @@ export function Cobertura({
           for (const dy of [-0.07, 0.07])
             col.poe('parafuso', gParafuso, mAco, [x, piso + 2.44 + dy, z + dz], [Math.PI / 2, 0, 0])
         }
+        // MAO-FRANCESA: as duas diagonais que travam o no. Portico so com pecas
+        // ortogonais e instavel de verdade, e o olho conhece isso sem saber que
+        // conhece — pergolado sem contraventamento le como montagem provisoria.
+        for (const lado of [-1, 1])
+          col.poe(
+            'maoFrancesa',
+            gMaoFrancesa,
+            mMadeiraEscura,
+            [x + lado * 0.22, piso + 2.22, z],
+            [0, lado * Math.PI / 2, lado * 0.785],
+          )
       }
     for (const z of [zPergolaFrente, zPergolaFundo])
       col.poe('viga', gVigaPergola, mMadeiraEscura, [-2.3, piso + 2.5, z])
@@ -426,6 +497,76 @@ export function Cobertura({
         piso + 2.63,
         (zPergolaFrente + zPergolaFundo) / 2,
       ])
+
+    /**
+     * A TREPADEIRA — e ela e o que transforma pergolado em pergolado VIVO.
+     *
+     * Pergolado existe para sustentar planta: e essa a funcao original da peca,
+     * antes de virar so sombra decorativa. Uma estrutura de madeira limpa le
+     * como recem-entregue; com a trepadeira subindo pelo poste e correndo pela
+     * viga, ela passa a ter IDADE — e idade e a coisa mais dificil de fingir
+     * numa cena construida do zero.
+     *
+     * A folhagem se concentra sobre a viga do FUNDO e rala em direcao a frente,
+     * porque planta cresce na direcao da luz e o sol esta atras. Distribuicao
+     * uniforme seria o tell de sempre.
+     */
+    /**
+     * EM MOITAS, e nao espalhada por igual — a primeira versao distribuiu 150
+     * folhas uniformemente pelo pergolado e o resultado foi CONFETE VERDE, nao
+     * planta. Trepadeira nasce de um pe, sobe por um poste e se espalha a partir
+     * dali: a densidade cai com a distancia da raiz. Tres pes, e a folha se
+     * agrupa em volta de cada um.
+     */
+    const pesDaTrepadeira = [-8.0, -0.4, 3.4]
+    for (let f = 0; f < 340; f++) {
+      const pe = pesDaTrepadeira[f % pesDaTrepadeira.length]!
+      // Distancia ao pe com expoente: concentra perto e rareia longe.
+      const alcance = ruido(f, 251) ** 1.7 * 5.2
+      const x = pe + (ruido(f, 240) > 0.5 ? alcance : -alcance)
+      // Adensa no fundo: a raiz quadrada empurra a maioria para z de tras.
+      const dz = Math.sqrt(ruido(f, 241)) * (zPergolaFrente - zPergolaFundo)
+      const z = zPergolaFundo + dz
+      // Uma parte pendura ABAIXO da viga: e a gavinha solta que denuncia planta
+      // em vez de tapete verde colado em cima.
+      const pendura = ruido(f, 242) > 0.76 ? ruido(f, 243) * 0.62 : 0
+      col.poe(
+        'folhaTrepa',
+        gFolhaTrepa,
+        mFolha,
+        [
+          x + (ruido(f, 244) - 0.5) * 0.3,
+          piso + 2.68 + ruido(f, 245) * 0.12 - pendura,
+          z + (ruido(f, 246) - 0.5) * 0.35,
+        ],
+        [ruido(f, 247) * 3, ruido(f, 248) * 3, ruido(f, 249) * 3],
+        (() => {
+          const e = 0.85 + ruido(f, 250) * 0.95
+          return [e, e * 0.45, e] as [number, number, number]
+        })(),
+        TONS_DE_TREPADEIRA[f % TONS_DE_TREPADEIRA.length]!,
+      )
+    }
+    // A GAVINHA SUBINDO PELO POSTE. Sem ela a folhagem flutua sobre a viga sem
+    // origem — e o pe da planta e justamente o que prova que ela cresceu ali em
+    // vez de ter sido pousada em cima.
+    for (const pe of pesDaTrepadeira)
+      for (let f = 0; f < 26; f++) {
+        const h = ruido(f, 260) * 2.3
+        const a = h * 2.4 + ruido(f, 261) * 0.7
+        col.poe(
+          'folhaTrepa',
+          gFolhaTrepa,
+          mFolha,
+          [pe + Math.sin(a) * 0.12, piso + 0.3 + h, zPergolaFundo + Math.cos(a) * 0.12],
+          [ruido(f, 262) * 3, a, ruido(f, 263) * 3],
+          (() => {
+            const e = 0.6 + ruido(f, 264) * 0.6
+            return [e, e * 0.5, e] as [number, number, number]
+          })(),
+          TONS_DE_TREPADEIRA[f % TONS_DE_TREPADEIRA.length]!,
+        )
+      }
 
     /**
      * VARAL DE LUZES sobre o pergolado — o detalhe que mais diz "cobertura de
@@ -507,6 +648,14 @@ export function Cobertura({
         for (const dz of [-0.72, 0.62])
           col.poe('pernaEspr', gPernaEspr, mMetal, p(dx, 0.17, dz))
         col.poe('roda', gRoda, mAco, p(dx, 0.055, 0.92), [0, giro, Math.PI / 2])
+        // Longarina do caixilho, rente ao estofado: e ela que diz que a almofada
+        // assenta DENTRO de uma estrutura em vez de estar largada no chao.
+        col.poe('longarina', gLongarina, mMetal, p(dx * 1.06, 0.42, 0), [0, giro, 0])
+        // Sapata de borracha no pe. Tubo de metal cortado rente ao deck e o
+        // acabamento que nenhum movel de exterior tem — ele apodreceria o deck.
+        col.poe('sapata', gSapata, mAco, p(dx, 0.018, -0.72))
+        // Braco em U, so na cabeceira. Meia-rosca porque e um tubo dobrado.
+        col.poe('braco', gBraco, mMetal, p(dx, 0.52, -0.3), [Math.PI / 2, 0, giro])
       }
       /**
        * A ALMOFADA É SEGMENTADA, e este é o detalhe que separa "estofado" de
@@ -562,6 +711,10 @@ export function Cobertura({
       col.poe('cubo8', gCubo8, mMetal, [x, piso + 2.18, z])
       col.poe('lona', gLona, mLonaSol, [x, piso + 2.28, z])
       col.poe('ponteira', gPonteira, mMetal, [x, piso + 2.72, z])
+      // BABADO: a saia curta que pende da borda da lona. E o detalhe que separa
+      // guarda-sol de mercado de cone de papel — e ele balanca, entao a borda
+      // nunca e uma linha limpa.
+      col.poe('babado', gBabado, mLonaSol, [x, piso + 2.13, z])
       // As varetas por baixo: sem elas a lona é uma casca flutuando.
       for (let v = 0; v < 8; v++) {
         const a = (v / 8) * Math.PI * 2
@@ -597,6 +750,11 @@ export function Cobertura({
           TONS_DE_GARRAFA[(g * 3 + Math.floor(y * 10)) % TONS_DE_GARRAFA.length]!,
         )
     }
+    // COPARIA. Copo virado de boca para baixo no balcao e o sinal universal de
+    // bar aberto e limpo — e sao tres objetos de oito lados cada um.
+    for (let c = 0; c < 7; c++)
+      col.poe('copo', gCopo, mVidroGarrafa, [xBar - 1.7 + c * 0.3, piso + 1.15, zBar - 0.18])
+    col.poe('torneira', gTorneira, mMetal, [xBar + 1.8, piso + 1.22, zBar - 0.2])
     for (const x of [7.4, 8.4, 9.4, 10.4]) {
       col.poe('banqueta', gAssentoBanqueta, mMadeiraEscura, [x, piso + 0.76, zBar + 0.85])
       col.poe('pernaBanqueta', gPernaBanqueta, mMetal, [x, piso + 0.38, zBar + 0.85])
@@ -773,11 +931,34 @@ export function Cobertura({
       }
     }
 
+    /**
+     * A ESCADA DA PISCINA, e ela faz mais do que parece.
+     *
+     * Duas coisas. A primeira e semantica: piscina sem escada e espelho d'agua,
+     * e espelho d'agua nao se entra. A escada e o objeto que declara que aquela
+     * lamina e para USAR — muda o que a cobertura inteira diz.
+     *
+     * A segunda e de composicao: dois arcos de metal polido subindo acima da
+     * linha d'agua sao a unica VERTICAL fina no meio de uma area que e toda
+     * horizontal, e eles pegam o sol rasante num filete brilhante. E o acento
+     * que a piscina nao tinha.
+     */
+    for (const dx of [-0.22, 0.22]) {
+      col.poe('hasteEscada', gHasteEscada, mMetal, [4.3 + dx, piso + 0.02, zEspelhoLocal + 0.5])
+      col.poe('corrimaoEscada', gCorrimaoEscada, mMetal, [4.3 + dx, piso + 0.28, zEspelhoLocal + 0.5], [0, 0, 0])
+    }
+    // Degrau submerso: a prateleira rasa que toda piscina tem na entrada. Vista
+    // atraves da agua ela desenha uma faixa mais clara no fundo escuro, e e essa
+    // faixa que da PROFUNDIDADE — fundo de cor uniforme le como chapa pintada.
+    col.poe('degrauSubmerso', gDegrauSubmerso, mPedra, [4.3, piso - 0.08, zEspelhoLocal + 0.2])
+
     // ── guarda-corpo ──────────────────────────────────────────────────────
     const montantes = Math.floor((meiaLargura * 2) / 1.5)
     for (let i = 0; i <= montantes; i++) {
       const x = -meiaLargura + i * 1.5
       col.poe('montante', gMontanteVidro, mAco, [x, piso + 0.74, zGuarda])
+      // Chapa de base parafusada no deck: nenhum guarda-corpo BROTA do piso.
+      col.poe('chapaBase', gChapaBase, mAco, [x, piso + 0.036, zGuarda])
       // Espaçadores: os dois botões de aço que prendem a chapa de vidro. É a
       // peça que dá escala ao guarda-corpo e prova que o vidro está preso.
       for (const dy of [0.42, 1.02])
