@@ -183,6 +183,37 @@ function pintaDisco(
 
 
 /**
+ * GRÃO — e ele existe para matar o BANDEAMENTO, não para dar textura.
+ *
+ * Um degradê suave num canal de 8 bits só tem 256 degraus. Quando ele se espalha
+ * por 400 pixels de tela, cada degrau ocupa uma FAIXA de vários pixels, e o olho
+ * é muito bom em achar essas faixas — é o listrado que aparece em céu de
+ * screenshot e em fundo de apresentação. Céu é o pior caso possível: é grande,
+ * é liso e a variação é mínima.
+ *
+ * A solução é a mesma da indústria de áudio e de impressão: DITHER. Somando um
+ * ruído de ±1,5 níveis antes de quantizar, a borda entre dois degraus deixa de
+ * ser uma linha reta e vira uma transição irregular. O olho integra a
+ * irregularidade e enxerga um degradê contínuo — troca-se banda por grão, e grão
+ * a essa amplitude é invisível.
+ *
+ * De quebra, é o que uma foto tem: sensor de câmera sempre deixa ruído no céu, e
+ * a ausência TOTAL de ruído é um dos sinais de imagem sintética.
+ */
+function granula(ctx: CanvasRenderingContext2D, largura: number, altura: number) {
+  const img = ctx.getImageData(0, 0, largura, altura)
+  const d = img.data
+  for (let i = 0; i < d.length; i += 4) {
+    // Hash barato sobre o índice do pixel: determinístico e sem padrão visível.
+    const n = ((Math.sin(i * 0.0001) * 43758.5453) % 1) * 3 - 1.5
+    d[i] = Math.max(0, Math.min(255, d[i]! + n))
+    d[i + 1] = Math.max(0, Math.min(255, d[i + 1]! + n))
+    d[i + 2] = Math.max(0, Math.min(255, d[i + 2]! + n))
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
+/**
  * O céu do PLANO DE FUNDO.
  *
  * `fracaoVisivel` é a parte de baixo do plano que a câmera de fato enquadra: o
@@ -196,8 +227,13 @@ export function texturaDeCeu(
   solV: number,
   fracaoVisivel = 0.46,
 ): THREE.CanvasTexture {
-  const largura = 1024
-  const altura = 512
+  // 2048 x 1024, e o numero sai de uma conta de amostragem: a faixa visivel do
+  // plano tem ~54 m de largura e ocupa 1280 px de tela. Com 1024 de textura
+  // espalhados nos 140 m do plano, sobravam 19 texels por metro para 24 pixels
+  // por metro — o ceu chegava a tela JA interpolado, e o disco do sol e a borda
+  // das nuvens perdiam a definicao justamente onde o olho olha.
+  const largura = 2048
+  const altura = 1024
   const cv = document.createElement('canvas')
   cv.width = largura
   cv.height = altura
@@ -228,10 +264,13 @@ export function texturaDeCeu(
   pintaNuvens(ctx, largura, altura, 1 - fracaoVisivel * 0.82, 0.995, 26, 1)
   // O disco vem DEPOIS das nuvens: sol atrás de nuvem fica encoberto, e aqui ele
   // está acima da camada. Antes delas, o halo ficaria lavado por cima.
-  pintaDisco(ctx, largura, altura, solU, solV, 9)
+  pintaDisco(ctx, largura, altura, solU, solV, 18)
+
+  granula(ctx, largura, altura)
 
   const tex = new THREE.CanvasTexture(cv)
   tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 8
   return tex
 }
 

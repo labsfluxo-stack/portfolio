@@ -41,10 +41,31 @@ function ruido(i: number, k: number): number {
   return s - Math.floor(s)
 }
 
+/**
+ * FILTRAGEM ANISOTRÓPICA — e esta é a maior perda de qualidade da cena.
+ *
+ * O deck é visto quase de raspão: a câmera está 1,6 m acima dele e olha na
+ * horizontal, então o ângulo de incidência na régua é de poucos graus. Nessa
+ * situação, um texel cobre MUITOS pixels na direção da fuga e quase nenhum na
+ * transversal — e o mipmap, que é isotrópico, só sabe escolher um nível para as
+ * duas direções. Ele escolhe o borrado, porque é o que evita cintilação. O
+ * resultado é grão de madeira virando papa cinzenta a três metros de distância.
+ *
+ * A filtragem anisotrópica amostra ao longo da direção esticada em vez de
+ * escolher um nível só. É a única técnica que recupera detalhe em superfície
+ * rasante, e é praticamente de graça em hardware moderno.
+ *
+ * 8 e não 16: o ganho de 8 para 16 é quase imperceptível e o custo de banda
+ * dobra. O three limita ao máximo do aparelho sozinho, então este número é um
+ * TETO pedido, nunca uma exigência — em celular que só faz 2, ele faz 2.
+ */
+const ANISOTROPIA = 8
+
 function acaba(cv: HTMLCanvasElement, repeteU: number, repeteV: number, srgb: boolean) {
   const t = new THREE.CanvasTexture(cv)
   t.wrapS = t.wrapT = THREE.RepeatWrapping
   t.repeat.set(repeteU, repeteV)
+  t.anisotropy = ANISOTROPIA
   if (srgb) t.colorSpace = THREE.SRGBColorSpace
   return t
 }

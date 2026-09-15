@@ -1539,6 +1539,13 @@ export function Predio({ dict, locale, vsync }: { dict: Dictionary; locale: Loca
         // Hora dourada com ACES fecha a sombra; um pouco de exposição devolve a
         // leitura do material sem clarear tinta nenhuma.
         onCreated={({ gl }) => {
+          // ACES E NAO AgX, E ISTO FOI TESTADO. AgX tem rolagem de alta luz
+          // mais longa e nao torce o matiz, e com o disco do sol no quadro isso
+          // parecia a escolha obvia. Renderizado em 1,62 e em 1,30 de exposicao,
+          // ele lavou a cena inteira: o deck perdeu o ambar, o ceu perdeu o
+          // violeta e a imagem ficou leitosa. Ganhou no halo do sol e perdeu em
+          // tudo o mais. Um pouco de exposicao sobre ACES devolve a leitura do
+          // material sem clarear tinta nenhuma.
           gl.toneMappingExposure = 1.18
         }}
       >
