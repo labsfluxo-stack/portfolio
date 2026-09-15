@@ -5,7 +5,17 @@ import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Coletor } from './predio-instancias'
-import { concreto, folha, fronde, madeiraDeDeck, normalDeAgua, tecido } from './predio-materiais'
+import {
+  casca,
+  comRepeticao,
+  concreto,
+  folha,
+  fronde,
+  graminea,
+  madeiraDeDeck,
+  normalDeAgua,
+  tecido,
+} from './predio-materiais'
 
 /**
  * A COBERTURA — o primeiro quadro do site.
@@ -128,6 +138,7 @@ export function Cobertura({
     const pedra = concreto()
     const lona = tecido()
     const recorteDeFolha = folha()
+    const recorteDeFolhaLarga = folha('ovalada')
     const recorteDeFronde = fronde()
 
     // ── geometrias ────────────────────────────────────────────────────────
@@ -212,11 +223,47 @@ export function Cobertura({
     // do resto do plantio. Na altura da graminea ela vira mais um tufo, e o gesto
     // — estipe fino, copa em arco la em cima — e justamente o que a identifica.
     const gEstipe = new THREE.CylinderGeometry(0.052, 0.1, 4.2, 8)
-    // PROPORCAO 5:1, e nao 2:1. Fronde pinada e LONGA E ESTREITA — o raquis corre
-    // dois metros e os foliolos saem poucos centimetros para cada lado. Com 1,7 x
-    // 0,78 ela virava uma pena larga, que e a silhueta de uma folha de bananeira,
-    // nao de palmeira. A proporcao e metade do que identifica a especie.
-    const gFronde = new THREE.PlaneGeometry(2.3, 0.44)
+    /**
+     * A FRONDE VIRA UM ARCO DE DOIS SEGMENTOS, E NAO MAIS UMA LANCA RETA.
+     *
+     * Era isto o que sobrava de desordem, e a causa nao era mais o sorteio: era
+     * a FORMA. Uma fronde reta saindo do apice num angulo fixo desenha um RAIO,
+     * e cinco, sete, nove raios saindo do mesmo ponto formam uma estrela — ou um
+     * guarda-sol. Palmeira nao tem raio. A fronde sai ERGUIDA, vira no meio e
+     * desce pela ponta, e e esse arco, repetido igual pela coroa inteira, que
+     * faz o chafariz que se reconhece de longe.
+     *
+     * Dois planos por fronde compram o arco por uma instancia a mais, e o preco
+     * e baixo porque fronde e recorte por alfa: sem ordenacao por profundidade,
+     * sem passe extra de cena.
+     *
+     * O QUE NAO PODE ACONTECER e cada segmento carregar a fronde inteira na
+     * textura — dois desenhos completos em fila leem como duas frondes coladas
+     * pela ponta. Entao cada segmento leva METADE do U: a base fica com 0–0,52
+     * (foliolo curto, crescendo) e a ponta com 0,48–1 (foliolo longo, afinando
+     * ate o apice). Os 4% de sobreposicao escondem a emenda.
+     *
+     * A proporcao 5:1 do raquis se mantem somando os dois: 2,40 de comprimento
+     * por 0,46 de largura. Fronde pinada e LONGA E ESTREITA — com 2:1 ela le
+     * como folha de bananeira, que e outra planta.
+     */
+    const metadeDoU = (g: THREE.PlaneGeometry, de: number, ate: number) => {
+      const uv = g.getAttribute('uv') as THREE.BufferAttribute
+      for (let i = 0; i < uv.count; i++) uv.setX(i, de + uv.getX(i) * (ate - de))
+      uv.needsUpdate = true
+      return g
+    }
+    const COMP_BASE = 1.24
+    const COMP_PONTA = 1.16
+    const gFrondeBase = metadeDoU(new THREE.PlaneGeometry(COMP_BASE, 0.46), 0, 0.52)
+    // Mesma largura da base, e nao menor: o afinamento da fronde ja esta na
+    // textura (o foliolo encurta ate sumir no ultimo quinto). Estreitar tambem a
+    // geometria colocava um degrau de 13% bem na emenda dos dois segmentos.
+    const gFrondePonta = metadeDoU(new THREE.PlaneGeometry(COMP_PONTA, 0.45), 0.48, 1)
+    // CAPITEL: a bainha lisa e verde no topo do estipe, de onde as frondes saem.
+    // E ela que fecha o ponto de convergencia — sem ela os planos se cruzam no ar
+    // e o olho ve a costura em vez da coroa.
+    const gCapitel = new THREE.CylinderGeometry(0.062, 0.115, 0.66, 8)
     // FLOR. Um tufo minusculo: a essa distancia flor nao tem petala, tem MANCHA.
     // FLOR PEQUENA. A 0,08 com escala 1,3 ela virava uma bola de 10 cm — a essa
     // distancia isso e uma BOLHA, nao uma flor. Florada de verdade se le como
@@ -430,6 +477,19 @@ export function Cobertura({
       side: THREE.DoubleSide,
       map: recorteDeFolha.mapa,
       alphaMap: recorteDeFolha.alfa,
+      /**
+       * A QUILHA E A CUTÍCULA. Até aqui a folha era papel recortado: sem relevo,
+       * toda folha virada para o mesmo lado recebia a mesma luz, e a copa inteira
+       * vinha num verde só. O mapa de normal dobra a folha ao longo da nervura e
+       * o de rugosidade faz o brilho correr em faixas entre as nervuras — é o
+       * reflexo que diz ao olho que a folha está viva e úmida.
+       *
+       * `normalScale` baixo porque a peça é PEQUENA na tela: relevo forte numa
+       * folha de doze pixels vira ruído cintilante, não volume.
+       */
+      normalMap: recorteDeFolha.normal,
+      normalScale: new THREE.Vector2(0.6, 0.6),
+      roughnessMap: recorteDeFolha.rugosidade,
       // 0,45 e nao 0,5: com anisotropia e mipmap, a borda da folha desbota nos
       // niveis distantes e um limiar alto COME a folha inteira ao longe — a copa
       // rareia sozinha conforme a camera se afasta, que e um defeito sutil e
@@ -451,6 +511,28 @@ export function Cobertura({
       emissive: new THREE.Color('#4a6b32'),
       emissiveIntensity: 0.22,
     })
+    /**
+     * A FOLHA LARGA GANHA MATERIAL PRÓPRIO, com o recorte ovalado e a nervação
+     * palmada. Antes ela era a lanceolada esmagada num plano 1,3:1 — o que dava
+     * uma pá, não uma folha.
+     *
+     * Emissivo um pouco mais alto que o da lanceolada de propósito: folha larga
+     * de planta tropical é mais FINA e translúcida que folha de oliveira, que é
+     * dura e cerosa. Em contraluz ela acende mais.
+     */
+    const mFolhaLarga = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.78,
+      side: THREE.DoubleSide,
+      map: recorteDeFolhaLarga.mapa,
+      alphaMap: recorteDeFolhaLarga.alfa,
+      normalMap: recorteDeFolhaLarga.normal,
+      normalScale: new THREE.Vector2(0.6, 0.6),
+      roughnessMap: recorteDeFolhaLarga.rugosidade,
+      alphaTest: 0.45,
+      emissive: new THREE.Color('#4a6b32'),
+      emissiveIntensity: 0.28,
+    })
     // Madeira de oliveira e CLARA e acinzentada, nao marrom escura.
     // Nucleo da copa: solido e fosco, so para dar massa escura atras das folhas.
     // FRONDE: mesmo recorte por alfa da folha, com a silhueta pinada propria.
@@ -463,10 +545,19 @@ export function Cobertura({
       side: THREE.DoubleSide,
       map: recorteDeFronde.mapa,
       alphaMap: recorteDeFronde.alfa,
+      // O ráquis é roliço e os folíolos são lâminas penduradas nele: o relevo
+      // existe quase só na haste central, e é ela que passa a pegar o sol de
+      // raspão e separar a fronde da que está atrás.
+      normalMap: recorteDeFronde.normal,
+      normalScale: new THREE.Vector2(0.7, 0.7),
+      roughnessMap: recorteDeFronde.rugosidade,
       alphaTest: 0.4,
       emissive: new THREE.Color('#42632c'),
       emissiveIntensity: 0.16,
     })
+    // Capitel: solido, sem recorte. Verde mais frio que a fronde porque e bainha
+    // lisa e cerosa, nao lamina — ela reflete o ceu em vez de acender por tras.
+    const mCapitel = new THREE.MeshStandardMaterial({ color: '#6d8152', roughness: 0.72 })
     // FLOR. Quase sem rugosidade e com emissivo proprio: petala e fina e
     // translucida, e numa cena em contraluz ela e a coisa que mais acende.
     const mFlor = new THREE.MeshStandardMaterial({
@@ -492,23 +583,52 @@ export function Cobertura({
     // dela e uma escada sem luz, e vidro devolve o que ha atras.
     const mJunta = new THREE.MeshStandardMaterial({ color: '#7d715f', roughness: 0.98 })
     /**
-     * CASCA DE OLIVEIRA, e ela reaproveita o grao da madeira de deck.
+     * CASCA DE VERDADE, E NÃO MAIS O GRÃO DA RÉGUA DE DECK.
      *
-     * O tronco era um cilindro liso em cinza claro, e no zoom isso lia como tubo
-     * de concreto. Casca de oliveira e cinza-parda, RACHADA no comprimento e
-     * muito mais escura que o cinza que estava ali — tronco claro demais nao
-     * segura a copa escura em cima, e a arvore parece pousada.
+     * O comentário que estava aqui defendia o reaproveitamento assim: "grão
+     * correndo no comprimento e nós esparsos é exatamente o que casca tem". É
+     * falso, e é o tipo de justificativa que se escreve quando já se decidiu
+     * economizar. Régua de deck é madeira SERRADA — a serra atravessou os anéis
+     * e deixou veio liso, paralelo e contínuo. Casca é o lado de fora da árvore
+     * e faz o oposto: RACHA, porque o tronco engrossa por dentro e a camada
+     * externa já é tecido morto. Veio contínuo contra fissura interrompida é a
+     * diferença entre um poste torneado e uma árvore.
      *
-     * O mapa e o mesmo da regua de deck: grao correndo no comprimento e nos
-     * esparsos e exatamente o que casca tem, e a repeticao aperta para o padrao
-     * ficar na escala de um tronco e nao de uma tabua.
+     * Agora são duas cascas, porque as duas árvores não têm nada em comum — a
+     * oliveira racha em espiral, e a palmeira não racha: ela guarda as cicatrizes
+     * anelares das frondes que caíram. Ver `casca()` em `predio-materiais.ts`.
+     *
+     * A repetição é apertada em V (o tronco é alto e fino) e quase solta em U (a
+     * circunferência é meio metro), que é o que mantém a fissura na escala de um
+     * tronco em vez de na de uma tábua.
      */
-    const mMadeiraClara = new THREE.MeshStandardMaterial({
-      color: '#6f6253',
+    const cascaOliva = casca('oliveira')
+    const troncoOliva = comRepeticao(cascaOliva, 1.2, 4)
+    const galhoOliva = comRepeticao(cascaOliva, 0.55, 1.6)
+    const mCascaOliva = new THREE.MeshStandardMaterial({
+      color: '#8d8578',
       roughness: 0.97,
-      map: madeira.map,
-      normalMap: madeira.normalMap,
-      roughnessMap: madeira.roughnessMap,
+      map: troncoOliva.map,
+      normalMap: troncoOliva.normalMap,
+      roughnessMap: troncoOliva.roughnessMap,
+    })
+    const mGalhoOliva = new THREE.MeshStandardMaterial({
+      color: '#83796c',
+      roughness: 0.97,
+      map: galhoOliva.map,
+      normalMap: galhoOliva.normalMap,
+      roughnessMap: galhoOliva.roughnessMap,
+    })
+    // ESTIPE: repetição 6 em V sobre 4,2 m de altura, com 10 anéis por ladrilho —
+    // dá um anel a cada 7 cm, que é o passo real de uma palmeira adulta. Anel
+    // espaçado demais lê como bambu; junto demais, como rosca de parafuso.
+    const cascaPalmeira = comRepeticao(casca('palmeira'), 1, 6)
+    const mEstipe = new THREE.MeshStandardMaterial({
+      color: '#978d78',
+      roughness: 0.93,
+      map: cascaPalmeira.map,
+      normalMap: cascaPalmeira.normalMap,
+      roughnessMap: cascaPalmeira.roughnessMap,
     })
     // Buxo: verde profundo e FOSCO, sem faceta. Contraponto da gramineea.
     const mBuxo = new THREE.MeshStandardMaterial({ color: '#3f5a32', roughness: 0.97 })
@@ -516,10 +636,17 @@ export function Cobertura({
     const mAgave = new THREE.MeshStandardMaterial({ color: '#7d9b86', roughness: 0.55, flatShading: true })
     // Graminea: branca no material, cor na instancia, e DUPLA FACE porque a
     // lamina e fina o bastante para a camera ver o verso dela o tempo todo.
+    // A DOBRA EM V vem do mapa de normal, e é ela que separa gramínea de palha:
+    // sem relevo, a lâmina recebe um valor único do topo à base e a touceira lê
+    // como feixe de varetas. Ver `graminea()` em `predio-materiais.ts`.
+    const laminaViva = graminea()
     const mGramineaMat = new THREE.MeshStandardMaterial({
       color: '#ffffff',
       roughness: 0.82,
       side: THREE.DoubleSide,
+      map: laminaViva.map,
+      normalMap: laminaViva.normalMap,
+      roughnessMap: laminaViva.roughnessMap,
     })
     // CORTEN: aco que enferruja de proposito e para. Ferrugem tem textura, entao
     // reaproveita o relevo do concreto — poro e mancha servem aos dois.
@@ -1019,14 +1146,14 @@ export function Cobertura({
         col.poe(
           'troncoOliva',
           gTroncoOliva,
-          mMadeiraClara,
+          mCascaOliva,
           [x + dx, piso + 1.75 + t * 0.08, zArvores + dz],
           [Math.cos(tr.a) * tr.incl, 0, -Math.sin(tr.a) * tr.incl],
         )
         col.poe(
           'galhoOliva',
           gGalhoOliva,
-          mMadeiraClara,
+          mGalhoOliva,
           [x + dx * 2.6, piso + 3.0 + t * 0.16, zArvores + dz * 2.6],
           [Math.cos(tr.a) * 0.65, 0, -Math.sin(tr.a) * 0.65],
         )
@@ -1105,7 +1232,7 @@ export function Cobertura({
         col.poe(
           'raminho',
           gRaminho,
-          mMadeiraClara,
+          mGalhoOliva,
           [
             bx + Math.sin(az) * comp * 0.4,
             yBase + inclina * comp * 0.4,
@@ -1275,7 +1402,7 @@ export function Cobertura({
         col.poe(
           'folhaArbusto',
           gFolhaLarga,
-          mFolha,
+          mFolhaLarga,
           [
             xm + Math.sin(a) * r,
             piso + 0.5 + ruido(f, 412 + m) * alturaMoita,
@@ -1323,32 +1450,99 @@ export function Cobertura({
      * `R·sin(cai)`. Com o deslocamento fixo de antes, a metade de dentro
      * atravessava o tronco e saía pelo outro lado.
      */
-    const MEIA_FRONDE = 1.15
+    /**
+     * TRES COROAS, CAIMENTO CONSTANTE EM CADA UMA, E CADA FRONDE EM ARCO.
+     *
+     * O dono apontou duas vezes que a coroa continuava sem ordem, e nas duas eu
+     * tinha consertado a metade errada do problema. O que estava acontecendo:
+     *
+     * 1. EU AINDA SORTEAVA O CAIMENTO POR FRONDE. Duas frondes vizinhas, da
+     *    mesma idade, caiam em angulos diferentes. Palmeira e o oposto disso — e
+     *    a planta mais ORDENADA que existe. A coroa sai de um unico meristema no
+     *    apice, uma fronde de cada vez, e todas as folhas da mesma idade estao
+     *    na mesma fase de abertura. Cada geracao e um CONE limpo.
+     *
+     * 2. E, mesmo com o cone limpo, a fronde RETA fazia a copa ler como estrela.
+     *    O caimento nao e um angulo: e uma curva. Por isso `saida` e `ponta` em
+     *    vez de um `cai` so — a fronde deixa o capitel nesse angulo de saida e
+     *    chega na ponta naquele outro, e o joelho entre os dois e o arco. Nas
+     *    novas, saida e ponta sao ambas negativas: a lanca sobe e fica em pe no
+     *    miolo. Nas velhas, a saida e quase horizontal e a ponta despenca.
+     *
+     * O azimute e distribuido por igual dentro de cada coroa e defasado entre
+     * elas, para as tres se entrelacarem em vez de se alinharem em raio. A unica
+     * variacao que sobra e ENTRE palmeiras (via `q`), porque duas vizinhas nao
+     * estao no mesmo ponto do ciclo. Dentro de uma, a regularidade E o realismo.
+     */
     const COROAS = [
-      { n: 5, caiDe: 0.16, caiAte: 0.42, fase: 0 },
-      { n: 9, caiDe: 0.72, caiAte: 1.24, fase: 0.35 },
+      { n: 5, saida: -0.62, ponta: -0.16, fase: 0.0 },
+      { n: 7, saida: -0.18, ponta: 0.52, fase: 0.45 },
+      { n: 9, saida: 0.16, ponta: 1.04, fase: 0.19 },
     ] as const
+    // A inclinacao do estipe e a mesma usada para achar o apice — se as duas
+    // divergirem, a copa flutua ao lado do tronco.
+    const INCLINA_ESTIPE: [number, number, number] = [0.05, 0, 0.04]
+    const eixoDoEstipe = new THREE.Vector3(0, 1, 0).applyEuler(
+      new THREE.Euler(...INCLINA_ESTIPE),
+    )
+    // 2,1 de meia-altura menos um palmo, para a coroa nascer DENTRO da madeira.
+    const ATE_O_APICE = 1.98
+    // `Vector3.toArray()` devolve `number[]`, e `poe` pede a tripla exata.
+    const tri = (v: THREE.Vector3): [number, number, number] => [v.x, v.y, v.z]
     for (const [q, xp] of [-11.8, -6.2, -0.4, 5.6, 11.2].entries()) {
-      col.poe('estipe', gEstipe, mMadeiraClara, [xp, piso + 2.6, zFundoVerde], [0.05, 0, 0.04])
-      // O ápice: 2,6 de centro mais 2,1 de meia-altura, menos um palmo para a
-      // coroa nascer DENTRO da madeira em vez de flutuar acima dela.
-      const coroa = piso + 4.58
+      const base: [number, number, number] = [xp, piso + 2.6, zFundoVerde]
+      col.poe('estipe', gEstipe, mEstipe, base, INCLINA_ESTIPE)
+      /**
+       * O APICE E CALCULADO, NAO CHUTADO. O estipe e inclinado, entao o topo dele
+       * nao fica sobre `xp`: anda 8 cm em x e 10 cm em z ao longo do eixo. Fixar
+       * a coroa em `xp` era pouco para notar de relance e o bastante para a copa
+       * parecer solta do tronco.
+       */
+      const noEixo = (t: number) =>
+        eixoDoEstipe.clone().multiplyScalar(t).add(new THREE.Vector3(...base))
+      const apice = noEixo(ATE_O_APICE)
+      col.poe('capitel', gCapitel, mCapitel, tri(noEixo(ATE_O_APICE - 0.3)), INCLINA_ESTIPE)
       for (const c of COROAS)
         for (let fr = 0; fr < c.n; fr++) {
           const a = (fr / c.n) * Math.PI * 2 + c.fase + q
-          const cai = c.caiDe + ruido(fr, 490 + q) * (c.caiAte - c.caiDe)
-          const alcance = MEIA_FRONDE * Math.cos(cai)
-          const queda = MEIA_FRONDE * Math.sin(cai)
+          const desvio = (ruido(q, 491) - 0.5) * 0.12
+          const sa = Math.sin(a)
+          const ca = Math.cos(a)
+          /**
+           * A rotacao e `[0, a − π/2, −cai]`, e a ordem Euler XYZ do three aplica
+           * o Z primeiro: o plano tomba no proprio eixo longo e so depois gira
+           * para o azimute. Sao dois passos limpos, e e por isso que o resultado
+           * e simetrico — a versao anterior distribuia o caimento entre X e Z
+           * conforme o azimute, o que torcia cada fronde de um jeito diferente.
+           *
+           * Com Z aplicado antes de Y, a normal do plano sai horizontal e
+           * perpendicular ao raquis: a lamina fica em pe, que e como a fronde se
+           * apresenta a uma camera de lado.
+           */
+          const anda = (cai: number, t: number, de: THREE.Vector3) =>
+            de.clone().add(
+              new THREE.Vector3(sa * Math.cos(cai), -Math.sin(cai), ca * Math.cos(cai))
+                .multiplyScalar(t),
+            )
+          const cSaida = c.saida + desvio
+          const cPonta = c.ponta + desvio
+          const joelho = anda(cSaida, COMP_BASE, apice)
           col.poe(
-            'fronde',
-            gFronde,
+            'fronde-base',
+            gFrondeBase,
             mFronde,
-            [
-              xp + Math.sin(a) * alcance,
-              coroa - queda,
-              zFundoVerde + Math.cos(a) * alcance * 0.82,
-            ],
-            [Math.cos(a) * cai, -a + Math.PI / 2, -Math.sin(a) * cai],
+            tri(anda(cSaida, COMP_BASE / 2, apice)),
+            [0, a - Math.PI / 2, -cSaida],
+          )
+          col.poe(
+            'fronde-ponta',
+            gFrondePonta,
+            mFronde,
+            // Recuados 6 cm: os dois segmentos se encontram em angulos
+            // diferentes, entao encostar ponta com ponta abriria uma cunha de um
+            // lado do joelho. A sobreposicao curta fecha o cotovelo.
+            tri(anda(cPonta, COMP_PONTA / 2 - 0.06, joelho)),
+            [0, a - Math.PI / 2, -cPonta],
           )
         }
     }
@@ -1426,7 +1620,7 @@ export function Cobertura({
         col.poe(
           'folhaLarga',
           gFolhaLarga,
-          mFolha,
+          mFolhaLarga,
           [
             xc + (ruido(fo, 443 + c) - 0.5) * 0.24,
             piso + 0.48 - (fo / 6) * comp,
@@ -1486,7 +1680,7 @@ export function Cobertura({
         col.poe(
           'folhaArbusto',
           gFolhaLarga,
-          mFolha,
+          mFolhaLarga,
           [
             xv + Math.sin(a) * r,
             piso + 0.72 + ruido(f, 462 + v) * 0.62,
