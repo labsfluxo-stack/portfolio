@@ -118,6 +118,38 @@ function catenaria(
   return pontos
 }
 
+/**
+ * AS MEDIDAS DO ESCRITÓRIO VIVEM NO MÓDULO, e não dentro do `useMemo`.
+ *
+ * Duas coisas dele não podem ser instanciadas — o pano de vidro (é transparente,
+ * precisa ser ordenado contra o interior) e a luz (não é geometria). Elas moram
+ * no bloco JSX, que está fora do `useMemo` e não enxerga nada do que é declarado
+ * lá dentro. A primeira versão resolveu isso repetindo os números nos dois
+ * lugares, e repetir coordenada é combinar um erro para depois: bastava mover o
+ * volume 35 cm e o vidro ficaria para trás, flutuando sozinho.
+ *
+ * E O FUNDO DO ESCRITÓRIO É A PAREDE DO TERRAÇO — ele não tem uma própria.
+ *
+ * Eu desenhei uma, e ela não aparecia: o render mostrava poro de concreto dentro
+ * do escritório, onde deveria haver reboco liso. A sonda que resolveu isso foi
+ * pintar o material de magenta e renderizar uma vez — só as DUAS LATERAIS
+ * ficaram magenta. Com isso o diagnóstico virou aritmética em vez de palpite: a
+ * parede do andar está em `zCentro − prof/2` com 30 cm de espessura, ou seja
+ * face em −11,25, e eu tinha posto o fundo da caixa em −11,29. Quatro
+ * centímetros ATRÁS. A caixa inteira estava ali; faltava ela terminar do lado
+ * certo de um plano que eu nunca tinha medido.
+ *
+ * Empurrar tudo para a frente resolveria, e seria a solução errada. Pavilhão de
+ * cobertura se encosta no núcleo do prédio — é por ali que sobem prumada e
+ * escada. Então o `z` passa a ser DERIVADO da parede em vez de escolhido a olho,
+ * e a chance de os dois se cruzarem de novo quando um deles mudar desaparece.
+ */
+const ESCRITORIO = { x: -7.8, largura: 5.8, altura: 2.92, profundidade: 2.0 }
+/** Face interna da parede do andar — é ela que fecha o escritório por trás. */
+const zDaParedeDoAndar = (zCentro: number, prof: number) => zCentro - prof / 2 + 0.15
+const zDoEscritorio = (zCentro: number, prof: number) =>
+  zDaParedeDoAndar(zCentro, prof) + ESCRITORIO.profundidade / 2
+
 export function Cobertura({
   piso,
   zCentro,
@@ -275,12 +307,41 @@ export function Cobertura({
     // Haste pendente, para a planta derramar sobre a borda da jardineira.
     const gPendente = new THREE.CylinderGeometry(0.008, 0.013, 0.42, 4)
 
-    // CAIXA DE ESCADA: o volume por onde se chega a cobertura.
-    const gCasaEscada = new RoundedBoxGeometry(3.2, 2.5, 2.2, 1, 0.03)
-    const gRufo = new RoundedBoxGeometry(3.42, 0.16, 2.42, 1, 0.02)
-    const gBatente = new THREE.BoxGeometry(1.16, 2.18, 0.07)
-    const gMarquise = new RoundedBoxGeometry(1.9, 0.08, 0.95, 1, 0.014)
-    const gTiranteMarq = new THREE.CylinderGeometry(0.009, 0.009, 0.62, 6)
+    /**
+     * O ESCRITÓRIO ENVIDRAÇADO — e ele SUBSTITUI a caixa de escada.
+     *
+     * A caixa era um prisma de concreto fechado, e o argumento para ela existir
+     * era bom: sem uma porta, a cobertura vira cenário de teatro, porque a parte
+     * que a câmera não vê não existe. Só que ela resolvia a lógica e custava a
+     * composição — 3,2 × 2,5 m de concreto cego, sem uma única informação, bem
+     * no terço esquerdo, que é onde a referência põe a coisa mais rica do quadro.
+     *
+     * O escritório faz as duas coisas ao mesmo tempo: continua sendo o volume por
+     * onde se chega (a porta agora é de vidro, na própria fachada) e passa a ser
+     * uma JANELA ACESA. Interior iluminado visto através de vidro é o gesto mais
+     * forte que uma fachada tem ao entardecer, e a razão é de contraste: o quadro
+     * inteiro está em meia-luz, e uma caixa quente e detalhada dentro dele vira o
+     * ponto para onde o olho vai primeiro.
+     *
+     * TUDO POR ESCALA sobre uma caixa unitária. O coletor guarda a geometria da
+     * PRIMEIRA chamada de cada chave e descarta as seguintes em silêncio — foi o
+     * que produziu 23 prédios do tamanho do primeiro em `predio-cidade.tsx`. Um
+     * volume que varia de tamanho é escala na matriz, nunca uma geometria nova.
+     */
+    const gCaixa = new THREE.BoxGeometry(1, 1, 1)
+    const gPlanoEsc = new THREE.PlaneGeometry(1, 1)
+    // MOBILIÁRIO. Peças pequenas e reconhecíveis: é o inventário que diz
+    // "escritório" e não "sala iluminada".
+    const gLivro = new THREE.BoxGeometry(0.036, 1, 0.15)
+    const gMonitor = new THREE.BoxGeometry(0.58, 0.35, 0.018)
+    const gPeMonitor = new THREE.BoxGeometry(0.06, 0.13, 0.05)
+    const gBaseMonitor = new THREE.BoxGeometry(0.24, 0.014, 0.16)
+    const gAssentoCad = new THREE.BoxGeometry(0.46, 0.08, 0.44)
+    const gEncostoCad = new THREE.BoxGeometry(0.44, 0.54, 0.055)
+    const gColunaCad = new THREE.CylinderGeometry(0.028, 0.028, 0.26, 8)
+    const gEstrelaCad = new THREE.CylinderGeometry(0.25, 0.25, 0.026, 5)
+    const gLuminaria = new THREE.CylinderGeometry(0.055, 0.085, 0.1, 10)
+    const gFioLum = new THREE.CylinderGeometry(0.0025, 0.0025, 1, 4)
     const gArandela = new THREE.BoxGeometry(0.26, 0.09, 0.11)
     // Junta de dilatacao: o sulco vertical que corta toda parede longa de
     // concreto. Parede de 30 m sem junta nao existe — ela racharia sozinha.
@@ -294,7 +355,6 @@ export function Cobertura({
     const gBalizador = new THREE.CylinderGeometry(0.045, 0.045, 0.012, 10)
     const gFacho = new THREE.PlaneGeometry(0.5, 1.5)
     const gFitaLed = new THREE.BoxGeometry(1, 0.03, 0.03)
-    const gVidroAceso = new THREE.PlaneGeometry(1, 1)
     // Folha de oliveira e LANCEOLADA: estreita e comprida, quase uma lamina.
     // O quad e mais LARGO que a folha: o recorte por alfa come as pontas, entao a
     // folha util fica com cerca de 55% da area. A geometria compensa a diferenca.
@@ -379,7 +439,6 @@ export function Cobertura({
     // que dá espessura ao móvel) e apoio de pé em tubo.
     const gBalcao = new RoundedBoxGeometry(4.6, 1.0, 0.7, 1, 0.02)
     const gTampo = new RoundedBoxGeometry(5.0, 0.09, 0.96, 1, 0.014)
-    const gEstante = new RoundedBoxGeometry(4.6, 1.9, 0.32, 1, 0.02)
     const gPrateleira = new THREE.BoxGeometry(4.3, 0.045, 0.26)
     const gGarrafa = new THREE.CylinderGeometry(0.037, 0.043, 0.3, 8)
     const gApoioPe = new THREE.CylinderGeometry(0.026, 0.026, 4.4, 8)
@@ -572,6 +631,13 @@ export function Cobertura({
       roughness: 0.95,
       flatShading: true,
     })
+    /**
+     * Era o material da caixa de escada. Sobreviveu a ela porque a LAJE do
+     * escritório pede exatamente isto: concreto aparente com poro e mancha. Uma
+     * laje em balanço é a peça mais bruta do conjunto — ela contrasta com o vidro
+     * e com o caixilho pintado, e é desse contraste que a caixa de vidro tira a
+     * aparência de construção em vez de maquete.
+     */
     const mParedeConcreto = new THREE.MeshStandardMaterial({
       color: '#bcae97',
       roughness: 0.95,
@@ -579,8 +645,6 @@ export function Cobertura({
       normalMap: pedra.normalMap,
       roughnessMap: pedra.roughnessMap,
     })
-    // Porta de saida: vidro escuro com caixilho. Escuro porque o que esta atras
-    // dela e uma escada sem luz, e vidro devolve o que ha atras.
     const mJunta = new THREE.MeshStandardMaterial({ color: '#7d715f', roughness: 0.98 })
     /**
      * CASCA DE VERDADE, E NÃO MAIS O GRÃO DA RÉGUA DE DECK.
@@ -719,12 +783,58 @@ export function Cobertura({
       toneMapped: false,
     })
     const mFitaLed = new THREE.MeshBasicMaterial({ color: '#ffdca8', toneMapped: false })
-    // A porta da escada acesa por dentro: um retangulo quente no meio da parede
-    // de concreto. E a unica coisa da cena que diz que ha ALGUEM la dentro.
-    // Nao e branco nem saturado: e a luz de uma escada vista atraves de vidro
-    // fume. Chapada demais ela vira adesivo colado no concreto, que foi o que o
-    // primeiro render mostrou.
-    const mVidroAceso = new THREE.MeshBasicMaterial({ color: '#c98f52', toneMapped: false })
+    /**
+     * OS MATERIAIS DO ESCRITÓRIO, e o que decide todos eles é uma restrição:
+     * o sol está ATRÁS do prédio (azimute 152°), então nenhuma luz direta entra
+     * ali. O interior seria preto se dependesse da cena.
+     *
+     * Quem acende é `mEscLuz` — emissivo, não uma luz. O three não emite luz de
+     * material emissivo, e é bom que não emita: uma parede inteira virando fonte
+     * custaria caro e daria uma lavagem chapada. O que o emissivo faz é APARECER
+     * aceso, e é disso que a leitura precisa. A iluminação de verdade das peças
+     * vem de uma `pointLight` só, no bloco JSX, que é o que dá volume ao móvel e
+     * derrama na madeira do deck lá fora.
+     *
+     * `toneMapped: false` nas peças que ACENDEM (tela, luminária, fita): elas
+     * têm de furar o ACES e chegar ao branco. Passadas pelo tone mapping, o
+     * ponto mais quente da cena vira o mesmo bege de tudo.
+     */
+    const mEscParede = new THREE.MeshStandardMaterial({ color: '#cbbda6', roughness: 0.94 })
+    // O nicho do bar é ÂMBAR BAIXO, e não a luz de trabalho do escritório. São
+    // dois lugares acesos no mesmo quadro, e se tivessem a mesma temperatura eles
+    // leriam como a mesma coisa repetida — a diferença de cor é o que diz que um
+    // é uma sala e o outro é um balcão.
+    const mBarNicho = new THREE.MeshStandardMaterial({
+      color: '#a8712f',
+      roughness: 1,
+      emissive: new THREE.Color('#ff9a3c'),
+      emissiveIntensity: 1.5,
+    })
+    const mEscLuz = new THREE.MeshStandardMaterial({
+      color: '#e8c79a',
+      roughness: 1,
+      emissive: new THREE.Color('#ffb968'),
+      // 1,1 e não 3: este painel tem 5 m² e fica atrás de tudo. Alto demais ele
+      // estoura e o mobiliário na frente vira silhueta preta recortada — que é o
+      // erro clássico de quem ilumina interior por trás.
+      emissiveIntensity: 1.1,
+    })
+    const mEscPiso = new THREE.MeshStandardMaterial({ color: '#8a6a45', roughness: 0.6 })
+    const mEscTapete = new THREE.MeshStandardMaterial({ color: '#6d6152', roughness: 0.98 })
+    const mCaixilho = new THREE.MeshStandardMaterial({
+      color: '#2a2724',
+      roughness: 0.42,
+      metalness: 0.55,
+    })
+    const mEstofado = new THREE.MeshStandardMaterial({ color: '#3b3a38', roughness: 0.9 })
+    const mTela = new THREE.MeshBasicMaterial({ color: '#cfe0ee', toneMapped: false })
+    const mLuminaria = new THREE.MeshBasicMaterial({ color: '#ffd9a4', toneMapped: false })
+    // A lombada do livro é o único lugar da cena onde cor saturada em quantidade
+    // é bem-vinda: estante monocromática lê como cenografia de loja.
+    const TONS_DE_LIVRO = [
+      '#8a3b2e', '#2f4a63', '#6b6a3a', '#7d4f2a', '#3f5a48',
+      '#a8794a', '#4a3b5c', '#93392f', '#5c6b7a', '#7a6340',
+    ].map((c) => new THREE.Color(c))
     const mSombra = new THREE.MeshBasicMaterial({
       color: '#4a3524',
       transparent: true,
@@ -1008,8 +1118,24 @@ export function Cobertura({
       }
     }
 
-    // ── guarda-sóis ───────────────────────────────────────────────────────
-    for (const x of [5.0, 7.8]) {
+    /**
+     * ── guarda-sóis ────────────────────────────────────────────────────────
+     *
+     * UM SÓ, e ele foi de x = 5,0 para 2,0.
+     *
+     * Eram dois, em 5,0 e 7,8, e os dois atrapalhavam a mesma coisa: o bar, que
+     * vive em x = 9. Cada guarda-sol é um disco OPACO de 3 m de diâmetro a 2,3 m
+     * de altura — na faixa exata em que estão o nicho de garrafas e a bandeira.
+     * O de 7,8 saiu; o de 5,0 ainda comia a borda esquerda do bar no render, e
+     * foi para 2,0, onde ele passa a cobrir as espreguiçadeiras do meio, que é
+     * para o que guarda-sol serve.
+     *
+     * O dono autorizou remover o que atrapalhasse. Vale registrar o critério que
+     * usei, porque ele não é "remover o que está na frente": é remover o objeto
+     * BARATO quando ele esconde um CARO. Guarda-sol são 13 instâncias; o bar são
+     * mais de oitenta, e é ele que a referência põe fechando a direita do quadro.
+     */
+    for (const x of [2.0]) {
       const z = zEspreguicadeiras - 0.4
       sombra(x, z, 1.2, 1.2)
       col.poe('baseSol', gBaseSol, mPedra, [x, piso + 0.06, z])
@@ -1034,15 +1160,100 @@ export function Cobertura({
       }
     }
 
-    // ── bar ───────────────────────────────────────────────────────────────
+    /**
+     * ═══ O BAR, REFEITO COMO NICHO RETROILUMINADO ═══
+     *
+     * Ele existia inteiro — balcão, tampo, estante, 33 garrafas, copos, torneira,
+     * banquetas, fita de LED — e no render lia como CERCA: uma sequência de
+     * verticais coloridas finas sobre madeira escura, com gramínea aparecendo
+     * entre elas. Nada errado no inventário; errado no que estava ATRÁS.
+     *
+     * Bar de verdade ao entardecer se lê por uma coisa só: a parede de garrafas
+     * ACESA POR TRÁS. É a retroiluminação que transforma trinta cilindros em
+     * trinta joias — o vidro colorido para de ser silhueta escura e vira filtro,
+     * e cada garrafa passa a ter a cor dela em vez de marrom. Sem isso, garrafa
+     * escura contra madeira escura é exatamente a cerca que apareceu.
+     *
+     * Então entram quatro peças, e as quatro servem à mesma leitura:
+     *
+     * 1. O FUNDO DO NICHO, emissivo, atrás de tudo.
+     * 2. OS MONTANTES que dividem o nicho em baias — sem eles a chapa acesa é um
+     *    retângulo laranja, e com eles vira marcenaria.
+     * 3. A BANDEIRA sobre o balcão, com a face de baixo acesa: é ela que fecha o
+     *    nicho por cima e dá ao bar um TETO próprio, que é o que o separa do
+     *    terraço em vez de ele ser um móvel solto no meio dele.
+     * 4. AS TAÇAS PENDURADAS de boca para baixo no trilho sob a bandeira.
+     */
     const xBar = 9.0
+    const LARG_BAR = 4.9
     sombra(xBar, zBar, 5.6, 2.0)
+    // O nicho aceso, 6 cm atrás das prateleiras. A cor é mais quente e mais
+    // escura que a do escritório de propósito: luz de bar é âmbar baixa, não a
+    // luz de trabalho de uma sala.
+    /**
+     * A ESTANTE MACIÇA SAIU, e é isso que faz a retroiluminação existir.
+     *
+     * Havia uma `gEstante` de 4,6 × 1,9 × 0,32 em madeira escura logo atrás das
+     * prateleiras. Eu pus o painel aceso ATRÁS dela, e o primeiro render mostrou
+     * o resultado óbvio em retrospecto: um filete de luz escapando por cima e
+     * trinta garrafas escuras contra madeira escura — a mesma cerca de antes,
+     * agora com uma tarja laranja no topo.
+     *
+     * Nicho retroiluminado não tem marcenaria atrás das garrafas: o fundo É a
+     * fonte. A estante era a peça que definia o volume, e quem assume esse papel
+     * agora são os montantes e a bandeira, que ficam à FRENTE da luz e por isso
+     * recortam contra ela em vez de tapá-la.
+     *
+     * A ordem em z passa a ser a regra inteira, e ela é curta: painel (−1,63),
+     * montantes (−1,50), prateleiras e garrafas (−1,46). Errar essa pilha por
+     * dois centímetros apaga o bar — é o mesmo tipo de erro que já engoliu a
+     * lâmina da piscina duas vezes por y.
+     */
+    col.poe(
+      'barNicho',
+      gCaixa,
+      mBarNicho,
+      [xBar, piso + 1.18, zBar - 1.63],
+      [0, 0, 0],
+      [LARG_BAR, 1.98, 0.05],
+    )
+    // Montantes: cinco divisórias verticais recortando o nicho em quatro baias.
+    // Sem eles a chapa acesa é um retângulo laranja; com eles, é marcenaria.
+    for (let d = 0; d <= 4; d++)
+      col.poe(
+        'barMontante',
+        gCaixa,
+        mMadeiraEscura,
+        [xBar - LARG_BAR / 2 + (d * LARG_BAR) / 4, piso + 1.18, zBar - 1.5],
+        [0, 0, 0],
+        [0.07, 1.98, 0.24],
+      )
     col.poe('balcao', gBalcao, mMadeiraEscura, [xBar, piso + 0.5, zBar])
     col.poe('tampo', gTampo, mPedra, [xBar, piso + 1.05, zBar])
+    /**
+     * A BANDEIRA. Uma viga chata a 2,3 m, avançando sobre o balcão, com uma fita
+     * de LED escondida na face de baixo. Duas coisas: ela dá ao bar um limite
+     * superior próprio (móvel sem teto flutua no terraço) e a luz dela é a que
+     * cai no tampo de pedra e no ombro de quem estaria sentado ali.
+     */
+    col.poe('barBandeira', gCaixa, mMadeiraEscura, [xBar, piso + 2.3, zBar - 0.45], [0, 0, 0], [LARG_BAR + 0.5, 0.26, 1.5])
+    for (const s of [-1, 1])
+      col.poe('barPilarBandeira', gCaixa, mMadeiraEscura, [xBar + s * (LARG_BAR / 2 + 0.2), piso + 1.15, zBar - 1.1], [0, 0, 0], [0.12, 2.3, 0.12])
+    // Trilho de taças sob a bandeira, e as taças de boca para baixo nele. É o
+    // objeto que ninguém sabe nomear e todo mundo reconhece como bar.
+    col.poe('barTrilho', gCaixa, mMetal, [xBar, piso + 2.12, zBar - 0.25], [0, 0, 0], [LARG_BAR - 0.6, 0.03, 0.26])
+    for (let t = 0; t < 12; t++)
+      col.poe(
+        'copo',
+        gCopo,
+        mVidroGarrafa,
+        [xBar - LARG_BAR / 2 + 0.5 + t * 0.35, piso + 2.0, zBar - 0.25],
+        [Math.PI, 0, 0],
+        [1.15, 1.4, 1.15],
+      )
     // Apoio de pé: o tubo baixo na frente do balcão. Ninguém sabe nomear, todo
     // mundo reconhece — é o que transforma "caixa" em "balcão de bar".
     col.poe('apoioPe', gApoioPe, mAco, [xBar, piso + 0.19, zBar + 0.42], [0, 0, Math.PI / 2])
-    col.poe('estante', gEstante, mMadeiraEscura, [xBar, piso + 0.95, zBar - 1.6])
     for (const y of [0.62, 1.12, 1.6]) {
       col.poe('prateleira', gPrateleira, mPedra, [xBar, piso + y, zBar - 1.46])
       for (let g = 0; g < 11; g++)
@@ -1129,7 +1340,19 @@ export function Cobertura({
     // 1280 — ou seja, colados nas bordas e metade fora. A esquerda desloca para
     // dentro; a direita passa do bar (que termina em 11,3) para o tronco nao
     // nascer atras dele e a copa nao ficar boiando.
-    for (const [k, x] of [-10.6, 3.6].entries()) {
+    /**
+     * A OLIVEIRA DA ESQUERDA FOI DE −10,6 PARA −12,9, e foi o escritório que a
+     * empurrou. Em −10,6 a copa dela (raio ~1,5 m) cobria o terço esquerdo do
+     * pano de vidro — que é exatamente onde mora a estante, a peça mais detalhada
+     * do interior. Pôr uma copa opaca na frente do que se acabou de construir é
+     * desperdício dos dois lados.
+     *
+     * A restrição antiga continua valendo: em −11,4 a árvore caía colada na borda
+     * do quadro numa tela de 1280. Mas o enquadramento largo do dono abre bem mais
+     * que isso, e a −12,9 ela ainda entra inteira — e agora ENQUADRA o escritório
+     * pela esquerda em vez de tapá-lo.
+     */
+    for (const [k, x] of [-12.9, 3.6].entries()) {
       sombra(x, zArvores, 2.4, 2.4)
       col.poe('vasoAlto', gVasoAlto, mVaso, [x, piso, zArvores])
       col.poe('terra', gTerra, mTerra, [x, piso + 0.66, zArvores], [-Math.PI / 2, 0, 0])
@@ -1290,22 +1513,218 @@ export function Cobertura({
      * tem cobertura, senao chove dentro da escada. E a arandela acima dela e o
      * que diz que este lugar tambem funciona de noite.
      */
-    const xEsc = -7.6
-    const zEsc = zCanteiro - 0.55
-    sombra(xEsc, zEsc, 4.2, 3.2)
-    col.poe('casaEscada', gCasaEscada, mParedeConcreto, [xEsc, piso + 1.25, zEsc])
-    // Rufo no topo: o arremate metalico que protege a laje da caixa.
-    col.poe('rufo', gRufo, mAco, [xEsc, piso + 2.56, zEsc])
-    // A porta fica na face da FRENTE do volume, virada para o terraco.
-    const zPorta = zEsc + 1.1
-    col.poe('batente', gBatente, mAco, [xEsc, piso + 1.12, zPorta + 0.02])
-    // A folha de vidro e a LUZ de dentro sao a mesma superficie: o vidro escuro
-    // saiu. Manter os dois punha a luz atras do vidro fume, e o resultado foi uma
-    // porta apagada — que e o oposto do que ela existe para dizer.
-    col.poe('marquise', gMarquise, mPedra, [xEsc, piso + 2.32, zPorta + 0.42])
-    for (const dx of [-0.72, 0.72])
-      col.poe('tiranteMarq', gTiranteMarq, mAco, [xEsc + dx, piso + 2.5, zPorta + 0.72], [0.62, 0, 0])
-    col.poe('arandela', gArandela, mAco, [xEsc, piso + 2.44, zPorta + 0.06])
+    const { x: xEsc, largura: LARG_ESC, altura: ALT_ESC, profundidade: PROF_ESC } = ESCRITORIO
+    const zEsc = zDoEscritorio(zCentro, prof)
+    const zFrenteEsc = zEsc + PROF_ESC / 2
+    const zFundoEsc = zEsc - PROF_ESC / 2
+    const yTetoEsc = piso + ALT_ESC
+    /** Volume do escritório: uma caixa unitária colocada por centro e tamanho. */
+    const bloco = (
+      chave: string,
+      material: THREE.Material,
+      centro: [number, number, number],
+      tamanho: [number, number, number],
+    ) => col.poe(chave, gCaixa, material, centro, [0, 0, 0], tamanho)
+
+    sombra(xEsc, zEsc, LARG_ESC + 0.8, PROF_ESC + 1.2)
+    // A casca: duas laterais, piso e laje. A face da FRENTE fica vazia — ela é o
+    // pano de vidro. E o FUNDO também: quem fecha ali é a parede do andar, que já
+    // está no lugar exato (ver `zDaParedeDoAndar`).
+    for (const s of [-1, 1])
+      bloco('escCasca', mEscParede, [xEsc + s * (LARG_ESC / 2 - 0.06), piso + ALT_ESC / 2, zEsc], [0.12, ALT_ESC, PROF_ESC])
+    // CHAVES SEPARADAS PARA PISO E LAJE, e isto é a armadilha do coletor de novo:
+    // ele guarda geometria E MATERIAL da primeira chamada de cada chave. Com as
+    // três peças sob `escCasca`, o piso de madeira e a laje de concreto saíam
+    // ambos com o reboco da parede, em silêncio.
+    bloco('escPiso', mEscPiso, [xEsc, piso + 0.03, zEsc], [LARG_ESC, 0.06, PROF_ESC])
+    /**
+     * A LAJE AVANÇA 22 cm ALÉM DO VIDRO nos quatro lados, e essa sobra é o gesto
+     * contemporâneo inteiro. Laje rente ao caixilho lê como caixa de vidro de
+     * maquete; laje em balanço lê como arquitetura, porque é ela que protege o
+     * vidro do sol e da chuva — e a sombra fina que ela projeta sobre o pano é o
+     * que separa os dois planos.
+     */
+    bloco('escLaje', mParedeConcreto, [xEsc, yTetoEsc + 0.09, zEsc + 0.11], [LARG_ESC + 0.44, 0.18, PROF_ESC + 0.44])
+    // O forro por dentro, um palmo abaixo da laje: é onde os trilhos de luz se
+    // prendem, e é ele que devolve o quente para o teto.
+    bloco('escForro', mEscLuz, [xEsc, yTetoEsc - 0.05, zEsc], [LARG_ESC - 0.2, 0.05, PROF_ESC - 0.2])
+
+    /**
+     * O PAINEL ACESO DO FUNDO. É a maior superfície do escritório e a única cuja
+     * função é luz, não objeto: ele é o que se vê primeiro do outro lado do
+     * quadro, e é contra ele que a estante e a cadeira viram silhueta legível.
+     *
+     * Fica 8 cm à frente da parede para o móvel não brigar com ele no z-fighting,
+     * e não chega ao teto nem ao piso — uma faixa escura em cima e outra embaixo
+     * são o que impedem o painel de ler como adesivo colado na parede.
+     */
+    // Ele cobre só a METADE DIREITA, atrás da mesa. Na esquerda quem está contra
+    // a parede é a estante, e um painel aceso por trás dela só acenderia madeira
+    // maciça — o mesmo erro que o nicho do bar teve na primeira tentativa.
+    bloco('escPainel', mEscLuz, [xEsc + 1.35, piso + 1.62, zFundoEsc + 0.06], [3.0, 2.2, 0.04])
+
+    /**
+     * A ESTANTE, e ela ocupa a METADE ESQUERDA porque é o que a referência faz:
+     * massa densa e colorida de um lado, mesa e vazio do outro. Estante centrada
+     * dividiria o escritório em dois iguais, e dois iguais não têm hierarquia.
+     */
+    const xEstante = xEsc - 1.55
+    const LARG_ESTANTE = 2.4
+    /**
+     * A CARCAÇA É FUNDO E LATERAIS, e não uma caixa cheia — e este é o mesmo erro
+     * que o nicho do bar acabou de me custar um render, nesta mesma entrega.
+     *
+     * A primeira versão era um bloco de 2,40 × 2,06 × 0,34 em madeira escura, com
+     * as prateleiras 2 cm ATRÁS da face dele. Resultado: a caixa maciça cobriu as
+     * quatro prateleiras e as 52 lombadas, e o que apareceu no render foi um
+     * painel de madeira liso onde deveria estar a coisa mais rica do interior.
+     *
+     * A regra que sai daqui vale para os três móveis desta cena: peça que CONTÉM
+     * outra nunca é um sólido. Ela é a casca — fundo e laterais — e tudo que ela
+     * mostra vive À FRENTE dessa casca, nunca dentro do volume dela.
+     */
+    bloco('escEstanteFundo', mMadeiraEscura, [xEstante, piso + 1.05, zFundoEsc + 0.04], [LARG_ESTANTE, 2.06, 0.05])
+    for (const s of [-1, 1])
+      bloco('escEstanteFundo', mMadeiraEscura, [xEstante + s * (LARG_ESTANTE / 2 - 0.03), piso + 1.05, zFundoEsc + 0.21], [0.06, 2.06, 0.38])
+    for (const [p, y] of [0.52, 0.94, 1.36, 1.78].entries()) {
+      bloco('escPrateleira', mMadeiraEscura, [xEstante, piso + y, zFundoEsc + 0.22], [LARG_ESTANTE - 0.08, 0.035, 0.34])
+      /**
+       * OS LIVROS SÃO A RIQUEZA, e são baratos: uma caixa por lombada, todas com
+       * a mesma geometria, variando só em escala e cor pela matriz e pelo
+       * `instanceColor`. Trinta e duas lombadas custam trinta e duas matrizes.
+       *
+       * A altura varia, e um em cada sete fica DEITADO sobre a pilha. É o detalhe
+       * que separa estante de gente de estante de vitrine: ninguém mantém uma
+       * prateleira perfeitamente alinhada, e o olho reconhece a diferença sem
+       * conseguir nomeá-la.
+       */
+      for (let l = 0; l < 13; l++) {
+        const x = xEstante - LARG_ESTANTE / 2 + 0.12 + l * 0.175
+        const alto = 0.2 + ruido(l, 610 + p) * 0.1
+        const deitado = ruido(l, 620 + p) > 0.86
+        col.poe(
+          'escLivro',
+          gLivro,
+          mEscParede,
+          [x, piso + y + (deitado ? 0.045 : alto / 2 + 0.018), zFundoEsc + 0.24],
+          deitado ? [0, 0, Math.PI / 2] : [0, 0, 0],
+          deitado ? [1, 2.6, 1] : [0.8 + ruido(l, 630 + p) * 0.9, alto, 1],
+          TONS_DE_LIVRO[(l * 3 + p * 5) % TONS_DE_LIVRO.length]!,
+        )
+      }
+    }
+
+    /**
+     * A MESA fica à FRENTE, quase encostada no vidro, e não contra a parede.
+     * Mesa no fundo desapareceria atrás do painel aceso; na frente ela recorta
+     * contra o painel, e é esse recorte que faz o interior ter PROFUNDIDADE em
+     * vez de ser uma parede iluminada com coisas pintadas.
+     */
+    const xMesa = xEsc + 1.35
+    const zMesa = zEsc + 0.34
+    bloco('escMesa', mMadeiraEscura, [xMesa, piso + 0.73, zMesa], [1.96, 0.055, 0.78])
+    // Duas laterais cheias em vez de quatro pernas finas: é o desenho de mesa de
+    // arquiteto, e quatro cilindros de 3 cm a 18 m não sobrevivem a um pixel.
+    for (const s of [-1, 1])
+      bloco('escMesa', mMadeiraEscura, [xMesa + s * 0.88, piso + 0.36, zMesa], [0.08, 0.72, 0.7])
+    col.poe('escMonitorBase', gBaseMonitor, mCaixilho, [xMesa - 0.15, piso + 0.765, zMesa - 0.18])
+    col.poe('escMonitorPe', gPeMonitor, mCaixilho, [xMesa - 0.15, piso + 0.83, zMesa - 0.18])
+    col.poe('escMonitor', gMonitor, mCaixilho, [xMesa - 0.15, piso + 1.07, zMesa - 0.18])
+    // A TELA acesa, 1 cm à frente da carcaça e virada para a câmera. É o objeto
+    // mais quente do interior e o que diz que alguém trabalha ali agora.
+    col.poe('escTela', gPlanoEsc, mTela, [xMesa - 0.15, piso + 1.07, zMesa - 0.169], [0, 0, 0], [0.54, 0.31, 1])
+    // Papel e caneca sobre o tampo: duas caixas minúsculas que custam nada e são
+    // a diferença entre mesa MOBILIADA e mesa de catálogo.
+    bloco('escPapel', mEscParede, [xMesa + 0.52, piso + 0.762, zMesa + 0.1], [0.26, 0.008, 0.2])
+    bloco('escPapel', mEscParede, [xMesa + 0.66, piso + 0.8, zMesa - 0.06], [0.08, 0.1, 0.08])
+
+    /**
+     * A CADEIRA fica À FRENTE da mesa e girada, não empurrada para dentro dela.
+     * Cadeira encostada lê como ninguém estar ali; cadeira afastada e torta lê
+     * como alguém que acabou de se levantar — a mesma regra da toalha caída na
+     * espreguiçadeira e do carrinho de serviço no datacenter.
+     */
+    const xCad = xEsc + 0.62
+    const zCad = zEsc + 0.72
+    const giroCad = 0.55
+    col.poe('escEstrela', gEstrelaCad, mCaixilho, [xCad, piso + 0.08, zCad], [0, giroCad, 0])
+    col.poe('escColuna', gColunaCad, mCaixilho, [xCad, piso + 0.26, zCad])
+    col.poe('escAssento', gAssentoCad, mEstofado, [xCad, piso + 0.43, zCad], [0, giroCad, 0])
+    col.poe(
+      'escEncosto',
+      gEncostoCad,
+      mEstofado,
+      [xCad - Math.cos(giroCad) * 0.2, piso + 0.73, zCad + Math.sin(giroCad) * 0.2],
+      [0.1, giroCad, 0],
+    )
+
+    // Tapete: a mancha escura no chão que ancora o móvel. Sem ele a mesa e a
+    // cadeira flutuam sobre uma tábua corrida uniforme.
+    col.poe('escTapete', gPlanoEsc, mEscTapete, [xEsc + 0.9, piso + 0.065, zEsc + 0.2], [-Math.PI / 2, 0, 0], [3.0, 1.5, 1])
+
+    /**
+     * TRÊS PENDENTES sobre a mesa, e eles são o motivo de o teto existir aqui.
+     * Interior aceso só pelo fundo lê como caixa de luz; interior com PONTOS de
+     * luz identificáveis lê como um lugar projetado. Cada um é um cone minúsculo
+     * de material básico (fura o tone mapping) pendurado por um fio de 4 lados.
+     */
+    for (const dx of [-0.7, 0, 0.7]) {
+      col.poe('escFio', gFioLum, mCaixilho, [xMesa + dx, yTetoEsc - 0.46, zMesa - 0.1], [0, 0, 0], [1, 0.82, 1])
+      col.poe('escLuminaria', gLuminaria, mLuminaria, [xMesa + dx, yTetoEsc - 0.9, zMesa - 0.1])
+    }
+
+    /**
+     * O CAIXILHO: montantes verticais a cada 1,45 m, mais travessa em cima e
+     * embaixo. São eles que denunciam que ali existe vidro — o pano em si é
+     * quase invisível de frente (está no bloco JSX, com 12% de opacidade), e sem
+     * o caixilho o escritório leria como um buraco aberto na fachada.
+     *
+     * O montante do meio é mais largo: é o batente da PORTA. A cobertura precisa
+     * ter por onde se chegar, e agora a chegada é esta folha de vidro em vez de
+     * um prisma de concreto cego.
+     */
+    for (let m = 0; m <= 4; m++) {
+      const x = xEsc - LARG_ESC / 2 + (m * LARG_ESC) / 4
+      bloco('escCaixilho', mCaixilho, [x, piso + ALT_ESC / 2, zFrenteEsc], [m === 2 ? 0.12 : 0.07, ALT_ESC, 0.09])
+    }
+    bloco('escCaixilho', mCaixilho, [xEsc, piso + ALT_ESC - 0.05, zFrenteEsc], [LARG_ESC, 0.1, 0.09])
+    bloco('escCaixilho', mCaixilho, [xEsc, piso + 0.05, zFrenteEsc], [LARG_ESC, 0.1, 0.09])
+    // Puxador da porta: uma barra vertical no montante do meio. É o objeto que
+    // transforma "pano de vidro" em "entrada".
+    col.poe('escPuxador', gColunaCad, mMetal, [xEsc + 0.16, piso + 1.05, zFrenteEsc + 0.07], [0, 0, 0], [0.55, 3.4, 0.55])
+    col.poe('arandela', gArandela, mAco, [xEsc + 2.3, yTetoEsc + 0.28, zFrenteEsc - 0.1])
+
+    /**
+     * A BAIA DO ESCRITÓRIO: a faixa de x onde o plantio NÃO entra.
+     *
+     * O primeiro render do escritório aceso mostrou o defeito inteiro de uma vez:
+     * a caixa acendeu e não se via nada dentro dela. Estante, mesa, monitor e
+     * cadeira estavam lá, atrás de gramínea de 1,3 m, moita de folha larga e
+     * florada — os três estratos do canteiro correm de ponta a ponta da laje e
+     * passam na frente do vidro. Eu tinha construído um interior caro e plantado
+     * um arbusto em cima dele.
+     *
+     * Jardim de verdade não faz isso: onde há uma sala envidraçada, há PISO na
+     * frente dela, porque é por ali que se entra. O canteiro contorna o volume.
+     *
+     * Meio metro de folga de cada lado, e não zero: planta encostada no caixilho
+     * leria como mato crescido contra a janela em vez de canteiro que respeita o
+     * edifício.
+     */
+    const noVaoDoEscritorio = (x: number) =>
+      x > xEsc - LARG_ESC / 2 - 0.5 && x < xEsc + LARG_ESC / 2 + 0.5
+    /**
+     * A MESMA REGRA PARA O BAR, e por um motivo diferente. O bar está À FRENTE do
+     * canteiro (z = −7,6 contra −10,1), então o plantio não o tapa: ele aparece
+     * ATRAVÉS dele, pelo vão entre o tampo e a estante de garrafas. Gramínea
+     * palha subindo entre as garrafas é ruído bem no lugar onde a leitura depende
+     * de contraste — garrafa acesa contra fundo escuro.
+     *
+     * Por isso só a gramínea e a florada saem. O maciço alto do fundo FICA: ele é
+     * a massa escura contra a qual o nicho aceso recorta, e sem ele o bar ficaria
+     * brilhando contra o céu claro, que é o inverso do que se quer.
+     */
+    const atrasDoBar = (x: number) => x > 6.2 && x < 11.9
 
     /**
      * JUNTA DE DILATACAO na parede do fundo. Parede de concreto de 30 m sem
@@ -1314,11 +1733,20 @@ export function Cobertura({
      * que transforma um plano liso em parede CONSTRUIDA, e e uma linha escura
      * por peca.
      */
+    /**
+     * A JUNTA NUNCA APARECEU, e a mesma medição do escritório explicou por quê:
+     * ela estava em `zCanteiro − 1,55` = −11,65, e a face da parede está em
+     * −11,25. Quarenta centímetros DENTRO do concreto. Este bloco desenhava cinco
+     * peças que nenhum pixel do site jamais mostrou.
+     *
+     * Agora sai da mesma função que posiciona o fundo do escritório, um
+     * centímetro à frente da face — que é como um sulco se apresenta.
+     */
     for (let i = 0; i < 5; i++)
       col.poe('juntaParede', gJuntaParede, mJunta, [
         -12 + i * 6,
         piso + 1.6,
-        zCanteiro - 1.55,
+        zDaParedeDoAndar(zCentro, prof) + 0.01,
       ])
     // Torneira de jardim, rente a parede. Quem rega as jardineiras precisa dela,
     // e e o tipo de objeto que so existe em lugar que funciona.
@@ -1370,15 +1798,29 @@ export function Cobertura({
     const zMeioVerde = zCanteiro
     const zFrenteVerde = zCanteiro + 0.8
 
-    // A CALHA É CONTÍNUA: uma peça de ponta a ponta em vez de sete com vão.
-    col.poe(
-      'jardineira',
-      gJardineira,
-      mCorten,
-      [0, piso + 0.27, zCanteiro + 0.1],
-      [0, 0, 0],
-      [(meiaLargura * 2) / 3.4, 1, 2.3],
-    )
+    /**
+     * A CALHA CORRE DE PONTA A PONTA — em DOIS trechos, e não num só.
+     *
+     * Ela era uma peça inteira de 30 m, e isso deixou de funcionar no instante em
+     * que o escritório ocupou a baia: a calha tem 1,84 m de profundidade e o
+     * volume envidraçado tem 2, então ela atravessava a caixa de lado a lado e
+     * saía pelo fundo. Uma jardineira de aço passando por dentro de uma sala é o
+     * tipo de erro que não se vê no código e é impossível não ver no render.
+     *
+     * Dois trechos que encostam nas laterais do escritório é o que uma obra faria
+     * de verdade: a calha morre contra o edifício e recomeça do outro lado.
+     */
+    const calha = (de: number, ate: number) =>
+      col.poe(
+        'jardineira',
+        gJardineira,
+        mCorten,
+        [(de + ate) / 2, piso + 0.27, zCanteiro + 0.1],
+        [0, 0, 0],
+        [(ate - de) / 3.4, 1, 2.3],
+      )
+    calha(-meiaLargura, xEsc - LARG_ESC / 2 - 0.35)
+    calha(xEsc + LARG_ESC / 2 + 0.35, meiaLargura)
     sombra(0, zCanteiro, meiaLargura * 2.1, 3.4)
 
     /**
@@ -1394,6 +1836,9 @@ export function Cobertura({
      */
     for (let m = 0; m < 46; m++) {
       const xm = -meiaLargura + 0.6 + (m / 45) * (meiaLargura * 2 - 1.2)
+      // O maciço do fundo passa POR DENTRO do escritório nesta faixa — ele vive
+      // em zFundoVerde, que cai entre o fundo e a frente da caixa de vidro.
+      if (noVaoDoEscritorio(xm)) continue
       const alturaMoita = 1.1 + ruido(m, 400) * 1.05
       const zm = zFundoVerde + (ruido(m, 401) - 0.5) * 0.5
       for (let f = 0; f < 44; f++) {
@@ -1489,7 +1934,19 @@ export function Cobertura({
     const ATE_O_APICE = 1.98
     // `Vector3.toArray()` devolve `number[]`, e `poe` pede a tripla exata.
     const tri = (v: THREE.Vector3): [number, number, number] => [v.x, v.y, v.z]
-    for (const [q, xp] of [-11.8, -6.2, -0.4, 5.6, 11.2].entries()) {
+    /**
+     * QUATRO PALMEIRAS, E NÃO CINCO: a de x = −6,2 saiu porque o escritório passou
+     * a ocupar de −10,7 a −4,9. O estipe dela nascia DENTRO da caixa de vidro.
+     *
+     * Era a saída certa entre as duas possíveis. Empurrar a palmeira para o lado
+     * apertaria o vão para a vizinha; encolher o escritório desfaria o pedido do
+     * dono, que era justamente ele ser maior. E o vão que ela deixa não fica
+     * vazio: quem o preenche é o volume aceso, que é massa mais forte do que ela
+     * era. A de −11,8 fica: a copa dela passa ACIMA da laje do escritório, e uma
+     * palmeira cruzando por cima de uma caixa de vidro acesa é justamente o tipo
+     * de sobreposição que a referência tem.
+     */
+    for (const [q, xp] of [-11.8, -0.4, 5.6, 11.2].entries()) {
       const base: [number, number, number] = [xp, piso + 2.6, zFundoVerde]
       col.poe('estipe', gEstipe, mEstipe, base, INCLINA_ESTIPE)
       /**
@@ -1555,6 +2012,8 @@ export function Cobertura({
      */
     for (let c = 0; c < 22; c++) {
       const xc = -meiaLargura + 0.8 + (c / 21) * (meiaLargura * 2 - 1.6)
+      // A gramínea chega a 1,3 m: era ela a que mais cobria o vidro.
+      if (noVaoDoEscritorio(xc) || atrasDoBar(xc)) continue
       for (let b = 0; b < 54; b++) {
         const a = ruido(b, 420 + c) * Math.PI * 2
         const raio = ruido(b, 421 + c) * 0.34
@@ -1586,6 +2045,7 @@ export function Cobertura({
      */
     for (let c = 0; c < 26; c++) {
       const xc = -meiaLargura + 0.7 + (c / 25) * (meiaLargura * 2 - 1.4)
+      if (noVaoDoEscritorio(xc) || atrasDoBar(xc)) continue
       for (let fl = 0; fl < 6; fl++) {
         const a = ruido(fl, 430 + c) * Math.PI * 2
         const r = ruido(fl, 431 + c) * 0.3
@@ -1765,14 +2225,27 @@ export function Cobertura({
       )
       col.poe('balizador', gBalizador, mBalizador, [xf, piso + 0.55, -11.2])
     }
-    // A porta da caixa de escada, acesa por dentro.
+    /**
+     * O RETÂNGULO QUENTE DA PORTA SAIU, e não foi substituído por outro.
+     *
+     * Ele existia como o único sinal de que havia alguém do outro lado de um
+     * concreto cego. Agora o outro lado é um escritório inteiro, visível, com
+     * estante, mesa, tela acesa e três pendentes. Manter o adesivo quente por
+     * cima disso seria um segundo sinal para o mesmo fato — e um plano opaco de
+     * `MeshBasicMaterial` na frente do pano de vidro apagaria justamente o que
+     * ele existia para sugerir.
+     */
+    // O DERRAME NO DECK: a mancha quente que o escritório joga na madeira. É a
+    // mesma peça aditiva dos fachos de parede, deitada. Sem ela o interior fica
+    // aceso e o deck na frente dele continua na penumbra — e aí a caixa de vidro
+    // lê como fotografia colada, não como fonte.
     col.poe(
-      'vidroAceso',
-      gVidroAceso,
-      mVidroAceso,
-      [-7.6, piso + 1.06, zCanteiro - 0.55 + 1.13],
-      [0, 0, 0],
-      [0.9, 1.92, 1],
+      'facho',
+      gFacho,
+      mFacho,
+      [xEsc, piso + 0.028, zFrenteEsc + 1.5],
+      [-Math.PI / 2, 0, 0],
+      [11.5, 3.4, 1],
     )
     // Fita de LED sob o tampo do bar: desenha a linha do movel no escuro.
     col.poe('fitaLed', gFitaLed, mFitaLed, [9.0, piso + 0.98, zBar + 0.36], [0, 0, 0], [4.4, 1, 1])
@@ -1881,9 +2354,98 @@ export function Cobertura({
 
   const zEspelho = zCentro - prof * 0.03
   const zGuardaCorpo = zCentro + prof * 0.4
+  // Repetidos do bloco instanciado de propósito: o vidro e a luz são as duas
+  // únicas peças do escritório que NÃO podem ser instanciadas — uma é
+  // transparente (precisa ordenar contra o interior) e a outra não é geometria.
+  const xEsc = ESCRITORIO.x
+  const zFrenteEsc = zDoEscritorio(zCentro, prof) + ESCRITORIO.profundidade / 2
 
   return (
     <>
+      {/* ═══ O PANO DE VIDRO DO ESCRITÓRIO ═══
+       *
+       * Fica AQUI e não no coletor por uma razão só: transparência. Uma
+       * `InstancedMesh` transparente é ordenada como um objeto único, e o que
+       * este plano precisa é ser desenhado DEPOIS de tudo que está atrás dele —
+       * estante, mesa, cadeira, painel aceso. Fora do coletor, o three resolve
+       * isso sozinho pela ordem de profundidade.
+       *
+       * OPACIDADE 0,12, pelo mesmo motivo medido no guarda-corpo: vidro real
+       * visto de frente é quase invisível. Quem denuncia o pano é o CAIXILHO e o
+       * reflexo — nunca uma névoa cinza por cima do que ele deveria mostrar. Com
+       * 0,3 o interior inteiro, que é a coisa mais cara desta entrega, ficaria
+       * atrás de um véu.
+       *
+       * `roughness` baixíssima com `envMapIntensity` alta é o que faz o pano
+       * devolver o céu do entardecer em faixa — é esse filete que diz "vidro" à
+       * distância em que o caixilho já tem dois pixels. */}
+      <mesh position={[xEsc, piso + 1.46, zFrenteEsc + 0.05]}>
+        <planeGeometry args={[5.8, 2.92]} />
+        <meshStandardMaterial
+          color="#cfe2ee"
+          roughness={0.04}
+          metalness={0.28}
+          envMapIntensity={1.5}
+          transparent
+          opacity={0.12}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* A ÚNICA LUZ ADICIONADA À CENA, e ela é necessária porque o emissivo do
+       * three NÃO ILUMINA nada. O painel do fundo APARECE aceso; sem uma fonte
+       * de verdade, a estante, a mesa e a cadeira na frente dele ficariam pretas
+       * — silhuetas recortadas contra uma chapa laranja.
+       *
+       * Fica à FRENTE do miolo (z do vidro menos meio metro) e não no centro do
+       * volume: assim ela lava o mobiliário pela face que a câmera vê, em vez de
+       * lavar a parede do fundo que já está acesa por conta própria.
+       *
+       * `decay` 2 é o físico, e `distance` 7 é o corte que impede o pouco que
+       * sobra de alcançar a jardineira do fundo e acender a folhagem por dentro.
+       * Sem sombra de propósito: uma sombra a mais custa um passe de mapa e o
+       * que ela resolveria aqui — a luz atravessar a parede de trás — não é
+       * visível de nenhum ângulo que a descida use. */}
+      <pointLight
+        position={[xEsc + 0.9, piso + 1.9, zFrenteEsc - 0.5]}
+        color="#ffc98c"
+        intensity={9}
+        distance={7}
+        decay={2}
+      />
+      {/* A SEGUNDA LUZ, SÓ PARA A ESTANTE. O primeiro render deixou claro que uma
+       * fonte não basta: com a luz sobre a mesa, a estante — que está 2,5 m à
+       * esquerda e recuada contra o fundo — caía a menos de um sexto da
+       * iluminação e ficava PRETA. Trinta e duas lombadas coloridas desenhadas e
+       * nenhuma visível.
+       *
+       * Ela é fraca (4) e curta (4,5 m) de propósito: não é uma segunda fonte
+       * ambiente, é o banho rasante que uma estante de verdade tem, com o foco
+       * embutido no forro logo à frente dela. Por isso fica ALTA e um palmo à
+       * frente das prateleiras — luz vinda de cima e de fora é o que revela a
+       * lombada; luz de frente achataria tudo. */}
+      <pointLight
+        position={[xEsc - 1.55, piso + 2.3, zFrenteEsc - 1.35]}
+        color="#ffd2a0"
+        intensity={4}
+        distance={4.5}
+        decay={2}
+      />
+      {/* A LUZ DO BAR, sob a bandeira. Mesmo problema do escritório: o nicho
+       * emissivo APARECE aceso e não ilumina nada, então o tampo de pedra, as
+       * banquetas e a frente do balcão ficariam pretos — e um bar cujo balcão é
+       * uma silhueta não convida ninguém a encostar nele.
+       *
+       * Âmbar mais fechado que a do escritório (#ffb066 contra #ffc98c): são dois
+       * pontos acesos no mesmo quadro, e a diferença de temperatura é o que
+       * impede um de parecer a cópia do outro. Alcance curto (4 m) para o quente
+       * morrer antes da piscina. */}
+      <pointLight
+        position={[9.0, piso + 2.05, zCentro - prof * 0.208 - 0.3]}
+        color="#ffb066"
+        intensity={5.5}
+        distance={4}
+        decay={2}
+      />
       {/* O FUNDO DA PISCINA, e ele existe por causa de como água se vê.
        * Uma lâmina sem fundo é uma superfície; com fundo, o olho lê VOLUME —
        * a cor escura por baixo através da água translúcida é metade do que faz
