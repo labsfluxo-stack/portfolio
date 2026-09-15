@@ -143,7 +143,23 @@ const BORDA = 1.6
 
 /** Onde os objetos clicáveis e os pilares moram, em z. */
 const Z_OBJETO = 0.2
-const Z_PILAR = -1.15
+/**
+ * O PILAR FOI PARA O FUNDO, e foram dois passos.
+ *
+ * Ele nasceu em z = -1,15, quase colado na camera: a 7 m de distancia, 0,52 m
+ * de largura viravam 44 pixels, e quatro barras dessas cortavam a vista de cima
+ * a baixo. Recuei para -3,4 e ainda atrapalhava — o dono viu e disse.
+ *
+ * Agora vai para -8,2, rente ao terco de tras do andar. A 14 m ele mede 17
+ * pixels e passa a estar ATRAS de tudo: do guarda-corpo, das espreguicadeiras,
+ * da piscina e do pergolado. Continua costurando a descida inteira, que e a
+ * razao de ele existir, mas para de disputar o primeiro plano com o conteudo.
+ *
+ * A licao geral, que vale para todo elemento estrutural desta cena: profundidade
+ * e o controle de volume de um objeto. A mesma peca a 7 m grita e a 14 m
+ * acompanha, sem mudar um centimetro de tamanho real.
+ */
+const Z_PILAR = -8.2
 
 /** Meia-altura visível folgada, usada para dimensionar os planos de fundo. */
 const MARGEM_VISIVEL = 9
@@ -604,7 +620,7 @@ function Pilares({ material }: { material: THREE.Material }) {
     <>
       {PILARES.map((x) => (
         <mesh key={x} castShadow receiveShadow position={[x, centro, Z_PILAR]} material={material}>
-          <boxGeometry args={[0.52, altura, 0.74]} />
+          <boxGeometry args={[0.4, altura, 0.56]} />
         </mesh>
       ))}
     </>
@@ -1055,10 +1071,22 @@ function Cena({
 
   const pilar = useMemo(
     () =>
+      /**
+       * COR PROPRIA, e esta e a QUINTA armadilha de constante emprestada nesta
+       * feature. O pilar era pintado com `tom(corDoRotulo(0), 0.3)` — a tinta do
+       * ROTULO da cobertura, multiplicada por 0,3. Funcionava por acaso enquanto
+       * aquele rotulo era escuro, e o resultado era um preto quase absoluto:
+       * quatro barras pretas cortando a vista.
+       *
+       * Pilar e CONCRETO ESTRUTURAL. Concreto nao e preto em hora nenhuma do
+       * dia, e um pilar de concreto aparente na penumbra e cinza medio. A lista
+       * das cinco esta em `predio-luz.ts`: ceu <- rotulo, albedo <- paleta,
+       * cenario <- andares, brilho do sol <- azimute, e agora pilar <- rotulo.
+       */
       new THREE.MeshStandardMaterial({
-        color: tom(corDoRotulo(0), 0.3),
-        roughness: 0.88,
-        metalness: 0.05,
+        color: '#6c625a',
+        roughness: 0.9,
+        metalness: 0.04,
       }),
     [],
   )

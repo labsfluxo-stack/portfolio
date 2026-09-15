@@ -155,9 +155,18 @@ export function Cobertura({
 
     // PERGOLADO. Viga com chanfro e chapa de aço no encontro com o poste — é a
     // ferragem que diz "construído" em vez de "empilhado".
-    const gPoste = new RoundedBoxGeometry(0.15, 2.6, 0.15, 1, 0.008)
-    const gRipaPergola = new RoundedBoxGeometry(0.085, 0.13, 4.6, 1, 0.006)
-    const gVigaPergola = new RoundedBoxGeometry(12.2, 0.2, 0.17, 1, 0.008)
+    // PERGOLADO MAIS ALTO (2,6 -> 2,9). Em janela baixa e larga a faixa vertical
+    // visivel encolhe, e pergolado, topo de plantio e palmeira caiam todos na
+    // mesma altura de tela, um cortando o outro. Subir 30 cm abre o vao entre o
+    // forro do pergolado e a copa do jardim, e os dois voltam a se ler separados.
+    // POSTE FINO E EM MENOR NUMERO. Pergolado vence 5 m de vao com folga em
+    // madeira lamelada, entao quatro postes num pano de 11 m era estrutura
+    // sobrando — e cada poste e uma barra vertical atravessando a vista de cima a
+    // baixo. Tres postes com dois vaos de 5,2 m fazem o mesmo trabalho e devolvem
+    // uma barra inteira de ceu.
+    const gPoste = new RoundedBoxGeometry(0.095, 2.9, 0.095, 1, 0.008)
+    const gRipaPergola = new RoundedBoxGeometry(0.07, 0.09, 4.6, 1, 0.006)
+    const gVigaPergola = new RoundedBoxGeometry(12.2, 0.14, 0.13, 1, 0.008)
     const gChapa = new THREE.BoxGeometry(0.19, 0.22, 0.012)
     const gParafuso = new THREE.CylinderGeometry(0.012, 0.012, 0.03, 6)
     const gSoquete = new THREE.CylinderGeometry(0.016, 0.02, 0.055, 6)
@@ -228,7 +237,7 @@ export function Cobertura({
     const gJuntaParede = new THREE.BoxGeometry(0.035, 3.2, 0.04)
     // Chapim do parapeito: a pedra de arremate que corre no topo dele, sempre um
     // pouco mais larga, para a agua pingar longe da fachada.
-    const gChapim = new THREE.BoxGeometry(1, 0.07, 0.4)
+    const gChapim = new THREE.BoxGeometry(1, 0.045, 0.33)
     const gTorneiraJardim = new THREE.CylinderGeometry(0.016, 0.016, 0.16, 6)
     // Folha de oliveira e LANCEOLADA: estreita e comprida, quase uma lamina.
     // O quad e mais LARGO que a folha: o recorte por alfa come as pontas, entao a
@@ -250,7 +259,7 @@ export function Cobertura({
     // 8 segmentos de propósito: a borda sai recortada em oito pontas, que é
     // exatamente o número de varetas de um guarda-sol de mercado.
     const gLona = new THREE.LatheGeometry(perfilLona, 8)
-    const gMastro = new THREE.CylinderGeometry(0.036, 0.042, 2.3, 14)
+    const gMastro = new THREE.CylinderGeometry(0.028, 0.033, 2.3, 14)
     const gVareta = new THREE.BoxGeometry(0.018, 0.016, 1.34)
     const gPonteira = new THREE.ConeGeometry(0.055, 0.16, 8)
     // CUBO DAS VARETAS: o anel onde as oito varetas se encontram no mastro.
@@ -316,7 +325,7 @@ export function Cobertura({
 
     // GUARDA-CORPO. Montante achatado (perfil de chapa, não pau quadrado) e
     // os ESPAÇADORES que prendem o vidro — é a ferragem que dá escala.
-    const gMontanteVidro = new THREE.BoxGeometry(0.035, 0.9, 0.06)
+    const gMontanteVidro = new THREE.BoxGeometry(0.026, 0.9, 0.045)
     const gEspacador = new THREE.CylinderGeometry(0.019, 0.019, 0.05, 10)
     // Chapa de base do montante, parafusada no deck. Nenhum guarda-corpo brota
     // do piso: ele e aparafusado, e a chapa e a prova disso.
@@ -585,8 +594,8 @@ export function Cobertura({
 
     // ── profundidades ─────────────────────────────────────────────────────
     const zEspreguicadeiras = zCentro + prof * 0.1
-    const zPergolaFrente = zCentro + prof * 0.108
-    const zPergolaFundo = zCentro - prof * 0.17
+    const zPergolaFrente = zCentro - prof * 0.02
+    const zPergolaFundo = zCentro - prof * 0.26
     const zBar = zCentro - prof * 0.208
     const zArvores = zCentro - prof * 0.277
     const zCanteiro = zCentro - prof * 0.4
@@ -630,16 +639,16 @@ export function Cobertura({
     }
 
     // ── pergolado ─────────────────────────────────────────────────────────
-    const xPostes = [-8.0, -4.2, -0.4, 3.4]
+    const xPostes = [-8.4, -3.2, 2.0]
     for (const x of xPostes)
       for (const z of [zPergolaFrente, zPergolaFundo]) {
         sombra(x, z, 0.95, 0.95)
-        col.poe('poste', gPoste, mMadeiraEscura, [x, piso + 1.3, z])
+        col.poe('poste', gPoste, mMadeiraEscura, [x, piso + 1.45, z])
         // Chapa de aço parafusada no topo do poste, dos dois lados.
         for (const dz of [-0.09, 0.09]) {
-          col.poe('chapa', gChapa, mAco, [x, piso + 2.44, z + dz])
+          col.poe('chapa', gChapa, mAco, [x, piso + 2.74, z + dz])
           for (const dy of [-0.07, 0.07])
-            col.poe('parafuso', gParafuso, mAco, [x, piso + 2.44 + dy, z + dz], [Math.PI / 2, 0, 0])
+            col.poe('parafuso', gParafuso, mAco, [x, piso + 2.74 + dy, z + dz], [Math.PI / 2, 0, 0])
         }
         // MAO-FRANCESA: as duas diagonais que travam o no. Portico so com pecas
         // ortogonais e instavel de verdade, e o olho conhece isso sem saber que
@@ -654,11 +663,11 @@ export function Cobertura({
           )
       }
     for (const z of [zPergolaFrente, zPergolaFundo])
-      col.poe('viga', gVigaPergola, mMadeiraEscura, [-2.3, piso + 2.5, z])
+      col.poe('viga', gVigaPergola, mMadeiraEscura, [-3.2, piso + 2.8, z])
     for (let i = 0; i < 27; i++)
       col.poe('ripaPergola', gRipaPergola, mMadeiraEscura, [
         -8.3 + i * 0.46,
-        piso + 2.63,
+        piso + 2.93,
         (zPergolaFrente + zPergolaFundo) / 2,
       ])
 
@@ -680,8 +689,8 @@ export function Cobertura({
      */
     const zsVaral = [zPergolaFrente, (zPergolaFrente + zPergolaFundo) / 2, zPergolaFundo]
     for (const [v, zv] of zsVaral.entries()) {
-      const a = new THREE.Vector3(-8.0, piso + 2.56, zv)
-      const b = new THREE.Vector3(3.4, piso + 2.56, zv)
+      const a = new THREE.Vector3(-8.4, piso + 2.86, zv)
+      const b = new THREE.Vector3(2.0, piso + 2.86, zv)
       const flecha = 0.32 + v * 0.07
       const curva = new THREE.CatmullRomCurve3(catenaria(a, b, flecha, 16))
       fiosDoVaral.push(new THREE.TubeGeometry(curva, 34, 0.0085, 4, false))
@@ -1434,9 +1443,9 @@ export function Cobertura({
     col.poe('degrauSubmerso', gDegrauSubmerso, mPedra, [4.3, piso - 0.08, zEspelhoLocal + 0.2])
 
     // ── guarda-corpo ──────────────────────────────────────────────────────
-    const montantes = Math.floor((meiaLargura * 2) / 1.5)
+    const montantes = Math.floor((meiaLargura * 2) / 2.1)
     for (let i = 0; i <= montantes; i++) {
-      const x = -meiaLargura + i * 1.5
+      const x = -meiaLargura + i * 2.1
       col.poe('montante', gMontanteVidro, mAco, [x, piso + 0.74, zGuarda])
       // Chapa de base parafusada no deck: nenhum guarda-corpo BROTA do piso.
       col.poe('chapaBase', gChapaBase, mAco, [x, piso + 0.036, zGuarda])
@@ -1572,7 +1581,7 @@ export function Cobertura({
        * linha do terraco contra o ceu. Uma barra chata so acende quando a
        * normal dela aponta para o sol, e nesta cena ela nao aponta. */}
       <mesh position={[0, piso + 1.17, zGuardaCorpo]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.023, 0.023, meiaLargura * 2, 12]} />
+        <cylinderGeometry args={[0.016, 0.016, meiaLargura * 2, 12]} />
         <meshStandardMaterial color="#d8cdb8" metalness={0.85} roughness={0.28} />
       </mesh>
     </>

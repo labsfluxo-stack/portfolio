@@ -18,7 +18,25 @@ export const ALTURA_ANDAR = PE_DIREITO + LAJE
  * um elemento contínuo, cada andar entra e sai como um slide e a queda deixa de
  * ser uma queda. São eles que costuram as sete paradas numa coisa só.
  */
-export const PILARES = [-6.4, 0, 6.4] as const
+/**
+ * QUATRO PILARES, E NENHUM NO CENTRO — e isso e correcao de composicao, nao
+ * capricho.
+ *
+ * Eram tres, em -6,4 / 0 / 6,4. O do MEIO caia exatamente no eixo da camera e
+ * partia o quadro em dois: a piscina de um lado, o bar do outro, e uma barra
+ * escura no meio do que deveria ser a vista. O dono reclamou disso olhando a
+ * tela, e estava certo.
+ *
+ * Quatro pilares em vao par deixam o CENTRO LIVRE, que e onde o olho entra. Nao
+ * e licenca estrutural: malha de pilar com vao no eixo e o arranjo normal de
+ * qualquer planta livre — a estrutura acompanha o programa, e o programa aqui
+ * quer o meio desimpedido.
+ *
+ * Eles continuam atravessando a descida inteira, que e a razao de existirem:
+ * sem um elemento continuo cada andar entra e sai como um slide e a queda deixa
+ * de ser uma queda.
+ */
+export const PILARES = [-9.4, -3.1, 3.1, 9.4] as const
 
 /**
  * Os três planos de profundidade, do fundo para a frente.

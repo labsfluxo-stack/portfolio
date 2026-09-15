@@ -94,9 +94,23 @@ describe('arquitetura do prédio', () => {
     expect(anguloDoEixoDaCamera).toBeLessThan(40)
   })
 
-  it('há pilar no centro e um de cada lado', () => {
-    expect(PILARES).toContain(0)
+  /**
+   * ERA `toContain(0)` — "há pilar no centro" — e o teste foi SUBSTITUÍDO, não
+   * afrouxado.
+   *
+   * Aquele pilar central caía exatamente no eixo da câmera e partia o quadro em
+   * dois, com uma barra escura no meio do que deveria ser a vista. O dono
+   * reclamou olhando a tela. Malha de pilar com VÃO no eixo é o arranjo normal
+   * de planta livre, então a correção é arquitetonicamente honesta.
+   *
+   * O que o teste guarda agora é o que sempre importou de verdade: que existam
+   * pilares dos dois lados (é a continuidade deles que costura a descida) e que
+   * o EIXO FIQUE LIVRE, que é a propriedade nova.
+   */
+  it('há pilar dos dois lados e o eixo central fica livre', () => {
     expect(PILARES.some((x) => x < 0)).toBe(true)
     expect(PILARES.some((x) => x > 0)).toBe(true)
+    // Meia-largura do pilar é 0,2: nenhum pode encostar no eixo da câmera.
+    expect(PILARES.every((x) => Math.abs(x) > 0.2)).toBe(true)
   })
 })
