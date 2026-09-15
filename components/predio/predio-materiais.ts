@@ -457,6 +457,80 @@ export function folha(): { mapa: THREE.Texture; alfa: THREE.Texture } {
 }
 
 /**
+ * A FRONDE DE PALMEIRA — e ela precisa de recorte próprio, não de uma folha
+ * esticada.
+ *
+ * Fronde pinada não é uma folha grande: é um RÁQUIS (a haste central) com
+ * dezenas de folíolos presos ao longo dele, como um pente de dois lados. O
+ * espaço ENTRE os folíolos é metade do que se vê — é por ele que o céu aparece,
+ * e é isso que dá à palmeira a silhueta leve e serrilhada que nenhuma outra
+ * planta tem.
+ *
+ * Uma folha lanceolada esticada daria uma lâmina maciça. O recorte por alfa
+ * resolve: os vãos entre folíolos são simplesmente alfa zero, e a fronde inteira
+ * continua custando dois triângulos.
+ *
+ * Os folíolos são mais curtos nas pontas e mais longos no meio, que é a
+ * proporção real — fronde de folíolo uniforme lê como escova de garrafa.
+ */
+export function fronde(): { mapa: THREE.Texture; alfa: THREE.Texture } {
+  const n = 128
+  const [cor, c] = tela(n)
+  const [alf, a] = tela(n)
+  a.fillStyle = '#000000'
+  a.fillRect(0, 0, n, n)
+  c.fillStyle = '#000000'
+  c.fillRect(0, 0, n, n)
+
+  const meio = n / 2
+  const folioloS = 46
+
+  const desenha = (ctx: CanvasRenderingContext2D, corpo: string, raquis: string) => {
+    ctx.strokeStyle = corpo
+    ctx.lineCap = 'round'
+    for (let i = 0; i < folioloS; i++) {
+      const t = i / (folioloS - 1)
+      // x corre ao longo do ráquis; a base é à esquerda e a ponta à direita.
+      const x = 4 + t * (n - 10)
+      // Comprimento: cresce até o terço inicial e decai até a ponta. É o perfil
+      // de uma fronde de verdade, mais larga perto da base.
+      const comp = Math.sin(Math.min(1, t * 1.25) * Math.PI) ** 0.7 * (n * 0.33) + 2
+      // Os folíolos inclinam para a PONTA, nunca perpendiculares ao ráquis.
+      const inclina = 0.55 + t * 0.5
+      ctx.lineWidth = 2.1
+      for (const s of [-1, 1]) {
+        ctx.beginPath()
+        ctx.moveTo(x, meio)
+        ctx.quadraticCurveTo(
+          x + comp * 0.35 * inclina,
+          meio + s * comp * 0.45,
+          x + comp * 0.75 * inclina,
+          meio + s * comp,
+        )
+        ctx.stroke()
+      }
+    }
+    // O ráquis, mais grosso na base.
+    ctx.strokeStyle = raquis
+    ctx.lineWidth = 3.4
+    ctx.beginPath()
+    ctx.moveTo(3, meio)
+    ctx.lineTo(n - 5, meio)
+    ctx.stroke()
+  }
+
+  desenha(a, '#ffffff', '#ffffff')
+  desenha(c, '#b6c4a6', '#cdd6bb')
+
+  const mapa = new THREE.CanvasTexture(cor)
+  mapa.colorSpace = THREE.SRGBColorSpace
+  mapa.anisotropy = ANISOTROPIA
+  const alfa = new THREE.CanvasTexture(alf)
+  alfa.anisotropy = ANISOTROPIA
+  return { mapa, alfa }
+}
+
+/**
  * ONDULAÇÃO DA ÁGUA — só o mapa de normal.
  *
  * A água não precisa de mapa de cor (a cor é uniforme e mora no material) nem de

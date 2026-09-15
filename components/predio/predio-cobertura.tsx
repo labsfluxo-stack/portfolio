@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Coletor } from './predio-instancias'
-import { concreto, folha, madeiraDeDeck, normalDeAgua, tecido } from './predio-materiais'
+import { concreto, folha, fronde, madeiraDeDeck, normalDeAgua, tecido } from './predio-materiais'
 
 /**
  * A COBERTURA — o primeiro quadro do site.
@@ -128,6 +128,7 @@ export function Cobertura({
     const pedra = concreto()
     const lona = tecido()
     const recorteDeFolha = folha()
+    const recorteDeFronde = fronde()
 
     // ── geometrias ────────────────────────────────────────────────────────
     // Raio de 5 mm na régua: é o chanfro que uma régua de deck de verdade tem,
@@ -193,6 +194,23 @@ export function Cobertura({
      */
     // O raminho que carrega o ramalhete de folhas. Escalado em Y por ramo.
     const gRaminho = new THREE.CylinderGeometry(0.004, 0.011, 0.3, 4)
+
+    // PALMEIRA. O estipe e aneladissimo — cada anel e a cicatriz de uma fronde
+    // que caiu — mas a essa distancia o anel nao resolve; o que resolve e o
+    // estipe ser FINO e a copa ser larga, que e a proporcao que nenhuma outra
+    // planta tem.
+    // ESTIPE ALTO de proposito: palmeira so le como palmeira se a copa SUBIR acima
+    // do resto do plantio. Na altura da graminea ela vira mais um tufo, e o gesto
+    // — estipe fino, copa em arco la em cima — e justamente o que a identifica.
+    const gEstipe = new THREE.CylinderGeometry(0.048, 0.09, 2.9, 8)
+    const gFronde = new THREE.PlaneGeometry(1.7, 0.78)
+    // FLOR. Um tufo minusculo: a essa distancia flor nao tem petala, tem MANCHA.
+    const gFlor = new THREE.IcosahedronGeometry(0.08, 0)
+    // Folha larga tropical: a mesma lanceolada, mas esticada na largura. E o
+    // contraste de forma contra a graminea fina.
+    const gFolhaLarga = new THREE.PlaneGeometry(0.26, 0.2)
+    // Haste pendente, para a planta derramar sobre a borda da jardineira.
+    const gPendente = new THREE.CylinderGeometry(0.008, 0.013, 0.42, 4)
 
     // CAIXA DE ESCADA: o volume por onde se chega a cobertura.
     const gCasaEscada = new RoundedBoxGeometry(3.2, 2.5, 2.2, 1, 0.03)
@@ -407,6 +425,26 @@ export function Cobertura({
     })
     // Madeira de oliveira e CLARA e acinzentada, nao marrom escura.
     // Nucleo da copa: solido e fosco, so para dar massa escura atras das folhas.
+    // FRONDE: mesmo recorte por alfa da folha, com a silhueta pinada propria.
+    const mFronde = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.86,
+      side: THREE.DoubleSide,
+      map: recorteDeFronde.mapa,
+      alphaMap: recorteDeFronde.alfa,
+      alphaTest: 0.4,
+      emissive: new THREE.Color('#42632c'),
+      emissiveIntensity: 0.24,
+    })
+    // FLOR. Quase sem rugosidade e com emissivo proprio: petala e fina e
+    // translucida, e numa cena em contraluz ela e a coisa que mais acende.
+    const mFlor = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.68,
+      flatShading: true,
+      emissiveIntensity: 0.3,
+      emissive: new THREE.Color('#5a2038'),
+    })
     const mFolhaSolida = new THREE.MeshStandardMaterial({
       color: '#ffffff',
       roughness: 0.95,
@@ -509,6 +547,20 @@ export function Cobertura({
     // Metade PALHA, metade VERDE. So palha lia como mato seco; graminea viva tem
     // a base verde e a ponta dourada, e e a mistura das duas que da o efeito de
     // contraluz em vez de campo queimado.
+    /**
+     * AS FLORES SAO A UNICA COR NAO-VERDE DO JARDIM, e por isso elas pesam muito
+     * mais do que o numero delas sugere.
+     *
+     * Um jardim so de verde le como massa, por mais especies que tenha — o olho
+     * agrupa tudo no mesmo balde. Basta um punhado de magenta e branco para cada
+     * moita virar uma moita DISTINTA, porque a cor e o que separa. E magenta e
+     * branco nao sao escolha arbitraria: sao as duas cores de florada que mais
+     * aparecem em cobertura (buganvile e jasmim), justamente por aguentarem sol
+     * direto e vento.
+     */
+    const TONS_DE_FLOR = ['#c4477e', '#d9639b', '#f2e6ea', '#a8386a', '#ffffff', '#e08ab4'].map(
+      (c) => new THREE.Color(c),
+    )
     const TONS_DE_GRAMINEA = ['#c2ab72', '#7f8b52', '#d4c088', '#6d7c46', '#b9a86a', '#8c9558'].map(
       (c) => new THREE.Color(c),
     )
@@ -1051,6 +1103,37 @@ export function Cobertura({
        * É o que produz o formato de chafariz que a gramínea tem — folha reta
        * para cima lê como cebolinha.
        */
+      /**
+       * PALMEIRA a cada duas jardineiras. Ela e a silhueta mais reconhecivel do
+       * jardim inteiro: nenhuma outra planta tem estipe fino com copa larga em
+       * arco, e o olho identifica isso antes de identificar qualquer folha.
+       *
+       * As frondes ARQUEIAM — a de cima quase reta, as de baixo caidas quase a
+       * horizontal. Fronde toda no mesmo angulo le como leque de papel; e a
+       * gradacao do arco que da a palmeira o gesto que ela tem.
+       */
+      if (j % 2 === 0) {
+        const xp = xj + 0.9
+        col.poe('estipe', gEstipe, mMadeiraClara, [xp, piso + 1.95, zCanteiro], [0.05, 0, 0.04])
+        for (let fr = 0; fr < 9; fr++) {
+          const a = (fr / 9) * Math.PI * 2 + j
+          // As de baixo caem mais: o indice alto recebe inclinacao maior.
+          const cai = 0.12 + (fr / 9) * 0.95
+          col.poe(
+            'fronde',
+            gFronde,
+            mFronde,
+            [
+              xp + Math.sin(a) * 0.62,
+              piso + 3.34 - cai * 0.42,
+              zCanteiro + Math.cos(a) * 0.48,
+            ],
+            [Math.cos(a) * cai, -a + Math.PI / 2, -Math.sin(a) * cai],
+            [1, 1, 1],
+          )
+        }
+      }
+
       for (let c = 0; c < 3; c++) {
         const xc = xj - 1.1 + c * 1.1
         for (let b = 0; b < 44; b++) {
@@ -1068,6 +1151,85 @@ export function Cobertura({
             TONS_DE_GRAMINEA[(b + c + j) % TONS_DE_GRAMINEA.length]!,
           )
         }
+
+        // FOLHA LARGA: o contraste de forma contra a lamina fina. Duas texturas
+        // macias iguais leem como uma massa so; e a folha larga que separa.
+        for (let l = 0; l < 7; l++) {
+          const a = ruido(l, 300 + j * 3 + c) * Math.PI * 2
+          col.poe(
+            'folhaLarga',
+            gFolhaLarga,
+            mFolha,
+            [
+              xc + Math.sin(a) * 0.3,
+              piso + 0.62 + ruido(l, 301 + j * 3 + c) * 0.28,
+              zCanteiro + Math.cos(a) * 0.22,
+            ],
+            [0.7 + ruido(l, 302 + j * 3 + c) * 0.8, a, ruido(l, 303 + j * 3 + c) * 1.2],
+            [1, 1, 1],
+            TONS_DE_OLIVA[(l + j) % TONS_DE_OLIVA.length]!,
+          )
+        }
+
+        // FLORES. Poucas e agrupadas — florada nasce em cacho, nao pulverizada.
+        for (let fl = 0; fl < 15; fl++) {
+            const a = ruido(fl, 310 + j * 3 + c) * Math.PI * 2
+            const r = ruido(fl, 311 + j * 3 + c) * 0.26
+            col.poe(
+              'flor',
+              gFlor,
+              mFlor,
+              [
+                xc + Math.sin(a) * r,
+                piso + 0.72 + ruido(fl, 312 + j * 3 + c) * 0.3,
+                zCanteiro + Math.cos(a) * r * 0.7,
+              ],
+              [0, ruido(fl, 313 + j * 3 + c) * 3, 0],
+              (() => {
+                const e = 0.6 + ruido(fl, 314 + j * 3 + c) * 0.8
+                return [e, e * 0.7, e] as [number, number, number]
+              })(),
+            TONS_DE_FLOR[(fl + j + c) % TONS_DE_FLOR.length]!,
+          )
+        }
+      }
+
+      /**
+       * A PLANTA QUE DERRAMA sobre a borda, e ela faz um trabalho especifico:
+       * QUEBRA A LINHA DA JARDINEIRA.
+       *
+       * Calha corrida e uma reta dura, e uma reta dura entre o piso e a massa
+       * verde denuncia o canteiro como caixa. A planta pendente cobre essa
+       * aresta em pontos irregulares, e o canteiro passa a parecer plantado ha
+       * tempo em vez de montado ontem. E o equivalente vegetal da trepadeira no
+       * pergolado.
+       */
+      for (let d = 0; d < 14; d++) {
+        const xd = xj - 1.6 + ruido(d, 320 + j) * 3.2
+        const comp = 0.3 + ruido(d, 321 + j) * 0.55
+        col.poe(
+          'pendente',
+          gPendente,
+          mFolha,
+          [xd, piso + 0.5 - comp * 0.42, zCanteiro + 0.4],
+          [0.35 + ruido(d, 322 + j) * 0.5, ruido(d, 323 + j) * 3, 0],
+          [1, comp / 0.42, 1],
+          TONS_DE_OLIVA[(d + j) % TONS_DE_OLIVA.length]!,
+        )
+        for (let fo = 0; fo < 4; fo++)
+          col.poe(
+            'folhaLarga',
+            gFolhaLarga,
+            mFolha,
+            [
+              xd + (ruido(fo, 324 + d) - 0.5) * 0.16,
+              piso + 0.46 - (fo / 4) * comp,
+              zCanteiro + 0.44,
+            ],
+            [1.2, ruido(fo, 325 + d) * 3, ruido(fo, 326 + d) * 2],
+            [0.7, 0.7, 0.7],
+            TONS_DE_OLIVA[(fo + d) % TONS_DE_OLIVA.length]!,
+          )
       }
     }
 
