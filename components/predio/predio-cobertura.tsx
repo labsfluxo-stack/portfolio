@@ -165,7 +165,34 @@ export function Cobertura({
     // contraventamento le como montagem provisoria.
     const gMaoFrancesa = new RoundedBoxGeometry(0.075, 0.075, 0.62, 1, 0.006)
     // Folha de trepadeira: a planta que sobe pelo pergolado. Achatada e miuda.
-    const gFolhaTrepa = new THREE.IcosahedronGeometry(0.085, 0)
+    /**
+     * A FOLHA E UM PLANO, e esta troca e a mais importante da vegetacao inteira.
+     *
+     * Era um icosaedro — solido fechado, vinte triangulos. Solido e o OPOSTO de
+     * folha por tres razoes, e todas as tres pesam mais nesta cena do que
+     * pesariam em outra:
+     *
+     * 1. FOLHA E FINA. O que o olho reconhece como folhagem e um enxame de
+     *    superficies PLANAS em angulos diferentes: umas de frente para o sol,
+     *    brancas de estouro, outras de perfil, quase invisiveis. Um solido tem
+     *    todas as normais ao mesmo tempo e o sombreamento MEDIA tudo — sai um
+     *    tom uniforme, que e exatamente o que folhagem nao tem.
+     *
+     * 2. ESTA CENA E CONTRALUZ. Com o sol atras, folha de verdade fica entre a
+     *    brasa e a silhueta: a que o sol atravessa ACENDE em verde-limao, a que
+     *    esta de costas vira recorte preto. E a maior amplitude de valor da cena
+     *    inteira, e o icosaedro nao conseguia entregar nada disso.
+     *
+     * 3. E MAIS BARATO. O plano tem DOIS triangulos contra vinte. Pelo mesmo
+     *    orcamento cabem dez vezes mais folhas — e densidade e justamente o que
+     *    faltava para a copa ler como massa em vez de punhado.
+     *
+     * O material tem de ser DE DUAS FACES: folha orientada ao acaso mostra o
+     * verso metade do tempo, e face unica faria metade da copa sumir.
+     */
+    const gFolhaChata = new THREE.PlaneGeometry(0.14, 0.072)
+    // Folha de oliveira e LANCEOLADA: estreita e comprida, quase uma lamina.
+    const gFolhaOliva = new THREE.PlaneGeometry(0.19, 0.048)
 
     // GUARDA-SOL. Perfil em `Lathe` com CAIMENTO: lona esticada por varetas
     // afunda entre elas, então o corte não é reto — é uma curva côncava. Cone
@@ -323,8 +350,26 @@ export function Cobertura({
       roughnessMap: pedra.roughnessMap,
     })
     const mTerra = new THREE.MeshStandardMaterial({ color: '#3f3227', roughness: 0.99 })
-    const mFolha = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.9, flatShading: true })
+    /**
+     * FOLHAGEM DE DUAS FACES. Folha orientada ao acaso mostra o verso metade do
+     * tempo; com face unica, metade da copa sumiria.
+     *
+     * Sem `flatShading`, ao contrario do resto: um plano tem uma normal so, e
+     * achatar o sombreamento dele nao muda nada. Quem faz a variacao aqui e a
+     * ORIENTACAO de cada folha, nao a faceta da malha.
+     */
+    const mFolha = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.84,
+      side: THREE.DoubleSide,
+    })
     // Madeira de oliveira e CLARA e acinzentada, nao marrom escura.
+    // Nucleo da copa: solido e fosco, so para dar massa escura atras das folhas.
+    const mFolhaSolida = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.95,
+      flatShading: true,
+    })
     const mMadeiraClara = new THREE.MeshStandardMaterial({ color: '#9a8b76', roughness: 0.93 })
     // Buxo: verde profundo e FOSCO, sem faceta. Contraponto da gramineea.
     const mBuxo = new THREE.MeshStandardMaterial({ color: '#3f5a32', roughness: 0.97 })
@@ -388,10 +433,22 @@ export function Cobertura({
     // que o vento vira para cima. Verde-escuro aqui seria outra arvore.
     // Trepadeira: verde ESCURO e saturado. A oliveira e prateada; se as duas
     // tivessem o mesmo verde, o pergolado e a copa virariam uma mancha so.
-    const TONS_DE_TREPADEIRA = ['#40662f', '#4d7538', '#365a27', '#578042', '#2e4f22'].map(
+    /**
+     * PALETA BIMODAL, e a bimodalidade E o efeito.
+     *
+     * Numa copa em contraluz nao existe "verde medio": existe a folha que o sol
+     * ATRAVESSA, verde-limao quase amarela, e a folha de costas, que e recorte
+     * escuro. A media entre as duas nao aparece em lugar nenhum da copa — e era
+     * justamente a media que a paleta anterior tinha, cinco verdes todos no
+     * mesmo valor.
+     *
+     * Duas das seis entradas sao as ACESAS. Uma em tres e proporcao alta para
+     * folha iluminada, e e proposital: elas sao o que faz a copa cintilar.
+     */
+    const TONS_DE_TREPADEIRA = ['#2e4f22', '#40662f', '#9fc56a', '#365a27', '#c3e08a', '#4d7538'].map(
       (c) => new THREE.Color(c),
     )
-    const TONS_DE_OLIVA = ['#8d9c85', '#7d8e74', '#9aa892', '#6e8168', '#a7b29c'].map(
+    const TONS_DE_OLIVA = ['#6e8168', '#8d9c85', '#d8e0c6', '#7d8e74', '#eef0dc', '#9aa892'].map(
       (c) => new THREE.Color(c),
     )
     // GRAMINEA em contraluz: palha dourada, nao verde. A lamina seca da ponta e
@@ -519,7 +576,7 @@ export function Cobertura({
      * agrupa em volta de cada um.
      */
     const pesDaTrepadeira = [-8.0, -0.4, 3.4]
-    for (let f = 0; f < 340; f++) {
+    for (let f = 0; f < 760; f++) {
       const pe = pesDaTrepadeira[f % pesDaTrepadeira.length]!
       // Distancia ao pe com expoente: concentra perto e rareia longe.
       const alcance = ruido(f, 251) ** 1.7 * 5.2
@@ -532,7 +589,7 @@ export function Cobertura({
       const pendura = ruido(f, 242) > 0.76 ? ruido(f, 243) * 0.62 : 0
       col.poe(
         'folhaTrepa',
-        gFolhaTrepa,
+        gFolhaChata,
         mFolha,
         [
           x + (ruido(f, 244) - 0.5) * 0.3,
@@ -551,12 +608,12 @@ export function Cobertura({
     // origem — e o pe da planta e justamente o que prova que ela cresceu ali em
     // vez de ter sido pousada em cima.
     for (const pe of pesDaTrepadeira)
-      for (let f = 0; f < 26; f++) {
+      for (let f = 0; f < 54; f++) {
         const h = ruido(f, 260) * 2.3
         const a = h * 2.4 + ruido(f, 261) * 0.7
         col.poe(
           'folhaTrepa',
-          gFolhaTrepa,
+          gFolhaChata,
           mFolha,
           [pe + Math.sin(a) * 0.12, piso + 0.3 + h, zPergolaFundo + Math.cos(a) * 0.12],
           [ruido(f, 262) * 3, a, ruido(f, 263) * 3],
@@ -829,24 +886,45 @@ export function Cobertura({
        * modelada parecer brócolis: na natureza a folha se organiza em camadas
        * finas na periferia, porque é lá que está a luz, e o miolo é vazio.
        */
-      for (let t = 0; t < 36; t++) {
+      // NUCLEO: oito tufos solidos no miolo, so para a copa ter massa escura por
+      // tras das folhas. Sem eles ve-se o ceu atraves da arvore inteira e ela
+      // perde peso; com eles, as folhas chatas ficam recortadas contra algo.
+      for (let t = 0; t < 14; t++) {
+        const a = ruido(t, 55 + k) * Math.PI * 2
+        const r = ruido(t, 56 + k) * 0.5
+        col.poe(
+          'nucleoOliva',
+          gTufoOliva,
+          mFolhaSolida,
+          [x + Math.sin(a) * r, piso + 2.18 + ruido(t, 57 + k) * 0.4, zArvores + Math.cos(a) * r],
+          [ruido(t, 58 + k) * 3, ruido(t, 59 + k) * 3, 0],
+          [1.3, 0.95, 1.3],
+          TONS_DE_OLIVA[0]!,
+        )
+      }
+      // O ENXAME DE FOLHA. 220 laminas lanceoladas em vez de 36 blocos: mesmo
+      // orcamento de triangulo (o plano tem 2, o icosaedro tem 20) e dez vezes
+      // a densidade. E a densidade que faz a copa cintilar.
+      for (let t = 0; t < 330; t++) {
         const a = ruido(t, 50 + k) * Math.PI * 2
         // Raiz quadrada empurra os tufos para FORA: distribuição uniforme em
         // raio amontoa tudo no centro, que é justamente o miolo que deve ser oco.
-        const r = 0.22 + Math.sqrt(ruido(t, 60 + k)) * 0.66
+        const r = 0.16 + Math.sqrt(ruido(t, 60 + k)) * 0.8
         col.poe(
-          'tufoOliva',
-          gTufoOliva,
+          'folhaOliva',
+          gFolhaOliva,
           mFolha,
           [
             x + Math.sin(a) * r,
             piso + 2.02 + ruido(t, 70 + k) * 0.7,
             zArvores + Math.cos(a) * r * 0.78,
           ],
-          [ruido(t, 80 + k) * 3, ruido(t, 90 + k) * 3, 0],
+          // Orientacao nos TRES eixos: e o angulo da folha, e nao a cor dela,
+          // que produz a variacao de brilho numa copa de verdade.
+          [ruido(t, 80 + k) * 6, ruido(t, 90 + k) * 6, ruido(t, 95 + k) * 6],
           (() => {
-            const s = 0.66 + ruido(t, 100 + k) * 0.6
-            return [s, s * 0.74, s] as [number, number, number]
+            const s = 0.75 + ruido(t, 100 + k) * 0.6
+            return [s, s, s] as [number, number, number]
           })(),
           TONS_DE_OLIVA[(t * 3 + k) % TONS_DE_OLIVA.length]!,
         )
