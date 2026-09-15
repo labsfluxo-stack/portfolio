@@ -205,7 +205,10 @@ export function Cobertura({
     const gEstipe = new THREE.CylinderGeometry(0.048, 0.09, 2.9, 8)
     const gFronde = new THREE.PlaneGeometry(1.7, 0.78)
     // FLOR. Um tufo minusculo: a essa distancia flor nao tem petala, tem MANCHA.
-    const gFlor = new THREE.IcosahedronGeometry(0.08, 0)
+    // FLOR PEQUENA. A 0,08 com escala 1,3 ela virava uma bola de 10 cm — a essa
+    // distancia isso e uma BOLHA, nao uma flor. Florada de verdade se le como
+    // pontilhado fino de cor, nunca como esfera identificavel.
+    const gFlor = new THREE.IcosahedronGeometry(0.042, 0)
     // Folha larga tropical: a mesma lanceolada, mas esticada na largura. E o
     // contraste de forma contra a graminea fina.
     const gFolhaLarga = new THREE.PlaneGeometry(0.26, 0.2)
@@ -1229,7 +1232,7 @@ export function Cobertura({
      */
     for (let c = 0; c < 26; c++) {
       const xc = -meiaLargura + 0.7 + (c / 25) * (meiaLargura * 2 - 1.4)
-      for (let fl = 0; fl < 10; fl++) {
+      for (let fl = 0; fl < 6; fl++) {
         const a = ruido(fl, 430 + c) * Math.PI * 2
         const r = ruido(fl, 431 + c) * 0.3
         col.poe(
@@ -1243,7 +1246,7 @@ export function Cobertura({
           ],
           [0, ruido(fl, 433 + c) * 3, 0],
           (() => {
-            const e = 0.55 + ruido(fl, 434 + c) * 0.85
+            const e = 0.5 + ruido(fl, 434 + c) * 0.6
             return [e, e * 0.7, e] as [number, number, number]
           })(),
           TONS_DE_FLOR[(fl + c) % TONS_DE_FLOR.length]!,
@@ -1300,39 +1303,41 @@ export function Cobertura({
     for (const [v, xv] of [-6.0, 6.0].entries()) {
       const zv = zCentro + prof * 0.27
       sombra(xv, zv, 2.6, 2.6)
-      col.poe('vasoAlto', gVasoAlto, mVaso, [xv, piso, zv], [0, 0, 0], [1.5, 1.4, 1.5])
-      col.poe('terra', gTerra, mTerra, [xv, piso + 0.95, zv], [-Math.PI / 2, 0, 0], [1.4, 1.4, 1])
-      // Palmeira menor, saindo do vaso: a vertical que fecha a lateral.
-      col.poe('estipe', gEstipe, mMadeiraClara, [xv, piso + 1.9, zv], [0.06, 0, -0.05 + v * 0.1], [0.7, 0.62, 0.7])
-      for (let fr = 0; fr < 9; fr++) {
-        const a = (fr / 9) * Math.PI * 2 + v * 2
-        const cai = 0.18 + (fr / 9) * 1.0
-        col.poe(
-          'fronde',
-          gFronde,
-          mFronde,
-          [xv + Math.sin(a) * 0.55, piso + 2.86 - cai * 0.4, zv + Math.cos(a) * 0.42],
-          [Math.cos(a) * cai, -a + Math.PI / 2, -Math.sin(a) * cai],
-          [0.85, 0.85, 0.85],
-        )
-      }
+      col.poe('vasoAlto', gVasoAlto, mVaso, [xv, piso, zv], [0, 0, 0], [1.05, 1.0, 1.05])
+      col.poe('terra', gTerra, mTerra, [xv, piso + 0.7, zv], [-Math.PI / 2, 0, 0], [1.05, 1.05, 1])
+      /**
+       * SEM PALMEIRA NO PRIMEIRO PLANO, e a razao e de leitura.
+       *
+       * A palmeira do fundo funciona porque esta longe: a 16 m, as nove frondes
+       * se fundem numa copa. A 6 m elas se separam, e o que se ve deixa de ser
+       * uma palmeira e passa a ser NOVE FOLHAS GIGANTES soltas no ar — o render
+       * mostrou exatamente isso. Ler como copa a essa distancia exigiria trinta
+       * frondes ou mais, e ai o vaso engoliria o terraco de novo.
+       *
+       * Entao o primeiro plano fica so com a massa arbustiva e a florada, que
+       * sao coisas que leem bem DE PERTO porque sao feitas de muitas pecas
+       * pequenas. Cada distancia pede a planta que resolve nela.
+       */
       // Massa de folha larga preenchendo o vaso, e pendente derramando pela
       // borda: sem isso o estipe sai de terra nua e a peça lê como vaso de loja.
       for (let f = 0; f < 46; f++) {
         const a = ruido(f, 460 + v) * Math.PI * 2
-        const r = Math.sqrt(ruido(f, 461 + v)) * 0.62
+        const r = Math.sqrt(ruido(f, 461 + v)) * 0.42
         col.poe(
           'folhaArbusto',
           gFolhaLarga,
           mFolha,
           [
             xv + Math.sin(a) * r,
-            piso + 0.95 + ruido(f, 462 + v) * 0.85,
+            piso + 0.72 + ruido(f, 462 + v) * 0.62,
             zv + Math.cos(a) * r * 0.8,
           ],
           [ruido(f, 463 + v) * 3, ruido(f, 464 + v) * 6, ruido(f, 465 + v) * 3],
           (() => {
-            const e = 1.0 + ruido(f, 466 + v) * 0.9
+            // 0,5 a 0,95, e nao 1,0 a 1,9: com a geometria base de 0,26 m, a
+            // escala anterior dava folhas de meio metro. Folha de meio metro e
+            // bananeira, e bananeira nao e o que estava plantado ali.
+            const e = 0.5 + ruido(f, 466 + v) * 0.45
             return [e, e, e] as [number, number, number]
           })(),
           TONS_DE_OLIVA[(f + v) % TONS_DE_OLIVA.length]!,
@@ -1340,27 +1345,27 @@ export function Cobertura({
       }
       for (let d = 0; d < 12; d++) {
         const a = ruido(d, 470 + v) * Math.PI * 2
-        const comp = 0.4 + ruido(d, 471 + v) * 0.6
+        const comp = 0.28 + ruido(d, 471 + v) * 0.4
         col.poe(
           'pendente',
           gPendente,
           mFolha,
-          [xv + Math.sin(a) * 0.5, piso + 0.92 - comp * 0.45, zv + Math.cos(a) * 0.5],
+          [xv + Math.sin(a) * 0.35, piso + 0.68 - comp * 0.45, zv + Math.cos(a) * 0.35],
           [0.6 + ruido(d, 472 + v) * 0.6, a, 0],
-          [1.3, comp / 0.42, 1.3],
+          [0.9, comp / 0.42, 0.9],
           TONS_DE_OLIVA[(d + v) % TONS_DE_OLIVA.length]!,
         )
       }
-      for (let fl = 0; fl < 14; fl++) {
+      for (let fl = 0; fl < 9; fl++) {
         const a = ruido(fl, 480 + v) * Math.PI * 2
-        const r = ruido(fl, 481 + v) * 0.55
+        const r = ruido(fl, 481 + v) * 0.38
         col.poe(
           'flor',
           gFlor,
           mFlor,
-          [xv + Math.sin(a) * r, piso + 1.1 + ruido(fl, 482 + v) * 0.6, zv + Math.cos(a) * r * 0.8],
+          [xv + Math.sin(a) * r, piso + 0.85 + ruido(fl, 482 + v) * 0.45, zv + Math.cos(a) * r * 0.8],
           [0, ruido(fl, 483 + v) * 3, 0],
-          [1.3, 0.9, 1.3],
+          [0.8, 0.6, 0.8],
           TONS_DE_FLOR[(fl + v) % TONS_DE_FLOR.length]!,
         )
       }
