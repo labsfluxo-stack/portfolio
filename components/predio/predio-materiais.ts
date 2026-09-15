@@ -743,6 +743,72 @@ export function fronde(): Recorte {
   const folioloS = 32
 
   /**
+   * O PERFIL DO FOLÍOLO NÃO PODE CHEGAR A ZERO — e chegava.
+   *
+   * A curva antiga era `sin(min(1, t·1,25)·π)`, e o `min` fazia o argumento
+   * bater em π já em t = 0,8. Dali para a frente o seno é zero: o último QUINTO
+   * de cada fronde não tinha folíolo nenhum, só o ráquis pelado seguindo sozinho
+   * até a ponta. Foi o que o dono viu — a folhagem parava antes do fim.
+   *
+   * O erro estava em modelar o afinamento com uma curva que TERMINA. Fronde
+   * pinada não termina: os folíolos encurtam até o ápice e o último par se
+   * encontra ali, fechando a ponta. Não existe trecho de haste nua — se
+   * existisse, seria uma fronde velha que já perdeu as folhas da ponta.
+   *
+   * O QUE ESTA FUNÇÃO PASSOU A SER: não mais o comprimento do folíolo, e sim o
+   * CONTORNO da fronde — a meia-largura da lâmina em cada ponto do ráquis. A
+   * diferença importa, porque é ela que resolve os dois defeitos de uma vez.
+   *
+   * - `min(1, 0,3 + 3u)` é a subida curta junto ao estipe. Os folíolos basais são
+   *   mesmo curtos (em muitas espécies viram espinho), então ela começa em 30% e
+   *   chega ao máximo já no primeiro quarto.
+   * - `(1 − u)^0,42` é o afinamento longo. O expoente baixo é o ponto: com 0,42 a
+   *   fronde ainda tem 38% da largura em u = 0,9 e só fecha no último instante.
+   *   Com expoente 1 ela afinaria desde o meio e voltaria a parecer pelada.
+   *
+   * Ela VALE ZERO em u = 1, e isso agora é desejado em vez de ser o defeito: quem
+   * pousa ali é a PONTA do último folíolo, não a base dele. A folhagem alcança o
+   * ápice; o que some no ápice é a largura, que é o que uma ponta é.
+   */
+  const perfil = (u: number) => Math.min(1, 0.3 + u * 3) * (1 - u) ** 0.42
+  const MEIA_LARGURA = n * 0.3
+  const xDe = (u: number) => n * 0.03 + u * n * 0.94
+  /**
+   * O AVANÇO É O QUE FECHA A PONTA, e a falta dele era o V que o dono viu.
+   *
+   * Antes, a ponta de cada folíolo saía de um ângulo (`inclina`) aplicado ao
+   * comprimento dele. Funciona no meio da fronde e QUEBRA no fim: os dois
+   * últimos folíolos, um para cada lado, terminavam afastados do eixo, e entre
+   * eles sobrava um entalhe. A fronde acabava num V — numa forquilha, como rabo
+   * de peixe. Fronde pinada faz o contrário: o último par CONVERGE e se encontra
+   * no ápice, fechando a ponta num Λ.
+   *
+   * A correção é trocar a referência. A ponta do folíolo deixa de ser calculada
+   * por ângulo e passa a ser um ponto SOBRE O CONTORNO da fronde, 22% adiante da
+   * base dele ao longo do ráquis. Como `perfil` vale zero em u = 1, o folíolo
+   * cuja ponta cai ali pousa exatamente no eixo: o par se encontra, e a ponta
+   * fecha sozinha. Não é uma exceção para o último folíolo, é a mesma regra
+   * levada até o fim — que é o jeito de a ponta nunca mais abrir.
+   *
+   * De quebra, o avanço dá a inclinação certa ao longo de toda a fronde: os
+   * folíolos saem a ~56° no meio e vão fechando para ~36° perto do ápice, que é
+   * o que uma fronde faz. Antes isso era um segundo número, regulado à mão e sem
+   * relação nenhuma com o contorno.
+   *
+   * 0,15 E NÃO 0,22, e o teste mostrou por quê. Com 0,22 a ponta fechou — e a
+   * fronde virou uma LÂMINA MACIÇA. Folíolo muito deitado se sobrepõe ao vizinho
+   * no comprimento inteiro, não só na base, e o vão entre eles desaparece. Aí
+   * some o serrilhado, que é a metade da silhueta de uma palmeira: é pelo vão que
+   * o céu atravessa a copa.
+   *
+   * O avanço governa o ÂNGULO do folíolo, e o ângulo governa o vão. Menor avanço
+   * = folíolo mais erguido = pontas que se afastam mais depressa da vizinha. E a
+   * ponta continua fechada, porque quem a fecha é o contorno valer zero em u = 1,
+   * não o ângulo — foi para isso que a referência mudou.
+   */
+  const AVANCO = 0.15
+
+  /**
    * O folíolo, ponto a ponto: percorre a curva central e desloca para os dois
    * lados por uma largura que decai — ida por uma margem, volta pela outra.
    *
@@ -752,15 +818,11 @@ export function fronde(): Recorte {
    */
   const lamina = (
     ctx: CanvasRenderingContext2D,
-    x: number,
-    s: number,
-    comp: number,
-    inclina: number,
+    p0: readonly [number, number],
+    p1: readonly [number, number],
+    p2: readonly [number, number],
     larguraBase: number,
   ) => {
-    const p0 = [x, meio] as const
-    const p1 = [x + comp * 0.35 * inclina, meio + s * comp * 0.45] as const
-    const p2 = [x + comp * 0.78 * inclina, meio + s * comp] as const
     const PASSOS = 7
     const eixo = (t: number) => {
       const u = 1 - t
@@ -769,7 +831,10 @@ export function fronde(): Recorte {
         u * u * p0[1] + 2 * u * t * p1[1] + t * t * p2[1],
       ] as const
     }
-    const largura = (t: number) => larguraBase * (1 - t) ** 0.55
+    // Expoente 0,75 e não 0,55: o folíolo tem de AFINAR DEPRESSA. Com 0,55 ele
+    // guarda largura demais no meio do comprimento, encosta no vizinho e fecha o
+    // vão. A lâmina é larga onde se prende e vira quase um fio na ponta.
+    const largura = (t: number) => larguraBase * (1 - t) ** 0.75
     const margem = (t: number, lado: number) => {
       const [px, py] = eixo(t)
       const u = 1 - t
@@ -804,34 +869,56 @@ export function fronde(): Recorte {
   ) => {
     for (let i = 0; i < folioloS; i++) {
       const t = i / (folioloS - 1)
-      // x corre ao longo do ráquis; a base é à esquerda e a ponta à direita.
-      const x = n * 0.03 + t * n * 0.92
-      // Comprimento: cresce até o terço inicial e decai até a ponta. É o perfil
-      // de uma fronde de verdade, mais larga perto da base.
-      // A variação de 8% por folíolo é o que impede a orla de virar um arco
+      // A base percorre o ráquis só até `1 − AVANCO`, porque é a PONTA que tem de
+      // alcançar u = 1. O último folíolo nasce em 0,78 e morre no ápice.
+      const uBase = t * (1 - AVANCO)
+      const uPonta = uBase + AVANCO
+      const x0 = xDe(uBase)
+      const x1 = xDe(uPonta)
+      // A variação de 7% por folíolo é o que impede a orla de virar um arco
       // desenhado a compasso. É a ÚNICA desordem que uma palmeira tem, e ela
       // mora aqui, na orla — nunca no arranjo, que é o que o dono corrigiu.
-      const comp =
-        Math.sin(Math.min(1, t * 1.25) * Math.PI) ** 0.7 * (n * 0.33) * (0.92 + ruido(i, 88) * 0.16) +
-        n * 0.015
-      // Os folíolos inclinam para a PONTA, nunca perpendiculares ao ráquis.
-      const inclina = 0.55 + t * 0.5
+      // Ela MULTIPLICA o contorno, então no ápice, onde o contorno é zero, ela
+      // continua sendo zero: o sorteio não reabre a ponta que acabou de fechar.
+      const meiaLargura = perfil(uPonta) * MEIA_LARGURA * (0.93 + ruido(i, 88) * 0.14)
       for (const s of [-1, 1]) {
         ctx.fillStyle = corpo(t, s)
-        lamina(ctx, x, s, comp, inclina, larguraBase)
+        lamina(
+          ctx,
+          [x0, meio],
+          // O controle puxado para fora arqueia o folíolo: ele deixa o ráquis
+          // mais aberto e vai deitando. Folíolo reto lê como espinho.
+          // A fração baixa em x (0,35) é deliberada: ela torna a SAÍDA mais
+          // perpendicular, e é na saída que os folíolos vizinhos precisam se
+          // separar. Se eles saem juntos, nenhum afinamento adiante abre o vão.
+          [x0 + (x1 - x0) * 0.35, meio + s * meiaLargura * 0.6],
+          [x1, meio + s * meiaLargura],
+          // O folíolo do ápice é curto, então também tem de ser estreito — largura
+          // fixa ali daria uma clava na ponta da fronde.
+          larguraBase * (0.5 + perfil(uPonta) * 0.62),
+        )
       }
     }
-    // O ráquis, mais grosso na base.
-    ctx.strokeStyle = raquis
-    ctx.lineCap = 'round'
-    ctx.lineWidth = grossuraRaquis
+    /**
+     * O RÁQUIS É PREENCHIDO E AFILA, em vez de ser um traço de espessura
+     * constante. Ele para em u = 0,78, que é onde nasce o último folíolo, e o
+     * trecho dali até o ápice é feito só pelos folíolos que convergem. Um traço
+     * de ponta reta terminando no meio da folhagem deixaria um toco visível —
+     * era a versão anterior deste mesmo defeito.
+     */
+    ctx.fillStyle = raquis
     ctx.beginPath()
-    ctx.moveTo(n * 0.02, meio)
-    ctx.lineTo(n * 0.97, meio)
-    ctx.stroke()
+    ctx.moveTo(n * 0.02, meio - grossuraRaquis / 2)
+    ctx.lineTo(xDe(1 - AVANCO), meio)
+    ctx.lineTo(n * 0.02, meio + grossuraRaquis / 2)
+    ctx.closePath()
+    ctx.fill()
   }
 
-  const LARG = n * 0.032
+  // A base do folíolo é pouco mais larga que o passo entre dois vizinhos
+  // (0,0258·n): elas se encostam ao longo do ráquis e formam a linha contínua que
+  // uma fronde tem ali, sem sobrar largura que feche o vão adiante.
+  const LARG = n * 0.028
   desenha(a, () => '#ffffff', '#ffffff', LARG, n * 0.017)
   /**
    * A COR DA FRONDE VARIA POR FOLÍOLO, e é o que faltava para ela deixar de ser
