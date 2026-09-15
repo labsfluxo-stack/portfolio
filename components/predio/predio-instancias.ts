@@ -43,6 +43,22 @@ export class Coletor {
   /**
    * Acrescenta uma copia. `chave` identifica o par geometria+material — duas
    * chamadas com a mesma chave viram a mesma `InstancedMesh`.
+   *
+   * ARMADILHA, e ela ja mordeu uma vez: a geometria e o material sao os da
+   * PRIMEIRA chamada de cada chave. Toda chamada seguinte com a mesma chave usa
+   * so a matriz e DESCARTA em silencio a geometria que voce passou. E o preco de
+   * instanciar — uma `InstancedMesh` tem uma geometria so.
+   *
+   * Em `predio-cidade.tsx` isso produziu 23 predios do tamanho do primeiro, e o
+   * sintoma nao foi "predios iguais" (a linha do topo continuava irregular
+   * porque a POSICAO variava): foi antena solta no ceu, porque o mastro era
+   * colocado pela altura pretendida e o predio terminava na altura herdada.
+   * Custou tres medicoes.
+   *
+   * Entao: geometria que VARIA vira escala na matriz sobre uma forma unitaria
+   * (`BoxGeometry(1,1,1)` escalada), nunca uma geometria nova por copia. Se a
+   * forma for mesmo diferente — e nao so de outro tamanho —, ela merece chave
+   * propria, como `face-${tipo}-${altura}` em `predio-datacenter.tsx`.
    */
   poe(
     chave: string,

@@ -28,6 +28,7 @@ import { TIERS, type Tier, createMeter, judge, startingStep } from '../three/por
 import { Datacenter } from './predio-datacenter'
 import { criaAmbiente } from './predio-ambiente'
 import { Cobertura } from './predio-cobertura'
+import { Cidade } from './predio-cidade'
 
 /**
  * O prédio em corte, em hora dourada — o ÚNICO arquivo do recurso que importa
@@ -1272,6 +1273,12 @@ function Cena({
         >
           {plano.nome === 'frente' ? (
             <>
+              {/* A cidade mora no plano da FRENTE porque este é o plano de
+                  coordenada de mundo: a 20 m de distância ela já produz o
+                  parallax certo sozinha, e parallax fabricado desalinharia a
+                  linha do horizonte durante a descida. Ver o cabeçalho de
+                  `predio-cidade.tsx` para o intervalo de z em que ela cabe. */}
+              <Cidade cor={CENARIO} corDistante={CENARIO_DISTANTE} />
               <Pilares material={pilar} />
               <Chao material={terra} />
               {vivos.map((indice) => (
