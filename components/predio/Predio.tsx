@@ -1199,7 +1199,10 @@ function Cena({
       // nao e sombreado: com intensidade cheia ele preenchia a sombra do sol por
       // completo, e a cena tinha sol sem ter UMA sombra visivel. 0,5 mantem o
       // metal com o que refletir e devolve o contraste ao facho.
-      scene.environmentIntensity = 0.5
+      // 0,28: luz pratica so EXISTE se o ambiente ceder. Um balizador de 5 W nao
+      // aparece ao lado de um ceu inteiro iluminando por igual — e com ambiente
+      // alto, apagar a cena nao adianta, porque o que apaga e o CONTRASTE.
+      scene.environmentIntensity = 0.28
       scene.environment?.dispose()
       scene.environment = criaAmbiente(
         gl,
@@ -1304,7 +1307,7 @@ function Cena({
         ref={sol}
         castShadow
         color={corDoRotulo(0)}
-        intensity={7.4}
+        intensity={5.6}
         shadow-mapSize={[tier.shadow, tier.shadow]}
         shadow-camera-left={-22}
         shadow-camera-right={22}
@@ -1321,7 +1324,7 @@ function Cena({
         cobertura, chão na cor do andar mais frio: o arco de temperatura entra
         até no ambiente.
       */}
-      <hemisphereLight args={[tom(corDoAndar(0), 7), tom(corDoAndar(4), 4.5), 0.78]} />
+      <hemisphereLight args={[tom(corDoAndar(0), 7), tom(corDoAndar(4), 4.5), 0.42]} />
 
       {/* Um grupo por plano de `PLANOS`, deslocado no laço de quadro acima. */}
       {PLANOS.map((plano, i) => (

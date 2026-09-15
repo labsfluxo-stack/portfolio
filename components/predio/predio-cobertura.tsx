@@ -227,7 +227,6 @@ export function Cobertura({
     // CAIXA DE ESCADA: o volume por onde se chega a cobertura.
     const gCasaEscada = new RoundedBoxGeometry(3.2, 2.5, 2.2, 1, 0.03)
     const gRufo = new RoundedBoxGeometry(3.42, 0.16, 2.42, 1, 0.02)
-    const gPortaVidro = new THREE.BoxGeometry(1.02, 2.06, 0.035)
     const gBatente = new THREE.BoxGeometry(1.16, 2.18, 0.07)
     const gMarquise = new RoundedBoxGeometry(1.9, 0.08, 0.95, 1, 0.014)
     const gTiranteMarq = new THREE.CylinderGeometry(0.009, 0.009, 0.62, 6)
@@ -239,6 +238,12 @@ export function Cobertura({
     // pouco mais larga, para a agua pingar longe da fachada.
     const gChapim = new THREE.BoxGeometry(1, 0.045, 0.33)
     const gTorneiraJardim = new THREE.CylinderGeometry(0.016, 0.016, 0.16, 6)
+
+    // LUZ PRATICA: as pecas que ACENDEM. Ver o bloco de uso.
+    const gBalizador = new THREE.CylinderGeometry(0.045, 0.045, 0.012, 10)
+    const gFacho = new THREE.PlaneGeometry(0.5, 1.5)
+    const gFitaLed = new THREE.BoxGeometry(1, 0.03, 0.03)
+    const gVidroAceso = new THREE.PlaneGeometry(1, 1)
     // Folha de oliveira e LANCEOLADA: estreita e comprida, quase uma lamina.
     // O quad e mais LARGO que a folha: o recorte por alfa come as pontas, entao a
     // folha util fica com cerca de 55% da area. A geometria compensa a diferenca.
@@ -295,7 +300,7 @@ export function Cobertura({
     // de folhagem, a esfera lisa lê como bola.
     // OLIVEIRA. Tronco curto e grosso em relacao a copa — oliveira nao e alta,
     // e ampla. Tres deles saem da mesma base.
-    const gTroncoOliva = new THREE.CylinderGeometry(0.055, 0.1, 0.95, 7)
+    const gTroncoOliva = new THREE.CylinderGeometry(0.055, 0.1, 1.55, 7)
     const gGalhoOliva = new THREE.CylinderGeometry(0.018, 0.042, 0.58, 5)
     // Tufo PEQUENO: a copa aberta precisa de muitos pequenos, nao poucos grandes.
     const gTufoOliva = new THREE.IcosahedronGeometry(0.27, 0)
@@ -385,7 +390,7 @@ export function Cobertura({
     const mLampada = new THREE.MeshStandardMaterial({
       color: '#ffd9a0',
       emissive: new THREE.Color('#ffcf8a'),
-      emissiveIntensity: 1.35,
+      emissiveIntensity: 2.6,
       roughness: 0.25,
       toneMapped: false,
     })
@@ -471,11 +476,6 @@ export function Cobertura({
     })
     // Porta de saida: vidro escuro com caixilho. Escuro porque o que esta atras
     // dela e uma escada sem luz, e vidro devolve o que ha atras.
-    const mVidroPorta = new THREE.MeshStandardMaterial({
-      color: '#3c4148',
-      roughness: 0.14,
-      metalness: 0.5,
-    })
     const mJunta = new THREE.MeshStandardMaterial({ color: '#7d715f', roughness: 0.98 })
     const mMadeiraClara = new THREE.MeshStandardMaterial({ color: '#9a8b76', roughness: 0.93 })
     // Buxo: verde profundo e FOSCO, sem faceta. Contraponto da gramineea.
@@ -522,6 +522,50 @@ export function Cobertura({
       map: lona.map,
       normalMap: lona.normalMap,
     })
+    /**
+     * ═══ A LUZ PRATICA ═══
+     *
+     * E o que separa esta cena da referencia, e nao e detalhe: e TOM.
+     *
+     * A cobertura estava toda no mesmo valor — parede, deck, parapeito, vaso e
+     * pergolado todos no mesmo bege-marrom, todos iluminados pela mesma luz
+     * difusa. Superficie sem diferenca de valor nao tem profundidade, e nenhuma
+     * quantidade de geometria conserta isso: o olho separa planos por CONTRASTE
+     * antes de separar por forma.
+     *
+     * Luz pratica resolve porque ela cria valor LOCAL. Um balizador acende meio
+     * metro de deck e deixa o resto na penumbra; uma fita sob o balcao desenha a
+     * linha do movel; um facho na parede faz um leque claro num plano que era
+     * chapado. Cada ponto desses e uma ancora de brilho, e e entre as ancoras que
+     * a escuridao vira profundidade em vez de falta de informacao.
+     *
+     * Fora da curva de tom em tudo que acende: a exposicao ACES existe
+     * para domar o alto da cena, e fonte de luz e justamente o que nao deve ser
+     * domado — senao o balizador vira um cinza claro e perde a razao de existir.
+     */
+    const mBalizador = new THREE.MeshBasicMaterial({ color: '#ffd9a0', toneMapped: false })
+    // O FACHO e um plano com degrade de alfa, nao um cone de volume: volumetrico
+    // de verdade custa um passe, e a essa distancia o leque de luz na parede le
+    // igual por um quad com mapa de alfa.
+    const mFacho = new THREE.MeshBasicMaterial({
+      color: '#ffc98a',
+      transparent: true,
+      // 0,75 e nao 0,3: mistura ADITIVA soma ao que ja esta la, e a parede de
+      // concreto nao e escura. Com 0,3 a soma cabia dentro do ruido da textura e
+      // o facho simplesmente nao aparecia.
+      opacity: 0.75,
+      alphaMap: manchaDeSombra(),
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
+    })
+    const mFitaLed = new THREE.MeshBasicMaterial({ color: '#ffdca8', toneMapped: false })
+    // A porta da escada acesa por dentro: um retangulo quente no meio da parede
+    // de concreto. E a unica coisa da cena que diz que ha ALGUEM la dentro.
+    // Nao e branco nem saturado: e a luz de uma escada vista atraves de vidro
+    // fume. Chapada demais ela vira adesivo colado no concreto, que foi o que o
+    // primeiro render mostrou.
+    const mVidroAceso = new THREE.MeshBasicMaterial({ color: '#c98f52', toneMapped: false })
     const mSombra = new THREE.MeshBasicMaterial({
       color: '#4a3524',
       transparent: true,
@@ -896,7 +940,26 @@ export function Cobertura({
      */
 
     // ── oliveiras multitronco ─────────────────────────────────────────────
-    for (const [k, x] of [-12.4, -3.0, 1.8].entries()) {
+    /**
+     * UMA OLIVEIRA, E FORA DO VAO DO PERGOLADO.
+     *
+     * Eram tres, e duas caiam dentro do pergolado. Eu baixei a copa para ela
+     * passar sob a viga e troquei um encontrao por outro: na altura nova ela foi
+     * parar no mesmo nivel do arbusto do canteiro e SUMIU dentro dele. A faixa
+     * livre entre o topo do arbusto (2,4) e a face da viga (2,73) tem 33 cm — nao
+     * cabe arvore nenhuma ali, por mais que eu ajustasse.
+     *
+     * A conclusao nao e de altura, e de LUGAR: arvore-exemplar precisa de vazio
+     * em volta para ser lida como exemplar. Espremida entre pergolado, plantio e
+     * guarda-sol ela vira mais uma mancha verde, e tres delas espremidas viram
+     * tres manchas.
+     *
+     * Entao fica UMA, plantada a esquerda do pergolado (que comeca em -8,4), com
+     * ceu atras e altura cheia de volta. As palmeiras do canteiro continuam
+     * fazendo o trabalho de verticalidade no resto da largura — e elas ja estao
+     * acima da viga, entao nunca disputaram.
+     */
+    for (const [k, x] of [-11.4].entries()) {
       sombra(x, zArvores, 2.4, 2.4)
       col.poe('vasoAlto', gVasoAlto, mVaso, [x, piso, zArvores])
       col.poe('terra', gTerra, mTerra, [x, piso + 0.66, zArvores], [-Math.PI / 2, 0, 0])
@@ -914,14 +977,14 @@ export function Cobertura({
           'troncoOliva',
           gTroncoOliva,
           mMadeiraClara,
-          [x + dx, piso + 1.1 + t * 0.05, zArvores + dz],
+          [x + dx, piso + 1.4 + t * 0.06, zArvores + dz],
           [Math.cos(tr.a) * tr.incl, 0, -Math.sin(tr.a) * tr.incl],
         )
         col.poe(
           'galhoOliva',
           gGalhoOliva,
           mMadeiraClara,
-          [x + dx * 2.6, piso + 1.6 + t * 0.1, zArvores + dz * 2.6],
+          [x + dx * 2.6, piso + 2.15 + t * 0.12, zArvores + dz * 2.6],
           [Math.cos(tr.a) * 0.65, 0, -Math.sin(tr.a) * 0.65],
         )
       }
@@ -980,16 +1043,11 @@ export function Cobertura({
         // FORA, porque o miolo é oco — é na periferia que está a luz.
         const az = ruido(b, 50 + k) * Math.PI * 2
         const rBase = 0.2 + Math.sqrt(ruido(b, 60 + k)) * 0.72
-        // A COPA BAIXOU PARA PASSAR SOB O PERGOLADO. Duas das tres oliveiras
-        // ficam dentro do vao dele (x = -3,0 e 1,8, e o pergolado vai de -8,4 a
-        // 2,0), e com a copa comecando em piso + 2,0 ela subia ate perto de 2,9 —
-        // exatamente a altura das ripas em 2,93. Arvore e estrutura viravam uma
-        // massa marrom-verde so.
-        //
-        // Comecando em 1,5 a copa termina por volta de 2,35 e sobra quase meio
-        // metro de vao ate a face inferior da viga. Arvore sob pergolado COM
-        // folga le como plantada ali; sem folga le como colagem.
-        const yBase = piso + 1.5 + ruido(b, 70 + k) * 0.55
+        // ALTURA CHEIA DE VOLTA: fora do vao do pergolado ela nao disputa com
+        // nada, e pode ter a copa alta que uma oliveira adulta tem. A copa comeca
+        // acima do topo do arbusto do canteiro (2,4), entao ela se destaca contra
+        // o ceu em vez de se fundir com o verde de tras.
+        const yBase = piso + 2.35 + ruido(b, 70 + k) * 0.7
         const bx = x + Math.sin(az) * rBase
         const bz = zArvores + Math.cos(az) * rBase * 0.78
         // A maioria PENDE: galho carregado de folha não fica na horizontal, e o
@@ -1068,7 +1126,9 @@ export function Cobertura({
     // A porta fica na face da FRENTE do volume, virada para o terraco.
     const zPorta = zEsc + 1.1
     col.poe('batente', gBatente, mAco, [xEsc, piso + 1.12, zPorta + 0.02])
-    col.poe('portaVidro', gPortaVidro, mVidroPorta, [xEsc, piso + 1.06, zPorta + 0.05])
+    // A folha de vidro e a LUZ de dentro sao a mesma superficie: o vidro escuro
+    // saiu. Manter os dois punha a luz atras do vidro fume, e o resultado foi uma
+    // porta apagada — que e o oposto do que ela existe para dizer.
     col.poe('marquise', gMarquise, mPedra, [xEsc, piso + 2.32, zPorta + 0.42])
     for (const dx of [-0.72, 0.72])
       col.poe('tiranteMarq', gTiranteMarq, mAco, [xEsc + dx, piso + 2.5, zPorta + 0.72], [0.62, 0, 0])
@@ -1388,6 +1448,62 @@ export function Cobertura({
         )
       }
     }
+
+    /**
+     * AS LUMINARIAS, e cada uma resolve uma area chapada especifica.
+     *
+     * BALIZADOR NO DECK: disco embutido rente a tabua, a cada 2,4 m. E o que
+     * quebra a monotonia do piso — deck inteiro num valor so era um terco do
+     * quadro sem informacao. Cada balizador acende um circulo de meio metro e
+     * deixa o resto na penumbra, e e a alternancia que da textura ao chao.
+     *
+     * FACHO NA PAREDE DO FUNDO: e ali que a cena mais precisava. Depois que o
+     * cenario de parallax saiu, a parede virou a MAIOR area lisa do quadro —
+     * trinta metros de concreto num valor so. Sete fachos em leque transformam
+     * esse plano numa sequencia de claro e escuro, que e exatamente o que
+     * iluminacao de fachada faz na vida real e pela mesma razao.
+     *
+     * PORTA DA ESCADA ACESA: um retangulo quente no meio do concreto. E a unica
+     * coisa da cena que diz que ha ALGUEM la dentro, e custa um plano.
+     */
+    for (let bz = 0; bz < 13; bz++) {
+      const xb = -meiaLargura + 1.2 + bz * 2.4
+      col.poe('balizador', gBalizador, mBalizador, [xb, piso + 0.028, zCentro + prof * 0.33])
+    }
+    for (let fx = 0; fx < 7; fx++) {
+      const xf = -meiaLargura + 2.2 + fx * 4.3
+      // O leque abre para CIMA a partir do rodape: luminaria de piso lava a
+      // parede de baixo para cima, e o degrade invertido e o que denuncia facho
+      // desenhado ao contrario.
+      col.poe(
+        'facho',
+        gFacho,
+        mFacho,
+        // z = -11,22 e nao -11,62: a parede do fundo esta em -11,4 com 0,3 de
+        // espessura, entao a primeira versao do facho ficou ATRAS dela e nao
+        // renderizou nada. Luz de lavagem tem de estar na frente do plano que
+        // lava — obvio dito assim, invisivel escrito como numero.
+        [xf, piso + 1.15, -11.22],
+        [0, 0, 0],
+        [2.6, 2.2, 1],
+      )
+      col.poe('balizador', gBalizador, mBalizador, [xf, piso + 0.55, -11.2])
+    }
+    // A porta da caixa de escada, acesa por dentro.
+    col.poe(
+      'vidroAceso',
+      gVidroAceso,
+      mVidroAceso,
+      [-7.6, piso + 1.06, zCanteiro - 0.55 + 1.13],
+      [0, 0, 0],
+      [0.9, 1.92, 1],
+    )
+    // Fita de LED sob o tampo do bar: desenha a linha do movel no escuro.
+    col.poe('fitaLed', gFitaLed, mFitaLed, [9.0, piso + 0.98, zBar + 0.36], [0, 0, 0], [4.4, 1, 1])
+    // E atras das garrafas: prateleira retroiluminada, que e o que faz um bar
+    // ler como bar de noite.
+    for (const y of [0.62, 1.12, 1.6])
+      col.poe('fitaLed', gFitaLed, mFitaLed, [9.0, piso + y + 0.04, zBar - 1.58], [0, 0, 0], [4.2, 1, 1])
 
     /**
      * BUXO APARADO — a única fileira da cena onde a regularidade é o efeito.
