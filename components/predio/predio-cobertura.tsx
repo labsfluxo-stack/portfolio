@@ -906,7 +906,24 @@ export function Cobertura({
       )
 
     // ── profundidades ─────────────────────────────────────────────────────
-    const zEspreguicadeiras = zCentro + prof * 0.1
+    /**
+     * AS ESPREGUIÇADEIRAS ESTAVAM DENTRO DA PISCINA — literalmente, e ninguém viu
+     * enquanto a fila era larga.
+     *
+     * Com `prof × 0,1` elas ficavam em z = −3,60 e, tendo 1,98 m de comprimento,
+     * ocupavam de −4,59 a −2,61. A borda da piscina começa em −3,20. Ou seja: o
+     * terço de trás de cada peça ficava submerso. Enquanto a fila ia de −8,4 a
+     * 8,4, só as duas do meio caíam sobre a lâmina e o defeito passava por
+     * sobreposição de perspectiva; quando a fila encolheu para o vão da piscina,
+     * as QUATRO passaram a pisar na água e a lâmina sumiu atrás delas.
+     *
+     * `prof × 0,235` põe o eixo em −1,84, e o pior caso do sorteio de z (−0,275)
+     * deixa a borda de trás em −3,11: nove centímetros à frente da pedra. Elas
+     * passam a ocupar a faixa de deck ENTRE a piscina e o guarda-corpo, que é o
+     * lugar onde espreguiçadeira fica numa cobertura de verdade — e a lâmina
+     * volta a aparecer inteira por cima delas, que é o que o dono pediu.
+     */
+    const zEspreguicadeiras = zCentro + prof * 0.235
     const zPergolaFrente = zCentro - prof * 0.02
     const zPergolaFundo = zCentro - prof * 0.26
     const zBar = zCentro - prof * 0.208
@@ -1052,7 +1069,9 @@ export function Cobertura({
      * Os terços laterais não ficam vazios: quem os ocupa agora são o escritório
      * aceso e o nicho do bar, que são as duas peças mais caras da cena.
      */
-    const espreguicadeiras = [-3.9, -1.7, 0.7, 2.9]
+    // Passo de 2,6 m para uma peça de 0,8 m de largura: a folga entre duas é o
+    // triplo da peça, e é por ela que a lâmina d'água aparece.
+    const espreguicadeiras = [-4.2, -1.6, 1.0, 3.6]
     for (const [k, xBase] of espreguicadeiras.entries()) {
       const foraDaFila = k === 2
       const giro = foraDaFila ? 0.42 : (ruido(k, 200) - 0.5) * 0.24
@@ -1102,22 +1121,51 @@ export function Cobertura({
        * desenha a linha escura que uma costura desenha.
        */
       for (let g = 0; g < 3; g++)
-        col.poe('gomoAssento', gGomoAssento, mTecido, p(0, 0.4, 0.56 - g * 0.4), [0, giro, 0])
-      for (let g = 0; g < 2; g++) {
-        // Os gomos do encosto sobem ao LONGO da inclinação, não em linha reta —
-        // senão o de cima sai flutuando fora da estrutura reclinada.
-        const d = 0.21 - g * 0.42
+        col.poe('gomoAssento', gGomoAssento, mTecido, p(0, 0.4, 0.6 - g * 0.4), [0, giro, 0])
+      /**
+       * O ENCOSTO ARTICULA NA CABECEIRA DO ASSENTO — antes ele FLUTUAVA, e os
+       * dois erros eram aritméticos.
+       *
+       * 1. ELE NASCIA NO LUGAR ERRADO. Os gomos saíam de `lz = −0,72`, enquanto o
+       *    assento termina em `lz = −0,43`. Sobravam 29 cm de buraco entre as
+       *    duas almofadas, e mais 9 cm de degrau em y — o encosto ficava atrás e
+       *    ACIMA do assento, pendurado no ar. Encosto de espreguiçadeira não tem
+       *    escolha de onde nascer: ele articula na PONTA do assento, porque é uma
+       *    dobradiça. Toda a posição dele tem de sair desse ponto.
+       *
+       * 2. A INCLINAÇÃO TINHA O SINAL TROCADO. `reclina` é negativo, e
+       *    `Rx(negativo)` deita o painel para a FRENTE — ele tombava sobre o
+       *    assento em vez de subir contra a cabeceira. Somado ao item 1, os gomos
+       *    ficavam cruzados em relação à própria linha de centros, que é o
+       *    aspecto de peça desmontada que apareceu no recorte.
+       *
+       * Agora é uma coisa só: um ponto de dobra e uma distância `s` medida ao
+       * longo da inclinação. Subir `s·sen(inc)` e recuar `s·cos(inc)` é a mesma
+       * conta que já resolveu a coroa da palmeira — quando a peça é articulada, a
+       * posição é trigonometria a partir da junta, nunca dois números soltos.
+       */
+      const DOBRA_LZ = -0.4
+      const inc = -reclina
+      for (const s of [0.22, 0.62])
         col.poe(
           'gomoEncosto',
           gGomoEncosto,
           mTecido,
-          p(0, 0.62 - Math.sin(reclina) * d, -0.72 + Math.cos(reclina) * d),
-          [reclina, giro, 0],
+          p(0, 0.4 + Math.sin(inc) * s, DOBRA_LZ - Math.cos(inc) * s),
+          [inc, giro, 0],
         )
-      }
-      // Almofada de cabeça em duas das seis.
+      // Almofada de cabeça em uma das quatro, apoiada no TOPO do encosto — e ela
+      // também sai da mesma conta, senão volta a flutuar quando a reclinação
+      // mudar.
       if (k % 3 === 1)
-        col.poe('travesseiro', gArbusto, mTecido, p(0, 0.86, -0.96), [0, giro + 0.4, 0], [1.5, 0.7, 1.0])
+        col.poe(
+          'travesseiro',
+          gArbusto,
+          mTecido,
+          p(0, 0.44 + Math.sin(inc) * 0.84, DOBRA_LZ - Math.cos(inc) * 0.84),
+          [0, giro + 0.4, 0],
+          [1.5, 0.7, 1.0],
+        )
       /**
        * A TOALHA — e ela é o objeto mais barato de todos com o maior retorno.
        *
