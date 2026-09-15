@@ -1086,150 +1086,283 @@ export function Cobertura({
       [meiaLargura * 2, 1, 1],
     )
 
-    // ── jardineiras de corten com gramíneas em massa ──────────────────────
-    for (const [j, xj] of [-11.5, -7.7, -3.9, -0.1, 3.7, 7.5, 11.3].entries()) {
-      sombra(xj, zCanteiro, 4.0, 1.5)
-      col.poe('jardineira', gJardineira, mCorten, [xj, piso + 0.27, zCanteiro])
-      col.poe('terraLinear', gTerraLinear, mTerra, [xj, piso + 0.5, zCanteiro], [-Math.PI / 2, 0, 0])
-      /**
-       * A LÂMINA, e a razão de ela ser uma caixa fina e não uma folha modelada:
-       * nesta profundidade a escala é 37 px/m, então uma lâmina de 3 cm ocupa
-       * pouco mais de um pixel. O que o olho resolve não é a folha — é a
-       * SILHUETA DO TUFO e a luz passando por ela. Modelar nervura aqui seria
-       * pagar triângulo por informação que não chega à tela, que é o mesmo erro
-       * dos furos de rack que eu já cortei no andar 07.
-       *
-       * Cada lâmina se inclina para FORA do centro do tufo, em ângulo próprio.
-       * É o que produz o formato de chafariz que a gramínea tem — folha reta
-       * para cima lê como cebolinha.
-       */
-      /**
-       * PALMEIRA a cada duas jardineiras. Ela e a silhueta mais reconhecivel do
-       * jardim inteiro: nenhuma outra planta tem estipe fino com copa larga em
-       * arco, e o olho identifica isso antes de identificar qualquer folha.
-       *
-       * As frondes ARQUEIAM — a de cima quase reta, as de baixo caidas quase a
-       * horizontal. Fronde toda no mesmo angulo le como leque de papel; e a
-       * gradacao do arco que da a palmeira o gesto que ela tem.
-       */
-      if (j % 2 === 0) {
-        const xp = xj + 0.9
-        col.poe('estipe', gEstipe, mMadeiraClara, [xp, piso + 1.95, zCanteiro], [0.05, 0, 0.04])
-        for (let fr = 0; fr < 9; fr++) {
-          const a = (fr / 9) * Math.PI * 2 + j
-          // As de baixo caem mais: o indice alto recebe inclinacao maior.
-          const cai = 0.12 + (fr / 9) * 0.95
-          col.poe(
-            'fronde',
-            gFronde,
-            mFronde,
-            [
-              xp + Math.sin(a) * 0.62,
-              piso + 3.34 - cai * 0.42,
-              zCanteiro + Math.cos(a) * 0.48,
-            ],
-            [Math.cos(a) * cai, -a + Math.PI / 2, -Math.sin(a) * cai],
-            [1, 1, 1],
-          )
-        }
+    /**
+     * ═══ O JARDIM, REFEITO POR MASSA E PROFUNDIDADE ═══
+     *
+     * O DIAGNÓSTICO, e ele não era de detalhe de planta: era de MASSA. Havia
+     * palmeira, gramínea, flor e folha larga — espécie não faltava. Faltava
+     * volume, por três razões estruturais:
+     *
+     * 1. UMA PROFUNDIDADE SÓ. Tudo estava plantado em `zCanteiro`, numa linha.
+     *    Jardim de verdade tem CAMADAS: o que está atrás aparece ENTRE o que
+     *    está na frente, e é essa oclusão parcial que o olho lê como "tem mais
+     *    planta lá dentro". Fileira única, por mais densa, lê como cenário
+     *    pintado.
+     *
+     * 2. VÃOS. Sete jardineiras de 3,4 m espaçadas 3,8 deixavam 40 cm de parede
+     *    nua entre cada par. Buraco no meio de canteiro é o que denuncia plantio
+     *    decorativo — num projeto, planta cobre a calha inteira.
+     *
+     * 3. ALTURA DE UM PALMO SÓ. Gramínea de 1,1 m e mais nada entre ela e a
+     *    parede de 3,2 m. Faltava o ESTRATO ARBUSTIVO, que preenche o meio e dá
+     *    fundo escuro para a gramínea recortar contra.
+     *
+     * A correção é a estrutura clássica de bordadura, de trás para a frente:
+     * FUNDO alto e cerrado, MEIO em textura fina, FRENTE baixa e derramando. É
+     * assim que se planta um canteiro de verdade, e é assim que ele ganha
+     * profundidade sem truque nenhum.
+     */
+    const zFundoVerde = zCanteiro - 0.75
+    const zMeioVerde = zCanteiro
+    const zFrenteVerde = zCanteiro + 0.8
+
+    // A CALHA É CONTÍNUA: uma peça de ponta a ponta em vez de sete com vão.
+    col.poe(
+      'jardineira',
+      gJardineira,
+      mCorten,
+      [0, piso + 0.27, zCanteiro + 0.1],
+      [0, 0, 0],
+      [(meiaLargura * 2) / 3.4, 1, 2.3],
+    )
+    sombra(0, zCanteiro, meiaLargura * 2.1, 3.4)
+
+    /**
+     * ESTRATO DE FUNDO: o arbusto cerrado que vira PAREDE VERDE.
+     *
+     * É ele que resolve o problema principal, e o número é grosseiro de
+     * propósito — 46 moitas de 26 folhas cobrindo os 30 m. Massa vegetal só lê
+     * como massa quando não se vê o fim dela; qualquer economia aqui reabre o
+     * buraco que este estrato existe para fechar.
+     *
+     * Altura entre 1,0 e 1,9 m, IRREGULAR. Sebe aparada teria altura constante —
+     * mas isto não é sebe, é maciço informal, e o topo ondulado é a diferença.
+     */
+    for (let m = 0; m < 46; m++) {
+      const xm = -meiaLargura + 0.6 + (m / 45) * (meiaLargura * 2 - 1.2)
+      const alturaMoita = 1.0 + ruido(m, 400) * 0.9
+      const zm = zFundoVerde + (ruido(m, 401) - 0.5) * 0.5
+      for (let f = 0; f < 26; f++) {
+        const a = ruido(f, 410 + m) * Math.PI * 2
+        const r = Math.sqrt(ruido(f, 411 + m)) * 0.52
+        col.poe(
+          'folhaArbusto',
+          gFolhaLarga,
+          mFolha,
+          [
+            xm + Math.sin(a) * r,
+            piso + 0.5 + ruido(f, 412 + m) * alturaMoita,
+            zm + Math.cos(a) * r * 0.7,
+          ],
+          [ruido(f, 413 + m) * 3, ruido(f, 414 + m) * 6, ruido(f, 415 + m) * 3],
+          (() => {
+            const e = 0.8 + ruido(f, 416 + m) * 0.7
+            return [e, e, e] as [number, number, number]
+          })(),
+          TONS_DE_OLIVA[(f + m) % TONS_DE_OLIVA.length]!,
+        )
       }
+    }
 
-      for (let c = 0; c < 3; c++) {
-        const xc = xj - 1.1 + c * 1.1
-        for (let b = 0; b < 44; b++) {
-          const a = ruido(b, 170 + j * 3 + c) * Math.PI * 2
-          const raio = ruido(b, 180 + j * 3 + c) * 0.24
-          const alt = 0.42 + ruido(b, 190 + j * 3 + c) * 0.74
-          const incl = 0.1 + ruido(b, 200 + j * 3 + c) * 0.72
-          col.poe(
-            'lamina',
-            gLamina,
-            mGramineaMat,
-            [xc + Math.sin(a) * raio, piso + 0.52 + alt / 2, zCanteiro + Math.cos(a) * raio * 0.6],
-            [Math.cos(a) * incl, a, -Math.sin(a) * incl],
-            [1, alt, 1],
-            TONS_DE_GRAMINEA[(b + c + j) % TONS_DE_GRAMINEA.length]!,
-          )
-        }
-
-        // FOLHA LARGA: o contraste de forma contra a lamina fina. Duas texturas
-        // macias iguais leem como uma massa so; e a folha larga que separa.
-        for (let l = 0; l < 7; l++) {
-          const a = ruido(l, 300 + j * 3 + c) * Math.PI * 2
-          col.poe(
-            'folhaLarga',
-            gFolhaLarga,
-            mFolha,
-            [
-              xc + Math.sin(a) * 0.3,
-              piso + 0.62 + ruido(l, 301 + j * 3 + c) * 0.28,
-              zCanteiro + Math.cos(a) * 0.22,
-            ],
-            [0.7 + ruido(l, 302 + j * 3 + c) * 0.8, a, ruido(l, 303 + j * 3 + c) * 1.2],
-            [1, 1, 1],
-            TONS_DE_OLIVA[(l + j) % TONS_DE_OLIVA.length]!,
-          )
-        }
-
-        // FLORES. Poucas e agrupadas — florada nasce em cacho, nao pulverizada.
-        for (let fl = 0; fl < 15; fl++) {
-            const a = ruido(fl, 310 + j * 3 + c) * Math.PI * 2
-            const r = ruido(fl, 311 + j * 3 + c) * 0.26
-            col.poe(
-              'flor',
-              gFlor,
-              mFlor,
-              [
-                xc + Math.sin(a) * r,
-                piso + 0.72 + ruido(fl, 312 + j * 3 + c) * 0.3,
-                zCanteiro + Math.cos(a) * r * 0.7,
-              ],
-              [0, ruido(fl, 313 + j * 3 + c) * 3, 0],
-              (() => {
-                const e = 0.6 + ruido(fl, 314 + j * 3 + c) * 0.8
-                return [e, e * 0.7, e] as [number, number, number]
-              })(),
-            TONS_DE_FLOR[(fl + j + c) % TONS_DE_FLOR.length]!,
-          )
-        }
+    /**
+     * PALMEIRAS, agora acima do estrato arbustivo. Cinco, em espaçamento
+     * IRREGULAR — palmeira em passo constante lê como alameda, e alameda é
+     * outro projeto.
+     */
+    for (const [q, xp] of [-11.8, -6.2, -0.4, 5.6, 11.2].entries()) {
+      col.poe('estipe', gEstipe, mMadeiraClara, [xp, piso + 1.95, zFundoVerde], [0.05, 0, 0.04])
+      for (let fr = 0; fr < 9; fr++) {
+        const a = (fr / 9) * Math.PI * 2 + q
+        // As de baixo caem mais: índice alto recebe inclinação maior. Fronde
+        // toda no mesmo ângulo lê como leque de papel.
+        const cai = 0.12 + (fr / 9) * 0.95
+        col.poe(
+          'fronde',
+          gFronde,
+          mFronde,
+          [
+            xp + Math.sin(a) * 0.62,
+            piso + 3.34 - cai * 0.42,
+            zFundoVerde + Math.cos(a) * 0.48,
+          ],
+          [Math.cos(a) * cai, -a + Math.PI / 2, -Math.sin(a) * cai],
+        )
       }
+    }
 
-      /**
-       * A PLANTA QUE DERRAMA sobre a borda, e ela faz um trabalho especifico:
-       * QUEBRA A LINHA DA JARDINEIRA.
-       *
-       * Calha corrida e uma reta dura, e uma reta dura entre o piso e a massa
-       * verde denuncia o canteiro como caixa. A planta pendente cobre essa
-       * aresta em pontos irregulares, e o canteiro passa a parecer plantado ha
-       * tempo em vez de montado ontem. E o equivalente vegetal da trepadeira no
-       * pergolado.
-       */
-      for (let d = 0; d < 14; d++) {
-        const xd = xj - 1.6 + ruido(d, 320 + j) * 3.2
-        const comp = 0.3 + ruido(d, 321 + j) * 0.55
+    /**
+     * ESTRATO DO MEIO: a gramínea, agora em faixa CORRIDA em vez de tufos
+     * isolados. Vinte e dois tufos encostados cobrem os 30 m sem vão, e a lâmina
+     * fina recorta contra o arbusto escuro que agora existe atrás dela — que era
+     * exatamente o fundo que faltava para ela aparecer.
+     */
+    for (let c = 0; c < 22; c++) {
+      const xc = -meiaLargura + 0.8 + (c / 21) * (meiaLargura * 2 - 1.6)
+      for (let b = 0; b < 40; b++) {
+        const a = ruido(b, 420 + c) * Math.PI * 2
+        const raio = ruido(b, 421 + c) * 0.34
+        const alt = 0.5 + ruido(b, 422 + c) * 0.8
+        const incl = 0.1 + ruido(b, 423 + c) * 0.78
+        col.poe(
+          'lamina',
+          gLamina,
+          mGramineaMat,
+          [
+            xc + Math.sin(a) * raio,
+            piso + 0.52 + alt / 2,
+            zMeioVerde + Math.cos(a) * raio * 0.6,
+          ],
+          [Math.cos(a) * incl, a, -Math.sin(a) * incl],
+          [1, alt, 1],
+          TONS_DE_GRAMINEA[(b + c) % TONS_DE_GRAMINEA.length]!,
+        )
+      }
+    }
+
+    /**
+     * ESTRATO DA FRENTE: flor e planta pendente, derramando sobre a calha.
+     *
+     * A pendente quebra a LINHA DA CALHA — reta dura entre o piso e a massa
+     * verde denuncia o canteiro como caixa —, e a flor é a única cor não-verde do
+     * jardim. Jardim só de verde lê como massa por mais espécies que tenha,
+     * porque o olho agrupa tudo no mesmo balde.
+     */
+    for (let c = 0; c < 26; c++) {
+      const xc = -meiaLargura + 0.7 + (c / 25) * (meiaLargura * 2 - 1.4)
+      for (let fl = 0; fl < 10; fl++) {
+        const a = ruido(fl, 430 + c) * Math.PI * 2
+        const r = ruido(fl, 431 + c) * 0.3
+        col.poe(
+          'flor',
+          gFlor,
+          mFlor,
+          [
+            xc + Math.sin(a) * r,
+            piso + 0.66 + ruido(fl, 432 + c) * 0.52,
+            zFrenteVerde - 0.35 + Math.cos(a) * r * 0.7,
+          ],
+          [0, ruido(fl, 433 + c) * 3, 0],
+          (() => {
+            const e = 0.55 + ruido(fl, 434 + c) * 0.85
+            return [e, e * 0.7, e] as [number, number, number]
+          })(),
+          TONS_DE_FLOR[(fl + c) % TONS_DE_FLOR.length]!,
+        )
+      }
+      const comp = 0.34 + ruido(c, 440) * 0.6
+      col.poe(
+        'pendente',
+        gPendente,
+        mFolha,
+        [xc, piso + 0.5 - comp * 0.42, zFrenteVerde],
+        [0.42 + ruido(c, 441) * 0.5, ruido(c, 442) * 3, 0],
+        [1, comp / 0.42, 1],
+        TONS_DE_OLIVA[c % TONS_DE_OLIVA.length]!,
+      )
+      for (let fo = 0; fo < 6; fo++)
+        col.poe(
+          'folhaLarga',
+          gFolhaLarga,
+          mFolha,
+          [
+            xc + (ruido(fo, 443 + c) - 0.5) * 0.24,
+            piso + 0.48 - (fo / 6) * comp,
+            zFrenteVerde + 0.06,
+          ],
+          [1.2, ruido(fo, 444 + c) * 3, ruido(fo, 445 + c) * 2],
+          [0.8, 0.8, 0.8],
+          TONS_DE_OLIVA[(fo + c) % TONS_DE_OLIVA.length]!,
+        )
+    }
+    /**
+     * VEGETAÇÃO DE PRIMEIRO PLANO, e ela resolve um limite que nenhuma
+     * densidade no fundo resolveria.
+     *
+     * O canteiro do fundo está a 16,75 m da câmera. Nessa distância a escala é
+     * 35,8 px/m, então a massa inteira — 2,4 m de arbusto com palmeira em cima —
+     * ocupa 68 pixels de uma tela de 720. Pode-se dobrar o número de folhas que
+     * ela continua sendo uma FITA: o problema não é quantidade, é distância.
+     *
+     * Planta a 6 m da câmera tem escala de 100 px/m. O MESMO arbusto de 1,5 m
+     * passa a ocupar 150 pixels — mais que o dobro da faixa inteira do fundo,
+     * com um vigésimo das cópias.
+     *
+     * E ela faz um segundo trabalho, que é de composição: vaso grande nas duas
+     * bordas EMOLDURA o quadro. O olho entra pelo meio porque os lados estão
+     * ocupados, e a cena ganha a profundidade de ter algo perto, algo no meio e
+     * algo longe — que é a definição de profundidade.
+     */
+    // x = ±6,0 e nao ±12,6, e eu quebrei a minha propria regra na primeira
+    // tentativa: em z = −1,39 a meia-largura visivel e 1,068 × 7,29 = 7,79 m, e
+    // os vasos em ±12,6 cairam inteiros FORA do quadro, e em ±7,2 ficaram atras
+    // dos pilares. Quanto mais a frente,
+    // mais estreita a janela — e e justamente na frente que eu queria por massa.
+    for (const [v, xv] of [-6.0, 6.0].entries()) {
+      const zv = zCentro + prof * 0.27
+      sombra(xv, zv, 2.6, 2.6)
+      col.poe('vasoAlto', gVasoAlto, mVaso, [xv, piso, zv], [0, 0, 0], [1.5, 1.4, 1.5])
+      col.poe('terra', gTerra, mTerra, [xv, piso + 0.95, zv], [-Math.PI / 2, 0, 0], [1.4, 1.4, 1])
+      // Palmeira menor, saindo do vaso: a vertical que fecha a lateral.
+      col.poe('estipe', gEstipe, mMadeiraClara, [xv, piso + 1.9, zv], [0.06, 0, -0.05 + v * 0.1], [0.7, 0.62, 0.7])
+      for (let fr = 0; fr < 9; fr++) {
+        const a = (fr / 9) * Math.PI * 2 + v * 2
+        const cai = 0.18 + (fr / 9) * 1.0
+        col.poe(
+          'fronde',
+          gFronde,
+          mFronde,
+          [xv + Math.sin(a) * 0.55, piso + 2.86 - cai * 0.4, zv + Math.cos(a) * 0.42],
+          [Math.cos(a) * cai, -a + Math.PI / 2, -Math.sin(a) * cai],
+          [0.85, 0.85, 0.85],
+        )
+      }
+      // Massa de folha larga preenchendo o vaso, e pendente derramando pela
+      // borda: sem isso o estipe sai de terra nua e a peça lê como vaso de loja.
+      for (let f = 0; f < 46; f++) {
+        const a = ruido(f, 460 + v) * Math.PI * 2
+        const r = Math.sqrt(ruido(f, 461 + v)) * 0.62
+        col.poe(
+          'folhaArbusto',
+          gFolhaLarga,
+          mFolha,
+          [
+            xv + Math.sin(a) * r,
+            piso + 0.95 + ruido(f, 462 + v) * 0.85,
+            zv + Math.cos(a) * r * 0.8,
+          ],
+          [ruido(f, 463 + v) * 3, ruido(f, 464 + v) * 6, ruido(f, 465 + v) * 3],
+          (() => {
+            const e = 1.0 + ruido(f, 466 + v) * 0.9
+            return [e, e, e] as [number, number, number]
+          })(),
+          TONS_DE_OLIVA[(f + v) % TONS_DE_OLIVA.length]!,
+        )
+      }
+      for (let d = 0; d < 12; d++) {
+        const a = ruido(d, 470 + v) * Math.PI * 2
+        const comp = 0.4 + ruido(d, 471 + v) * 0.6
         col.poe(
           'pendente',
           gPendente,
           mFolha,
-          [xd, piso + 0.5 - comp * 0.42, zCanteiro + 0.4],
-          [0.35 + ruido(d, 322 + j) * 0.5, ruido(d, 323 + j) * 3, 0],
-          [1, comp / 0.42, 1],
-          TONS_DE_OLIVA[(d + j) % TONS_DE_OLIVA.length]!,
+          [xv + Math.sin(a) * 0.5, piso + 0.92 - comp * 0.45, zv + Math.cos(a) * 0.5],
+          [0.6 + ruido(d, 472 + v) * 0.6, a, 0],
+          [1.3, comp / 0.42, 1.3],
+          TONS_DE_OLIVA[(d + v) % TONS_DE_OLIVA.length]!,
         )
-        for (let fo = 0; fo < 4; fo++)
-          col.poe(
-            'folhaLarga',
-            gFolhaLarga,
-            mFolha,
-            [
-              xd + (ruido(fo, 324 + d) - 0.5) * 0.16,
-              piso + 0.46 - (fo / 4) * comp,
-              zCanteiro + 0.44,
-            ],
-            [1.2, ruido(fo, 325 + d) * 3, ruido(fo, 326 + d) * 2],
-            [0.7, 0.7, 0.7],
-            TONS_DE_OLIVA[(fo + d) % TONS_DE_OLIVA.length]!,
-          )
+      }
+      for (let fl = 0; fl < 14; fl++) {
+        const a = ruido(fl, 480 + v) * Math.PI * 2
+        const r = ruido(fl, 481 + v) * 0.55
+        col.poe(
+          'flor',
+          gFlor,
+          mFlor,
+          [xv + Math.sin(a) * r, piso + 1.1 + ruido(fl, 482 + v) * 0.6, zv + Math.cos(a) * r * 0.8],
+          [0, ruido(fl, 483 + v) * 3, 0],
+          [1.3, 0.9, 1.3],
+          TONS_DE_FLOR[(fl + v) % TONS_DE_FLOR.length]!,
+        )
       }
     }
 
