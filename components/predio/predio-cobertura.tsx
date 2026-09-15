@@ -1033,13 +1033,28 @@ export function Cobertura({
      * mesmo ruído determinístico — a cena continua idêntica a cada carregamento,
      * que é regra da casa, mas deixa de ser uma grade.
      *
-     * A de índice 4 é a exceção deliberada: girada 24°, puxada para fora da
-     * fila. É "a que alguém mexeu", e uma só basta para o conjunto inteiro
-     * deixar de parecer arrumado por software.
+     * Uma delas é a exceção deliberada: girada 24°, puxada para fora da fila. É
+     * "a que alguém mexeu", e uma só basta para o conjunto inteiro deixar de
+     * parecer arrumado por software.
+     *
+     * QUATRO, ENCOSTADAS NA PISCINA — eram seis, de −8,4 a 8,4.
+     *
+     * O dono pediu para limpar a frente do escritório e do bar, e a fila era o
+     * principal infrator dos dois lados: a de −6,1 cruzava o pano de vidro na
+     * altura da mesa, e a de 6,1 cortava o balcão bem onde ficam as banquetas.
+     * As de ±8,4 nunca estiveram em jogo — caem fora do quadro nas duas pontas.
+     *
+     * Então não foi só apagar duas: a fila inteira encolheu para o VÃO DA
+     * PISCINA (−3,9 a 2,9), que é onde espreguiçadeira tem motivo para estar. O
+     * resultado é melhor do que era antes do pedido, porque seis espalhadas por
+     * 17 m era mobília distribuída por régua, e não por uso.
+     *
+     * Os terços laterais não ficam vazios: quem os ocupa agora são o escritório
+     * aceso e o nicho do bar, que são as duas peças mais caras da cena.
      */
-    const espreguicadeiras = [-8.4, -6.1, -2.3, 2.3, 6.1, 8.4]
+    const espreguicadeiras = [-3.9, -1.7, 0.7, 2.9]
     for (const [k, xBase] of espreguicadeiras.entries()) {
-      const foraDaFila = k === 4
+      const foraDaFila = k === 2
       const giro = foraDaFila ? 0.42 : (ruido(k, 200) - 0.5) * 0.24
       const x = xBase + (ruido(k, 201) - 0.5) * 0.3
       const z = zEspreguicadeiras + (ruido(k, 202) - 0.5) * 0.55 + (foraDaFila ? 0.5 : 0)
@@ -1111,10 +1126,40 @@ export function Cobertura({
        * datacenter: a única coisa da cena que não foi instalada, foi deixada.
        * Duas das seis, em ângulos diferentes, uma caída até o deck.
        */
-      if (k === 1 || k === 4) {
+      // Duas das quatro, e não duas das seis: o índice 4 não existe mais.
+      if (k === 1 || k === 3) {
         col.poe('toalha', gToalha, mToalha, p(0.02, 0.48, 0.1), [0.06, giro + 0.1, 0])
-        if (k === 4)
-          col.poe('toalha', gToalha, mToalha, p(0.36, 0.2, 0.72), [1.2, giro - 0.3, 0], [1, 0.7, 1])
+        /**
+         * A TOALHA CAÍDA ESTAVA EM PÉ, e encolher a fila é que revelou isso.
+         *
+         * A rotação era `[1,2, giro − 0,3, 0]`. `gToalha` é uma `RoundedBox` FINA
+         * EM Y — ela já nasce deitada —, então 1,2 rad em x não a deita: levanta
+         * 69° do deck. O que se via era uma placa cinza escura de pé sobre a
+         * madeira, com cara de colchão encostado, não de toalha escorregada.
+         *
+         * O defeito sempre esteve ali; ficava ESCONDIDO atrás da espreguiçadeira
+         * vizinha enquanto a fila tinha seis peças espalhadas por 17 m. Trazer a
+         * fila para o vão da piscina abriu o ângulo e o expôs — mover mobília não
+         * cria defeitos, revela os que já estavam lá.
+         *
+         * Registro também o meu erro no meio do conserto: eu li a peça como
+         * `PlaneGeometry` (que nasce VERTICAL e pede −π/2 para deitar) e apliquei
+         * −π/2. O render seguinte mostrou a placa ainda de pé, agora a 78°. A
+         * regra é pequena e vale para toda esta cena: antes de rotacionar,
+         * confirmar em que eixo a geometria é FINA. Caixa fina em y precisa de um
+         * ângulo perto de ZERO para ficar no chão; plano precisa de −π/2.
+         */
+        if (k === 3)
+          col.poe(
+            'toalha',
+            gToalha,
+            mToalha,
+            p(0.52, 0.022, 0.86),
+            // Quase zero, com um quarto de grau de cada lado: pano largado não
+            // fica alinhado com o deck, mas também não levanta.
+            [0.05, giro - 0.5, 0.04],
+            [1, 0.7, 1],
+          )
       }
     }
 
@@ -2263,8 +2308,10 @@ export function Cobertura({
      * projetista contra a desordem do resto. Assimetria aqui destruiria o
      * sentido do objeto.
      */
+    // A fila recuou 1,6 m: ela terminava em 7,6, dentro da faixa do bar, e as
+    // duas últimas bolas subiam na frente da prateleira de baixo das garrafas.
     for (let b = 0; b < 5; b++) {
-      const x = 2.6 + b * 1.25
+      const x = 1.0 + b * 1.25
       sombra(x, zCentro - prof * 0.33, 1.0, 1.0)
       col.poe('buxo', gBuxo, mBuxo, [x, piso + 0.34, zCentro - prof * 0.33], [0, b * 0.7, 0])
     }
@@ -2277,7 +2324,11 @@ export function Cobertura({
      * A roseta de folha rígida e pontuda é a peça que quebra isso — e é, junto
      * com o buxo, o que diz "isto foi projetado" em vez de "isto cresceu".
      */
-    for (const [k, x] of [-5.6, 6.4].entries()) {
+    // −2,6 e 3,6, e não −5,6 e 6,4. Os dois vasos estavam encostados nas duas
+    // peças que o dono quer ver: o de −5,6 ficava 10 cm à frente do pano de vidro
+    // do escritório, e o de 6,4 na quina do nicho do bar. Agave é planta de
+    // PONTUAR, não de tapar — ela só faz o trabalho dela num vão livre.
+    for (const [k, x] of [-2.6, 3.6].entries()) {
       const z = zCanteiro + 0.95
       sombra(x, z, 1.3, 1.3)
       col.poe('vaso', gVaso, mVaso, [x, piso, z])
