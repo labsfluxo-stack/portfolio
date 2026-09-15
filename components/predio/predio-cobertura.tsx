@@ -14,7 +14,6 @@ import {
   graminea,
   madeiraDeDeck,
   normalDeAgua,
-  tecido,
 } from './predio-materiais'
 
 /**
@@ -144,6 +143,44 @@ function catenaria(
  * escada. Então o `z` passa a ser DERIVADO da parede em vez de escolhido a olho,
  * e a chance de os dois se cruzarem de novo quando um deles mudar desaparece.
  */
+/**
+ * A PISCINA, DEFINIDA POR BORDAS — e não por centro mais fator, como era.
+ *
+ * Ela vive nos dois lados do arquivo: o tanque, a lâmina, o fundo e as pedras
+ * estão no bloco JSX (a lâmina é transparente e precisa ser ordenada), e a
+ * escada e o degrau submerso estão no coletor. As duas metades derivavam a
+ * posição de `zCentro − prof × 0,03` cada uma por conta própria, e as dimensões
+ * eram cinco fatores independentes (0,26 para a lâmina, 0,145 para a distância
+ * das pedras, 0,29 para as pedras laterais, 0,27 para o tanque). Mexer na
+ * profundidade da água exigia acertar os cinco à mão e torcer.
+ *
+ * Agora há uma fonte só, e ela diz o que a piscina É: onde começa e onde acaba.
+ * Tudo o mais — centro, profundidade, borda — sai daí por conta.
+ *
+ * A LÂMINA AVANÇOU 2,28 m PARA A FRENTE — a borda foi de −3,60 para −1,33, e o
+ * tanque passou de 3,38 m para 5,66 m de profundidade, 67% a mais. Pedido do
+ * dono, e ela só pôde ir tão longe porque as espreguiçadeiras saíram na mesma
+ * leva e liberaram a faixa de deck inteira.
+ *
+ * A razão de crescer para a FRENTE e não para trás é de ângulo, e é o que faz o
+ * ganho ser maior do que os números sugerem. A câmera olha a lâmina quase de
+ * raspão: água acrescentada no fundo chega comprimida em quase nada na tela,
+ * enquanto a mesma água acrescentada perto abre.
+ *
+ * O limite não é estético, é de colisão. A pedra da borda ocupa −1,34 a −0,92, e
+ * depois dela ainda precisam caber o ralo do deck e o vidro do guarda-corpo
+ * (zCentro + prof × 0,40 = 0,30). O ralo estava em × 0,30 = −1,00, ou seja
+ * DENTRO da pedra — andou para × 0,345, e agora sobram 50 cm de deck entre os
+ * dois. É essa folga que impede a próxima mudança de empurrar a piscina contra
+ * o parapeito.
+ */
+const PISCINA = { fundo: 0.16, frente: 0.275 }
+const piscinaZ = (zCentro: number, prof: number) => {
+  const fundo = zCentro - prof * PISCINA.fundo
+  const frente = zCentro + prof * PISCINA.frente
+  return { fundo, frente, centro: (fundo + frente) / 2, profundidade: frente - fundo }
+}
+
 const ESCRITORIO = { x: -7.8, largura: 5.8, altura: 2.92, profundidade: 2.0 }
 /** Face interna da parede do andar — é ela que fecha o escritório por trás. */
 const zDaParedeDoAndar = (zCentro: number, prof: number) => zCentro - prof / 2 + 0.15
@@ -168,7 +205,8 @@ export function Cobertura({
     const col = new Coletor()
     const madeira = madeiraDeDeck()
     const pedra = concreto()
-    const lona = tecido()
+    // `tecido()` saiu com o guarda-sol e as espreguiçadeiras: era a trama de lona
+    // do estofado e da cúpula, e não sobrou nenhuma peça de pano na cobertura.
     const recorteDeFolha = folha()
     const recorteDeFolhaLarga = folha('ovalada')
     const recorteDeFronde = fronde()
@@ -181,20 +219,11 @@ export function Cobertura({
     // ESPREGUIÇADEIRA. Estrutura tubular + estofado, não duas caixas.
     // GOMOS, nao uma almofada inteira: e a costura que faz o estofado ler como
     // macio. Ver o comentario no ponto de uso.
-    const gGomoAssento = new RoundedBoxGeometry(0.68, 0.13, 0.38, 2, 0.055)
-    const gGomoEncosto = new RoundedBoxGeometry(0.68, 0.12, 0.4, 2, 0.05)
     // Doze lados e nao oito: com a camera assentando a 5,9 m, um tubo de oito
     // lados mostra a faceta e o reflexo anda em degraus ao longo dele.
-    const gTuboLado = new THREE.CylinderGeometry(0.021, 0.021, 1.98, 12)
-    const gPernaEspr = new THREE.CylinderGeometry(0.017, 0.017, 0.32, 8)
-    const gRoda = new THREE.CylinderGeometry(0.055, 0.055, 0.032, 16)
-    const gToalha = new RoundedBoxGeometry(0.52, 0.035, 1.0, 1, 0.017)
     // A almofada nao fica solta em cima do tubo: ela assenta DENTRO de um
     // caixilho. E a longarina do caixilho, aparecendo rente ao estofado, que diz
     // que a peca tem estrutura por baixo em vez de ser um colchao no chao.
-    const gLongarina = new RoundedBoxGeometry(0.045, 0.055, 1.94, 1, 0.012)
-    const gBraco = new THREE.TorusGeometry(0.17, 0.019, 6, 10, Math.PI)
-    const gSapata = new THREE.CylinderGeometry(0.026, 0.032, 0.018, 8)
 
     // PERGOLADO. Viga com chanfro e chapa de aço no encontro com o poste — é a
     // ferragem que diz "construído" em vez de "empilhado".
@@ -364,34 +393,10 @@ export function Cobertura({
     // folhagem esconde o ramo quase inteiro; o ramo so aparece nos vaos.
     const gFolhaOliva = new THREE.PlaneGeometry(0.3, 0.115)
 
-    // GUARDA-SOL. Perfil em `Lathe` com CAIMENTO: lona esticada por varetas
-    // afunda entre elas, então o corte não é reto — é uma curva côncava. Cone
-    // perfeito é o que faz guarda-sol parecer chapéu de festa.
-    const perfilLona = [
-      new THREE.Vector2(0.0, 0.36),
-      new THREE.Vector2(0.28, 0.32),
-      new THREE.Vector2(0.62, 0.24),
-      new THREE.Vector2(0.98, 0.13),
-      new THREE.Vector2(1.28, 0.02),
-      new THREE.Vector2(1.48, -0.08),
-      new THREE.Vector2(1.5, -0.13),
-    ]
-    // 8 segmentos de propósito: a borda sai recortada em oito pontas, que é
-    // exatamente o número de varetas de um guarda-sol de mercado.
-    const gLona = new THREE.LatheGeometry(perfilLona, 8)
-    const gMastro = new THREE.CylinderGeometry(0.028, 0.033, 2.3, 14)
-    const gVareta = new THREE.BoxGeometry(0.018, 0.016, 1.34)
-    const gPonteira = new THREE.ConeGeometry(0.055, 0.16, 8)
-    // CUBO DAS VARETAS: o anel onde as oito varetas se encontram no mastro.
-    // Sem ele as varetas nascem do nada no meio do ar.
-    const gCubo8 = new THREE.CylinderGeometry(0.075, 0.09, 0.11, 8)
-    // BABADO do guarda-sol: a saia curta que pende da borda. E o detalhe que
-    // separa guarda-sol de mercado de cone de papel.
-    const gBabado = new THREE.CylinderGeometry(1.5, 1.44, 0.13, 8, 1, true)
-    // BASE do guarda-sol: disco pesado de concreto. Guarda-sol sem base voa, e
-    // o olho sabe disso mesmo sem pensar — mastro entrando direto no deck le
-    // como adereco espetado.
-    const gBaseSol = new THREE.CylinderGeometry(0.3, 0.34, 0.09, 16)
+    // O GUARDA-SOL SAIU INTEIRO — lona em `Lathe` com caimento, mastro, varetas,
+    // cubo, ponteira, babado e base de concreto. Ver o bloco de uso para o
+    // porquê. As sete geometrias e o material dele saem junto: geometria que
+    // ninguém instancia não economiza nada e cobra atenção de quem vier depois.
 
     // VASO. Tronco de cone com BORDA — é a borda que o olho lê como vaso.
     const perfilVaso = [
@@ -422,7 +427,6 @@ export function Cobertura({
     const gGalhoOliva = new THREE.CylinderGeometry(0.022, 0.05, 0.8, 5)
     // Tufo PEQUENO: a copa aberta precisa de muitos pequenos, nao poucos grandes.
     const gTufoOliva = new THREE.IcosahedronGeometry(0.27, 0)
-    const gArbusto = new THREE.IcosahedronGeometry(0.2, 0)
     // BUXO: subdividido uma vez. Arbusto APARADO e liso — a faceta grossa que
     // serve para folhagem solta aqui contaria a historia errada.
     const gBuxo = new THREE.IcosahedronGeometry(0.36, 1)
@@ -433,7 +437,6 @@ export function Cobertura({
     const gFolhaAgave = new THREE.CylinderGeometry(0.006, 0.055, 0.72, 4)
     // JARDINEIRA LINEAR de corten — calha corrida, nao vaso pontual.
     const gJardineira = new RoundedBoxGeometry(3.4, 0.54, 0.8, 1, 0.018)
-    const gTerraLinear = new THREE.PlaneGeometry(3.16, 0.6)
 
     // BAR. Tampo em BALANÇO sobre o balcão (a sombra fina embaixo do tampo é o
     // que dá espessura ao móvel) e apoio de pé em tubo.
@@ -483,17 +486,6 @@ export function Cobertura({
       map: madeira.map,
       normalMap: madeira.normalMap,
       roughnessMap: madeira.roughnessMap,
-    })
-    // Cru, não branco. Estofado branco puro sob sol de hora dourada estoura e
-    // vira mancha sem forma — e lona de exterior não é branca de fábrica.
-    const mTecido = new THREE.MeshStandardMaterial({ color: '#ded2be', roughness: 0.93, ...lona })
-    const mLonaSol = new THREE.MeshStandardMaterial({
-      color: '#e9dfcb',
-      roughness: 0.9,
-      side: THREE.DoubleSide,
-      map: lona.map,
-      normalMap: lona.normalMap,
-      roughnessMap: lona.roughnessMap,
     })
     // Alumínio ESCOVADO, não polido: rugosidade 0,34 quebra o reflexo em vez de
     // devolver o céu inteiro. Metal polido numa cena com uma luz só vira mancha.
@@ -739,12 +731,6 @@ export function Cobertura({
     // Toalha: listrada nao da para desenhar sem outra textura, mas a COR fria
     // no meio de um deck ambar ja faz o trabalho — e pano de praia raramente e
     // da cor da mobilia.
-    const mToalha = new THREE.MeshStandardMaterial({
-      color: '#9fb6c4',
-      roughness: 0.96,
-      map: lona.map,
-      normalMap: lona.normalMap,
-    })
     /**
      * ═══ A LUZ PRATICA ═══
      *
@@ -923,14 +909,14 @@ export function Cobertura({
      * lugar onde espreguiçadeira fica numa cobertura de verdade — e a lâmina
      * volta a aparecer inteira por cima delas, que é o que o dono pediu.
      */
-    const zEspreguicadeiras = zCentro + prof * 0.235
     const zPergolaFrente = zCentro - prof * 0.02
     const zPergolaFundo = zCentro - prof * 0.26
     const zBar = zCentro - prof * 0.208
     const zArvores = zCentro - prof * 0.277
     const zCanteiro = zCentro - prof * 0.4
     const zGuarda = zCentro + prof * 0.4
-    const zEspelhoLocal = zCentro - prof * 0.03
+    const piscina = piscinaZ(zCentro, prof)
+    const zEspelhoLocal = piscina.centro
 
     // ── deck ──────────────────────────────────────────────────────────────
     const ripas = Math.floor((meiaLargura * 2) / 0.24)
@@ -963,9 +949,9 @@ export function Cobertura({
     // RALO. Laje de cobertura escoa agua, e o ralo e o unico objeto do piso que
     // prova isso. Fica no ponto baixo, perto da borda.
     for (const xr of [-6.2, 4.8]) {
-      col.poe('ralo', gRalo, mAco, [xr, piso + 0.026, zCentro + prof * 0.3])
+      col.poe('ralo', gRalo, mAco, [xr, piso + 0.026, zCentro + prof * 0.345])
       for (let b = 0; b < 5; b++)
-        col.poe('barraRalo', gBarraRalo, mAco, [xr - 0.1 + b * 0.05, piso + 0.032, zCentro + prof * 0.3])
+        col.poe('barraRalo', gBarraRalo, mAco, [xr - 0.1 + b * 0.05, piso + 0.032, zCentro + prof * 0.345])
     }
 
     // ── pergolado ─────────────────────────────────────────────────────────
@@ -1035,223 +1021,46 @@ export function Cobertura({
     }
 
     /**
-     * ESPREGUIÇADEIRAS — e aqui entra o tell mais forte que sobrou na cena:
-     * NADA NO MUNDO REAL ESTÁ ALINHADO.
+     * -- espreguicadeiras: NENHUMA ------------------------------------------
      *
-     * Seis espreguiçadeiras em x exato, todas no mesmo z, todas no mesmo ângulo,
-     * todas com o encosto na mesma reclinação. Isso não existe nem em foto de
-     * catálogo — porque alguém sempre arrastou uma para pegar sol, outra para
-     * fugir dele, e ninguém recoloca nada no lugar. Enquanto a fila está
-     * perfeita, o olho lê "array" antes de ler "móvel", e nenhuma quantidade de
-     * textura desfaz isso.
+     * Eram seis, viraram quatro e agora saem inteiras, a pedido do dono, junto
+     * com a estrutura tubular, os gomos de assento e encosto, o travesseiro e as
+     * toalhas. Registro por que, porque a peca acabara de ser consertada e
+     * alguem pode querer traze-la de volta.
      *
-     * Então cada uma ganha: giro próprio de até ±7°, deslocamento próprio em z,
-     * e reclinação de encosto própria. São três números por peça, vindos do
-     * mesmo ruído determinístico — a cena continua idêntica a cada carregamento,
-     * que é regra da casa, mas deixa de ser uma grade.
+     * O terraco tem pouco mais de tres metros de deck entre a piscina e o
+     * guarda-corpo, e uma espreguicadeira tem 1,98 m mais o sorteio de posicao.
+     * Ela CABE, e nunca coube confortavelmente: foi o que empurrou a fila para
+     * dentro da agua na primeira arrumacao, e o que obrigou a encolher o
+     * deslocamento da "fora da fila" de 0,5 para 0,28 na segunda. Com a lamina
+     * avancando a pedido do dono, a faixa apertou de vez.
      *
-     * Uma delas é a exceção deliberada: girada 24°, puxada para fora da fila. É
-     * "a que alguém mexeu", e uma só basta para o conjunto inteiro deixar de
-     * parecer arrumado por software.
-     *
-     * QUATRO, ENCOSTADAS NA PISCINA — eram seis, de −8,4 a 8,4.
-     *
-     * O dono pediu para limpar a frente do escritório e do bar, e a fila era o
-     * principal infrator dos dois lados: a de −6,1 cruzava o pano de vidro na
-     * altura da mesa, e a de 6,1 cortava o balcão bem onde ficam as banquetas.
-     * As de ±8,4 nunca estiveram em jogo — caem fora do quadro nas duas pontas.
-     *
-     * Então não foi só apagar duas: a fila inteira encolheu para o VÃO DA
-     * PISCINA (−3,9 a 2,9), que é onde espreguiçadeira tem motivo para estar. O
-     * resultado é melhor do que era antes do pedido, porque seis espalhadas por
-     * 17 m era mobília distribuída por régua, e não por uso.
-     *
-     * Os terços laterais não ficam vazios: quem os ocupa agora são o escritório
-     * aceso e o nicho do bar, que são as duas peças mais caras da cena.
+     * A troca e boa. A piscina passa a ocupar a faixa inteira e o que se ve no
+     * primeiro plano e agua, que e o que foi pedido. E as pecas que dizem
+     * "alguem usa isto" continuam na cena: o varal aceso, o escritorio com a
+     * cadeira torta e as tacas penduradas no bar.
      */
-    // Passo de 2,6 m para uma peça de 0,8 m de largura: a folga entre duas é o
-    // triplo da peça, e é por ela que a lâmina d'água aparece.
-    const espreguicadeiras = [-4.2, -1.6, 1.0, 3.6]
-    for (const [k, xBase] of espreguicadeiras.entries()) {
-      const foraDaFila = k === 2
-      const giro = foraDaFila ? 0.42 : (ruido(k, 200) - 0.5) * 0.24
-      const x = xBase + (ruido(k, 201) - 0.5) * 0.3
-      const z = zEspreguicadeiras + (ruido(k, 202) - 0.5) * 0.55 + (foraDaFila ? 0.5 : 0)
-      // Reclinação própria: entre 32° e 46°. Ninguém deixa duas no mesmo ponto.
-      const reclina = -(0.56 + ruido(k, 203) * 0.25)
-      const cos = Math.cos(giro)
-      const sen = Math.sin(giro)
-      // Ponto local da peça para o mundo, já girado em torno do próprio centro.
-      const p = (lx: number, ly: number, lz: number): [number, number, number] => [
-        x + lx * cos + lz * sen,
-        piso + ly,
-        z - lx * sen + lz * cos,
-      ]
-
-      sombra(x, z, 2.4, 3.1)
-      // Estrutura tubular: dois tubos correndo o comprimento, quatro pés e duas
-      // rodas na cabeceira. É o esqueleto que a espreguiçadeira de verdade tem —
-      // e são as rodas que dizem "isto se arrasta pelo deck", o detalhe que faz o
-      // objeto parecer usado em vez de colocado.
-      for (const dx of [-0.33, 0.33]) {
-        col.poe('tuboLado', gTuboLado, mMetal, p(dx, 0.33, 0), [Math.PI / 2, giro, 0])
-        for (const dz of [-0.72, 0.62])
-          col.poe('pernaEspr', gPernaEspr, mMetal, p(dx, 0.17, dz))
-        col.poe('roda', gRoda, mAco, p(dx, 0.055, 0.92), [0, giro, Math.PI / 2])
-        // Longarina do caixilho, rente ao estofado: e ela que diz que a almofada
-        // assenta DENTRO de uma estrutura em vez de estar largada no chao.
-        col.poe('longarina', gLongarina, mMetal, p(dx * 1.06, 0.42, 0), [0, giro, 0])
-        // Sapata de borracha no pe. Tubo de metal cortado rente ao deck e o
-        // acabamento que nenhum movel de exterior tem — ele apodreceria o deck.
-        col.poe('sapata', gSapata, mAco, p(dx, 0.018, -0.72))
-        // Braco em U, so na cabeceira. Meia-rosca porque e um tubo dobrado.
-        col.poe('braco', gBraco, mMetal, p(dx, 0.52, -0.3), [Math.PI / 2, 0, giro])
-      }
-      /**
-       * A ALMOFADA É SEGMENTADA, e este é o detalhe que separa "estofado" de
-       * "bloco de espuma".
-       *
-       * Almofada de espreguiçadeira não é um paralelepípedo: é costurada em
-       * gomos, porque precisa DOBRAR onde o encosto articula e porque a costura
-       * impede o enchimento de migrar para uma ponta. Visualmente, esses vincos
-       * são o que o olho usa para ler espessura MACIA — volume sem vinco lê como
-       * plástico rígido, por mais arredondada que esteja a aresta.
-       *
-       * A folga de 2 cm entre gomos É o vinco: ela deixa passar a sombra e
-       * desenha a linha escura que uma costura desenha.
-       */
-      for (let g = 0; g < 3; g++)
-        col.poe('gomoAssento', gGomoAssento, mTecido, p(0, 0.4, 0.6 - g * 0.4), [0, giro, 0])
-      /**
-       * O ENCOSTO ARTICULA NA CABECEIRA DO ASSENTO — antes ele FLUTUAVA, e os
-       * dois erros eram aritméticos.
-       *
-       * 1. ELE NASCIA NO LUGAR ERRADO. Os gomos saíam de `lz = −0,72`, enquanto o
-       *    assento termina em `lz = −0,43`. Sobravam 29 cm de buraco entre as
-       *    duas almofadas, e mais 9 cm de degrau em y — o encosto ficava atrás e
-       *    ACIMA do assento, pendurado no ar. Encosto de espreguiçadeira não tem
-       *    escolha de onde nascer: ele articula na PONTA do assento, porque é uma
-       *    dobradiça. Toda a posição dele tem de sair desse ponto.
-       *
-       * 2. A INCLINAÇÃO TINHA O SINAL TROCADO. `reclina` é negativo, e
-       *    `Rx(negativo)` deita o painel para a FRENTE — ele tombava sobre o
-       *    assento em vez de subir contra a cabeceira. Somado ao item 1, os gomos
-       *    ficavam cruzados em relação à própria linha de centros, que é o
-       *    aspecto de peça desmontada que apareceu no recorte.
-       *
-       * Agora é uma coisa só: um ponto de dobra e uma distância `s` medida ao
-       * longo da inclinação. Subir `s·sen(inc)` e recuar `s·cos(inc)` é a mesma
-       * conta que já resolveu a coroa da palmeira — quando a peça é articulada, a
-       * posição é trigonometria a partir da junta, nunca dois números soltos.
-       */
-      const DOBRA_LZ = -0.4
-      const inc = -reclina
-      for (const s of [0.22, 0.62])
-        col.poe(
-          'gomoEncosto',
-          gGomoEncosto,
-          mTecido,
-          p(0, 0.4 + Math.sin(inc) * s, DOBRA_LZ - Math.cos(inc) * s),
-          [inc, giro, 0],
-        )
-      // Almofada de cabeça em uma das quatro, apoiada no TOPO do encosto — e ela
-      // também sai da mesma conta, senão volta a flutuar quando a reclinação
-      // mudar.
-      if (k % 3 === 1)
-        col.poe(
-          'travesseiro',
-          gArbusto,
-          mTecido,
-          p(0, 0.44 + Math.sin(inc) * 0.84, DOBRA_LZ - Math.cos(inc) * 0.84),
-          [0, giro + 0.4, 0],
-          [1.5, 0.7, 1.0],
-        )
-      /**
-       * A TOALHA — e ela é o objeto mais barato de todos com o maior retorno.
-       *
-       * Espreguiçadeira vazia é mobiliário; espreguiçadeira com toalha jogada é
-       * LUGAR ONDE ALGUÉM ESTEVE. É a mesma lógica do carrinho de serviço no
-       * datacenter: a única coisa da cena que não foi instalada, foi deixada.
-       * Duas das seis, em ângulos diferentes, uma caída até o deck.
-       */
-      // Duas das quatro, e não duas das seis: o índice 4 não existe mais.
-      if (k === 1 || k === 3) {
-        col.poe('toalha', gToalha, mToalha, p(0.02, 0.48, 0.1), [0.06, giro + 0.1, 0])
-        /**
-         * A TOALHA CAÍDA ESTAVA EM PÉ, e encolher a fila é que revelou isso.
-         *
-         * A rotação era `[1,2, giro − 0,3, 0]`. `gToalha` é uma `RoundedBox` FINA
-         * EM Y — ela já nasce deitada —, então 1,2 rad em x não a deita: levanta
-         * 69° do deck. O que se via era uma placa cinza escura de pé sobre a
-         * madeira, com cara de colchão encostado, não de toalha escorregada.
-         *
-         * O defeito sempre esteve ali; ficava ESCONDIDO atrás da espreguiçadeira
-         * vizinha enquanto a fila tinha seis peças espalhadas por 17 m. Trazer a
-         * fila para o vão da piscina abriu o ângulo e o expôs — mover mobília não
-         * cria defeitos, revela os que já estavam lá.
-         *
-         * Registro também o meu erro no meio do conserto: eu li a peça como
-         * `PlaneGeometry` (que nasce VERTICAL e pede −π/2 para deitar) e apliquei
-         * −π/2. O render seguinte mostrou a placa ainda de pé, agora a 78°. A
-         * regra é pequena e vale para toda esta cena: antes de rotacionar,
-         * confirmar em que eixo a geometria é FINA. Caixa fina em y precisa de um
-         * ângulo perto de ZERO para ficar no chão; plano precisa de −π/2.
-         */
-        if (k === 3)
-          col.poe(
-            'toalha',
-            gToalha,
-            mToalha,
-            p(0.52, 0.022, 0.86),
-            // Quase zero, com um quarto de grau de cada lado: pano largado não
-            // fica alinhado com o deck, mas também não levanta.
-            [0.05, giro - 0.5, 0.04],
-            [1, 0.7, 1],
-          )
-      }
-    }
 
     /**
-     * ── guarda-sóis ────────────────────────────────────────────────────────
+     * ── guarda-sóis: NENHUM ────────────────────────────────────────────────
      *
-     * UM SÓ, e ele foi de x = 5,0 para 2,0.
+     * Eram dois, em 5,0 e 7,8. O de 7,8 saiu porque tapava o bar; o de 5,0 foi
+     * para 2,0 e agora sai também, a pedido do dono.
      *
-     * Eram dois, em 5,0 e 7,8, e os dois atrapalhavam a mesma coisa: o bar, que
-     * vive em x = 9. Cada guarda-sol é um disco OPACO de 3 m de diâmetro a 2,3 m
-     * de altura — na faixa exata em que estão o nicho de garrafas e a bandeira.
-     * O de 7,8 saiu; o de 5,0 ainda comia a borda esquerda do bar no render, e
-     * foi para 2,0, onde ele passa a cobrir as espreguiçadeiras do meio, que é
-     * para o que guarda-sol serve.
+     * A peça em si estava certa — mastro, cubo, oito varetas, babado, base de
+     * concreto. O problema é o que ela É: um disco OPACO de 3 m de diâmetro a
+     * 2,3 m de altura, pendurado exatamente na faixa vertical onde vivem a
+     * piscina, o pergolado e o miolo do jardim. Não existe posição boa para ele
+     * neste quadro; existe só a posição que esconde menos.
      *
-     * O dono autorizou remover o que atrapalhasse. Vale registrar o critério que
-     * usei, porque ele não é "remover o que está na frente": é remover o objeto
-     * BARATO quando ele esconde um CARO. Guarda-sol são 13 instâncias; o bar são
-     * mais de oitenta, e é ele que a referência põe fechando a direita do quadro.
+     * E o que se ganha não é só o vão: guarda-sol ABERTO ao entardecer é errado
+     * de qualquer forma. Ninguém deixa a lona aberta depois do pôr do sol — e a
+     * cena inteira está construída em cima dessa hora.
+     *
+     * Ficam sem uso `gMastro`, `gVareta`, `gPonteira`, `gCubo8`, `gBabado`,
+     * `gBaseSol`, `gLona` e `mLonaSol`. Removidos junto: geometria que ninguém
+     * instancia é peso de leitura para quem vier depois, não economia.
      */
-    for (const x of [2.0]) {
-      const z = zEspreguicadeiras - 0.4
-      sombra(x, z, 1.2, 1.2)
-      col.poe('baseSol', gBaseSol, mPedra, [x, piso + 0.06, z])
-      col.poe('mastro', gMastro, mMetal, [x, piso + 1.15, z])
-      col.poe('cubo8', gCubo8, mMetal, [x, piso + 2.18, z])
-      col.poe('lona', gLona, mLonaSol, [x, piso + 2.28, z])
-      col.poe('ponteira', gPonteira, mMetal, [x, piso + 2.72, z])
-      // BABADO: a saia curta que pende da borda da lona. E o detalhe que separa
-      // guarda-sol de mercado de cone de papel — e ele balanca, entao a borda
-      // nunca e uma linha limpa.
-      col.poe('babado', gBabado, mLonaSol, [x, piso + 2.13, z])
-      // As varetas por baixo: sem elas a lona é uma casca flutuando.
-      for (let v = 0; v < 8; v++) {
-        const a = (v / 8) * Math.PI * 2
-        col.poe(
-          'vareta',
-          gVareta,
-          mMetal,
-          [x + Math.sin(a) * 0.68, piso + 2.24, z + Math.cos(a) * 0.68],
-          [0.1, a, 0],
-        )
-      }
-    }
 
     /**
      * ═══ O BAR, REFEITO COMO NICHO RETROILUMINADO ═══
@@ -2451,7 +2260,8 @@ export function Cobertura({
     }
   }, [malhas, scene])
 
-  const zEspelho = zCentro - prof * 0.03
+  const piscina = piscinaZ(zCentro, prof)
+  const zEspelho = piscina.centro
   const zGuardaCorpo = zCentro + prof * 0.4
   // Repetidos do bloco instanciado de propósito: o vidro e a luz são as duas
   // únicas peças do escritório que NÃO podem ser instanciadas — uma é
@@ -2550,7 +2360,7 @@ export function Cobertura({
        * a cor escura por baixo através da água translúcida é metade do que faz
        * uma piscina parecer cheia. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1, piso - 0.22, zEspelho]}>
-        <planeGeometry args={[9, prof * 0.26]} />
+        <planeGeometry args={[9, piscina.profundidade]} />
         <meshStandardMaterial color="#17495a" roughness={0.9} />
       </mesh>
       {/* A LÂMINA D'ÁGUA.
@@ -2566,7 +2376,7 @@ export function Cobertura({
        * superfície lisa, o reflexo do céu fica inteiro e limpo, e lâmina de
        * reflexo limpo lê como vidro ou como chapa — nunca como água. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1, piso + 0.06, zEspelho]}>
-        <planeGeometry args={[9, prof * 0.26]} />
+        <planeGeometry args={[9, piscina.profundidade]} />
         <meshStandardMaterial
           color="#2d8ba1"
           roughness={0.3}
@@ -2591,15 +2401,15 @@ export function Cobertura({
        *
        * Quatro peças porque a moldura precisa ter espessura visível nos quatro
        * lados, e uma caixa só mostra o lado de fora. */}
-      {[prof * 0.145, -prof * 0.145].map((dz) => (
-        <mesh key={dz} position={[1, piso + 0.045, zEspelho + dz]}>
+      {[piscina.frente + 0.195, piscina.fundo - 0.195].map((cz) => (
+        <mesh key={cz} position={[1, piso + 0.045, cz]}>
           <boxGeometry args={[9.9, 0.09, 0.42]} />
           <meshStandardMaterial color="#cfc4ad" roughness={0.82} />
         </mesh>
       ))}
       {[-3.74, 5.74].map((bx) => (
         <mesh key={bx} position={[bx, piso + 0.045, zEspelho]}>
-          <boxGeometry args={[0.42, 0.09, prof * 0.29]} />
+          <boxGeometry args={[0.42, 0.09, piscina.profundidade + 0.39]} />
           <meshStandardMaterial color="#cfc4ad" roughness={0.82} />
         </mesh>
       ))}
@@ -2615,7 +2425,7 @@ export function Cobertura({
        * é a mesma: numa pilha de planos separados por centímetros, é a ORDEM em
        * y que decide o que se vê, não a intenção de quem escreveu. */}
       <mesh position={[1, piso - 0.2, zEspelho]}>
-        <boxGeometry args={[9.04, 0.34, prof * 0.27]} />
+        <boxGeometry args={[9.04, 0.34, piscina.profundidade + 0.13]} />
         <meshStandardMaterial color="#1d5b6d" roughness={0.75} />
       </mesh>
       {/* O VIDRO DO GUARDA-CORPO, com 0,07 de opacidade — medido. Um plano de
