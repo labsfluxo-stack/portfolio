@@ -494,7 +494,21 @@ export function fronde(): { mapa: THREE.Texture; alfa: THREE.Texture } {
   c.fillRect(0, 0, n, n)
 
   const meio = n / 2
-  const folioloS = 46
+  /**
+   * VINTE E DOIS FOLIOLOS, E NAO QUARENTA E SEIS — e a conta e de pixel, nao de
+   * botanica.
+   *
+   * Uma fronde de verdade tem mais de cem foliolos. Mas na tela ela ocupa cerca
+   * de cem pixels de comprimento, e 46 foliolos ali dao dois pixels cada: o vao
+   * entre eles fecha na amostragem e a fronde volta a ser uma LAMINA MACICA —
+   * exatamente o que o recorte por alfa existia para evitar.
+   *
+   * Com 22, cada foliolo tem quatro ou cinco pixels e o vao sobrevive. E o vao E
+   * a leitura: e por ele que o ceu aparece, e e isso que da a palmeira a
+   * silhueta serrilhada que nenhuma outra planta tem. Fidelidade que nao chega
+   * ao pixel nao e fidelidade, e desperdicio.
+   */
+  const folioloS = 22
 
   const desenha = (ctx: CanvasRenderingContext2D, corpo: string, raquis: string) => {
     ctx.strokeStyle = corpo
@@ -508,7 +522,7 @@ export function fronde(): { mapa: THREE.Texture; alfa: THREE.Texture } {
       const comp = Math.sin(Math.min(1, t * 1.25) * Math.PI) ** 0.7 * (n * 0.33) + 2
       // Os folíolos inclinam para a PONTA, nunca perpendiculares ao ráquis.
       const inclina = 0.55 + t * 0.5
-      ctx.lineWidth = 2.1
+      ctx.lineWidth = 2.9
       for (const s of [-1, 1]) {
         ctx.beginPath()
         ctx.moveTo(x, meio)

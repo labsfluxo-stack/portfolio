@@ -212,7 +212,11 @@ export function Cobertura({
     // do resto do plantio. Na altura da graminea ela vira mais um tufo, e o gesto
     // — estipe fino, copa em arco la em cima — e justamente o que a identifica.
     const gEstipe = new THREE.CylinderGeometry(0.052, 0.1, 4.2, 8)
-    const gFronde = new THREE.PlaneGeometry(1.7, 0.78)
+    // PROPORCAO 5:1, e nao 2:1. Fronde pinada e LONGA E ESTREITA — o raquis corre
+    // dois metros e os foliolos saem poucos centimetros para cada lado. Com 1,7 x
+    // 0,78 ela virava uma pena larga, que e a silhueta de uma folha de bananeira,
+    // nao de palmeira. A proporcao e metade do que identifica a especie.
+    const gFronde = new THREE.PlaneGeometry(2.3, 0.44)
     // FLOR. Um tufo minusculo: a essa distancia flor nao tem petala, tem MANCHA.
     // FLOR PEQUENA. A 0,08 com escala 1,3 ela virava uma bola de 10 cm — a essa
     // distancia isso e uma BOLHA, nao uma flor. Florada de verdade se le como
@@ -451,14 +455,17 @@ export function Cobertura({
     // Nucleo da copa: solido e fosco, so para dar massa escura atras das folhas.
     // FRONDE: mesmo recorte por alfa da folha, com a silhueta pinada propria.
     const mFronde = new THREE.MeshStandardMaterial({
-      color: '#ffffff',
+      // Verde de verdade e nao branco: o mapa ja e claro, e multiplicado por
+      // branco a fronde saia lavada — palmeira ao contraluz e ESCURA com a borda
+      // acesa, nunca uma pena palida.
+      color: '#7d9163',
       roughness: 0.86,
       side: THREE.DoubleSide,
       map: recorteDeFronde.mapa,
       alphaMap: recorteDeFronde.alfa,
       alphaTest: 0.4,
       emissive: new THREE.Color('#42632c'),
-      emissiveIntensity: 0.24,
+      emissiveIntensity: 0.16,
     })
     // FLOR. Quase sem rugosidade e com emissivo proprio: petala e fina e
     // translucida, e numa cena em contraluz ela e a coisa que mais acende.
@@ -1289,25 +1296,61 @@ export function Cobertura({
      * IRREGULAR — palmeira em passo constante lê como alameda, e alameda é
      * outro projeto.
      */
+    /**
+     * A COROA, REFEITA — dois defeitos, e o segundo era estrutural.
+     *
+     * 1. AS FRONDES NASCIAM ABAIXO DO TOPO. O ponto de fixação descia junto com
+     *    o caimento (`3,34 − cai × 0,42`), então as mais tombadas brotavam meio
+     *    metro abaixo da ponta do estipe e sobrava tronco pelado acima da
+     *    folhagem. Em palmeira TODA fronde sai do MESMO ponto: a coroa, no ápice
+     *    do estipe. O que varia é o ângulo com que ela cai dali — nunca a altura
+     *    de onde sai.
+     *
+     * 2. O CAIMENTO ESTAVA AMARRADO AO AZIMUTE. Com `cai = 0,12 + (fr/14)·0,95`
+     *    e `a = (fr/14)·2π`, a fronde descia progressivamente conforme se dava a
+     *    volta na copa: uma escada em espiral, que é exatamente a falta de ordem
+     *    que se vê. Numa palmeira o caimento depende da IDADE, não da direção —
+     *    as novas ficam eretas no miolo, as velhas se abrem e tombam por fora,
+     *    em todas as direções ao mesmo tempo.
+     *
+     * Então são duas COROAS concêntricas: uma interna de frondes jovens quase
+     * verticais e uma externa de velhas tombadas, cada uma com o azimute
+     * distribuído por igual e defasada da outra para as duas se entrelaçarem.
+     *
+     * E a posição virou trigonometria de verdade. A fronde tem 1,7 m e o plano é
+     * CENTRADO, então o centro dela precisa ficar a meia-fronde do eixo na
+     * direção em que ela aponta: alcance horizontal `R·cos(cai)`, queda
+     * `R·sin(cai)`. Com o deslocamento fixo de antes, a metade de dentro
+     * atravessava o tronco e saía pelo outro lado.
+     */
+    const MEIA_FRONDE = 1.15
+    const COROAS = [
+      { n: 5, caiDe: 0.16, caiAte: 0.42, fase: 0 },
+      { n: 9, caiDe: 0.72, caiAte: 1.24, fase: 0.35 },
+    ] as const
     for (const [q, xp] of [-11.8, -6.2, -0.4, 5.6, 11.2].entries()) {
       col.poe('estipe', gEstipe, mMadeiraClara, [xp, piso + 2.6, zFundoVerde], [0.05, 0, 0.04])
-      for (let fr = 0; fr < 14; fr++) {
-        const a = (fr / 14) * Math.PI * 2 + q
-        // As de baixo caem mais: índice alto recebe inclinação maior. Fronde
-        // toda no mesmo ângulo lê como leque de papel.
-        const cai = 0.12 + (fr / 14) * 0.95
-        col.poe(
-          'fronde',
-          gFronde,
-          mFronde,
-          [
-            xp + Math.sin(a) * 0.62,
-            piso + 3.34 - cai * 0.42,
-            zFundoVerde + Math.cos(a) * 0.48,
-          ],
-          [Math.cos(a) * cai, -a + Math.PI / 2, -Math.sin(a) * cai],
-        )
-      }
+      // O ápice: 2,6 de centro mais 2,1 de meia-altura, menos um palmo para a
+      // coroa nascer DENTRO da madeira em vez de flutuar acima dela.
+      const coroa = piso + 4.58
+      for (const c of COROAS)
+        for (let fr = 0; fr < c.n; fr++) {
+          const a = (fr / c.n) * Math.PI * 2 + c.fase + q
+          const cai = c.caiDe + ruido(fr, 490 + q) * (c.caiAte - c.caiDe)
+          const alcance = MEIA_FRONDE * Math.cos(cai)
+          const queda = MEIA_FRONDE * Math.sin(cai)
+          col.poe(
+            'fronde',
+            gFronde,
+            mFronde,
+            [
+              xp + Math.sin(a) * alcance,
+              coroa - queda,
+              zFundoVerde + Math.cos(a) * alcance * 0.82,
+            ],
+            [Math.cos(a) * cai, -a + Math.PI / 2, -Math.sin(a) * cai],
+          )
+        }
     }
 
     /**
