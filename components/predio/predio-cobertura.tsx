@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Coletor } from './predio-instancias'
-import { concreto, madeiraDeDeck, normalDeAgua, tecido } from './predio-materiais'
+import { concreto, folha, madeiraDeDeck, normalDeAgua, tecido } from './predio-materiais'
 
 /**
  * A COBERTURA — o primeiro quadro do site.
@@ -127,6 +127,7 @@ export function Cobertura({
     const madeira = madeiraDeDeck()
     const pedra = concreto()
     const lona = tecido()
+    const recorteDeFolha = folha()
 
     // ── geometrias ────────────────────────────────────────────────────────
     // Raio de 5 mm na régua: é o chanfro que uma régua de deck de verdade tem,
@@ -192,8 +193,26 @@ export function Cobertura({
      */
     // O raminho que carrega o ramalhete de folhas. Escalado em Y por ramo.
     const gRaminho = new THREE.CylinderGeometry(0.004, 0.011, 0.3, 4)
+
+    // CAIXA DE ESCADA: o volume por onde se chega a cobertura.
+    const gCasaEscada = new RoundedBoxGeometry(3.2, 2.5, 2.2, 1, 0.03)
+    const gRufo = new RoundedBoxGeometry(3.42, 0.16, 2.42, 1, 0.02)
+    const gPortaVidro = new THREE.BoxGeometry(1.02, 2.06, 0.035)
+    const gBatente = new THREE.BoxGeometry(1.16, 2.18, 0.07)
+    const gMarquise = new RoundedBoxGeometry(1.9, 0.08, 0.95, 1, 0.014)
+    const gTiranteMarq = new THREE.CylinderGeometry(0.009, 0.009, 0.62, 6)
+    const gArandela = new THREE.BoxGeometry(0.26, 0.09, 0.11)
+    // Junta de dilatacao: o sulco vertical que corta toda parede longa de
+    // concreto. Parede de 30 m sem junta nao existe — ela racharia sozinha.
+    const gJuntaParede = new THREE.BoxGeometry(0.035, 3.2, 0.04)
+    // Chapim do parapeito: a pedra de arremate que corre no topo dele, sempre um
+    // pouco mais larga, para a agua pingar longe da fachada.
+    const gChapim = new THREE.BoxGeometry(1, 0.07, 0.4)
+    const gTorneiraJardim = new THREE.CylinderGeometry(0.016, 0.016, 0.16, 6)
     // Folha de oliveira e LANCEOLADA: estreita e comprida, quase uma lamina.
-    const gFolhaOliva = new THREE.PlaneGeometry(0.19, 0.048)
+    // O quad e mais LARGO que a folha: o recorte por alfa come as pontas, entao a
+    // folha util fica com cerca de 55% da area. A geometria compensa a diferenca.
+    const gFolhaOliva = new THREE.PlaneGeometry(0.21, 0.075)
 
     // GUARDA-SOL. Perfil em `Lathe` com CAIMENTO: lona esticada por varetas
     // afunda entre elas, então o corte não é reto — é uma curva côncava. Cone
@@ -363,6 +382,28 @@ export function Cobertura({
       color: '#ffffff',
       roughness: 0.84,
       side: THREE.DoubleSide,
+      map: recorteDeFolha.mapa,
+      alphaMap: recorteDeFolha.alfa,
+      // 0,45 e nao 0,5: com anisotropia e mipmap, a borda da folha desbota nos
+      // niveis distantes e um limiar alto COME a folha inteira ao longe — a copa
+      // rareia sozinha conforme a camera se afasta, que e um defeito sutil e
+      // dificil de diagnosticar depois.
+      alphaTest: 0.45,
+      /**
+       * EMISSIVO BAIXO = TRANSLUCIDEZ FINGIDA.
+       *
+       * Folha e fina e deixa luz PASSAR: em contraluz, a que esta entre o sol e
+       * o olho acende por tras, e esse verde iluminado por transmissao e a
+       * assinatura de folhagem ao fim da tarde. O three nao faz transmissao em
+       * material padrao, e ligar transmissao de verdade custaria um passe de
+       * cena inteiro — o mesmo que ja cortei duas vezes nesta feature.
+       *
+       * Um emissivo fraco na cor da folha faz o suficiente: as faces em sombra
+       * param de cair para o preto e ficam num verde luminoso. Nao e fisica, e
+       * a leitura certa pelo preco de zero passes.
+       */
+      emissive: new THREE.Color('#4a6b32'),
+      emissiveIntensity: 0.22,
     })
     // Madeira de oliveira e CLARA e acinzentada, nao marrom escura.
     // Nucleo da copa: solido e fosco, so para dar massa escura atras das folhas.
@@ -371,6 +412,21 @@ export function Cobertura({
       roughness: 0.95,
       flatShading: true,
     })
+    const mParedeConcreto = new THREE.MeshStandardMaterial({
+      color: '#bcae97',
+      roughness: 0.95,
+      map: pedra.map,
+      normalMap: pedra.normalMap,
+      roughnessMap: pedra.roughnessMap,
+    })
+    // Porta de saida: vidro escuro com caixilho. Escuro porque o que esta atras
+    // dela e uma escada sem luz, e vidro devolve o que ha atras.
+    const mVidroPorta = new THREE.MeshStandardMaterial({
+      color: '#3c4148',
+      roughness: 0.14,
+      metalness: 0.5,
+    })
+    const mJunta = new THREE.MeshStandardMaterial({ color: '#7d715f', roughness: 0.98 })
     const mMadeiraClara = new THREE.MeshStandardMaterial({ color: '#9a8b76', roughness: 0.93 })
     // Buxo: verde profundo e FOSCO, sem faceta. Contraponto da gramineea.
     const mBuxo = new THREE.MeshStandardMaterial({ color: '#3f5a32', roughness: 0.97 })
@@ -852,7 +908,9 @@ export function Cobertura({
        * dispersão em volta. O giro livre nos três eixos foi exatamente o que fez
        * a versão anterior parecer papel picado suspenso.
        */
-      const ramalhetes = 30
+      // Mais ramalhetes e mais folha por ramalhete: o recorte por alfa tirou
+      // quase metade da area de cada quad, e sem repor a copa RAREIA.
+      const ramalhetes = 38
       for (let b = 0; b < ramalhetes; b++) {
         // O pé do raminho fica na casca da copa. A raiz quadrada empurra para
         // FORA, porque o miolo é oco — é na periferia que está a luz.
@@ -880,9 +938,9 @@ export function Cobertura({
           [1, comp / 0.3, 1],
         )
 
-        for (let f = 0; f < 11; f++) {
+        for (let f = 0; f < 16; f++) {
           // Ao LONGO do raminho, e não em volta dele.
-          const u = 0.15 + (f / 11) * 0.95
+          const u = 0.12 + (f / 16) * 0.98
           const g = b * 17 + f
           col.poe(
             'folhaOliva',
@@ -910,6 +968,71 @@ export function Cobertura({
         }
       }
     }
+
+    /**
+     * A CAIXA DE ESCADA — e ela fecha um BURACO DE LOGICA, nao um vazio visual.
+     *
+     * Esta cobertura nao tinha por onde se chegar. Ninguem formula isso
+     * conscientemente ao olhar, mas o cerebro cobra: um terraco mobiliado, com
+     * bar e piscina, e sem uma porta e um cenario de teatro — a parte que a
+     * camera nao ve simplesmente nao existe. O volume da escada e a peca que
+     * torna o lugar ALCANCAVEL, e isso muda o que a cena afirma.
+     *
+     * Alem disso ela resolve dois problemas de composicao que sobraram: a parede
+     * do fundo era a maior area chapada do quadro, e a metade esquerda nao tinha
+     * nenhuma massa construida entre o pergolado e o ceu.
+     *
+     * A MARQUISE sobre a porta nao e enfeite: porta de saida para laje SEMPRE
+     * tem cobertura, senao chove dentro da escada. E a arandela acima dela e o
+     * que diz que este lugar tambem funciona de noite.
+     */
+    const xEsc = -7.6
+    const zEsc = zCanteiro - 0.55
+    sombra(xEsc, zEsc, 4.2, 3.2)
+    col.poe('casaEscada', gCasaEscada, mParedeConcreto, [xEsc, piso + 1.25, zEsc])
+    // Rufo no topo: o arremate metalico que protege a laje da caixa.
+    col.poe('rufo', gRufo, mAco, [xEsc, piso + 2.56, zEsc])
+    // A porta fica na face da FRENTE do volume, virada para o terraco.
+    const zPorta = zEsc + 1.1
+    col.poe('batente', gBatente, mAco, [xEsc, piso + 1.12, zPorta + 0.02])
+    col.poe('portaVidro', gPortaVidro, mVidroPorta, [xEsc, piso + 1.06, zPorta + 0.05])
+    col.poe('marquise', gMarquise, mPedra, [xEsc, piso + 2.32, zPorta + 0.42])
+    for (const dx of [-0.72, 0.72])
+      col.poe('tiranteMarq', gTiranteMarq, mAco, [xEsc + dx, piso + 2.5, zPorta + 0.72], [0.62, 0, 0])
+    col.poe('arandela', gArandela, mAco, [xEsc, piso + 2.44, zPorta + 0.06])
+
+    /**
+     * JUNTA DE DILATACAO na parede do fundo. Parede de concreto de 30 m sem
+     * junta nao existe: ela racharia sozinha na primeira variacao de
+     * temperatura. O sulco vertical a cada seis metros e a coisa mais simples
+     * que transforma um plano liso em parede CONSTRUIDA, e e uma linha escura
+     * por peca.
+     */
+    for (let i = 0; i < 5; i++)
+      col.poe('juntaParede', gJuntaParede, mJunta, [
+        -12 + i * 6,
+        piso + 1.6,
+        zCanteiro - 1.55,
+      ])
+    // Torneira de jardim, rente a parede. Quem rega as jardineiras precisa dela,
+    // e e o tipo de objeto que so existe em lugar que funciona.
+    col.poe('torneiraJardim', gTorneiraJardim, mAco, [4.2, piso + 0.5, zCanteiro - 1.5], [0, 0, Math.PI / 2])
+
+    /**
+     * CHAPIM DO PARAPEITO: a pedra de arremate que corre no topo dele, sempre um
+     * pouco mais larga que o muro. Nao e decoracao — e o que faz a agua pingar
+     * longe da fachada em vez de escorrer por ela. Visualmente e a linha clara
+     * que define a borda do terraco contra o ceu, e a faixa de concreto lisa do
+     * pe do quadro precisava exatamente disso.
+     */
+    col.poe(
+      'chapim',
+      gChapim,
+      mPedra,
+      [0, piso + 0.375, 1.48],
+      [0, 0, 0],
+      [meiaLargura * 2, 1, 1],
+    )
 
     // ── jardineiras de corten com gramíneas em massa ──────────────────────
     for (const [j, xj] of [-11.5, -7.7, -3.9, -0.1, 3.7, 7.5, 11.3].entries()) {

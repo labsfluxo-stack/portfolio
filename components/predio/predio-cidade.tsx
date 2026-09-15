@@ -70,10 +70,31 @@ function ruido(i: number, k: number): number {
  * névoa da cena já faz parte disso, mas ela satura rápido e é a mesma para
  * tudo; este número é o que separa as três camadas entre si.
  */
+/**
+ * TORRES CONTEMPORANEAS, e a proporcao e o primeiro sinal.
+ *
+ * A versao anterior tinha blocos de quarteirao: largos, baixos e com janela
+ * recortada. E a silhueta de cidade do inicio do seculo XX. Torre moderna e o
+ * contrario — ESBELTA e ALTA, porque estrutura de aco e elevador rapido
+ * deixaram de exigir base larga. A razao altura/largura passou de cerca de 2
+ * para perto de 4, e so isso ja muda a epoca que a linha do horizonte conta.
+ */
+/**
+ * O TETO DE 7,5 m NAO E ESTETICA, E ENQUADRAMENTO — e ele foi medido.
+ *
+ * A primeira versao das torres subiu ate 10,5 m. Na profundidade da faixa da
+ * frente (19,4 m da camera), um topo em 10,5 fica 12,1 m acima da linha da
+ * camera, o que da tan = 0,624 contra 0,601 de meia-abertura: a torre SAI PELO
+ * TOPO da tela. O render confirmou — o skyline comeu o ceu inteiro e o sol
+ * sumiu atras dele.
+ *
+ * Com 7,5 o topo cai em y = 79 de uma tela de 720, e sobra ceu com o sol dentro.
+ * A cidade existe para ENCHER o ceu, nao para substitui-lo.
+ */
 const FAIXAS = [
-  { z: -13.5, n: 23, passo: 2.55, largura: [2.0, 4.4], topo: [1.1, 7.6], janelas: true, clareia: 0 },
-  { z: -17.6, n: 27, passo: 2.2, largura: [1.7, 3.6], topo: [0.6, 5.4], janelas: false, clareia: 0.3 },
-  { z: -19.4, n: 31, passo: 1.9, largura: [1.3, 2.9], topo: [0.2, 3.6], janelas: false, clareia: 0.58 },
+  { z: -13.5, n: 17, passo: 3.5, largura: [1.9, 3.4], topo: [2.0, 7.5], janelas: true, clareia: 0 },
+  { z: -17.6, n: 21, passo: 2.9, largura: [1.6, 2.9], topo: [1.4, 6.0], janelas: true, clareia: 0.3 },
+  { z: -19.4, n: 25, passo: 2.4, largura: [1.3, 2.4], topo: [0.5, 4.4], janelas: false, clareia: 0.58 },
 ] as const
 
 export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: string; ceu: string }) {
@@ -92,10 +113,21 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
     const corDoCeu = new THREE.Color(ceu)
     const materiais = FAIXAS.map((faixa, f) => {
       const base = new THREE.Color(f === 0 ? cor : corDistante)
+      /**
+       * VIDRO, NAO ALVENARIA. A fachada deixa de ser fosca e opaca e passa a
+       * ter reflexo: rugosidade baixa e metalidade media fazem a torre devolver
+       * o ceu, e torre que devolve o ceu e a definicao visual de predio
+       * contemporaneo. Alvenaria absorve; cortina de vidro ESPELHA.
+       *
+       * A cor tambem esfria: a paleta velha era marrom de tijolo. Vidro de
+       * fachada e azul-acinzentado, e ao crepusculo ele puxa para o azul do
+       * zenite que esta refletindo.
+       */
       return new THREE.MeshStandardMaterial({
         color: base.lerp(corDoCeu, faixa.clareia),
-        roughness: 0.96,
-        metalness: 0,
+        roughness: 0.34 + faixa.clareia * 0.4,
+        metalness: 0.45,
+        envMapIntensity: 1.2,
       })
     })
     /**
@@ -113,13 +145,22 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
     // tarde, entao ela e mais CLARA que a fachada e levemente azulada. Pintar de
     // preto e o erro que faz predio distante parecer queimado.
     const mVidroEscuro = new THREE.MeshStandardMaterial({
-      color: '#6d6a7a',
-      roughness: 0.22,
-      metalness: 0.35,
+      color: '#5c6a7e',
+      roughness: 0.12,
+      metalness: 0.62,
+      envMapIntensity: 1.5,
     })
+    // Luz de obstaculo aereo: o ponto vermelho obrigatorio no topo de qualquer
+    // estrutura alta. E minusculo, e e um dos sinais mais especificos de
+    // skyline moderna — nenhum predio de alvenaria antigo tem um.
+    const mLuzAerea = new THREE.MeshBasicMaterial({ color: '#ff3b30' })
 
     const gCubo = new THREE.BoxGeometry(1, 1, 1)
-    const gJanela = new THREE.BoxGeometry(0.25, 0.38, 0.04)
+    // FITA DE VIDRO, nao janela furada. Escalada em X por predio.
+    const gFitaVidro = new THREE.BoxGeometry(1, 0.3, 0.05)
+    const gTrechoAceso = new THREE.BoxGeometry(0.34, 0.26, 0.06)
+    const gMontanteFachada = new THREE.BoxGeometry(0.05, 1, 0.06)
+    const gLuzAerea = new THREE.BoxGeometry(0.1, 0.1, 0.1)
     const gAntena = new THREE.BoxGeometry(0.17, 2.0, 0.17)
     const gCaixa = new THREE.BoxGeometry(1.2, 0.6, 1.2)
     const gPlatibanda = new THREE.BoxGeometry(1, 0.26, 1)
@@ -227,34 +268,82 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             ])
 
         /**
-         * JANELAS EM GRADE, e a grade importa mais que a janela.
+         * A FITA CORRIDA SUBSTITUI A JANELA, e esta é A diferença entre fachada
+         * antiga e contemporânea — não é proporção, é LÓGICA.
          *
-         * A versão anterior sorteava cada janela com 38% de chance, e o
-         * resultado era um salpicado — fachada de prédio não tem janela em
-         * posição arbitrária, tem MALHA, porque as lajes e os pilares mandam.
-         * Agora toda posição da grade recebe janela; o que varia é se ela está
-         * ACESA ou escura, que é o que varia numa cidade de verdade às cinco da
-         * tarde. A malha aparece, e é ela que faz a caixa ler como edifício.
+         * Prédio de alvenaria tem JANELA: um buraco recortado num muro que
+         * sustenta o próprio peso. O buraco é pequeno e cercado de parede por
+         * todos os lados, porque a parede está trabalhando.
+         *
+         * Prédio moderno não tem muro estrutural: a estrutura é o esqueleto
+         * interno e a pele é PENDURADA nele. Liberada de sustentar, essa pele
+         * vira vidro corrido de laje a laje, interrompido só pelos montantes do
+         * caixilho. O que separa um andar do outro deixa de ser parede e vira
+         * uma faixa estreita de peitoril.
+         *
+         * Ou seja, o desenho inverte: em vez de pontuar vidro sobre massa,
+         * corre-se vidro e pontua-se massa. Só mudar o tamanho da janela não
+         * teria chegado aqui.
+         *
+         * E a luz acesa passa a ser um TRECHO da fita, não uma janela inteira:
+         * em planta livre quem acende é uma área, não um cômodo.
          */
-        const colunas = Math.max(1, Math.floor(larg / 0.56))
-        const passoC = larg / (colunas + 0.5)
-        for (let c = 0; c < colunas; c++)
-          for (let l = 0; l < andares; l++) {
-            // Uma em cada quatro acesa: as cinco da tarde ainda ha luz de fora,
-            // entao quase ninguem acendeu. Fachada com metade das janelas acesa e
-            // noite, nao fim de tarde.
-            const acesa = ruido(i * 31 + c * 7 + l, f + 11) > 0.76
+        for (let l = 0; l < andares; l++) {
+          const yFita = topo - 0.5 - l * 0.95
+          col.poe(
+            'fitaVidro',
+            gFitaVidro,
+            mVidroEscuro,
+            [x, yFita, z + prof / 2 + 0.02],
+            [0, 0, 0],
+            [larg * 0.92, 1, 1],
+          )
+          // Montantes do caixilho: sem a divisão vertical, a fita é uma faixa
+          // lisa e o prédio perde escala.
+          const montantes = Math.max(2, Math.round(larg / 0.42))
+          for (let m = 0; m <= montantes; m++)
             col.poe(
-              acesa ? 'janelaAcesa' : 'janelaApagada',
-              gJanela,
-              acesa ? mJanela : mVidroEscuro,
-              [
-                x - ((colunas - 1) * passoC) / 2 + c * passoC,
-                topo - 0.52 - l * 0.95,
-                z + prof / 2 + 0.03,
-              ],
+              'montanteFachada',
+              gMontanteFachada,
+              material,
+              [x - larg * 0.46 + (m * larg * 0.92) / montantes, yFita, z + prof / 2 + 0.05],
+              [0, 0, 0],
+              [1, 0.32, 1],
             )
-          }
+          const trechos = Math.max(2, Math.round(larg / 0.5))
+          for (let t = 0; t < trechos; t++)
+            if (ruido(i * 31 + t * 7 + l, f + 11) > 0.7)
+              col.poe('trechoAceso', gTrechoAceso, mJanela, [
+                x - larg * 0.42 + (t * larg * 0.84) / (trechos - 1),
+                yFita,
+                z + prof / 2 + 0.04,
+              ])
+        }
+
+        /**
+         * RECUO NO TOPO e LUZ DE OBSTÁCULO — os dois arremates que DATAM a torre.
+         *
+         * Torre alta moderna quase nunca sobe reta até o fim: ela escalona,
+         * porque o zoneamento pede recuo em altura e porque o núcleo de
+         * elevadores termina antes da fachada. É o degrau no topo que diz "isto
+         * foi construído sob código moderno".
+         *
+         * E toda estrutura alta carrega luz vermelha de obstáculo aéreo. É um
+         * ponto de dez centímetros, e é um dos sinais mais específicos de
+         * skyline contemporânea — nenhum prédio de alvenaria antigo tem um.
+         */
+        if (topo > 5.4) {
+          const alturaRecuo = 0.9 + ruido(i, f * 3 + 8) * 1.6
+          col.poe(
+            'recuo',
+            gCubo,
+            material,
+            [x, topo + alturaRecuo / 2, z],
+            [0, 0, 0],
+            [larg * 0.62, alturaRecuo, prof * 0.62],
+          )
+          col.poe('luzAerea', gLuzAerea, mLuzAerea, [x, topo + alturaRecuo + 0.12, z])
+        }
       }
     })
 

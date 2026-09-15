@@ -16,7 +16,15 @@ import {
   topoDoAndar,
 } from './predio-arquitetura'
 import { amortecer, quadroDe } from './predio-descida'
-import { CENARIO, CENARIO_DISTANTE, CEU, corDoAndar, corDoRotulo } from './predio-luz'
+import {
+  CENARIO,
+  CENARIO_DISTANTE,
+  CEU,
+  CIDADE,
+  CIDADE_DISTANTE,
+  corDoAndar,
+  corDoRotulo,
+} from './predio-luz'
 import { capacidadesDo, temPerspectiva, type Capacidades } from './predio-qualidade'
 // A rolagem mora FORA deste arquivo desde a revisão final, e o motivo é de
 // arquitetura: o atalho de teclado precisa valer também SEM a cena (movimento
@@ -1330,7 +1338,7 @@ function Cena({
                   parallax certo sozinha, e parallax fabricado desalinharia a
                   linha do horizonte durante a descida. Ver o cabeçalho de
                   `predio-cidade.tsx` para o intervalo de z em que ela cabe. */}
-              <Cidade cor={CENARIO} corDistante={CENARIO_DISTANTE} ceu={CEU} />
+              <Cidade cor={CIDADE} corDistante={CIDADE_DISTANTE} ceu={CEU} />
               <Pilares material={pilar} />
               <Chao material={terra} />
               {vivos.map((indice) => (

@@ -371,6 +371,92 @@ export function tecido(): Superficie {
 }
 
 /**
+ * A FOLHA, RECORTADA POR ALFA — e esta é a técnica que separa folhagem de
+ * tempo real de folhagem de papel picado.
+ *
+ * O problema: a folha é um retângulo. Dois triângulos, e o contorno de um
+ * retângulo é um retângulo. Contra o céu, na periferia da copa — que é
+ * justamente onde o olho examina a silhueta de uma árvore — o que aparece é um
+ * enxame de quadradinhos.
+ *
+ * A saída NÃO é modelar a forma da folha em geometria. Uma folha lanceolada em
+ * malha custaria de cinco a dez triângulos, e são milhares de folhas. A saída é
+ * a que a indústria usa desde sempre: manter os dois triângulos e RECORTAR o
+ * contorno com um mapa de alfa. O contorno sai de graça, no estágio de
+ * fragmento, e a silhueta fica tão boa quanto a de uma malha.
+ *
+ * `alphaTest` e não `transparent`, e a distinção importa muito aqui:
+ *
+ * - `transparent` obriga a ordenar os objetos por profundidade a cada quadro e
+ *   desliga a escrita de profundidade. Com milhares de folhas entrelaçadas, a
+ *   ordenação é impossível de acertar e o resultado pisca conforme a câmera
+ *   anda.
+ * - `alphaTest` simplesmente DESCARTA o fragmento abaixo do limiar. A folha
+ *   continua opaca, entra no buffer de profundidade normalmente, não precisa de
+ *   ordem nenhuma — e, de brinde, projeta sombra com o CONTORNO CERTO em vez de
+ *   sombra retangular.
+ *
+ * O mapa de cor leva a nervura central: uma linha mais clara no meio da folha.
+ * É o único detalhe interno que sobrevive à distância, e é ele que diz "folha"
+ * em vez de "mancha verde".
+ */
+export function folha(): { mapa: THREE.Texture; alfa: THREE.Texture } {
+  const n = 64
+  const [cor, c] = tela(n)
+  const [alf, a] = tela(n)
+
+  a.fillStyle = '#000000'
+  a.fillRect(0, 0, n, n)
+
+  // A lanceolada: duas curvas espelhadas que se encontram em ponta nas duas
+  // extremidades. É o contorno da folha de oliveira, de louro, de salgueiro —
+  // a forma mais comum que existe, e a que menos parece um retângulo.
+  const contorno = (ctx: CanvasRenderingContext2D) => {
+    ctx.beginPath()
+    ctx.moveTo(1, n / 2)
+    ctx.quadraticCurveTo(n * 0.35, 2, n - 1, n / 2)
+    ctx.quadraticCurveTo(n * 0.35, n - 2, 1, n / 2)
+    ctx.closePath()
+  }
+
+  a.fillStyle = '#ffffff'
+  contorno(a)
+  a.fill()
+
+  // Base da folha em verde neutro: a COR vem da instância, então aqui mora só o
+  // padrão. Mesma regra da madeira — textura é padrão, cor é tinta.
+  c.fillStyle = '#b9c2ae'
+  contorno(c)
+  c.fill()
+  // Nervura central, um pouco mais clara que o limbo.
+  c.strokeStyle = 'rgba(232,238,222,0.75)'
+  c.lineWidth = 1.6
+  c.beginPath()
+  c.moveTo(3, n / 2)
+  c.lineTo(n - 3, n / 2)
+  c.stroke()
+  // Nervuras laterais, saindo da central em diagonal para a ponta.
+  c.strokeStyle = 'rgba(224,232,212,0.4)'
+  c.lineWidth = 1
+  for (let i = 1; i < 6; i++) {
+    const x = 6 + i * (n - 14) / 6
+    for (const s of [-1, 1]) {
+      c.beginPath()
+      c.moveTo(x, n / 2)
+      c.lineTo(x + 7, n / 2 + s * 8)
+      c.stroke()
+    }
+  }
+
+  const mapa = new THREE.CanvasTexture(cor)
+  mapa.colorSpace = THREE.SRGBColorSpace
+  mapa.anisotropy = ANISOTROPIA
+  const alfa = new THREE.CanvasTexture(alf)
+  alfa.anisotropy = ANISOTROPIA
+  return { mapa, alfa }
+}
+
+/**
  * ONDULAÇÃO DA ÁGUA — só o mapa de normal.
  *
  * A água não precisa de mapa de cor (a cor é uniforme e mora no material) nem de

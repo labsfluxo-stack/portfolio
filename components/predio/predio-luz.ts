@@ -108,5 +108,20 @@ export const CEU = '#f4d9a8'
  * juntos quando ela mudou. Constante emprestada porque "a cor está parecida" é
  * dívida silenciosa: ela não documenta a intenção, só o acaso de um momento.
  */
+/**
+ * A CIDADE TEM PALETA PROPRIA, e ela e FRIA.
+ *
+ * `CENARIO` e marrom porque veste os planos de parallax, que sao estrutura de
+ * concreto do proprio predio. A cidade ao redor e outra coisa: torre de vidro
+ * refletindo o ceu de crepusculo. Vidro nao e marrom em nenhuma hora do dia, e
+ * torre marrom foi o que fez o skyline anterior ler como bairro antigo de
+ * tijolo em vez de centro contemporaneo.
+ *
+ * Constante propria e nao emprestada de `CENARIO`: e a quinta vez nesta feature
+ * que uma cor emprestada "porque esta parecida" cobra depois.
+ */
+export const CIDADE = '#3c4657'
+export const CIDADE_DISTANTE = '#4a5468'
+
 export const CENARIO = '#4b4038'
 export const CENARIO_DISTANTE = '#3b332d'
