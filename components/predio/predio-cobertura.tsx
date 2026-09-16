@@ -1013,13 +1013,50 @@ export function Cobertura({
      * lugar onde espreguiçadeira fica numa cobertura de verdade — e a lâmina
      * volta a aparecer inteira por cima delas, que é o que o dono pediu.
      */
-    const zPergolaFrente = zCentro - prof * 0.02
-    const zPergolaFundo = zCentro - prof * 0.26
     const zBar = zCentro - prof * 0.208
     const zArvores = zCentro - prof * 0.277
     const zCanteiro = zCentro - prof * 0.4
     const zGuarda = zCentro + prof * 0.4
     const piscina = piscinaZ(zCentro, prof)
+    /**
+     * ═══ O PERGOLADO, REALINHADO ÀS DUAS CONSTRUÇÕES ═══
+     *
+     * O dono disse que a estrutura de madeira não estava harmônica, e ela não
+     * estava por TRÊS razões que se somavam — todas de coordenada, nenhuma de
+     * desenho.
+     *
+     * 1. ELE ATRAVESSAVA O ESCRITÓRIO. As vigas iam de x −9,30 a 2,90 e havia um
+     *    poste em −8,40. O escritório ocupa de −10,70 a −4,90: o poste caía na
+     *    frente da estante e as vigas nasciam dentro do volume envidraçado.
+     *
+     * 2. OS POSTES DA FRENTE ESTAVAM DENTRO DA PISCINA. `zCentro − prof × 0,02` =
+     *    −5,16, e a lâmina vai de −6,98 a −1,33. Quatro postes de madeira em pé
+     *    dentro d'água. O defeito nasceu quando a piscina cresceu 2,28 m para a
+     *    frente e ninguém reconferiu quem já morava naquele intervalo — é o
+     *    terceiro objeto desta feature a ser atropelado pela mesma mudança,
+     *    depois da escada e das espreguiçadeiras.
+     *
+     * 3. TRÊS LINHAS HORIZONTAIS EM ALTURAS DIFERENTES. O escritório e o bar
+     *    fecham em 2,92 (face de baixo da laje) e o pergolado fechava em 2,975.
+     *    Cinco centímetros e meio de desalinho entre três elementos que ocupam a
+     *    largura inteira do quadro: perto demais para ler como intenção, longe
+     *    demais para ler como uma linha só. Era essa a desarmonia.
+     *
+     * A CORREÇÃO É UMA SÓ IDEIA: o pergolado deixa de ser um objeto solto no meio
+     * do terraço e passa a ser o TRECHO LEVE de uma cobertura contínua. Ele vence
+     * exatamente o vão entre as duas lajes, apoia nelas, e a face de baixo dos
+     * três coincide. O que se lê de ponta a ponta é uma linha de beiral só —
+     * pesada nas pontas, vazada no meio.
+     *
+     * E ele recua para a faixa de deck entre a piscina e a jardineira, que é o
+     * lugar por onde se ANDA. Pergolado cobre circulação; pergolado sobre a água
+     * era o que punha os postes dentro dela.
+     */
+    const SOFFIT = piso + ESCRITORIO.altura
+    const X_PERGOLA_DE = ESCRITORIO.x + ESCRITORIO.largura / 2
+    const X_PERGOLA_ATE = 6.27
+    const zPergolaFrente = piscina.fundo - 0.35
+    const zPergolaFundo = zCanteiro + 1.05
     // Face interna da parede do andar: é nela que a cascata corre, e é ela que
     // fecha o escritório por trás. Um número só para as duas coisas.
     const zParedeFundo = zDaParedeDoAndar(zCentro, prof)
@@ -1075,38 +1112,94 @@ export function Cobertura({
         col.poe('barraRalo', gBarraRalo, mAco, [xr - 0.1 + b * 0.05, piso + 0.032, zCentro + prof * 0.345])
     }
 
-    // ── pergolado ─────────────────────────────────────────────────────────
-    const xPostes = [-8.4, -3.2, 2.0]
-    for (const x of xPostes)
-      for (const z of [zPergolaFrente, zPergolaFundo]) {
-        sombra(x, z, 0.95, 0.95)
-        col.poe('poste', gPoste, mMadeiraEscura, [x, piso + 1.45, z])
-        // Chapa de aço parafusada no topo do poste, dos dois lados.
-        for (const dz of [-0.09, 0.09]) {
-          col.poe('chapa', gChapa, mAco, [x, piso + 2.74, z + dz])
-          for (const dy of [-0.07, 0.07])
-            col.poe('parafuso', gParafuso, mAco, [x, piso + 2.74 + dy, z + dz], [Math.PI / 2, 0, 0])
-        }
-        // MAO-FRANCESA: as duas diagonais que travam o no. Portico so com pecas
-        // ortogonais e instavel de verdade, e o olho conhece isso sem saber que
-        // conhece — pergolado sem contraventamento le como montagem provisoria.
-        for (const lado of [-1, 1])
-          col.poe(
-            'maoFrancesa',
-            gMaoFrancesa,
-            mMadeiraEscura,
-            [x + lado * 0.22, piso + 2.22, z],
-            [0, lado * Math.PI / 2, lado * 0.785],
-          )
+    /**
+     * ── pergolado ──────────────────────────────────────────────────────────
+     *
+     * A PILHA EM Y, DE CIMA PARA BAIXO, e ela é a peça toda:
+     *   caibro    topo em SOFFIT (2,92)  → centro 2,875, altura 0,09
+     *   viga      topo em 2,830          → centro 2,760, altura 0,14
+     *   poste     topo em 2,690          → centro 1,345, altura 2,69
+     *
+     * Escrita assim, cada cota sai da anterior. Antes eram três números soltos
+     * (2,93 / 2,80 / 1,45) e bastou o escritório mudar de altura uma vez para os
+     * três ficarem fora de registro com ele.
+     *
+     * DOIS POSTES, e não seis. O pergolado agora apoia nas duas lajes, então só
+     * precisa de um pórtico intermediário — 5,6 m de vão de cada lado, que
+     * madeira lamelada vence com folga. Cada poste a menos é uma barra vertical a
+     * menos atravessando a vista de cima a baixo, e essa conta não mudou desde
+     * que os quatro postes originais viraram três.
+     */
+    const yCaibro = SOFFIT - 0.045
+    const yViga = yCaibro - 0.045 - 0.07
+    const yPosteTopo = yViga - 0.07
+    const xMeioPergola = (X_PERGOLA_DE + X_PERGOLA_ATE) / 2
+    for (const z of [zPergolaFrente, zPergolaFundo]) {
+      sombra(xMeioPergola, z, 0.95, 0.95)
+      col.poe(
+        'poste',
+        gPoste,
+        mMadeiraEscura,
+        [xMeioPergola, piso + (yPosteTopo - piso) / 2, z],
+        [0, 0, 0],
+        [1, (yPosteTopo - piso) / 2.9, 1],
+      )
+      // Chapa de aço parafusada no topo do poste, dos dois lados.
+      for (const dz of [-0.09, 0.09]) {
+        col.poe('chapa', gChapa, mAco, [xMeioPergola, yPosteTopo - 0.11, z + dz])
+        for (const dy of [-0.07, 0.07])
+          col.poe('parafuso', gParafuso, mAco, [xMeioPergola, yPosteTopo - 0.11 + dy, z + dz], [Math.PI / 2, 0, 0])
       }
-    for (const z of [zPergolaFrente, zPergolaFundo])
-      col.poe('viga', gVigaPergola, mMadeiraEscura, [-3.2, piso + 2.8, z])
-    for (let i = 0; i < 27; i++)
-      col.poe('ripaPergola', gRipaPergola, mMadeiraEscura, [
-        -8.3 + i * 0.46,
-        piso + 2.93,
-        (zPergolaFrente + zPergolaFundo) / 2,
-      ])
+      // MAO-FRANCESA: as duas diagonais que travam o no. Portico so com pecas
+      // ortogonais e instavel de verdade, e o olho conhece isso sem saber que
+      // conhece — pergolado sem contraventamento le como montagem provisoria.
+      for (const lado of [-1, 1])
+        col.poe(
+          'maoFrancesa',
+          gMaoFrancesa,
+          mMadeiraEscura,
+          [xMeioPergola + lado * 0.22, yPosteTopo - 0.63, z],
+          [0, (lado * Math.PI) / 2, lado * 0.785],
+        )
+      // A viga vence o vão inteiro entre as duas lajes. `gVigaPergola` tem 12,2 m
+      // e é escalada para o vão real: o chanfro de 8 mm encolhe 8% com isso, o
+      // que é invisível, e em troca o comprimento passa a acompanhar sozinho
+      // qualquer mudança na largura do escritório ou na posição do bar.
+      col.poe(
+        'viga',
+        gVigaPergola,
+        mMadeiraEscura,
+        [xMeioPergola, yViga, z],
+        [0, 0, 0],
+        [(X_PERGOLA_ATE - X_PERGOLA_DE) / 12.2, 1, 1],
+      )
+    }
+    /**
+     * OS CAIBROS, com um VÃO para a oliveira passar.
+     *
+     * Ela fica em x = 3,6 e tem 3 m de altura — sob o pergolado, a copa
+     * atravessaria os caibros. Pergolado de verdade tem exatamente essa abertura
+     * quando há árvore plantada embaixo, e desenhá-la custa um `continue`.
+     *
+     * O caibro é encurtado de 4,6 para 2,4 m: ele vence a distância entre as duas
+     * vigas (1,6 m) mais 40 cm de balanço de cada lado, que é a proporção de
+     * beiral que uma peça dessas tem. Com 4,6 ele sobrava 1,5 m para cada lado e
+     * o pergolado lia como uma grade solta apoiada em duas linhas.
+     */
+    const passoCaibro = 0.44
+    const nCaibros = Math.floor((X_PERGOLA_ATE - X_PERGOLA_DE - 0.3) / passoCaibro)
+    for (let i = 0; i <= nCaibros; i++) {
+      const x = X_PERGOLA_DE + 0.15 + i * passoCaibro
+      if (Math.abs(x - 3.6) < 0.85) continue
+      col.poe(
+        'ripaPergola',
+        gRipaPergola,
+        mMadeiraEscura,
+        [x, yCaibro, (zPergolaFrente + zPergolaFundo) / 2],
+        [0, 0, 0],
+        [1, 1, 2.4 / 4.6],
+      )
+    }
 
     /**
      * VARAL DE LUZES sobre o pergolado — o detalhe que mais diz "cobertura de
@@ -1126,8 +1219,13 @@ export function Cobertura({
      */
     const zsVaral = [zPergolaFrente, (zPergolaFrente + zPergolaFundo) / 2, zPergolaFundo]
     for (const [v, zv] of zsVaral.entries()) {
-      const a = new THREE.Vector3(-8.4, piso + 2.86, zv)
-      const b = new THREE.Vector3(2.0, piso + 2.86, zv)
+      // O varal pendura SOB as vigas, e não entre elas. Em `piso + 2,86` ele
+      // atravessava o próprio pergolado: a viga ocupa de 2,69 a 2,83 e o caibro
+      // de 2,83 a 2,92, então o fio passava dentro da madeira e só reaparecia na
+      // barriga da catenária. E as pontas nascem no vão útil do pergolado, não
+      // mais nas posições dos postes antigos.
+      const a = new THREE.Vector3(X_PERGOLA_DE + 0.3, yPosteTopo - 0.06, zv)
+      const b = new THREE.Vector3(X_PERGOLA_ATE - 0.3, yPosteTopo - 0.06, zv)
       const flecha = 0.32 + v * 0.07
       const curva = new THREE.CatmullRomCurve3(catenaria(a, b, flecha, 16))
       fiosDoVaral.push(new THREE.TubeGeometry(curva, 34, 0.0085, 4, false))
