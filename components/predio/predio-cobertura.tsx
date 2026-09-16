@@ -1055,6 +1055,61 @@ export function Cobertura({
     const SOFFIT = piso + ESCRITORIO.altura
     const X_PERGOLA_DE = ESCRITORIO.x + ESCRITORIO.largura / 2
     const X_PERGOLA_ATE = 6.27
+    /**
+     * ═══ O JARDIM RECEBE A MESMA ORDEM QUE O TELHADO ═══
+     *
+     * O dono disse que as árvores e o jardim também estavam sem harmonia, e o
+     * diagnóstico é o mesmo da estrutura de madeira levado um passo adiante: a
+     * cobertura ganhou uma ordem — volume, vão, volume — e o plantio continuou
+     * distribuído como estava antes dela existir.
+     *
+     * Duas coisas erradas, e as duas de LUGAR:
+     *
+     * 1. O CANTEIRO VAZAVA PARA ALÉM DAS CONSTRUÇÕES. Ele corria de −15 a 15 com
+     *    dois recortes (a baia do escritório e a faixa atrás do bar), e o que
+     *    sobrava nas pontas eram dois retalhos de jardim que não pertenciam a
+     *    nada: 3,8 m de gramínea à esquerda do escritório e outro tanto além do
+     *    bar. Fragmento órfão é exatamente o que o olho lê como desordem.
+     *
+     * 2. AS ÁRVORES ESTAVAM EM COORDENADAS HERDADAS. Palmeiras em −11,8 / −0,4 /
+     *    5,6 / 11,2 e oliveiras em −12,9 / 3,6 — números que foram bons quando o
+     *    terraço era uma faixa contínua, e que agora não têm relação nenhuma com
+     *    o escritório, com o bar nem com o pórtico do pergolado.
+     *
+     * A REGRA NOVA É CURTA: o jardim é exatamente o VÃO entre as duas
+     * construções, e toda árvore senta num EIXO ESTRUTURAL. O pergolado apoia em
+     * três pontos — a laje do escritório, o poste do meio e a laje do bar —, e é
+     * nesses três que ficam as palmeiras. As oliveiras ficam no meio de cada
+     * metade, espelhadas em relação ao poste.
+     *
+     * O resultado é que nenhuma posição de planta é mais um número escolhido: é a
+     * mesma conta que já posiciona a estrutura.
+     */
+    const X_POSTE_PERGOLA = (X_PERGOLA_DE + X_PERGOLA_ATE) / 2
+    /**
+     * DUAS PALMEIRAS, E NÃO TRÊS — e o motivo aparece só no render.
+     *
+     * A primeira versão punha uma palmeira em cada um dos três apoios, incluindo
+     * o poste do meio. A regra era boa e o resultado, não: cinco copas (três
+     * palmeiras mais duas oliveiras) espaçadas de 2,3 m fecharam a faixa de céu
+     * no topo do quadro num tapete verde contínuo, e a palmeira central subia
+     * exatamente em cima do poste — duas verticais empilhadas no eixo de simetria,
+     * que é o pior lugar possível para uma sobreposição acidental.
+     *
+     * Com as palmeiras só nas duas pontas, o centro do vão fica sendo o POSTE,
+     * sozinho. A sequência vira palmeira / oliveira / poste / oliveira / palmeira,
+     * com vãos de 2,29 — 2,80 — 2,80 — 2,29: simétrica, e com céu entre as copas.
+     *
+     * A lição é a de sempre nesta feature: a regra estava certa e o número de
+     * elementos que ela produzia, errado. Ordem não é repetir até preencher.
+     */
+    const EIXOS_DA_ESTRUTURA = [X_PERGOLA_DE + 0.5, X_PERGOLA_ATE - 0.5]
+    const EIXOS_DOS_VaOS = [
+      (X_PERGOLA_DE + X_POSTE_PERGOLA) / 2,
+      (X_POSTE_PERGOLA + X_PERGOLA_ATE) / 2,
+    ]
+    /** Fora do vão entre as duas construções não há jardim: há edifício. */
+    const foraDoJardim = (x: number) => x < X_PERGOLA_DE - 0.1 || x > X_PERGOLA_ATE + 0.1
     const zPergolaFrente = piscina.fundo - 0.35
     const zPergolaFundo = zCanteiro + 1.05
     // Face interna da parede do andar: é nela que a cascata corre, e é ela que
@@ -1190,7 +1245,7 @@ export function Cobertura({
     const nCaibros = Math.floor((X_PERGOLA_ATE - X_PERGOLA_DE - 0.3) / passoCaibro)
     for (let i = 0; i <= nCaibros; i++) {
       const x = X_PERGOLA_DE + 0.15 + i * passoCaibro
-      if (Math.abs(x - 3.6) < 0.85) continue
+      if (EIXOS_DOS_VaOS.some((xo) => Math.abs(x - xo) < 0.75)) continue
       col.poe(
         'ripaPergola',
         gRipaPergola,
@@ -1627,7 +1682,22 @@ export function Cobertura({
      * que isso, e a −12,9 ela ainda entra inteira — e agora ENQUADRA o escritório
      * pela esquerda em vez de tapá-lo.
      */
-    for (const [k, x] of [-12.9, 3.6].entries()) {
+    /**
+     * AS DUAS OLIVEIRAS ESPELHADAS NO POSTE DO PERGOLADO.
+     *
+     * Estavam em −12,9 e 3,6: a primeira quase fora do quadro, atrás do
+     * escritório, e a segunda num ponto sem relação com nada. Agora cada uma
+     * ocupa o centro de uma das duas metades do vão, então elas são simétricas em
+     * relação ao poste — e as palmeiras, que ficam nos apoios, caem exatamente
+     * nos intervalos entre elas.
+     *
+     * O que se lê é uma alternância regular: apoio, copa, apoio, copa, apoio. É
+     * essa alternância, e não a quantidade de folha, que faz um plantio parecer
+     * desenhado.
+     *
+     * As duas atravessam o pergolado, e os caibros abrem vão para as duas.
+     */
+    for (const [k, x] of EIXOS_DOS_VaOS.entries()) {
       sombra(x, zArvores, 2.4, 2.4)
       col.poe('vasoAlto', gVasoAlto, mVaso, [x, piso, zArvores])
       col.poe('terra', gTerra, mTerra, [x, piso + 0.66, zArvores], [-Math.PI / 2, 0, 0])
@@ -2094,20 +2164,20 @@ export function Cobertura({
      * leria como mato crescido contra a janela em vez de canteiro que respeita o
      * edifício.
      */
-    const noVaoDoEscritorio = (x: number) =>
-      x > xEsc - LARG_ESC / 2 - 0.5 && x < xEsc + LARG_ESC / 2 + 0.5
     /**
-     * A MESMA REGRA PARA O BAR, e por um motivo diferente. O bar está À FRENTE do
-     * canteiro (z = −7,6 contra −10,1), então o plantio não o tapa: ele aparece
-     * ATRAVÉS dele, pelo vão entre o tampo e a estante de garrafas. Gramínea
-     * palha subindo entre as garrafas é ruído bem no lugar onde a leitura depende
-     * de contraste — garrafa acesa contra fundo escuro.
+     * AS DUAS REGRAS ANTIGAS — "nao planta na baia do escritorio" e "nao planta
+     * atras do bar" — viraram uma so, e ela mora junto com as medidas do
+     * pergolado: `foraDoJardim`.
      *
-     * Por isso só a gramínea e a florada saem. O maciço alto do fundo FICA: ele é
-     * a massa escura contra a qual o nicho aceso recorta, e sem ele o bar ficaria
-     * brilhando contra o céu claro, que é o inverso do que se quer.
+     * Elas eram RECORTES: o canteiro corria de ponta a ponta e dois trechos eram
+     * apagados. Isso resolvia a oclusao e deixava o efeito colateral que o dono
+     * viu — os pedacos que sobravam ALEM das construcoes continuavam la, sem
+     * pertencer a nada.
+     *
+     * A regra nova e afirmativa em vez de subtrativa: o jardim E o vao entre as
+     * duas construcoes. Fora dele nao ha planta porque ha edificio, e nao porque
+     * alguem apagou.
      */
-    const atrasDoBar = (x: number) => x > 6.2 && x < 11.9
 
     /**
      * JUNTA DE DILATACAO na parede do fundo. Parede de concreto de 30 m sem
@@ -2193,18 +2263,25 @@ export function Cobertura({
      * Dois trechos que encostam nas laterais do escritório é o que uma obra faria
      * de verdade: a calha morre contra o edifício e recomeça do outro lado.
      */
-    const calha = (de: number, ate: number) =>
-      col.poe(
-        'jardineira',
-        gJardineira,
-        mCorten,
-        [(de + ate) / 2, piso + 0.27, zCanteiro + 0.1],
-        [0, 0, 0],
-        [(ate - de) / 3.4, 1, 2.3],
-      )
-    calha(-meiaLargura, xEsc - LARG_ESC / 2 - 0.35)
-    calha(xEsc + LARG_ESC / 2 + 0.35, meiaLargura)
-    sombra(0, zCanteiro, meiaLargura * 2.1, 3.4)
+    /**
+     * A CALHA VOLTOU A SER UMA PECA SO — mas agora com o comprimento do VAO, e
+     * nao da laje inteira.
+     *
+     * Ela ja foi uma peca de 30 m (atravessava o escritorio), depois dois trechos
+     * que morriam nas laterais dele e seguiam ate as bordas. As duas versoes
+     * partiam da mesma premissa errada: a de que o canteiro e do tamanho do
+     * terraco. Ele e do tamanho do JARDIM, e o jardim mora entre as duas
+     * construcoes.
+     */
+    col.poe(
+      'jardineira',
+      gJardineira,
+      mCorten,
+      [(X_PERGOLA_DE + X_PERGOLA_ATE) / 2, piso + 0.27, zCanteiro + 0.1],
+      [0, 0, 0],
+      [(X_PERGOLA_ATE - X_PERGOLA_DE) / 3.4, 1, 2.3],
+    )
+    sombra((X_PERGOLA_DE + X_PERGOLA_ATE) / 2, zCanteiro, X_PERGOLA_ATE - X_PERGOLA_DE + 1, 3.4)
 
     /**
      * ESTRATO DE FUNDO: o arbusto cerrado que vira PAREDE VERDE.
@@ -2221,7 +2298,7 @@ export function Cobertura({
       const xm = -meiaLargura + 0.6 + (m / 45) * (meiaLargura * 2 - 1.2)
       // O maciço do fundo passa POR DENTRO do escritório nesta faixa — ele vive
       // em zFundoVerde, que cai entre o fundo e a frente da caixa de vidro.
-      if (noVaoDoEscritorio(xm)) continue
+      if (foraDoJardim(xm)) continue
       const alturaMoita = 1.1 + ruido(m, 400) * 1.05
       const zm = zFundoVerde + (ruido(m, 401) - 0.5) * 0.5
       for (let f = 0; f < 44; f++) {
@@ -2318,18 +2395,23 @@ export function Cobertura({
     // `Vector3.toArray()` devolve `number[]`, e `poe` pede a tripla exata.
     const tri = (v: THREE.Vector3): [number, number, number] => [v.x, v.y, v.z]
     /**
-     * QUATRO PALMEIRAS, E NÃO CINCO: a de x = −6,2 saiu porque o escritório passou
-     * a ocupar de −10,7 a −4,9. O estipe dela nascia DENTRO da caixa de vidro.
+     * TRÊS PALMEIRAS, NOS TRÊS APOIOS DO PERGOLADO.
      *
-     * Era a saída certa entre as duas possíveis. Empurrar a palmeira para o lado
-     * apertaria o vão para a vizinha; encolher o escritório desfaria o pedido do
-     * dono, que era justamente ele ser maior. E o vão que ela deixa não fica
-     * vazio: quem o preenche é o volume aceso, que é massa mais forte do que ela
-     * era. A de −11,8 fica: a copa dela passa ACIMA da laje do escritório, e uma
-     * palmeira cruzando por cima de uma caixa de vidro acesa é justamente o tipo
-     * de sobreposição que a referência tem.
+     * Eram quatro, em −11,8 / −0,4 / 5,6 / 11,2 — coordenadas herdadas de quando
+     * o terraço era uma faixa contínua. Duas delas ficavam ATRÁS das construções
+     * novas (o estipe some e só a copa aparece, boiando), e as duas do meio não
+     * tinham relação com nada.
+     *
+     * Agora elas ficam sobre os três pontos em que o pergolado descarrega: a laje
+     * do escritório, o poste do meio e a laje do bar. É a mesma sequência de
+     * coordenadas que desenha a estrutura, e por isso o estipe sobe SEMPRE
+     * alinhado com um elemento construído — que é o que faz uma alameda de
+     * palmeiras ler como projeto e não como mata.
+     *
+     * O espaçamento vira 5,1 m, regular pela primeira vez. Antes ia de 5,6 a 11,4
+     * entre vizinhas.
      */
-    for (const [q, xp] of [-11.8, -0.4, 5.6, 11.2].entries()) {
+    for (const [q, xp] of EIXOS_DA_ESTRUTURA.entries()) {
       const base: [number, number, number] = [xp, piso + 2.6, zFundoVerde]
       col.poe('estipe', gEstipe, mEstipe, base, INCLINA_ESTIPE)
       /**
@@ -2396,7 +2478,7 @@ export function Cobertura({
     for (let c = 0; c < 22; c++) {
       const xc = -meiaLargura + 0.8 + (c / 21) * (meiaLargura * 2 - 1.6)
       // A gramínea chega a 1,3 m: era ela a que mais cobria o vidro.
-      if (noVaoDoEscritorio(xc) || atrasDoBar(xc)) continue
+      if (foraDoJardim(xc)) continue
       for (let b = 0; b < 54; b++) {
         const a = ruido(b, 420 + c) * Math.PI * 2
         const raio = ruido(b, 421 + c) * 0.34
@@ -2428,7 +2510,7 @@ export function Cobertura({
      */
     for (let c = 0; c < 26; c++) {
       const xc = -meiaLargura + 0.7 + (c / 25) * (meiaLargura * 2 - 1.4)
-      if (noVaoDoEscritorio(xc) || atrasDoBar(xc)) continue
+      if (foraDoJardim(xc)) continue
       for (let fl = 0; fl < 6; fl++) {
         const a = ruido(fl, 430 + c) * Math.PI * 2
         const r = ruido(fl, 431 + c) * 0.3
