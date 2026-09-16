@@ -177,11 +177,40 @@ function catenaria(
  * dois. É essa folga que impede a próxima mudança de empurrar a piscina contra
  * o parapeito.
  */
-const PISCINA = { fundo: 0.16, frente: 0.275 }
+/**
+ * A LARGURA ENTRA NA MESMA FONTE QUE O COMPRIMENTO, e ela precisava entrar.
+ *
+ * O z já saía daqui desde que a lâmina avançou; o x continuou espalhado por
+ * cinco números literais no bloco JSX — 9 para a água e para o fundo, 9,9 para a
+ * pedra transversal, 9,04 para o tanque e o par −3,74 / 5,74 para as pedras
+ * laterais. Encolher a piscina exigia acertar os cinco à mão, que é exatamente a
+ * armadilha que já produziu a escada no meio da água e os postes do pergolado
+ * dentro dela.
+ *
+ * Agora só existem três números: onde começa, onde acaba e quão larga é. Borda,
+ * tanque e pedra saem deles.
+ *
+ * O TAMANHO DIMINUIU a pedido do dono: a frente recuou de × 0,275 para × 0,225
+ * e a largura de 9 para 8 m. São 11% em cada direção — o bastante para a lâmina
+ * deixar de encostar nas duas pontas do vão e devolver uma faixa de deck ao
+ * redor, e pouco o bastante para ela continuar sendo a peça que ocupa o primeiro
+ * plano.
+ */
+const PISCINA = { fundo: 0.16, frente: 0.225, centroX: 1, largura: 8 }
 const piscinaZ = (zCentro: number, prof: number) => {
   const fundo = zCentro - prof * PISCINA.fundo
   const frente = zCentro + prof * PISCINA.frente
-  return { fundo, frente, centro: (fundo + frente) / 2, profundidade: frente - fundo }
+  return {
+    fundo,
+    frente,
+    centro: (fundo + frente) / 2,
+    profundidade: frente - fundo,
+    x: PISCINA.centroX,
+    largura: PISCINA.largura,
+    // Centro das duas pedras laterais: meia-largura mais o meio da pedra de 42 cm
+    // menos os 3 cm de lábio que ela avança sobre a água.
+    bordaX: PISCINA.largura / 2 + 0.24,
+  }
 }
 
 /**
@@ -1130,6 +1159,19 @@ export function Cobertura({
      * quando a piscina mudar de novo.
      */
     const zDaEscada = piscina.frente - 0.35
+    /**
+     * O X DA ESCADA TAMBEM SAI DA PISCINA, e ele acabou de precisar disso.
+     *
+     * Estava fixo em 4,3. Quando a lamina encolheu de 9 para 8 m a pedido do
+     * dono, a borda direita veio de 5,50 para 5,00 — e o corrimao, que vai ate
+     * 4,74, ficou a 26 cm dela. Mais um pouco e a escada sairia pela pedra.
+     *
+     * E a terceira vez que uma peca amarrada a um literal e atropelada por uma
+     * mudanca na piscina, depois do proprio z desta escada e dos postes do
+     * pergolado. Agora ela fica a um metro da borda direita, e continua la
+     * qualquer que seja a largura.
+     */
+    const xDaEscada = piscina.x + piscina.largura / 2 - 1.0
 
     // ── deck ──────────────────────────────────────────────────────────────
     const ripas = Math.floor((meiaLargura * 2) / 0.24)
@@ -2756,7 +2798,7 @@ export function Cobertura({
      */
     const RAIO_CORRIMAO = 0.18
     for (const dxCorrimao of [-0.26, 0.26]) {
-      const xc = 4.3 + dxCorrimao
+      const xc = xDaEscada + dxCorrimao
       col.poe('corrimaoEscada', gCorrimaoEscada, mMetal, [xc, piso + 0.3, zDaEscada])
       // As duas pernas, nas pontas do arco. A de dentro do tanque desce até o
       // degrau submerso; a de fora morre na pedra da borda — e é essa diferença
@@ -2772,7 +2814,7 @@ export function Cobertura({
     // Degrau submerso: a prateleira rasa que toda piscina tem na entrada. Vista
     // atraves da agua ela desenha uma faixa mais clara no fundo escuro, e e essa
     // faixa que da PROFUNDIDADE — fundo de cor uniforme le como chapa pintada.
-    col.poe('degrauSubmerso', gDegrauSubmerso, mPedra, [4.3, piso - 0.08, zDaEscada - 0.3])
+    col.poe('degrauSubmerso', gDegrauSubmerso, mPedra, [xDaEscada, piso - 0.08, zDaEscada - 0.3])
 
     // ── guarda-corpo ──────────────────────────────────────────────────────
     const montantes = Math.floor((meiaLargura * 2) / 2.1)
@@ -3067,8 +3109,8 @@ export function Cobertura({
        * Uma lâmina sem fundo é uma superfície; com fundo, o olho lê VOLUME —
        * a cor escura por baixo através da água translúcida é metade do que faz
        * uma piscina parecer cheia. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1, piso - 0.22, zEspelho]}>
-        <planeGeometry args={[9, piscina.profundidade]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[piscina.x, piso - 0.22, zEspelho]}>
+        <planeGeometry args={[piscina.largura, piscina.profundidade]} />
         <meshStandardMaterial color="#17495a" roughness={0.9} />
       </mesh>
       {/* A LÂMINA D'ÁGUA.
@@ -3083,8 +3125,8 @@ export function Cobertura({
        * a torna reconhecível é o reflexo QUEBRANDO em ondulação. Com a
        * superfície lisa, o reflexo do céu fica inteiro e limpo, e lâmina de
        * reflexo limpo lê como vidro ou como chapa — nunca como água. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[1, piso + 0.06, zEspelho]}>
-        <planeGeometry args={[9, piscina.profundidade]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[piscina.x, piso + 0.06, zEspelho]}>
+        <planeGeometry args={[piscina.largura, piscina.profundidade]} />
         <meshStandardMaterial
           color="#2d8ba1"
           roughness={0.3}
@@ -3110,12 +3152,12 @@ export function Cobertura({
        * Quatro peças porque a moldura precisa ter espessura visível nos quatro
        * lados, e uma caixa só mostra o lado de fora. */}
       {[piscina.frente + 0.195, piscina.fundo - 0.195].map((cz) => (
-        <mesh key={cz} position={[1, piso + 0.045, cz]}>
-          <boxGeometry args={[9.9, 0.09, 0.42]} />
+        <mesh key={cz} position={[piscina.x, piso + 0.045, cz]}>
+          <boxGeometry args={[piscina.largura + 0.9, 0.09, 0.42]} />
           <meshStandardMaterial color="#cfc4ad" roughness={0.82} />
         </mesh>
       ))}
-      {[-3.74, 5.74].map((bx) => (
+      {[piscina.x - piscina.bordaX, piscina.x + piscina.bordaX].map((bx) => (
         <mesh key={bx} position={[bx, piso + 0.045, zEspelho]}>
           <boxGeometry args={[0.42, 0.09, piscina.profundidade + 0.39]} />
           <meshStandardMaterial color="#cfc4ad" roughness={0.82} />
@@ -3132,8 +3174,8 @@ export function Cobertura({
        * pedra que já engoliu a lâmina uma vez, agora vindo por baixo — e a lição
        * é a mesma: numa pilha de planos separados por centímetros, é a ORDEM em
        * y que decide o que se vê, não a intenção de quem escreveu. */}
-      <mesh position={[1, piso - 0.2, zEspelho]}>
-        <boxGeometry args={[9.04, 0.34, piscina.profundidade + 0.13]} />
+      <mesh position={[piscina.x, piso - 0.2, zEspelho]}>
+        <boxGeometry args={[piscina.largura + 0.04, 0.34, piscina.profundidade + 0.13]} />
         <meshStandardMaterial color="#1d5b6d" roughness={0.75} />
       </mesh>
       {/* O VIDRO DO GUARDA-CORPO, com 0,07 de opacidade — medido. Um plano de
