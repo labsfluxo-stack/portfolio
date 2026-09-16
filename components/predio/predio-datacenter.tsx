@@ -1,5 +1,5 @@
 'use client'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -702,10 +702,28 @@ export function Datacenter({
     return { malhas, vivos, barras, yLuminaria, zFrio, zFundo, zFrente }
   }, [piso, zCentro, prof, meiaLargura])
 
-  useMemo(() => {
+  /**
+   * `useEffect`, E NÃO `useMemo` — o mesmo vazamento que a cobertura tinha.
+   *
+   * `useMemo` memoriza o valor de retorno: a função de limpeza virava um valor
+   * guardado que ninguém chamava, e as malhas nunca saíam da cena. Como `malhas`
+   * depende de `prof`, e `prof` troca quando o andar é promovido de parallax (7)
+   * para perspectiva (13), cada promoção deixava um datacenter fantasma inteiro
+   * dois metros e meio mais raso que o de verdade.
+   *
+   * Aqui o sintoma é bem menos visível que na cobertura — fileira de rack
+   * duplicada lê como mais rack —, e é exatamente por isso que vale consertar
+   * junto: vazamento que não incomoda ninguém é vazamento que fica.
+   */
+  useEffect(() => {
     for (const m of malhas) scene.add(m)
     return () => {
-      for (const m of malhas) scene.remove(m)
+      for (const m of malhas) {
+        scene.remove(m)
+        // `malhas` aqui é `Object3D[]` porque o andar mistura instâncias do
+        // coletor com malhas fundidas; só as que têm geometria própria descartam.
+        if (m instanceof THREE.Mesh) m.geometry.dispose()
+      }
     }
   }, [malhas, scene])
 

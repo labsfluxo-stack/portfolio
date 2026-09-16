@@ -1082,6 +1082,123 @@ export function casca(tipo: 'oliveira' | 'palmeira'): Superficie {
 }
 
 /**
+ * VÉU D'ÁGUA — a cascata que corre pela parede do fundo.
+ *
+ * Não dava para reaproveitar `normalDeAgua()`, e a razão é o que separa os dois
+ * fenômenos. A lâmina da piscina é água PARADA: a ondulação nela é isotrópica,
+ * vem de todo lado e não tem direção. Água que DESCE é o oposto — ela se
+ * organiza em filetes verticais, porque a gravidade é a única força em jogo e a
+ * tensão superficial junta o fluxo em cordões paralelos. Aplicar ondulação de
+ * piscina numa parede daria a leitura de vidro texturado, não de cascata.
+ *
+ * Três coisas fazem o véu ler como água correndo:
+ *
+ * 1. OS CORDÕES. Filetes verticais de larguras diferentes, com uma ondulação
+ *    lenta em x ao longo da descida — reta perfeita lê como listra pintada.
+ * 2. A AERAÇÃO. Onde o fluxo é mais rápido ele arrasta ar e fica BRANCO. São as
+ *    manchas claras alongadas no sentido da queda, e é isso que diz "movimento"
+ *    numa imagem parada.
+ * 3. O LADRILHAMENTO VERTICAL. A textura repete em V, e é essa repetição que
+ *    permite animar a queda deslocando o `offset` — sem costura visível, porque
+ *    os cordões nascem e morrem nas duas bordas.
+ *
+ * A repetição em U fica por conta de quem usa: a parede tem 30 m e o desenho
+ * tem 1, então o cordão precisa de umas dezenas de repetições para ficar na
+ * escala de um filete e não de uma calha.
+ */
+export function veuDagua(): Superficie {
+  const n = 256
+  const [cor, c] = tela(n)
+  const [altura, h] = tela(n)
+  const [rugo, r] = tela(n)
+
+  /**
+   * O FUNDO É ESCURO, e este foi o erro da primeira versão.
+   *
+   * Eu pintei o véu de azul-claro, e o render devolveu um painel de vidro
+   * jateado: uma superfície de valor uniforme, sem nada acontecendo nela. Água
+   * não é clara — ela é quase PRETA, e o que se vê dela é o que ela REFLETE.
+   * Numa parede ao entardecer isso quer dizer fundo escuro com filetes acesos,
+   * e é o contraste entre os dois que o olho lê como movimento.
+   *
+   * Pintar de claro mata esse contraste duas vezes: some o escuro, e o brilho
+   * especular deixa de ter contra o que aparecer.
+   */
+  c.fillStyle = '#5c757f'
+  c.fillRect(0, 0, n, n)
+  h.fillStyle = '#808080'
+  h.fillRect(0, 0, n, n)
+  // Água corrente é a superfície MAIS LISA desta cena: escuro no mapa de
+  // rugosidade é liso, e é o reflexo especular que faz o véu acender contra o
+  // céu do entardecer em vez de ler como parede pintada de azul.
+  r.fillStyle = '#2e2e2e'
+  r.fillRect(0, 0, n, n)
+
+  /**
+   * O cordão desce ondulando. `Math.sin` do y dá o serpenteio, e a fase por
+   * cordão impede os 46 de ondularem juntos — o que seria uma cortina, não água.
+   *
+   * O traço é desenhado em SEGMENTOS e não com `quadraticCurveTo` porque ele
+   * precisa atravessar a textura inteira de topo a base sem sobra: é a
+   * continuidade nas duas bordas que faz o ladrilhamento vertical não costurar.
+   */
+  const cordao = (ctx: CanvasRenderingContext2D, i: number, estilo: string, largura: number) => {
+    const x0 = ruido(i, 55) * n
+    const amplitude = 1.5 + ruido(i, 56) * 5
+    const freq = 1 + Math.floor(ruido(i, 57) * 3)
+    ctx.strokeStyle = estilo
+    ctx.lineWidth = largura
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    for (let y = 0; y <= n; y += 8) {
+      const x = x0 + Math.sin((y / n) * Math.PI * 2 * freq + i) * amplitude
+      if (y === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
+    }
+    ctx.stroke()
+  }
+
+  for (let i = 0; i < 46; i++) {
+    const largura = n * (0.004 + ruido(i, 58) * 0.014)
+    // O cordão é uma CRISTA no relevo (claro) com um vale de cada lado — é esse
+    // par que produz o filete de luz correndo na vertical.
+    cordao(h, i, `rgba(255,255,255,${0.3 + ruido(i, 59) * 0.5})`, largura)
+    cordao(h, i, 'rgba(0,0,0,0.28)', largura * 2.6)
+    // Dois traços por cordão na cor: a crista acesa e uma sombra do lado. É o
+    // par claro-escuro que dá volume ao filete — só o claro daria um risco.
+    cordao(c, i, `rgba(233,246,252,${0.34 + ruido(i, 60) * 0.5})`, largura)
+    cordao(c, i, 'rgba(16,30,38,0.32)', largura * 3)
+    cordao(r, i, `rgba(120,120,120,${0.2 + ruido(i, 61) * 0.3})`, largura * 1.8)
+  }
+
+  // AERAÇÃO: manchas brancas ESTICADAS na vertical. Redondas leriam como bolha;
+  // o alongamento no sentido da queda é o que diz velocidade.
+  for (let i = 0; i < 34; i++) {
+    const x = ruido(i, 62) * n
+    const y = ruido(i, 63) * n
+    const w = n * (0.01 + ruido(i, 64) * 0.025)
+    const alt = n * (0.06 + ruido(i, 65) * 0.18)
+    c.save()
+    c.translate(x, y)
+    c.scale(1, alt / w)
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, w)
+    g.addColorStop(0, 'rgba(255,255,255,0.8)')
+    g.addColorStop(1, 'rgba(255,255,255,0)')
+    c.fillStyle = g
+    c.fillRect(-w, -w, w * 2, w * 2)
+    c.restore()
+  }
+
+  return {
+    map: acaba(cor, 1, 1, true),
+    // Força 2,2: o cordão precisa de relevo forte para pegar o sol de raspão. É
+    // ele que desenha o filete brilhante que se lê como água descendo.
+    normalMap: normalDaAltura(altura, 2.2, 1, 1),
+    roughnessMap: acaba(rugo, 1, 1, false),
+  }
+}
+
+/**
  * LÂMINA DE GRAMÍNEA — a última planta da cobertura sem textura nenhuma.
  *
  * A gramínea era um material branco liso com a cor na instância: sem mapa, sem

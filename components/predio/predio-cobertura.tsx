@@ -1,6 +1,6 @@
 'use client'
-import { useMemo } from 'react'
-import { useThree } from '@react-three/fiber'
+import { useEffect, useMemo } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -14,6 +14,7 @@ import {
   graminea,
   madeiraDeDeck,
   normalDeAgua,
+  veuDagua,
 } from './predio-materiais'
 
 /**
@@ -180,6 +181,30 @@ const piscinaZ = (zCentro: number, prof: number) => {
   const frente = zCentro + prof * PISCINA.frente
   return { fundo, frente, centro: (fundo + frente) / 2, profundidade: frente - fundo }
 }
+
+/**
+ * A CASCATA CORRE A PAREDE INTEIRA — menos onde o escritório encosta nela.
+ *
+ * O fundo do escritório É a parede do andar (ver `zDaParedeDoAndar`), então um
+ * véu d'água colado nela apareceria DENTRO da sala, atrás da estante. A parede
+ * se parte em dois trechos, e a folga de 5 cm de cada lado do volume evita que o
+ * véu raspe no caixilho.
+ *
+ * Devolve pares [de, até] em x, já descartando trecho degenerado — se um dia o
+ * escritório crescer até a borda da laje, o trecho daquele lado simplesmente
+ * não existe em vez de virar uma peça de largura negativa.
+ */
+const TRECHOS_DA_CASCATA = (
+  xEsc: number,
+  largura: number,
+  meiaLargura: number,
+): [number, number][] =>
+  (
+    [
+      [-meiaLargura, xEsc - largura / 2 - 0.05],
+      [xEsc + largura / 2 + 0.05, meiaLargura],
+    ] as [number, number][]
+  ).filter(([de, ate]) => ate - de > 0.5)
 
 const ESCRITORIO = { x: -7.8, largura: 5.8, altura: 2.92, profundidade: 2.0 }
 /** Face interna da parede do andar — é ela que fecha o escritório por trás. */
@@ -412,8 +437,6 @@ export function Cobertura({
     ]
     const gVasoAlto = new THREE.LatheGeometry(perfilVaso, 18)
     const gTerra = new THREE.CircleGeometry(0.38, 16)
-    const perfilVasinho = perfilVaso.map((p) => new THREE.Vector2(p.x * 0.62, p.y * 0.55))
-    const gVaso = new THREE.LatheGeometry(perfilVasinho, 14)
 
     // ÁRVORE. Tronco CÔNICO, galhos e copa de muitos tufos facetados. O
     // icosaedro sem subdivisão é melhor que esfera aqui: a faceta lê como massa
@@ -429,12 +452,10 @@ export function Cobertura({
     const gTufoOliva = new THREE.IcosahedronGeometry(0.27, 0)
     // BUXO: subdividido uma vez. Arbusto APARADO e liso — a faceta grossa que
     // serve para folhagem solta aqui contaria a historia errada.
-    const gBuxo = new THREE.IcosahedronGeometry(0.36, 1)
     // GRAMINEA: lamina de 3 cm, escalada em Y por muda. Caixa e nao folha
     // modelada porque a 37 px/m ela ocupa pouco mais de um pixel.
     const gLamina = new THREE.BoxGeometry(0.03, 1, 0.007)
     // AGAVE: cone de 4 lados = folha rigida que afina ate a ponta.
-    const gFolhaAgave = new THREE.CylinderGeometry(0.006, 0.055, 0.72, 4)
     // JARDINEIRA LINEAR de corten — calha corrida, nao vaso pontual.
     const gJardineira = new RoundedBoxGeometry(3.4, 0.54, 0.8, 1, 0.018)
 
@@ -606,6 +627,15 @@ export function Cobertura({
       emissive: new THREE.Color('#42632c'),
       emissiveIntensity: 0.16,
     })
+    // A água PARADA da calha da cascata: quase lisa e com reflexo do ambiente
+    // alto, porque a única coisa que a faz ler como água a essa distância é
+    // devolver o céu. Escura porque a calha é funda e está na sombra da parede.
+    const mAguaParada = new THREE.MeshStandardMaterial({
+      color: '#2b6b7a',
+      roughness: 0.1,
+      metalness: 0.1,
+      envMapIntensity: 1.4,
+    })
     // Capitel: solido, sem recorte. Verde mais frio que a fronde porque e bainha
     // lisa e cerosa, nao lamina — ela reflete o ceu em vez de acender por tras.
     const mCapitel = new THREE.MeshStandardMaterial({ color: '#6d8152', roughness: 0.72 })
@@ -687,9 +717,7 @@ export function Cobertura({
       roughnessMap: cascaPalmeira.roughnessMap,
     })
     // Buxo: verde profundo e FOSCO, sem faceta. Contraponto da gramineea.
-    const mBuxo = new THREE.MeshStandardMaterial({ color: '#3f5a32', roughness: 0.97 })
     // Agave: verde-azulado com cera — a folha tem brilho, ao contrario das outras.
-    const mAgave = new THREE.MeshStandardMaterial({ color: '#7d9b86', roughness: 0.55, flatShading: true })
     // Graminea: branca no material, cor na instancia, e DUPLA FACE porque a
     // lamina e fina o bastante para a camera ver o verso dela o tempo todo.
     // A DOBRA EM V vem do mapa de normal, e é ela que separa gramínea de palha:
@@ -769,6 +797,10 @@ export function Cobertura({
       toneMapped: false,
     })
     const mFitaLed = new THREE.MeshBasicMaterial({ color: '#ffdca8', toneMapped: false })
+    // A fita da cascata é FRIA, e a do bar é quente. São as duas únicas linhas
+    // acesas do terraço, e se tivessem a mesma cor o olho leria as duas como a
+    // mesma instalação. Luz de água puxa o turquesa; luz de balcão, o âmbar.
+    const mFitaAgua = new THREE.MeshBasicMaterial({ color: '#7fe3f2', toneMapped: false })
     /**
      * OS MATERIAIS DO ESCRITÓRIO, e o que decide todos eles é uma restrição:
      * o sol está ATRÁS do prédio (azimute 152°), então nenhuma luz direta entra
@@ -916,7 +948,24 @@ export function Cobertura({
     const zCanteiro = zCentro - prof * 0.4
     const zGuarda = zCentro + prof * 0.4
     const piscina = piscinaZ(zCentro, prof)
-    const zEspelhoLocal = piscina.centro
+    // Face interna da parede do andar: é nela que a cascata corre, e é ela que
+    // fecha o escritório por trás. Um número só para as duas coisas.
+    const zParedeFundo = zDaParedeDoAndar(zCentro, prof)
+    /**
+     * A ESCADA FOI PARAR NO MEIO DA ÁGUA, e fui eu que a levei para lá.
+     *
+     * Ela estava em `zEspelhoLocal + 0,5`, e `zEspelhoLocal` era um número fixo
+     * (`zCentro − prof × 0,03`) que por acaso caía perto da borda. Quando a
+     * piscina passou a ser derivada de `piscinaZ()` e cresceu 2,28 m para a
+     * frente, o CENTRO dela andou junto — e a escada, amarrada ao centro, foi
+     * junto para o miolo do tanque. Dois corrimãos em U brotando do meio da
+     * lâmina, sem borda por perto.
+     *
+     * Escada de piscina não tem relação nenhuma com o centro: ela é um objeto de
+     * BORDA. Amarrada a `piscina.frente`, ela fica onde estiver a borda, hoje e
+     * quando a piscina mudar de novo.
+     */
+    const zDaEscada = piscina.frente - 0.35
 
     // ── deck ──────────────────────────────────────────────────────────────
     const ripas = Math.floor((meiaLargura * 2) / 0.24)
@@ -1994,98 +2043,26 @@ export function Cobertura({
         )
     }
     /**
-     * VEGETAÇÃO DE PRIMEIRO PLANO, e ela resolve um limite que nenhuma
-     * densidade no fundo resolveria.
+    /**
+     * A VEGETACAO DE PRIMEIRO PLANO SAIU — os dois vasos grandes de x = +-6,0,
+     * com os 82 folhados e as pendentes de cada um, a pedido do dono.
      *
-     * O canteiro do fundo está a 16,75 m da câmera. Nessa distância a escala é
-     * 35,8 px/m, então a massa inteira — 2,4 m de arbusto com palmeira em cima —
-     * ocupa 68 pixels de uma tela de 720. Pode-se dobrar o número de folhas que
-     * ela continua sendo uma FITA: o problema não é quantidade, é distância.
+     * O argumento que estava escrito aqui era de ESCALA, e era correto: planta no
+     * canteiro do fundo esta a 16,75 m da camera e ocupa 68 px; a mesma planta a
+     * 6 m ocupa 150. Massa no primeiro plano compra profundidade que nenhuma
+     * densidade no fundo compra, e vaso grande nas duas bordas emoldura o quadro.
      *
-     * Planta a 6 m da câmera tem escala de 100 px/m. O MESMO arbusto de 1,5 m
-     * passa a ocupar 150 pixels — mais que o dobro da faixa inteira do fundo,
-     * com um vigésimo das cópias.
+     * O que mudou foi o que existe para ser visto. Quando esse argumento foi
+     * escrito, o terraco tinha deck, piscina e canteiro; hoje ele tem um
+     * escritorio envidracado aceso na esquerda, um nicho de bar retroiluminado na
+     * direita e uma cascata correndo a parede do fundo. A moldura deixou de
+     * enquadrar e passou a TAPAR — e o dono pediu tres vezes seguidas para limpar
+     * a frente dessas pecas.
      *
-     * E ela faz um segundo trabalho, que é de composição: vaso grande nas duas
-     * bordas EMOLDURA o quadro. O olho entra pelo meio porque os lados estão
-     * ocupados, e a cena ganha a profundidade de ter algo perto, algo no meio e
-     * algo longe — que é a definição de profundidade.
+     * A profundidade nao se perde: quem faz o plano proximo agora e a propria
+     * piscina, que avancou 2,28 m e ocupa a faixa inteira entre o canteiro e o
+     * guarda-corpo.
      */
-    // x = ±6,0 e nao ±12,6, e eu quebrei a minha propria regra na primeira
-    // tentativa: em z = −1,39 a meia-largura visivel e 1,068 × 7,29 = 7,79 m, e
-    // os vasos em ±12,6 cairam inteiros FORA do quadro, e em ±7,2 ficaram atras
-    // dos pilares. Quanto mais a frente,
-    // mais estreita a janela — e e justamente na frente que eu queria por massa.
-    for (const [v, xv] of [-6.0, 6.0].entries()) {
-      const zv = zCentro + prof * 0.27
-      sombra(xv, zv, 2.6, 2.6)
-      col.poe('vasoAlto', gVasoAlto, mVaso, [xv, piso, zv], [0, 0, 0], [1.05, 1.0, 1.05])
-      col.poe('terra', gTerra, mTerra, [xv, piso + 0.7, zv], [-Math.PI / 2, 0, 0], [1.05, 1.05, 1])
-      /**
-       * SEM PALMEIRA NO PRIMEIRO PLANO, e a razao e de leitura.
-       *
-       * A palmeira do fundo funciona porque esta longe: a 16 m, as nove frondes
-       * se fundem numa copa. A 6 m elas se separam, e o que se ve deixa de ser
-       * uma palmeira e passa a ser NOVE FOLHAS GIGANTES soltas no ar — o render
-       * mostrou exatamente isso. Ler como copa a essa distancia exigiria trinta
-       * frondes ou mais, e ai o vaso engoliria o terraco de novo.
-       *
-       * Entao o primeiro plano fica so com a massa arbustiva e a florada, que
-       * sao coisas que leem bem DE PERTO porque sao feitas de muitas pecas
-       * pequenas. Cada distancia pede a planta que resolve nela.
-       */
-      // Massa de folha larga preenchendo o vaso, e pendente derramando pela
-      // borda: sem isso o estipe sai de terra nua e a peça lê como vaso de loja.
-      for (let f = 0; f < 82; f++) {
-        const a = ruido(f, 460 + v) * Math.PI * 2
-        const r = Math.sqrt(ruido(f, 461 + v)) * 0.42
-        col.poe(
-          'folhaArbusto',
-          gFolhaLarga,
-          mFolhaLarga,
-          [
-            xv + Math.sin(a) * r,
-            piso + 0.72 + ruido(f, 462 + v) * 0.62,
-            zv + Math.cos(a) * r * 0.8,
-          ],
-          [ruido(f, 463 + v) * 3, ruido(f, 464 + v) * 6, ruido(f, 465 + v) * 3],
-          (() => {
-            // 0,5 a 0,95, e nao 1,0 a 1,9: com a geometria base de 0,26 m, a
-            // escala anterior dava folhas de meio metro. Folha de meio metro e
-            // bananeira, e bananeira nao e o que estava plantado ali.
-            const e = 0.5 + ruido(f, 466 + v) * 0.45
-            return [e, e, e] as [number, number, number]
-          })(),
-          TONS_DE_OLIVA[(f + v) % TONS_DE_OLIVA.length]!,
-        )
-      }
-      for (let d = 0; d < 12; d++) {
-        const a = ruido(d, 470 + v) * Math.PI * 2
-        const comp = 0.28 + ruido(d, 471 + v) * 0.4
-        col.poe(
-          'pendente',
-          gPendente,
-          mFolha,
-          [xv + Math.sin(a) * 0.35, piso + 0.68 - comp * 0.45, zv + Math.cos(a) * 0.35],
-          [0.6 + ruido(d, 472 + v) * 0.6, a, 0],
-          [0.9, comp / 0.42, 0.9],
-          TONS_DE_OLIVA[(d + v) % TONS_DE_OLIVA.length]!,
-        )
-      }
-      for (let fl = 0; fl < 9; fl++) {
-        const a = ruido(fl, 480 + v) * Math.PI * 2
-        const r = ruido(fl, 481 + v) * 0.38
-        col.poe(
-          'flor',
-          gFlor,
-          mFlor,
-          [xv + Math.sin(a) * r, piso + 0.85 + ruido(fl, 482 + v) * 0.45, zv + Math.cos(a) * r * 0.8],
-          [0, ruido(fl, 483 + v) * 3, 0],
-          [0.8, 0.6, 0.8],
-          TONS_DE_FLOR[(fl + v) % TONS_DE_FLOR.length]!,
-        )
-      }
-    }
 
     /**
      * AS LUMINARIAS, e cada uma resolve uma area chapada especifica.
@@ -2108,24 +2085,56 @@ export function Cobertura({
       const xb = -meiaLargura + 1.2 + bz * 2.4
       col.poe('balizador', gBalizador, mBalizador, [xb, piso + 0.028, zCentro + prof * 0.33])
     }
-    for (let fx = 0; fx < 7; fx++) {
-      const xf = -meiaLargura + 2.2 + fx * 4.3
-      // O leque abre para CIMA a partir do rodape: luminaria de piso lava a
-      // parede de baixo para cima, e o degrade invertido e o que denuncia facho
-      // desenhado ao contrario.
+    /**
+     * OS SETE FACHOS DE PAREDE SAÍRAM, E NO LUGAR DELES ENTRA UMA CASCATA.
+     *
+     * O argumento para os fachos continua verdadeiro: depois que o cenário de
+     * parallax saiu, a parede virou a maior área lisa do quadro, e sete leques de
+     * claro e escuro eram muito mais barato que qualquer outra coisa. O problema
+     * é que eles resolvem o valor e não resolvem a ATENÇÃO — sete manchas iguais
+     * espalhadas por trinta metros são um padrão, e padrão o olho descarta.
+     *
+     * A cascata resolve as duas de uma vez e ainda fecha um círculo com a
+     * piscina: o terraço passa a ter água em dois estados (parada no chão,
+     * correndo na parede) em vez de um adereço de iluminação.
+     *
+     * Aqui ficam só as PEÇAS SÓLIDAS — a soleira que derrama em cima e a calha
+     * que recebe embaixo. O véu em si é transparente e vive no bloco JSX, pela
+     * mesma razão do pano de vidro do escritório: `InstancedMesh` transparente é
+     * ordenada como um objeto só, e este precisa ser desenhado depois da parede.
+     */
+    for (const [de, ate] of TRECHOS_DA_CASCATA(xEsc, LARG_ESC, meiaLargura)) {
+      const meio = (de + ate) / 2
+      const larg = ate - de
+      // Soleira: a pedra de onde a água transborda. Sem ela o véu nasce do nada
+      // no meio do concreto — e é a linha de sombra embaixo dela que dá o degrau.
+      bloco('soleiraCascata', mPedra, [meio, piso + 3.18, zParedeFundo + 0.09], [larg, 0.12, 0.26])
+      // Calha: a bacia que recebe a queda. Ela fica atrás do maciço do fundo e
+      // quase não aparece — mas água que desce e não chega a lugar nenhum lê como
+      // projeção de vídeo, e o custo de dizer para onde ela vai é uma caixa.
+      bloco('calhaCascata', mPedra, [meio, piso + 0.16, zParedeFundo + 0.22], [larg, 0.32, 0.5])
+      bloco('aguaCalha', mAguaParada, [meio, piso + 0.29, zParedeFundo + 0.22], [larg - 0.1, 0.02, 0.42])
+      /**
+       * A FITA NA CALHA É A FONTE VISÍVEL da iluminação da cascata.
+       *
+       * O véu acende por emissivo no material dele (ver o bloco JSX), e emissivo
+       * sozinho não tem de onde vir: a lâmina brilharia sem nenhuma peça na cena
+       * justificando o brilho, que é o tipo de coisa que o olho estranha sem
+       * saber nomear. A fita resolve isso por uma instância — ela fica no fundo
+       * da calha, atrás da lâmina de água parada, e é ela que se lê como o ponto
+       * de onde a luz sobe.
+       *
+       * Fica 4 cm ATRÁS do véu de propósito: à frente, ela apareceria como uma
+       * linha acesa sobre a água em vez de por baixo dela.
+       */
       col.poe(
-        'facho',
-        gFacho,
-        mFacho,
-        // z = -11,22 e nao -11,62: a parede do fundo esta em -11,4 com 0,3 de
-        // espessura, entao a primeira versao do facho ficou ATRAS dela e nao
-        // renderizou nada. Luz de lavagem tem de estar na frente do plano que
-        // lava — obvio dito assim, invisivel escrito como numero.
-        [xf, piso + 1.15, -11.22],
+        'fitaCascata',
+        gFitaLed,
+        mFitaAgua,
+        [meio, piso + 0.24, zParedeFundo + 0.06],
         [0, 0, 0],
-        [2.6, 2.2, 1],
+        [larg - 0.2, 1, 1],
       )
-      col.poe('balizador', gBalizador, mBalizador, [xf, piso + 0.55, -11.2])
     }
     /**
      * O RETÂNGULO QUENTE DA PORTA SAIU, e não foi substituído por outro.
@@ -2157,51 +2166,38 @@ export function Cobertura({
       col.poe('fitaLed', gFitaLed, mFitaLed, [9.0, piso + y + 0.04, zBar - 1.58], [0, 0, 0], [4.2, 1, 1])
 
     /**
-     * BUXO APARADO — a única fileira da cena onde a regularidade é o efeito.
+     * O BUXO APARADO SAIU — as cinco bolas verdes, a pedido do dono.
      *
-     * Tudo o mais na cobertura ganhou assimetria de propósito, porque nada no
-     * mundo real está alinhado. O buxo é a exceção legítima: ele É aparado, ele É
-     * plantado em espaçamento de régua, e o que se lê nele é justamente a mão do
-     * projetista contra a desordem do resto. Assimetria aqui destruiria o
-     * sentido do objeto.
+     * O argumento a favor delas era bom e continua verdadeiro em tese: era a
+     * única fileira da cena onde a regularidade É o efeito, a mão do projetista
+     * contra a desordem do resto. O que mudou foi o entorno. Aquela faixa passou
+     * a ter cascata na parede e piscina avançando até ela, e cinco esferas de
+     * verde chapado em espaçamento de régua na frente de água correndo leem como
+     * enfeite de vitrine, não como projeto.
+     *
+     * Vale registrar o que a remoção não é: não é "esferas são feias". É que
+     * `gBuxo` é um icosaedro sólido de UM verde só, sem recorte, sem relevo e
+     * sem variação — a única planta da cobertura que nunca recebeu o tratamento
+     * que folha, fronde, casca e gramínea receberam. Ela sobreviveu por ser
+     * pequena, e ficou devendo desde então.
      */
-    // A fila recuou 1,6 m: ela terminava em 7,6, dentro da faixa do bar, e as
-    // duas últimas bolas subiam na frente da prateleira de baixo das garrafas.
-    for (let b = 0; b < 5; b++) {
-      const x = 1.0 + b * 1.25
-      sombra(x, zCentro - prof * 0.33, 1.0, 1.0)
-      col.poe('buxo', gBuxo, mBuxo, [x, piso + 0.34, zCentro - prof * 0.33], [0, b * 0.7, 0])
-    }
 
     /**
-     * AGAVE — a planta arquitetônica, e ela entra por CONTRASTE DE FORMA.
+     * O AGAVE EM VASO SAIU TAMBEM — a ultima peca solta do piso do terraco.
      *
-     * O jardim ficou feito de duas texturas macias: tufo de oliveira e chafariz
-     * de gramínea. Sem uma forma DURA no meio, tudo lê como a mesma massa verde.
-     * A roseta de folha rígida e pontuda é a peça que quebra isso — e é, junto
-     * com o buxo, o que diz "isto foi projetado" em vez de "isto cresceu".
+     * Ele entrou por CONTRASTE DE FORMA: o jardim era feito de duas texturas
+     * macias (tufo de oliveira e chafariz de graminea) e faltava uma forma DURA.
+     * O argumento valia enquanto o terraco fosse so jardim.
+     *
+     * Hoje a forma dura vem da arquitetura: caixilho do escritorio, montante do
+     * nicho do bar, soleira da cascata, pedra da borda da piscina. Um vaso
+     * pontual no meio do deck deixou de contrastar com alguma coisa e passou a
+     * ser o que o dono chamou de jarro — objeto no caminho.
+     *
+     * Com ele saem os dois ultimos vasos do piso. O que sobra plantado na
+     * cobertura esta todo NA CALHA de corten, que e onde planta de laje vive de
+     * verdade: e ali que passa a impermeabilizacao e a irrigacao.
      */
-    // −2,6 e 3,6, e não −5,6 e 6,4. Os dois vasos estavam encostados nas duas
-    // peças que o dono quer ver: o de −5,6 ficava 10 cm à frente do pano de vidro
-    // do escritório, e o de 6,4 na quina do nicho do bar. Agave é planta de
-    // PONTUAR, não de tapar — ela só faz o trabalho dela num vão livre.
-    for (const [k, x] of [-2.6, 3.6].entries()) {
-      const z = zCanteiro + 0.95
-      sombra(x, z, 1.3, 1.3)
-      col.poe('vaso', gVaso, mVaso, [x, piso, z])
-      for (let f = 0; f < 11; f++) {
-        const a = (f / 11) * Math.PI * 2 + k
-        const abre = 0.55 + ruido(f, 210 + k) * 0.55
-        col.poe(
-          'folhaAgave',
-          gFolhaAgave,
-          mAgave,
-          [x + Math.sin(a) * 0.14, piso + 0.58, z + Math.cos(a) * 0.14],
-          [Math.cos(a) * abre, a, -Math.sin(a) * abre],
-          [1, 0.75 + ruido(f, 220 + k) * 0.5, 1],
-        )
-      }
-    }
 
     /**
      * A ESCADA DA PISCINA, e ela faz mais do que parece.
@@ -2216,13 +2212,13 @@ export function Cobertura({
      * que a piscina nao tinha.
      */
     for (const dx of [-0.22, 0.22]) {
-      col.poe('hasteEscada', gHasteEscada, mMetal, [4.3 + dx, piso + 0.02, zEspelhoLocal + 0.5])
-      col.poe('corrimaoEscada', gCorrimaoEscada, mMetal, [4.3 + dx, piso + 0.28, zEspelhoLocal + 0.5], [0, 0, 0])
+      col.poe('hasteEscada', gHasteEscada, mMetal, [4.3 + dx, piso + 0.02, zDaEscada])
+      col.poe('corrimaoEscada', gCorrimaoEscada, mMetal, [4.3 + dx, piso + 0.28, zDaEscada], [0, 0, 0])
     }
     // Degrau submerso: a prateleira rasa que toda piscina tem na entrada. Vista
     // atraves da agua ela desenha uma faixa mais clara no fundo escuro, e e essa
     // faixa que da PROFUNDIDADE — fundo de cor uniforme le como chapa pintada.
-    col.poe('degrauSubmerso', gDegrauSubmerso, mPedra, [4.3, piso - 0.08, zEspelhoLocal + 0.2])
+    col.poe('degrauSubmerso', gDegrauSubmerso, mPedra, [4.3, piso - 0.08, zDaEscada - 0.3])
 
     // ── guarda-corpo ──────────────────────────────────────────────────────
     const montantes = Math.floor((meiaLargura * 2) / 2.1)
@@ -2253,16 +2249,97 @@ export function Cobertura({
     return saida
   }, [piso, zCentro, prof, meiaLargura])
 
-  useMemo(() => {
+  /**
+   * `useEffect`, E NÃO `useMemo` — este era o bug que o dono reportou três vezes.
+   *
+   * O bloco estava escrito como `useMemo(() => { …add…; return () => …remove… })`.
+   * `useMemo` MEMORIZA O VALOR DE RETORNO: aquela função de limpeza virava um
+   * valor guardado que ninguém jamais chamou. As malhas entravam na cena e nunca
+   * saíam.
+   *
+   * O vazamento ficava invisível enquanto `malhas` não recalculasse. Só que ele
+   * depende de `prof`, e `prof` TROCA na descida: o andar nasce em parallax
+   * (profundidade 7) e é promovido a perspectiva (13) quando a câmera se
+   * aproxima. Nesse instante o coletor monta um terraço inteiro novo, e o antigo
+   * continua na cena — dois metros e meio mais raso, com tudo em escala errada.
+   *
+   * Daí saíram os três defeitos que chegaram como problemas separados:
+   *  - "parece ter duas estruturas de proteção de vidro" — dois guarda-corpos.
+   *  - "a estrutura de madeira está desalinhada e invadindo o escritório" — dois
+   *    pergolados em profundidades diferentes, o mais raso cruzando o vidro.
+   *  - "por trás do escritório e do bar parece se repetir" — literalmente um
+   *    segundo escritório e um segundo bar.
+   *
+   * Três sintomas, uma causa, e nenhum deles no objeto que parecia culpado. É a
+   * mesma lição que já ficou escrita nesta feature quando os pilares sumiram e o
+   * defeito continuou: quando o problema SOBREVIVE à correção do suspeito
+   * óbvio, o suspeito era outro.
+   *
+   * A limpeza também DESCARTA a geometria. Cada montagem cria as suas do zero;
+   * sem descartar, cada promoção de andar deixaria os buffers da anterior na
+   * GPU. Os materiais ficam de fora de propósito: alguns carregam textura vinda
+   * de cache compartilhado entre andares, e liberar isso aqui apagaria o
+   * concreto dos vizinhos.
+   */
+  useEffect(() => {
     for (const m of malhas) scene.add(m)
     return () => {
-      for (const m of malhas) scene.remove(m)
+      for (const m of malhas) {
+        scene.remove(m)
+        // `malhas` é `Object3D[]` porque o andar mistura instâncias do coletor
+        // com as malhas fundidas do varal; só as que têm geometria descartam.
+        if (m instanceof THREE.Mesh) m.geometry.dispose()
+      }
     }
   }, [malhas, scene])
 
   const piscina = piscinaZ(zCentro, prof)
   const zEspelho = piscina.centro
   const zGuardaCorpo = zCentro + prof * 0.4
+  /**
+   * A CASCATA. O véu vive aqui e não no coletor porque é transparente — mesma
+   * razão do pano de vidro do escritório: `InstancedMesh` transparente é
+   * ordenada como um objeto só, e este precisa ser desenhado depois da parede
+   * que ele cobre.
+   *
+   * A repetição em U é a largura do trecho dividida por 1,4 m, e não um número
+   * fixo: dois trechos de larguras diferentes com a mesma repetição teriam
+   * cordões de espessuras diferentes, e nada denuncia textura repetida mais
+   * rápido que escala inconsistente entre peças vizinhas.
+   */
+  const aguaDaParede = useMemo(() => veuDagua(), [])
+  const trechos = TRECHOS_DA_CASCATA(ESCRITORIO.x, ESCRITORIO.largura, meiaLargura)
+  const zParedeFundo = zDaParedeDoAndar(zCentro, prof)
+  /**
+   * A QUEDA É ANIMADA POR `offset`, e é a coisa mais barata que existe: um
+   * número por quadro, nenhuma geometria tocada, nenhum material recompilado.
+   *
+   * Água parada numa parede vertical não existe — sem movimento o véu lê como
+   * vidro canelado, que é o oposto do que ele deve dizer. E o mapa de NORMAL
+   * anda mais devagar que o de cor (0,38 contra 0,52) de propósito: o relevo é o
+   * cordão, que desce com a massa d'água, e a cor carrega a aeração, que corre
+   * mais rápido que o cordão porque é ar arrastado. A diferença entre as duas
+   * velocidades é o que dá a impressão de fluxo em vez de fita rolando.
+   */
+  /**
+   * O SINAL É `+=`, E NÃO `-=` — a primeira versão fazia a água SUBIR.
+   *
+   * O fragmento amostra `uv + offset`. Aumentar `offset.y` faz cada ponto da
+   * tela ler um trecho MAIS ALTO da textura, e o conteúdo que estava em cima
+   * aparece embaixo: a imagem desce. Subtrair faz o contrário.
+   *
+   * É contraintuitivo o bastante para errar na primeira, e impossível de não ver
+   * no render — foi o dono quem apontou. Fica escrito porque o próximo a mexer
+   * aqui vai ter exatamente a mesma dúvida.
+   */
+  useFrame((_, delta) => {
+    // O passo é limitado porque `delta` estoura quando a aba volta do segundo
+    // plano, e um salto de meio segundo teleportaria a queda.
+    const passo = Math.min(delta, 0.05)
+    aguaDaParede.map.offset.y += passo * 0.52
+    aguaDaParede.normalMap.offset.y += passo * 0.38
+    aguaDaParede.roughnessMap.offset.y += passo * 0.38
+  })
   // Repetidos do bloco instanciado de propósito: o vidro e a luz são as duas
   // únicas peças do escritório que NÃO podem ser instanciadas — uma é
   // transparente (precisa ordenar contra o interior) e a outra não é geometria.
@@ -2271,6 +2348,83 @@ export function Cobertura({
 
   return (
     <>
+      {/* ═══ A CASCATA DA PAREDE DO FUNDO ═══
+       *
+       * Entrou no lugar dos sete fachos de lavagem. Eles resolviam o VALOR da
+       * parede — trinta metros de concreto num tom só — e não resolviam a
+       * atenção: sete manchas iguais são um padrão, e padrão o olho descarta.
+       *
+       * Opacidade 0,74 e não 1: véu d'água é fino, e o concreto tem de aparecer
+       * por trás dele. É essa transparência parcial que separa "água correndo
+       * numa parede" de "parede pintada de azul" — o mesmo raciocínio do vidro
+       * do guarda-corpo, com o número no outro extremo, porque aqui a peça
+       * PRECISA ser vista.
+       *
+       * `envMapIntensity` alto com rugosidade baixa é o que faz o véu pegar o
+       * céu do entardecer e acender em faixa vertical. Sem isso ele seria uma
+       * superfície texturada e escura, que é o que água sem reflexo é. */}
+      {trechos.map(([de, ate]) => (
+        <mesh key={de} position={[(de + ate) / 2, piso + 1.72, zParedeFundo + 0.05]}>
+          <planeGeometry args={[ate - de, 2.86]} />
+          <meshStandardMaterial
+            // Escuro e metálico, e não azul-claro. A cor da água é a cor do que
+            // ela reflete: com `metalness` alta e rugosidade quase zero, quem
+            // pinta o véu é o céu do entardecer, em faixa vertical. Um azul
+            // pintado à mão compete com esse reflexo e vence — foi o que
+            // aconteceu na primeira tentativa, e o resultado foi vidro jateado.
+            color="#7d9aa6"
+            roughness={0.05}
+            metalness={0.3}
+            envMapIntensity={2.2}
+            transparent
+            opacity={0.82}
+            /**
+             * O VÉU ACENDE POR EMISSIVO, e não por uma luz nova.
+             *
+             * Instalação de água iluminada é sempre iluminada POR DENTRO — a
+             * fita fica na calha e a luz sobe atravessando a lâmina, que é o que
+             * faz a água inteira brilhar em vez de ter uma mancha clara. Imitar
+             * isso com uma `pointLight` exigiria pôr a fonte dentro da calha e
+             * torcer para o alcance cobrir três metros de altura, e cada luz
+             * nova recompila o shader de todos os materiais da cena.
+             *
+             * O emissivo dá a leitura certa por zero luzes: o véu tem valor
+             * próprio, não some quando o céu escurece, e o gradiente vertical de
+             * verdade fica por conta da fita na calha, que é sólida e aparece.
+             *
+             * Verde-azulado e não branco: água iluminada por baixo puxa o
+             * turquesa, porque a própria massa d'água filtra o vermelho. Branco
+             * aqui leria como painel de LED.
+             */
+            emissive={new THREE.Color('#1f5c6e')}
+            /**
+             * 0,38 E NÃO 0,55 — com 0,55 o véu virou uma CHAPA turquesa.
+             *
+             * Emissivo é um valor somado por igual em cada pixel: quanto mais
+             * alto, mais ele achata a diferença entre o cordão aceso e o vão
+             * escuro — e é justamente essa diferença que se lê como água
+             * correndo. Acender demais uma superfície apaga a textura dela, e o
+             * primeiro render com 0,55 mostrou exatamente isso: acesa, sim, e
+             * com cara de painel de LED em vez de cascata.
+             */
+            emissiveIntensity={0.38}
+            map={aguaDaParede.map}
+            normalMap={aguaDaParede.normalMap}
+            normalScale={new THREE.Vector2(1.6, 1.6)}
+            roughnessMap={aguaDaParede.roughnessMap}
+            onUpdate={(m) => {
+              // A repetição sai da LARGURA DO TRECHO: com um número fixo, os dois
+              // trechos (um de 4 m, outro de 20) teriam cordões de espessuras
+              // diferentes lado a lado.
+              for (const t of [m.map, m.normalMap, m.roughnessMap]) {
+                if (!t) continue
+                t.repeat.set((ate - de) / 1.4, 1)
+                t.needsUpdate = true
+              }
+            }}
+          />
+        </mesh>
+      ))}
       {/* ═══ O PANO DE VIDRO DO ESCRITÓRIO ═══
        *
        * Fica AQUI e não no coletor por uma razão só: transparência. Uma
