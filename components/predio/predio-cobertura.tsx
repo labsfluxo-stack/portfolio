@@ -10,6 +10,7 @@ import {
   comRepeticao,
   concreto,
   folha,
+  brilhoDeNicho,
   fronde,
   graminea,
   madeiraDeDeck,
@@ -235,6 +236,24 @@ export function Cobertura({
     const recorteDeFolha = folha()
     const recorteDeFolhaLarga = folha('ovalada')
     const recorteDeFronde = fronde()
+    /**
+     * AS PRATELEIRAS DO BAR, num lugar só, e é aqui que elas têm de estar.
+     *
+     * Elas governam QUATRO coisas que não podem sair de registro: a madeira da
+     * prateleira, a fita que a ilumina por trás, a faixa clara desenhada no
+     * painel do fundo e as garrafas em cima. Quando esses números moravam em
+     * blocos diferentes eu já os deixei divergir uma vez — subi as prateleiras de
+     * três para quatro e as fitas ficaram nas alturas antigas, acendendo o vão
+     * entre elas em vez da prateleira.
+     */
+    const PRATELEIRAS_BAR = [0.74, 1.3, 1.86, 2.4]
+    const NICHO_BASE = 0.345
+    const NICHO_ALTURA = 2.27
+    // As faixas do painel saem das MESMAS alturas, convertidas para a coordenada
+    // V do nicho — 0 na base da caixa, 1 no topo dela.
+    const brilhoDoNicho = brilhoDeNicho(
+      PRATELEIRAS_BAR.map((y) => (y - NICHO_BASE) / NICHO_ALTURA),
+    )
 
     // ── geometrias ────────────────────────────────────────────────────────
     // Raio de 5 mm na régua: é o chanfro que uma régua de deck de verdade tem,
@@ -475,6 +494,11 @@ export function Cobertura({
     const gSpot = new THREE.CylinderGeometry(0.045, 0.045, 0.018, 10)
     // Aro de apoio de pe da banqueta alta.
     const gAroBanqueta = new THREE.TorusGeometry(0.17, 0.011, 5, 12)
+    // Rotulo da garrafa: anel raso um pouco mais largo que o corpo, para ele
+    // sobressair em vez de sumir dentro do vidro.
+    const gRotulo = new THREE.CylinderGeometry(0.044, 0.044, 0.1, 8)
+    // Ripa da frente do balcao. Escalada em Y; o que se le e a sombra entre elas.
+    const gRipaBalcao = new THREE.BoxGeometry(0.05, 1, 0.022)
     const gApoioPe = new THREE.CylinderGeometry(0.026, 0.026, 4.4, 8)
     const gAssentoBanqueta = new THREE.CylinderGeometry(0.21, 0.2, 0.09, 14)
     const gPernaBanqueta = new THREE.CylinderGeometry(0.026, 0.034, 0.72, 8)
@@ -832,11 +856,19 @@ export function Cobertura({
     // dois lugares acesos no mesmo quadro, e se tivessem a mesma temperatura eles
     // leriam como a mesma coisa repetida — a diferença de cor é o que diz que um
     // é uma sala e o outro é um balcão.
+    // O rótulo é PAPEL: opaco e fosco, e é justamente por ser opaco que ele corta
+    // a mancha de vidro aceso. Cru e não branco — rótulo branco puro num nicho
+    // âmbar vira um ponto azulado que nada mais na cena tem.
+    const mRotulo = new THREE.MeshStandardMaterial({ color: '#d8cbb0', roughness: 0.92 })
     const mBarNicho = new THREE.MeshStandardMaterial({
       color: '#a8712f',
       roughness: 1,
       emissive: new THREE.Color('#ff9a3c'),
       emissiveIntensity: 1.5,
+      // O mesmo desenho pinta e modula a emissão: a faixa clara é também a que
+      // mais acende, que é o que uma fita sob prateleira faz.
+      map: brilhoDoNicho,
+      emissiveMap: brilhoDoNicho,
     })
     const mEscLuz = new THREE.MeshStandardMaterial({
       color: '#e8c79a',
@@ -1197,8 +1229,8 @@ export function Cobertura({
     const ALT_BAR = ESCRITORIO.altura
     const PROF_BAR = 2.2
     const zForroBar = zBar - 0.6
-    const yNicho = piso + 1.48
-    const H_NICHO = 2.27
+    const yNicho = piso + NICHO_BASE + NICHO_ALTURA / 2
+    const H_NICHO = NICHO_ALTURA
     col.poe(
       'barNicho',
       gCaixa,
@@ -1228,6 +1260,19 @@ export function Cobertura({
      */
     col.poe('backBar', gCaixa, mMadeiraEscura, [xBar, piso + 0.46, zBar - 1.12], [0, 0, 0], [LARG_BAR - 0.2, 0.92, 0.42])
     col.poe('backBarTampo', gCaixa, mPedra, [xBar, piso + 0.95, zBar - 1.12], [0, 0, 0], [LARG_BAR - 0.1, 0.05, 0.5])
+    /**
+     * A CUBA DE GELO E O PANO — as duas peças que dizem que ALGUÉM TRABALHA ali.
+     *
+     * Bancada de trabalho limpa e vazia é bancada de showroom. A cuba é um
+     * rebaixo escuro com aro de inox (dois blocos), e o pano é uma faixa clara
+     * jogada por cima do tampo. São três instâncias, e elas fazem pelo bar o que
+     * a toalha caída fazia pela espreguiçadeira antes de ela sair da cena.
+     *
+     * A cuba fica FORA do centro de propósito: centrada, ela viraria composição.
+     */
+    col.poe('cubaBar', gCaixa, mBarNicho, [xBar - 1.5, piso + 0.93, zBar - 1.1], [0, 0, 0], [0.62, 0.02, 0.34])
+    col.poe('aroCuba', gCaixa, mMetal, [xBar - 1.5, piso + 0.965, zBar - 1.1], [0, 0, 0], [0.7, 0.03, 0.42])
+    col.poe('panoBar', gCaixa, mRotulo, [xBar + 1.2, piso + 0.985, zBar - 1.14], [0, 0.22, 0], [0.34, 0.02, 0.24])
     // Laje e forro, na mesma cota da laje do escritório.
     col.poe('barLaje', gCaixa, mParedeConcreto, [xBar, piso + ALT_BAR + 0.09, zForroBar], [0, 0, 0], [LARG_BAR + 0.8, 0.18, PROF_BAR + 0.5])
     col.poe('barForro', gCaixa, mMadeiraEscura, [xBar, piso + ALT_BAR - 0.06, zForroBar], [0, 0, 0], [LARG_BAR + 0.4, 0.1, PROF_BAR + 0.2])
@@ -1271,24 +1316,100 @@ export function Cobertura({
      * A cor vai no gargalo TAMBÉM, e a mesma: vidro é tingido na massa, então
      * corpo âmbar com gargalo transparente seria garrafa de duas peças.
      */
-    for (const [p, y] of [0.74, 1.3, 1.86, 2.4].entries()) {
+    /**
+     * VINTE GARRAFAS POR PRATELEIRA, e não doze — oitenta no total.
+     *
+     * Doze em 4,9 m davam 41 cm de vão entre uma e outra: uma FILEIRA, com o
+     * painel aceso aparecendo inteiro por trás. Parede de bar não é fileira, é
+     * ESTOQUE — as garrafas se encostam, se escondem uma atrás da outra e só
+     * deixam passar frestas de luz. É essa densidade que faz o nicho parecer um
+     * lugar que funciona em vez de uma vitrine montada.
+     *
+     * Oitenta garrafas com gargalo e rótulo são 240 matrizes, e o coletor as
+     * emite em três `InstancedMesh`. O custo real de instância é a chamada de
+     * desenho, não a cópia — é o mesmo argumento que sustenta os 64 racks do
+     * andar 07.
+     *
+     * DUAS FILAS EM PROFUNDIDADE: as de trás ficam 9 cm atrás e mais altas, e é
+     * a sobreposição entre as duas que dá volume à parede. Uma fila só, por mais
+     * densa, continua sendo um friso.
+     */
+    for (const [p, y] of PRATELEIRAS_BAR.entries()) {
       col.poe('prateleira', gPrateleira, mPedra, [xBar, piso + y, zBar - 1.46])
-      for (let g = 0; g < 12; g++) {
-        const x = xBar - 2.05 + g * 0.36 + ruido(g, 41 + p) * 0.09
-        const alto = 0.8 + ruido(g, 42 + p) * 0.6
-        const cor = TONS_DE_GARRAFA[(g * 5 + p * 3) % TONS_DE_GARRAFA.length]!
-        col.poe('garrafa', gGarrafa, mVidroGarrafa, [x, piso + y + 0.17, zBar - 1.46], [0, 0, 0], [1, alto, 1], cor)
-        col.poe(
-          'gargalo',
-          gGargalo,
-          mVidroGarrafa,
-          [x, piso + y + 0.17 + 0.15 * alto + 0.055, zBar - 1.46],
-          [0, 0, 0],
-          [1, 1, 1],
-          cor,
-        )
+      for (let g = 0; g < 20; g++) {
+        for (const fila of [0, 1]) {
+          const passo = LARG_BAR / 20
+          const x =
+            xBar - LARG_BAR / 2 + passo * (g + 0.5) + (fila ? passo * 0.5 : 0) +
+            (ruido(g, 41 + p * 7 + fila * 3) - 0.5) * 0.05
+          if (x > xBar + LARG_BAR / 2 - 0.1) continue
+          // A fila de trás é mais alta: garrafa baixa atrás de garrafa alta
+          // simplesmente não existe para a câmera, e seria instância paga sem
+          // nenhum pixel em troca.
+          const alto = (fila ? 1.05 : 0.78) + ruido(g, 42 + p * 5 + fila) * 0.5
+          // O DIÂMETRO também varia. Sem isso, oitenta cilindros de mesma
+          // largura leem como um pente — era o defeito que o gargalo sozinho não
+          // consertou.
+          const larg = 0.82 + ruido(g, 43 + p * 3 + fila) * 0.36
+          const z = zBar - 1.46 - fila * 0.09
+          const cor = TONS_DE_GARRAFA[(g * 5 + p * 3 + fila * 7) % TONS_DE_GARRAFA.length]!
+          const yBase = piso + y + 0.17
+          col.poe('garrafa', gGarrafa, mVidroGarrafa, [x, yBase, z], [0, 0, 0], [larg, alto, larg], cor)
+          col.poe(
+            'gargalo',
+            gGargalo,
+            mVidroGarrafa,
+            [x, yBase + 0.15 * alto + 0.055, z],
+            [0, 0, 0],
+            [larg, 1, larg],
+            cor,
+          )
+          /**
+           * O RÓTULO é o detalhe que mais devolve por instância nesta cena.
+           *
+           * Garrafa retroiluminada sem rótulo é uma mancha de cor CONTÍNUA de
+           * baixo a cima — e era isso que se via. O rótulo corta essa mancha ao
+           * meio com uma faixa clara e OPACA, e são as oitenta faixas na mesma
+           * altura relativa que organizam a parede: o olho acha a linha delas
+           * antes de achar qualquer garrafa.
+           *
+           * Fica a 40% da altura do corpo, que é onde rótulo de garrafa fica.
+           * Centrado, pareceria uma fita decorativa.
+           */
+          col.poe(
+            'rotulo',
+            gRotulo,
+            mRotulo,
+            [x, yBase - 0.15 * alto + 0.3 * alto * 0.3 + 0.02, z],
+            [0, 0, 0],
+            [larg * 1.06, alto * 0.62, larg * 1.06],
+          )
+        }
       }
     }
+    /**
+     * O BALCÃO GANHA RIPADO. Era um painel liso de 4,6 × 1,0 m — a maior
+     * superfície de madeira do bar, e a mais morta: um retângulo escuro com a
+     * trama do mapa e nada mais.
+     *
+     * Ripado vertical é O desenho de frente de balcão contemporâneo, e por uma
+     * razão que não é de gosto: ele é o único jeito de dar escala a um painel
+     * grande sem pôr nele nenhuma informação. São 52 ripas de 5 cm, e o que se
+     * lê não são as ripas — é a SOMBRA entre elas, uma linha vertical a cada 9
+     * cm, que diz de perto e de longe o tamanho do móvel.
+     */
+    for (let r = 0; r < 52; r++)
+      col.poe(
+        'ripaBalcao',
+        gRipaBalcao,
+        mMadeiraEscura,
+        [xBar - 2.25 + r * 0.088, piso + 0.56, zBar + 0.355],
+        [0, 0, 0],
+        [1, 0.86, 1],
+      )
+    // RODAPÉ RECUADO sob o ripado. Nenhuma marcenaria encosta no chão: a sombra
+    // do recuo é o que faz o balcão parecer apoiado em vez de brotado do deck.
+    col.poe('rodapeBalcao', gCaixa, mMadeiraEscura, [xBar, piso + 0.06, zBar + 0.28], [0, 0, 0], [4.6, 0.12, 0.6])
     /**
      * O QUE SE DEIXA EM CIMA DO BALCÃO, e é a parte mais barata do bar com o
      * maior retorno — mesma lógica da toalha na espreguiçadeira e do carrinho de
@@ -2243,10 +2364,18 @@ export function Cobertura({
     )
     // Fita de LED sob o tampo do bar: desenha a linha do movel no escuro.
     col.poe('fitaLed', gFitaLed, mFitaLed, [9.0, piso + 0.98, zBar + 0.36], [0, 0, 0], [4.4, 1, 1])
-    // E atras das garrafas: prateleira retroiluminada, que e o que faz um bar
-    // ler como bar de noite.
-    for (const y of [0.62, 1.12, 1.6])
-      col.poe('fitaLed', gFitaLed, mFitaLed, [9.0, piso + y + 0.04, zBar - 1.58], [0, 0, 0], [4.2, 1, 1])
+    /**
+     * E ATRÁS DAS GARRAFAS: uma fita por prateleira. É o que faz um bar ler como
+     * bar de noite.
+     *
+     * As alturas saem de `PRATELEIRAS_BAR` e não de uma lista própria. Elas JÁ
+     * divergiram: quando o bar subiu para a altura do escritório as prateleiras
+     * foram de três para quatro, e estas fitas ficaram em 0,62 / 1,12 / 1,60 —
+     * as cotas antigas —, acendendo o vão entre uma prateleira e outra em vez da
+     * prateleira. Número repetido é número que diverge.
+     */
+    for (const y of PRATELEIRAS_BAR)
+      col.poe('fitaLed', gFitaLed, mFitaLed, [xBar, piso + y + 0.04, zBar - 1.56], [0, 0, 0], [4.2, 1, 1])
 
     /**
      * O BUXO APARADO SAIU — as cinco bolas verdes, a pedido do dono.

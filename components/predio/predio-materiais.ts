@@ -1082,6 +1082,70 @@ export function casca(tipo: 'oliveira' | 'palmeira'): Superficie {
 }
 
 /**
+ * O BRILHO DO NICHO DO BAR — e ele existe porque um painel aceso CHAPADO é a
+ * coisa mais morta que se pode pôr numa cena.
+ *
+ * O fundo do nicho tem 4,9 × 2,27 m e é a maior superfície do bar. Emissivo
+ * uniforme transforma isso num retângulo amarelo de valor único, e nenhuma
+ * quantidade de garrafa na frente conserta — o olho lê a chapa primeiro.
+ *
+ * O que uma parede de garrafas retroiluminada de verdade tem é o DESENHO DA
+ * FONTE. A luz não vem do painel inteiro: vem de uma fita escondida sob cada
+ * prateleira. Então o que se vê é uma sequência de faixas quentes, uma por
+ * prateleira, com o valor caindo no meio do caminho entre duas — e é essa
+ * alternância que dá altura e profundidade ao nicho.
+ *
+ * `faixas` são as posições V de cada fita, de 0 (base) a 1 (topo). Quem chama
+ * passa as alturas reais das prateleiras convertidas, para o desenho e a
+ * marcenaria nunca saírem de registro.
+ *
+ * Serve de `map` e de `emissiveMap` ao mesmo tempo: o primeiro pinta e o segundo
+ * modula a emissão, então a faixa clara é também a que mais acende.
+ */
+export function brilhoDeNicho(faixas: number[]): THREE.Texture {
+  const n = 256
+  const [cv, c] = tela(n)
+  // Base escura: é o valor do fundo do nicho ENTRE as fitas, e é contra ele que
+  // as faixas aparecem. Preto demais mataria o meio-tom; claro demais apaga a
+  // faixa. Um terço do branco é onde os dois sobrevivem.
+  c.fillStyle = '#4d3a22'
+  c.fillRect(0, 0, n, n)
+
+  for (const v of faixas) {
+    // Canvas cresce para BAIXO e V para cima: a inversão é obrigatória, e errá-la
+    // põe a luz mais forte no topo, que é o oposto do que uma fita sob prateleira
+    // faz.
+    const y = (1 - v) * n
+    // A fita ilumina MAIS PARA CIMA que para baixo: ela fica sob a prateleira,
+    // apontando para o vão de cima. Por isso o degradê é assimétrico — e é essa
+    // assimetria que denuncia de que lado está a fonte.
+    const g = c.createLinearGradient(0, y - n * 0.16, 0, y + n * 0.07)
+    g.addColorStop(0, 'rgba(255,214,150,0)')
+    g.addColorStop(0.72, 'rgba(255,226,172,0.92)')
+    g.addColorStop(0.86, 'rgba(255,240,205,1)')
+    g.addColorStop(1, 'rgba(255,214,150,0)')
+    c.fillStyle = g
+    c.fillRect(0, y - n * 0.17, n, n * 0.25)
+  }
+
+  // VINHETA NAS BORDAS. Nicho é uma caixa: as laterais recebem menos luz que o
+  // meio, e sem esse escurecimento o painel encosta nos montantes com o mesmo
+  // valor e a marcenaria some.
+  const lados = c.createLinearGradient(0, 0, n, 0)
+  lados.addColorStop(0, 'rgba(26,14,4,0.55)')
+  lados.addColorStop(0.13, 'rgba(26,14,4,0)')
+  lados.addColorStop(0.87, 'rgba(26,14,4,0)')
+  lados.addColorStop(1, 'rgba(26,14,4,0.55)')
+  c.fillStyle = lados
+  c.fillRect(0, 0, n, n)
+
+  const t = new THREE.CanvasTexture(cv)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = ANISOTROPIA
+  return t
+}
+
+/**
  * VÉU D'ÁGUA — a cascata que corre pela parede do fundo.
  *
  * Não dava para reaproveitar `normalDeAgua()`, e a razão é o que separa os dois
