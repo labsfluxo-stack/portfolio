@@ -2211,9 +2211,41 @@ export function Cobertura({
      * horizontal, e eles pegam o sol rasante num filete brilhante. E o acento
      * que a piscina nao tinha.
      */
-    for (const dx of [-0.22, 0.22]) {
-      col.poe('hasteEscada', gHasteEscada, mMetal, [4.3 + dx, piso + 0.02, zDaEscada])
-      col.poe('corrimaoEscada', gCorrimaoEscada, mMetal, [4.3 + dx, piso + 0.28, zDaEscada], [0, 0, 0])
+    /**
+     * O U INVERTIDO ESTAVA MONTADO ERRADO, e o zoom mostrou o que o quadro
+     * inteiro escondia: dois arcos com um poste no MEIO de cada um e as quatro
+     * pernas no ar.
+     *
+     * A causa é de leitura de geometria, a mesma da toalha que ficou em pé.
+     * `gCorrimaoEscada` é um `TorusGeometry(0,18, …, π)` — meia rosca, ou seja um
+     * arco de 36 cm de VÃO cujas duas pontas ficam em x ± 0,18 do centro dele. O
+     * laço tratava `dx` como "qual dos dois corrimãos", e punha o poste no mesmo
+     * x do centro do arco. Poste no centro de um arco não sustenta arco nenhum:
+     * ele nasce no ponto mais alto e desce pelo vazio.
+     *
+     * Corrimão de piscina é UM tubo dobrado: sobe de dentro d'água, vira em meia
+     * rosca e desce do outro lado. As pernas são as PONTAS do arco, não o centro
+     * dele — então o poste vem de `RAIO_CORRIMAO`, e não de um número escolhido
+     * à parte. Amarrado assim, ele não tem como desalinhar de novo se o raio
+     * mudar.
+     *
+     * São dois corrimãos lado a lado, afastados 0,52 m: é por entre eles que se
+     * desce. Um só seria um puxador; dois é uma escada.
+     */
+    const RAIO_CORRIMAO = 0.18
+    for (const dxCorrimao of [-0.26, 0.26]) {
+      const xc = 4.3 + dxCorrimao
+      col.poe('corrimaoEscada', gCorrimaoEscada, mMetal, [xc, piso + 0.3, zDaEscada])
+      // As duas pernas, nas pontas do arco. A de dentro do tanque desce até o
+      // degrau submerso; a de fora morre na pedra da borda — e é essa diferença
+      // que faz a peça ler como ENTRADA e não como alça decorativa.
+      for (const lado of [-1, 1])
+        col.poe(
+          'hasteEscada',
+          gHasteEscada,
+          mMetal,
+          [xc + lado * RAIO_CORRIMAO, piso + 0.04, zDaEscada],
+        )
     }
     // Degrau submerso: a prateleira rasa que toda piscina tem na entrada. Vista
     // atraves da agua ela desenha uma faixa mais clara no fundo escuro, e e essa
