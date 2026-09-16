@@ -15,6 +15,7 @@ import {
   graminea,
   madeiraDeDeck,
   normalDeAgua,
+  paredeLavada,
   veuDagua,
 } from './predio-materiais'
 
@@ -254,6 +255,13 @@ export function Cobertura({
     const brilhoDoNicho = brilhoDeNicho(
       PRATELEIRAS_BAR.map((y) => (y - NICHO_BASE) / NICHO_ALTURA),
     )
+    const lavagemDaParede = paredeLavada()
+    // O PISO DO ESCRITORIO E MADEIRA, e nao um marrom liso. Era a segunda maior
+    // area do interior depois da parede, e a unica sem nenhuma informacao — um
+    // retangulo de cor chapada no lugar de onde a cena mais mostra chao. Repete
+    // 7 x 3 sobre 5,8 x 2,0 m, que poe a tabua perto de 80 cm: largura de piso
+    // de engenharia, e nao de regua de deck.
+    const tabuaDoEscritorio = comRepeticao(madeira, 7, 3)
 
     // ── geometrias ────────────────────────────────────────────────────────
     // Raio de 5 mm na régua: é o chanfro que uma régua de deck de verdade tem,
@@ -873,13 +881,27 @@ export function Cobertura({
     const mEscLuz = new THREE.MeshStandardMaterial({
       color: '#e8c79a',
       roughness: 1,
+      // O degradê de cornija: claro no forro, escurecendo até o rodapé. Pinta e
+      // modula a emissão ao mesmo tempo, então o alto da parede é também a parte
+      // que mais acende — que é onde estão as luminárias.
+      map: lavagemDaParede,
+      emissiveMap: lavagemDaParede,
       emissive: new THREE.Color('#ffb968'),
       // 1,1 e não 3: este painel tem 5 m² e fica atrás de tudo. Alto demais ele
       // estoura e o mobiliário na frente vira silhueta preta recortada — que é o
       // erro clássico de quem ilumina interior por trás.
       emissiveIntensity: 1.1,
     })
-    const mEscPiso = new THREE.MeshStandardMaterial({ color: '#8a6a45', roughness: 0.6 })
+    const mEscPiso = new THREE.MeshStandardMaterial({
+      color: '#8a6a45',
+      // 0,45 e nao 0,6: piso interno e ENVERNIZADO, e o pouco de reflexo que ele
+      // devolve da parede acesa e metade do que faz um interior parecer interior.
+      // Deck cru nao brilha; taco de escritorio brilha.
+      roughness: 0.45,
+      map: tabuaDoEscritorio.map,
+      normalMap: tabuaDoEscritorio.normalMap,
+      roughnessMap: tabuaDoEscritorio.roughnessMap,
+    })
     const mEscTapete = new THREE.MeshStandardMaterial({ color: '#6d6152', roughness: 0.98 })
     const mCaixilho = new THREE.MeshStandardMaterial({
       color: '#2a2724',
@@ -1792,6 +1814,25 @@ export function Cobertura({
     // a diferença entre mesa MOBILIADA e mesa de catálogo.
     bloco('escPapel', mEscParede, [xMesa + 0.52, piso + 0.762, zMesa + 0.1], [0.26, 0.008, 0.2])
     bloco('escPapel', mEscParede, [xMesa + 0.66, piso + 0.8, zMesa - 0.06], [0.08, 0.1, 0.08])
+    /**
+     * O TECLADO era o que faltava para a mesa fazer sentido.
+     *
+     * Monitor soziho sobre um tampo vazio não lê como posto de trabalho — lê como
+     * monitor exposto. O teclado é a peça que declara que alguém SENTA ali, e é
+     * também o que amarra a cadeira à mesa: sem ele, a cadeira afastada e torta
+     * podia estar de frente para qualquer coisa.
+     */
+    bloco('escTeclado', mCaixilho, [xMesa - 0.15, piso + 0.765, zMesa + 0.18], [0.44, 0.016, 0.15])
+    /**
+     * LUMINÁRIA DE MESA, e ela é a terceira temperatura de luz do interior.
+     *
+     * Já há a cornija na parede (difusa e ampla) e os três pendentes (pontuais e
+     * altos). Falta a luz de TAREFA — a que fica na altura do tampo e é a única
+     * que uma pessoa acende porque precisa, não porque o ambiente pede. É o
+     * detalhe que separa "sala iluminada" de "alguém trabalhando".
+     */
+    col.poe('escHasteAbajur', gFioLum, mCaixilho, [xMesa + 0.72, piso + 0.92, zMesa - 0.22], [0, 0, 0], [3, 0.3, 3])
+    col.poe('escAbajur', gLuminaria, mLuminaria, [xMesa + 0.72, piso + 1.08, zMesa - 0.22], [Math.PI, 0, 0], [0.7, 0.7, 0.7])
 
     /**
      * A CADEIRA fica À FRENTE da mesa e girada, não empurrada para dentro dela.
@@ -1812,10 +1853,99 @@ export function Cobertura({
       [xCad - Math.cos(giroCad) * 0.2, piso + 0.73, zCad + Math.sin(giroCad) * 0.2],
       [0.1, giroCad, 0],
     )
+    /**
+     * OS BRAÇOS, e eles são o que a cadeira precisava para deixar de ser um
+     * BLOCO ESCURO.
+     *
+     * No zoom ela lia como duas chapas pretas: assento e encosto, ambos maciços,
+     * ambos do mesmo material, nenhum vazio entre eles. O braço é a peça que
+     * introduz um VÃO na silhueta — o retângulo de parede acesa que passa a
+     * aparecer entre o braço e o assento é o que faz o olho ler três volumes em
+     * vez de uma mancha.
+     *
+     * Ficam no metal do caixilho e não no estofado: cadeira de escritório tem
+     * braço de estrutura, e a diferença de material é a segunda coisa que separa
+     * as partes.
+     */
+    for (const lado of [-1, 1]) {
+      const dx = Math.cos(giroCad) * lado * 0.25
+      const dz = -Math.sin(giroCad) * lado * 0.25
+      bloco('escBracoCad', mCaixilho, [xCad + dx, piso + 0.61, zCad + dz + 0.04], [0.05, 0.03, 0.38])
+      bloco('escApoioCad', mCaixilho, [xCad + dx, piso + 0.53, zCad + dz + 0.2], [0.04, 0.16, 0.04])
+    }
 
     // Tapete: a mancha escura no chão que ancora o móvel. Sem ele a mesa e a
     // cadeira flutuam sobre uma tábua corrida uniforme.
     col.poe('escTapete', gPlanoEsc, mEscTapete, [xEsc + 0.9, piso + 0.065, zEsc + 0.2], [-Math.PI / 2, 0, 0], [3.0, 1.5, 1])
+    /**
+     * A PLANTA DE CANTO, e ela entra pela razão oposta à dos vasos que saíram do
+     * deck.
+     *
+     * Lá fora, vaso no piso virou obstáculo entre a câmera e o que ela precisa
+     * ver. Aqui dentro é o contrário: o canto direito do escritório é o único
+     * pedaço do interior sem nada, e vazio atrás de vidro lê como sala
+     * desocupada. Planta grande em vaso quadrado é o que todo escritório tem
+     * naquele canto exato, e ela também quebra a horizontal contínua de estante,
+     * mesa e tampo com uma massa VERTICAL.
+     *
+     * Vaso em CAIXA e não em torneado: é o vocabulário do resto do volume, que é
+     * todo feito de planos retos.
+     */
+    const xPlanta = xEsc + 2.3
+    const zPlanta = zEsc + 0.3
+    bloco('escVaso', mCaixilho, [xPlanta, piso + 0.25, zPlanta], [0.38, 0.44, 0.38])
+    bloco('escTerraVaso', mEscTapete, [xPlanta, piso + 0.47, zPlanta], [0.34, 0.02, 0.34])
+    /**
+     * Ela é ALTA e fica À FRENTE do painel, não no canto do fundo. No canto ela
+     * recortava contra a parede acesa como uma mancha escura de meio metro e
+     * sumia; à frente, ela cruza a luz e vira silhueta legível — que é o trabalho
+     * que uma planta de interior faz num contraluz.
+     *
+     * Cinquenta folhas e não trinta: a 18 m da câmera, o vaso inteiro ocupa uns
+     * quarenta pixels, e massa rala nessa escala vira poeira verde.
+     */
+    for (let f = 0; f < 50; f++) {
+      const a = ruido(f, 720) * Math.PI * 2
+      const r = Math.sqrt(ruido(f, 721)) * 0.34
+      col.poe(
+        'escFolhaPlanta',
+        gFolhaLarga,
+        mFolhaLarga,
+        [xPlanta + Math.sin(a) * r, piso + 0.55 + ruido(f, 722) * 1.25, zPlanta + Math.cos(a) * r * 0.8],
+        [ruido(f, 723) * 3, ruido(f, 724) * 6, ruido(f, 725) * 3],
+        [1.5, 1.5, 1],
+        TONS_DE_OLIVA[f % TONS_DE_OLIVA.length]!,
+      )
+    }
+    /**
+     * O QUADRO na faixa de parede à esquerda da estante. É a única superfície do
+     * interior que pode carregar cor saturada em área — e é o objeto que diz que
+     * a sala foi HABITADA por alguém com gosto, em vez de entregue pela
+     * construtora.
+     *
+     * Moldura escura com tela clara dentro: dois blocos, e a moldura é o que faz
+     * o conjunto ler como quadro em vez de mancha de tinta na parede.
+     */
+    /**
+     * O QUADRO FICA SOBRE O PAINEL ACESO, e a primeira posição que eu escolhi
+     * para ele era uma colisão.
+     *
+     * Eu o pus em `xEsc − 2,72` = −10,52, encostado na parede lateral. A estante
+     * ocupa de −10,55 a −8,15: o quadro nascia DENTRO dela. Foi o mesmo descuido
+     * da escada no meio da piscina — escolher a coordenada olhando para a parede
+     * e não para o que já está encostado nela.
+     *
+     * A parede do fundo tem três faixas ocupadas: estante à esquerda, painel
+     * aceso no meio-direita, planta no canto. O único lugar livre é ACIMA da
+     * mesa, sobre o painel — e quadro pendurado numa parede iluminada é o que
+     * todo escritório com cornija tem, porque é ali que a luz bate.
+     *
+     * Fica 4 cm à frente do painel: encostado, o z-buffer escolheria um por
+     * pixel e a moldura piscaria.
+     */
+    const xQuadro = xEsc + 0.55
+    bloco('escMoldura', mCaixilho, [xQuadro, piso + 1.95, zFundoEsc + 0.1], [0.72, 0.52, 0.035])
+    bloco('escTela2', mEscTapete, [xQuadro, piso + 1.95, zFundoEsc + 0.12], [0.62, 0.42, 0.01])
 
     /**
      * TRÊS PENDENTES sobre a mesa, e eles são o motivo de o teto existir aqui.

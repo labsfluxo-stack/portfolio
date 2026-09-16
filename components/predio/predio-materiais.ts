@@ -1082,6 +1082,61 @@ export function casca(tipo: 'oliveira' | 'palmeira'): Superficie {
 }
 
 /**
+ * A PAREDE LAVADA DO ESCRITÓRIO — o mesmo problema do nicho do bar, e a mesma
+ * família de solução.
+ *
+ * O fundo do escritório é um painel emissivo de 3 × 2,2 m, e uniforme ele lê como
+ * uma chapa de papel creme. Interior iluminado não faz isso: a luz de um
+ * escritório vem do TETO, então a parede é clara em cima e escurece descendo, e
+ * é esse degradê que diz onde estão as luminárias sem precisar desenhá-las.
+ *
+ * A diferença para `brilhoDeNicho` é a forma da fonte. Lá são quatro fitas
+ * lineares sob prateleiras, e o desenho é uma sequência de faixas; aqui é uma
+ * cornija corrida no forro, e o desenho é uma rampa só. Duas funções em vez de
+ * uma parametrizada porque os dois desenhos não têm nada em comum além de serem
+ * degradês verticais — juntá-las produziria uma assinatura cheia de opções
+ * mutuamente exclusivas.
+ */
+export function paredeLavada(): THREE.Texture {
+  const n = 256
+  const [cv, c] = tela(n)
+  // Canvas cresce para baixo: y = 0 é o TOPO da parede, que é onde está a
+  // cornija. Inverter isto poria a luz no rodapé.
+  const rampa = c.createLinearGradient(0, 0, 0, n)
+  rampa.addColorStop(0, '#fff3dd')
+  rampa.addColorStop(0.12, '#f4e2c4')
+  rampa.addColorStop(0.55, '#c9ab84')
+  rampa.addColorStop(1, '#8d7355')
+  c.fillStyle = rampa
+  c.fillRect(0, 0, n, n)
+
+  // A cornija em si: uma linha muito clara colada no forro. É ela que ancora o
+  // degradê — sem um ponto onde a luz é máxima, a rampa lê como parede pintada
+  // em duas cores.
+  const cornija = c.createLinearGradient(0, 0, 0, n * 0.07)
+  cornija.addColorStop(0, 'rgba(255,255,248,0.95)')
+  cornija.addColorStop(1, 'rgba(255,255,248,0)')
+  c.fillStyle = cornija
+  c.fillRect(0, 0, n, n * 0.07)
+
+  // Vinheta lateral, pelo mesmo motivo do nicho: parede dentro de uma caixa
+  // recebe menos luz nos cantos, e sem isso ela encosta nas laterais com o mesmo
+  // valor e o volume some.
+  const lados = c.createLinearGradient(0, 0, n, 0)
+  lados.addColorStop(0, 'rgba(58,42,26,0.4)')
+  lados.addColorStop(0.16, 'rgba(58,42,26,0)')
+  lados.addColorStop(0.84, 'rgba(58,42,26,0)')
+  lados.addColorStop(1, 'rgba(58,42,26,0.4)')
+  c.fillStyle = lados
+  c.fillRect(0, 0, n, n)
+
+  const t = new THREE.CanvasTexture(cv)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = ANISOTROPIA
+  return t
+}
+
+/**
  * O BRILHO DO NICHO DO BAR — e ele existe porque um painel aceso CHAPADO é a
  * coisa mais morta que se pode pôr numa cena.
  *
