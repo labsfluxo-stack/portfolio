@@ -465,6 +465,16 @@ export function Cobertura({
     const gTampo = new RoundedBoxGeometry(5.0, 0.09, 0.96, 1, 0.014)
     const gPrateleira = new THREE.BoxGeometry(4.3, 0.045, 0.26)
     const gGarrafa = new THREE.CylinderGeometry(0.037, 0.043, 0.3, 8)
+    // O GARGALO. Silhueta em dois tempos — corpo largo, ombro, pescoço fino — é
+    // o que identifica uma garrafa de longe. Sem ele, trinta cilindros de topo
+    // reto em fila leem como peças de dominó, que foi o que o render mostrou.
+    const gGargalo = new THREE.CylinderGeometry(0.013, 0.019, 0.11, 6)
+    const gShaker = new THREE.CylinderGeometry(0.036, 0.047, 0.22, 10)
+    const gTigela = new THREE.CylinderGeometry(0.105, 0.068, 0.085, 12)
+    // Embutida do forro do bar: disco raso, visto sempre de baixo.
+    const gSpot = new THREE.CylinderGeometry(0.045, 0.045, 0.018, 10)
+    // Aro de apoio de pe da banqueta alta.
+    const gAroBanqueta = new THREE.TorusGeometry(0.17, 0.011, 5, 12)
     const gApoioPe = new THREE.CylinderGeometry(0.026, 0.026, 4.4, 8)
     const gAssentoBanqueta = new THREE.CylinderGeometry(0.21, 0.2, 0.09, 14)
     const gPernaBanqueta = new THREE.CylinderGeometry(0.026, 0.034, 0.72, 8)
@@ -907,7 +917,15 @@ export function Cobertura({
     const TONS_DE_GRAMINEA = ['#c2ab72', '#7f8b52', '#d4c088', '#6d7c46', '#b9a86a', '#8c9558'].map(
       (c) => new THREE.Color(c),
     )
-    const TONS_DE_GARRAFA = ['#3f5f3a', '#6b4326', '#2f4a5e', '#7a6a3a', '#53304a'].map(
+    // NOVE TONS, e nao cinco. Com cinco, as doze garrafas de uma prateleira
+    // repetiam a sequencia duas vezes e meia — e repeticao de cor em fila e o que
+    // faz uma estante de bar ler como padrao de papel de parede. Entram o ambar
+    // de uisque, o transparente de gin e o rubi de licor, que sao os tres que
+    // faltavam para a parede parecer um estoque em vez de uma paleta.
+    const TONS_DE_GARRAFA = [
+      '#3f5f3a', '#6b4326', '#2f4a5e', '#7a6a3a', '#53304a',
+      '#a8702a', '#cfd6cc', '#7d2733', '#46603f',
+    ].map(
       (c) => new THREE.Color(c),
     )
 
@@ -1160,13 +1178,34 @@ export function Cobertura({
      * dois centímetros apaga o bar — é o mesmo tipo de erro que já engoliu a
      * lâmina da piscina duas vezes por y.
      */
+    /**
+     * O BAR SOBE PARA A ALTURA DO ESCRITÓRIO — 2,92 m de pé-direito, laje de
+     * concreto em balanço, e não mais uma viga chata a 2,30.
+     *
+     * A bandeira antiga fazia o trabalho mínimo: dava ao móvel um limite superior
+     * para ele não flutuar no terraço. Só que o quadro ganhou um segundo volume
+     * construído na outra ponta — o escritório — e dois volumes de alturas
+     * diferentes nas duas bordas leem como duas coisas sem relação. Iguais, eles
+     * viram um PAR, e o jardim entre os dois passa a ser o vão entre duas
+     * construções em vez de um fundo com dois objetos colados.
+     *
+     * O que a altura compra além do enquadramento: o nicho de garrafas cresce de
+     * 1,98 para 2,27 e ganha uma quarta prateleira, e sobra pé-direito para um
+     * FORRO com lâmpadas embutidas — que é o que ilumina o tampo de pedra e o
+     * ombro de quem estaria sentado ali.
+     */
+    const ALT_BAR = ESCRITORIO.altura
+    const PROF_BAR = 2.2
+    const zForroBar = zBar - 0.6
+    const yNicho = piso + 1.48
+    const H_NICHO = 2.27
     col.poe(
       'barNicho',
       gCaixa,
       mBarNicho,
-      [xBar, piso + 1.18, zBar - 1.63],
+      [xBar, yNicho, zBar - 1.63],
       [0, 0, 0],
-      [LARG_BAR, 1.98, 0.05],
+      [LARG_BAR, H_NICHO, 0.05],
     )
     // Montantes: cinco divisórias verticais recortando o nicho em quatro baias.
     // Sem eles a chapa acesa é um retângulo laranja; com eles, é marcenaria.
@@ -1175,57 +1214,101 @@ export function Cobertura({
         'barMontante',
         gCaixa,
         mMadeiraEscura,
-        [xBar - LARG_BAR / 2 + (d * LARG_BAR) / 4, piso + 1.18, zBar - 1.5],
+        [xBar - LARG_BAR / 2 + (d * LARG_BAR) / 4, yNicho, zBar - 1.5],
         [0, 0, 0],
-        [0.07, 1.98, 0.24],
+        [0.07, H_NICHO, 0.24],
       )
     col.poe('balcao', gBalcao, mMadeiraEscura, [xBar, piso + 0.5, zBar])
     col.poe('tampo', gTampo, mPedra, [xBar, piso + 1.05, zBar])
     /**
-     * A BANDEIRA. Uma viga chata a 2,3 m, avançando sobre o balcão, com uma fita
-     * de LED escondida na face de baixo. Duas coisas: ela dá ao bar um limite
-     * superior próprio (móvel sem teto flutua no terraço) e a luz dela é a que
-     * cai no tampo de pedra e no ombro de quem estaria sentado ali.
+     * O BACK BAR: a bancada baixa entre o balcão e o nicho, onde o barman
+     * trabalha. Era o que faltava para o bar ter PROFUNDIDADE — sem ela, tampo e
+     * garrafas ficam em dois planos e o meio é vazio, o que faz a peça inteira
+     * ler como fachada de cenário.
      */
-    col.poe('barBandeira', gCaixa, mMadeiraEscura, [xBar, piso + 2.3, zBar - 0.45], [0, 0, 0], [LARG_BAR + 0.5, 0.26, 1.5])
+    col.poe('backBar', gCaixa, mMadeiraEscura, [xBar, piso + 0.46, zBar - 1.12], [0, 0, 0], [LARG_BAR - 0.2, 0.92, 0.42])
+    col.poe('backBarTampo', gCaixa, mPedra, [xBar, piso + 0.95, zBar - 1.12], [0, 0, 0], [LARG_BAR - 0.1, 0.05, 0.5])
+    // Laje e forro, na mesma cota da laje do escritório.
+    col.poe('barLaje', gCaixa, mParedeConcreto, [xBar, piso + ALT_BAR + 0.09, zForroBar], [0, 0, 0], [LARG_BAR + 0.8, 0.18, PROF_BAR + 0.5])
+    col.poe('barForro', gCaixa, mMadeiraEscura, [xBar, piso + ALT_BAR - 0.06, zForroBar], [0, 0, 0], [LARG_BAR + 0.4, 0.1, PROF_BAR + 0.2])
     for (const s of [-1, 1])
-      col.poe('barPilarBandeira', gCaixa, mMadeiraEscura, [xBar + s * (LARG_BAR / 2 + 0.2), piso + 1.15, zBar - 1.1], [0, 0, 0], [0.12, 2.3, 0.12])
-    // Trilho de taças sob a bandeira, e as taças de boca para baixo nele. É o
-    // objeto que ninguém sabe nomear e todo mundo reconhece como bar.
-    col.poe('barTrilho', gCaixa, mMetal, [xBar, piso + 2.12, zBar - 0.25], [0, 0, 0], [LARG_BAR - 0.6, 0.03, 0.26])
+      col.poe('barPilar', gCaixa, mMadeiraEscura, [xBar + s * (LARG_BAR / 2 + 0.28), piso + ALT_BAR / 2, zForroBar], [0, 0, 0], [0.14, ALT_BAR, 0.14])
+    /**
+     * QUATRO EMBUTIDAS NO FORRO. Elas resolvem o que o nicho sozinho não resolve:
+     * o nicho acende o FUNDO, e tudo que está à frente dele — tampo, coqueteleira,
+     * taças, quem estiver no balcão — ficava em silhueta. Luz vindo de cima é o
+     * que separa os dois planos.
+     *
+     * `mFitaLed` é básico e fura o tone mapping, então o disco aparece como um
+     * ponto branco-âmbar de verdade em vez do mesmo bege de tudo.
+     */
+    for (let s = 0; s < 4; s++)
+      col.poe('barSpot', gSpot, mFitaLed, [xBar - 1.65 + s * 1.1, piso + ALT_BAR - 0.12, zBar - 0.35])
+    // Trilho de taças sob o forro, e as taças de boca para baixo nele. É o objeto
+    // que ninguém sabe nomear e todo mundo reconhece como bar.
+    col.poe('barTrilho', gCaixa, mMetal, [xBar, piso + 2.52, zBar - 0.28], [0, 0, 0], [LARG_BAR - 0.6, 0.03, 0.26])
     for (let t = 0; t < 12; t++)
       col.poe(
         'copo',
         gCopo,
         mVidroGarrafa,
-        [xBar - LARG_BAR / 2 + 0.5 + t * 0.35, piso + 2.0, zBar - 0.25],
+        [xBar - LARG_BAR / 2 + 0.5 + t * 0.35, piso + 2.4, zBar - 0.28],
         [Math.PI, 0, 0],
         [1.15, 1.4, 1.15],
       )
     // Apoio de pé: o tubo baixo na frente do balcão. Ninguém sabe nomear, todo
     // mundo reconhece — é o que transforma "caixa" em "balcão de bar".
     col.poe('apoioPe', gApoioPe, mAco, [xBar, piso + 0.19, zBar + 0.42], [0, 0, Math.PI / 2])
-    for (const y of [0.62, 1.12, 1.6]) {
+    /**
+     * QUATRO PRATELEIRAS, E A GARRAFA GANHOU GARGALO.
+     *
+     * No render anterior as garrafas liam como PEÇAS DE DOMINÓ: cilindros de
+     * altura variável e topo reto, enfileirados. Faltava a única coisa que
+     * identifica uma garrafa de longe, que é a silhueta em dois tempos — corpo
+     * largo, ombro, gargalo fino. É um cilindro a mais por garrafa, e ele custa
+     * uma matriz.
+     *
+     * A cor vai no gargalo TAMBÉM, e a mesma: vidro é tingido na massa, então
+     * corpo âmbar com gargalo transparente seria garrafa de duas peças.
+     */
+    for (const [p, y] of [0.74, 1.3, 1.86, 2.4].entries()) {
       col.poe('prateleira', gPrateleira, mPedra, [xBar, piso + y, zBar - 1.46])
-      for (let g = 0; g < 11; g++)
+      for (let g = 0; g < 12; g++) {
+        const x = xBar - 2.05 + g * 0.36 + ruido(g, 41 + p) * 0.09
+        const alto = 0.8 + ruido(g, 42 + p) * 0.6
+        const cor = TONS_DE_GARRAFA[(g * 5 + p * 3) % TONS_DE_GARRAFA.length]!
+        col.poe('garrafa', gGarrafa, mVidroGarrafa, [x, piso + y + 0.17, zBar - 1.46], [0, 0, 0], [1, alto, 1], cor)
         col.poe(
-          'garrafa',
-          gGarrafa,
+          'gargalo',
+          gGargalo,
           mVidroGarrafa,
-          [xBar - 1.9 + g * 0.38 + ruido(g, 41) * 0.1, piso + y + 0.17, zBar - 1.46],
+          [x, piso + y + 0.17 + 0.15 * alto + 0.055, zBar - 1.46],
           [0, 0, 0],
-          [1, 0.8 + ruido(g, 42) * 0.55, 1],
-          TONS_DE_GARRAFA[(g * 3 + Math.floor(y * 10)) % TONS_DE_GARRAFA.length]!,
+          [1, 1, 1],
+          cor,
         )
+      }
     }
-    // COPARIA. Copo virado de boca para baixo no balcao e o sinal universal de
-    // bar aberto e limpo — e sao tres objetos de oito lados cada um.
+    /**
+     * O QUE SE DEIXA EM CIMA DO BALCÃO, e é a parte mais barata do bar com o
+     * maior retorno — mesma lógica da toalha na espreguiçadeira e do carrinho de
+     * serviço no datacenter: a única coisa da cena que não foi instalada, foi
+     * DEIXADA. Bar sem nada em cima do tampo é um móvel de catálogo.
+     */
     for (let c = 0; c < 7; c++)
       col.poe('copo', gCopo, mVidroGarrafa, [xBar - 1.7 + c * 0.3, piso + 1.15, zBar - 0.18])
     col.poe('torneira', gTorneira, mMetal, [xBar + 1.8, piso + 1.22, zBar - 0.2])
+    // Coqueteleira, tigela de guarnição e a carta em pé. Três peças, três
+    // silhuetas diferentes — é a variedade de forma que diz "aqui se trabalha".
+    col.poe('shaker', gShaker, mMetal, [xBar - 0.4, piso + 1.19, zBar - 0.3])
+    col.poe('tigela', gTigela, mPedra, [xBar + 0.45, piso + 1.12, zBar - 0.26])
+    col.poe('carta', gCaixa, mEscParede, [xBar + 1.1, piso + 1.19, zBar + 0.1], [0.24, 0.3, 0], [0.15, 0.21, 0.008])
     for (const x of [7.4, 8.4, 9.4, 10.4]) {
       col.poe('banqueta', gAssentoBanqueta, mMadeiraEscura, [x, piso + 0.76, zBar + 0.85])
       col.poe('pernaBanqueta', gPernaBanqueta, mMetal, [x, piso + 0.38, zBar + 0.85])
+      // Anel de apoio de pé na banqueta. Banqueta alta sem ele não existe — e é
+      // o aro que a separa de um cogumelo em cima de um palito.
+      col.poe('aroBanqueta', gAroBanqueta, mMetal, [x, piso + 0.22, zBar + 0.85], [Math.PI / 2, 0, 0])
     }
 
     /**
