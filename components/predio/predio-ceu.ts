@@ -37,14 +37,44 @@ import { SOL } from './predio-arquitetura'
  * `predio-luz.ts` escreve a cor de cada andar à mão: a conversão física dá cores
  * corretas e sujas nas pontas, e o que se quer aqui é a leitura, não a medição.
  */
+/**
+ * ONZE PARADAS E NÃO SETE, e as quatro que entraram não são enfeite.
+ *
+ * Céu de pôr do sol não é uma transição de quente para frio: é uma SEQUÊNCIA de
+ * faixas com nomes próprios, e pular qualquer uma delas faz o degradê parecer
+ * um filtro em vez de um céu.
+ *
+ * De baixo para cima:
+ *  0,00  o branco-dourado do próprio horizonte, onde o sol ainda está
+ *  0,03  o âmbar da poeira baixa
+ *  0,08  o laranja da camada densa
+ *  0,15  o CORAL, que é a faixa que faltava — é aqui que o laranja entrega para
+ *        o rosa, e sem ela o salto de um para o outro lê como banda
+ *  0,23  o rosa-terroso
+ *  0,32  o MALVA, a segunda que faltava: o ponto neutro da curva, onde o quente
+ *        e o frio se cruzam. Sem ele o céu tem dois blocos de cor em vez de uma
+ *        transição
+ *  0,42  o violeta-acinzentado
+ *  0,55  o azul-ardósia
+ *  0,72  o azul do meio da abóbada
+ *  1,00  o zênite, o mais escuro e o mais saturado
+ *
+ * Os degraus são mais APERTADOS embaixo, e isso é físico: perto do horizonte a
+ * linha de visão atravessa muito mais atmosfera por grau de elevação, então a
+ * cor muda depressa. Degraus uniformes dariam um céu que muda de cor no mesmo
+ * ritmo de baixo a cima, que é o que nenhum céu faz.
+ */
 const RAMPA: readonly (readonly [number, string])[] = [
-  [0.0, '#ffdeae'],
-  [0.05, '#fbcb93'],
-  [0.12, '#eeac83'],
-  [0.22, '#cd918d'],
-  [0.34, '#9d86a4'],
-  [0.5, '#71789f'],
-  [1.0, '#495b8d'],
+  [0.0, '#ffe8c4'],
+  [0.03, '#ffd6a0'],
+  [0.08, '#f7b785'],
+  [0.15, '#e79c86'],
+  [0.23, '#cf8f92'],
+  [0.32, '#b0849c'],
+  [0.42, '#9179a2'],
+  [0.55, '#75749e'],
+  [0.72, '#5d6a97'],
+  [1.0, '#41528a'],
 ]
 
 /** Onde o sol está, em fração da largura de um mapa equirretangular. */
@@ -68,16 +98,38 @@ function ruido(i: number, k: number): number {
 }
 
 /**
- * Nuvens em faixa, retroiluminadas.
+ * NUVEM NÃO TEM BORDA — e era exatamente isso que estava errado.
  *
- * `achatamento` alto de propósito: nuvem vista de perto do horizonte é ESTICADA,
- * porque se olha a camada de lado e não de baixo. Nuvem redonda no horizonte é o
- * erro mais comum de céu desenhado — lê como algodão colado no papel.
+ * A versão anterior desenhava cada nuvem com `ellipse` + `fill`. Isso produz uma
+ * silhueta de borda DURA: a transição de nuvem para céu acontece em um pixel. O
+ * resultado foram as lozangos cinzentas achatadas que se viam no render, com
+ * cara de adesivo recortado e colado no degradê.
  *
- * Cada nuvem é desenhada duas vezes: o corpo em malva acinzentado e, deslocada
- * para o lado do sol, a mesma forma em creme quente. A sobreposição das duas
- * deixa um arco aceso na borda voltada para o sol, que é o que a retroiluminação
- * faz de verdade.
+ * Nuvem é uma nuvem de gotículas. A densidade cai gradualmente até zero nas
+ * bordas, e é essa dissolução — não a forma — que o olho usa para reconhecê-la.
+ * Uma elipse de borda macia lê como nuvem; um contorno perfeito de qualquer
+ * forma lê como papel.
+ *
+ * Então cada bolha passa a ser um degradê radial que vai da cor cheia no miolo a
+ * alfa zero na borda, e a nuvem é um AGLOMERADO de seis a dez bolhas de tamanhos
+ * diferentes. É mais caro — dez degradês por nuvem contra um preenchimento —,
+ * mas isto roda uma vez na montagem da textura e nunca mais.
+ *
+ * AS TRÊS COISAS QUE FAZEM A NUVEM SER DAQUELE FIM DE TARDE:
+ *
+ * 1. A DISTÂNCIA AO SOL manda na cor. Nuvem perto do sol é dourada e clara;
+ *    longe dele é malva e escura. Antes todas tinham a mesma cor de corpo com um
+ *    arco quente colado embaixo, e o arco apontava sempre para o mesmo lado
+ *    independentemente de onde a nuvem estivesse.
+ *
+ * 2. A BASE É MAIS CLARA QUE O TOPO. Ao pôr do sol a luz vem de BAIXO — ela
+ *    passa rasante sob a camada e acende a barriga da nuvem enquanto o topo
+ *    fica na sombra. É o inverso do meio-dia, e é o sinal mais específico do
+ *    horário. As bolhas inferiores recebem a mistura quente; as de cima, não.
+ *
+ * 3. O ACHATAMENTO CRESCE PERTO DO HORIZONTE. Vê-se a camada de lado e não de
+ *    baixo, então ela estica. Nuvem redonda no horizonte é o erro mais comum de
+ *    céu desenhado.
  */
 function pintaNuvens(
   ctx: CanvasRenderingContext2D,
@@ -88,40 +140,79 @@ function pintaNuvens(
   quantidade: number,
   ladoDoSol: number,
 ) {
+  /** Uma bolha macia: cor cheia no centro, alfa zero na borda. */
+  const bolha = (x: number, y: number, rx: number, ry: number, cor: string, alfa: number) => {
+    ctx.save()
+    ctx.globalAlpha = alfa
+    ctx.translate(x, y)
+    ctx.scale(1, ry / rx)
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx)
+    g.addColorStop(0, cor)
+    // A parada em 0,55 mantém o miolo cheio: sem ela o degradê começa a cair do
+    // centro e a nuvem inteira vira uma mancha difusa sem corpo.
+    g.addColorStop(0.55, cor)
+    g.addColorStop(1, cor.replace(/[\d.]+\)$/, '0)'))
+    ctx.fillStyle = g
+    ctx.beginPath()
+    ctx.arc(0, 0, rx, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+
   for (let i = 0; i < quantidade; i++) {
     const u = ruido(i, 1)
     const t = ruido(i, 2)
     const v = vDe + (vAte - vDe) * t
-    // Perto do horizonte a faixa é mais fina e mais comprida.
     const proximidade = 1 - t
-    const larg = largura * (0.07 + ruido(i, 3) * 0.13) * (1 + proximidade * 1.1)
-    const alt = altura * (0.006 + ruido(i, 4) * 0.016) * (1 - proximidade * 0.45)
+    const larg = largura * (0.05 + ruido(i, 3) * 0.1) * (1 + proximidade * 1.2)
+    const alt = altura * (0.008 + ruido(i, 4) * 0.02) * (1 - proximidade * 0.4)
     const x = u * largura
     const y = v * altura
-    const opacidade = 0.16 + ruido(i, 5) * 0.3
+    /**
+     * A PROXIMIDADE DO SOL, medida no eixo U com a volta pelo outro lado.
+     *
+     * O mapa é equirretangular: `u` = 0 e `u` = 1 são o mesmo meridiano. Uma
+     * nuvem em 0,02 está perto de um sol em 0,98, e a subtração direta diria que
+     * está do outro lado do céu. `min(d, 1 − d)` resolve, e sem isso a faixa de
+     * nuvens douradas teria um corte seco na emenda da textura.
+     */
+    const dU = Math.abs(u - U_DO_SOL)
+    const pertoDoSol = 1 - Math.min(dU, 1 - dU) / 0.5
+    const calor = pertoDoSol ** 2.2
+    const opacidade = (0.2 + ruido(i, 5) * 0.34) * (0.7 + calor * 0.5)
 
-    ctx.save()
-    ctx.globalAlpha = opacidade
-    // corpo
-    ctx.fillStyle = '#6f6480'
-    ctx.beginPath()
-    ctx.ellipse(x, y, larg, alt, 0, 0, Math.PI * 2)
-    ctx.fill()
-    // bolhas do topo, para a silhueta não ser uma pílula
-    for (let b = 0; b < 3; b++) {
-      const bx = x + (ruido(i * 7 + b, 6) - 0.5) * larg * 1.3
-      const br = alt * (1.1 + ruido(i * 7 + b, 7) * 1.5)
-      ctx.beginPath()
-      ctx.ellipse(bx, y - br * 0.5, br * 2.2, br, 0, 0, Math.PI * 2)
-      ctx.fill()
+    // Corpo: malva frio longe do sol, malva quente perto. Nunca cinza puro —
+    // nuvem de fim de tarde não tem cinza em lugar nenhum.
+    const rTopo = Math.round(108 + calor * 96)
+    const gTopo = Math.round(98 + calor * 66)
+    const bTopo = Math.round(126 + calor * 20)
+    const corTopo = `rgba(${rTopo},${gTopo},${bTopo},${opacidade.toFixed(3)})`
+    // Barriga: a luz rasante que passa sob a camada. Ela é sempre mais quente e
+    // mais clara que o topo, e a diferença cresce perto do sol.
+    const corBase = `rgba(${Math.round(210 + calor * 45)},${Math.round(168 + calor * 60)},${Math.round(136 + calor * 40)},${(opacidade * 1.15).toFixed(3)})`
+
+    // O aglomerado. As bolhas de cima levam a cor do topo; as de baixo, a da
+    // barriga — e elas ficam mais para o lado do sol, porque é de lá que a luz
+    // rasante entra na camada.
+    const bolhas = 6 + Math.floor(ruido(i, 8) * 5)
+    for (let b = 0; b < bolhas; b++) {
+      const f = b / (bolhas - 1)
+      const emBaixo = ruido(i * 13 + b, 9) > 0.55
+      const bx = x + (f - 0.5) * larg * 1.7 + (ruido(i * 13 + b, 6) - 0.5) * larg * 0.3
+      const by = y + (emBaixo ? alt * 0.55 : -alt * 0.35) + (ruido(i * 13 + b, 10) - 0.5) * alt
+      // As pontas do aglomerado são menores: é o que dá à nuvem uma silhueta que
+      // afina nas bordas em vez de terminar em parede.
+      const escala = 0.45 + Math.sin(f * Math.PI) * 0.8
+      const rx = larg * 0.42 * escala * (0.7 + ruido(i * 13 + b, 7) * 0.7)
+      bolha(
+        bx + (emBaixo ? ladoDoSol * larg * 0.08 : 0),
+        by,
+        rx,
+        rx * (alt / larg) * (emBaixo ? 2.1 : 2.8),
+        emBaixo ? corBase : corTopo,
+        1,
+      )
     }
-    // borda acesa, deslocada para o lado do sol
-    ctx.globalAlpha = opacidade * 1.5
-    ctx.fillStyle = '#ffd9a2'
-    ctx.beginPath()
-    ctx.ellipse(x + ladoDoSol * larg * 0.1, y + alt * 0.42, larg * 0.94, alt * 0.66, 0, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.restore()
   }
 }
 
@@ -134,11 +225,30 @@ function pintaBrilho(
   v: number,
   raio: number,
 ) {
+  /**
+   * OITO PARADAS E NÃO QUATRO, e a diferença é onde a curva cai.
+   *
+   * Com quatro paradas a queda era quase linear, e brilho de sol não é linear —
+   * ele despenca perto da fonte e depois se arrasta por dezenas de graus. Uma
+   * rampa linear devolve um DISCO de luz com borda perceptível, que é o halo
+   * redondo de adesivo que se via; a curva real devolve um brilho que não se
+   * sabe onde termina.
+   *
+   * As paradas apertadas no começo (0,06 / 0,13 / 0,22) fazem a queda íngreme;
+   * as espaçadas no fim (0,55 / 0,78 / 1,0) fazem o arrasto. E a cor caminha de
+   * creme quase branco para laranja e daí para um rosa que já é a cor do céu —
+   * é essa última transição que costura o brilho ao fundo em vez de deixá-lo
+   * flutuando por cima.
+   */
   const g = ctx.createRadialGradient(u * largura, v * altura, 0, u * largura, v * altura, raio)
-  g.addColorStop(0, 'rgba(255,241,206,0.92)')
-  g.addColorStop(0.28, 'rgba(255,214,150,0.46)')
-  g.addColorStop(0.62, 'rgba(255,186,132,0.16)')
-  g.addColorStop(1, 'rgba(255,170,120,0)')
+  g.addColorStop(0, 'rgba(255,246,222,0.95)')
+  g.addColorStop(0.06, 'rgba(255,236,196,0.8)')
+  g.addColorStop(0.13, 'rgba(255,221,166,0.58)')
+  g.addColorStop(0.22, 'rgba(255,203,142,0.4)')
+  g.addColorStop(0.36, 'rgba(252,182,130,0.25)')
+  g.addColorStop(0.55, 'rgba(240,160,126,0.13)')
+  g.addColorStop(0.78, 'rgba(219,146,133,0.05)')
+  g.addColorStop(1, 'rgba(205,140,140,0)')
   ctx.fillStyle = g
   ctx.fillRect(0, 0, largura, altura)
 }
@@ -166,16 +276,35 @@ function pintaDisco(
 ) {
   const x = u * largura
   const y = v * altura
-  const halo = ctx.createRadialGradient(x, y, raio * 0.6, x, y, raio * 7)
-  halo.addColorStop(0, 'rgba(255,248,225,0.85)')
-  halo.addColorStop(0.35, 'rgba(255,229,178,0.34)')
-  halo.addColorStop(1, 'rgba(255,214,150,0)')
+  const halo = ctx.createRadialGradient(x, y, raio * 0.5, x, y, raio * 9)
+  halo.addColorStop(0, 'rgba(255,250,232,0.9)')
+  halo.addColorStop(0.16, 'rgba(255,240,204,0.55)')
+  halo.addColorStop(0.42, 'rgba(255,224,172,0.2)')
+  halo.addColorStop(0.72, 'rgba(255,206,150,0.06)')
+  halo.addColorStop(1, 'rgba(255,196,142,0)')
   ctx.fillStyle = halo
   ctx.beginPath()
-  ctx.arc(x, y, raio * 7, 0, Math.PI * 2)
+  ctx.arc(x, y, raio * 9, 0, Math.PI * 2)
   ctx.fill()
 
-  ctx.fillStyle = 'rgba(255,252,240,1)'
+  /**
+   * O NÚCLEO GANHOU UMA ORLA DE MEIO PIXEL, e ela resolve o único artefato que
+   * sobrava no sol.
+   *
+   * O disco era um `arc` preenchido de branco puro: borda serrilhada de
+   * circunferência rasterizada, visível porque o contraste contra o halo é
+   * altíssimo. Um degradê que fica branco até 88% do raio e cai a zero no último
+   * oitavo dá a mesma leitura de borda dura — o olho continua achando o limite —
+   * sem a escada de pixel.
+   *
+   * É o mesmo raciocínio das nuvens invertido: lá a borda macia era o assunto,
+   * aqui ela é só o antisserrilhado de um limite que DEVE parecer duro.
+   */
+  const nucleo = ctx.createRadialGradient(x, y, 0, x, y, raio)
+  nucleo.addColorStop(0, 'rgba(255,253,246,1)')
+  nucleo.addColorStop(0.88, 'rgba(255,251,238,1)')
+  nucleo.addColorStop(1, 'rgba(255,246,222,0)')
+  ctx.fillStyle = nucleo
   ctx.beginPath()
   ctx.arc(x, y, raio, 0, Math.PI * 2)
   ctx.fill()
