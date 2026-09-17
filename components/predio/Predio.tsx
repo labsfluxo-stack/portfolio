@@ -1119,10 +1119,48 @@ function Cena({
 
     const quadro = quadroDe(progresso.current)
 
+    /**
+     * A COBERTURA GANHA UM ENQUADRAMENTO PRÓPRIO, e ele se dissolve na descida.
+     *
+     * O pedido foi que a cobertura ocupasse uma seção inteira, com o céu
+     * sobrando em cima para receber copy. O que impedia isso era uma faixa de
+     * 63 cm do andar de baixo aparecendo no rodapé do quadro — medida assim: em
+     * 16:9 a lente bate no teto de 62°, então a meia-altura no plano da frente
+     * (z = 1,6, a 4,3 m da câmera) é 4,3 · tan 31° = 2,585 m. Com a câmera em
+     * −1,60, o quadro vai de −4,185 a +0,985, e o topo do andar 07 está em
+     * −3,55. Sobram 0,635 m dele dentro da tela.
+     *
+     * A CORREÇÃO É SUBIR A CÂMERA, E NÃO INCLINÁ-LA. Inclinar resolveria com
+     * menos deslocamento, mas introduz verticais convergentes — e a cena inteira
+     * é um CORTE de prédio, uma leitura que depende de as verticais serem
+     * paralelas. Subir mantém a projeção ortogonal e empurra o rodapé para fora.
+     *
+     * E a elevação é CALCULADA, não escolhida: ela sai da lente. Um número fixo
+     * funcionaria em 16:9 e cortaria o deck numa tela ultralarga, onde a lente
+     * fecha para 52° e o quadro encolhe meio metro. Aqui ela é sempre exatamente
+     * o que falta para o topo do andar de baixo encostar na borda inferior.
+     *
+     * A dissolução usa `estacao`, que já existe: no andar 0 ela vai de 0 (parado
+     * na cobertura) a 1 (meio caminho para o 07). Com `smoothstep`, a câmera
+     * desce de volta ao eixo normal sem quina, e a partir do andar 1 a descida é
+     * exatamente a de antes.
+     */
+    let alvoY = quadro.pose.y
+    if (quadro.andar === 0 && camera instanceof THREE.PerspectiveCamera) {
+      const meiaAltura =
+        (quadro.pose.z - BORDA) * Math.tan(((camera.fov / 2) * Math.PI) / 180)
+      // O topo do andar de baixo é o que precisa sair pela borda inferior. Os
+      // 6 cm de folga cobrem o arredondamento do amortecimento durante a inércia.
+      const yQueExclui = topoDoAndar(1) + meiaAltura + 0.06
+      const fatia = Math.min(1, Math.max(0, quadro.estacao))
+      const aberto = 1 - fatia * fatia * (3 - 2 * fatia)
+      alvoY += Math.max(0, yQueExclui - quadro.pose.y) * aberto
+    }
+
     // TODO O MOVIMENTO ACONTECE AQUI. Em nenhum `useEffect`.
     camera.position.set(
       0,
-      semInercia ? quadro.pose.y : amortecer(camera.position.y, quadro.pose.y, delta),
+      semInercia ? alvoY : amortecer(camera.position.y, alvoY, delta),
       quadro.pose.z,
     )
     camera.lookAt(0, camera.position.y, 0)
