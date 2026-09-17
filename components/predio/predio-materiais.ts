@@ -108,6 +108,257 @@ function normalDaAltura(fonte: HTMLCanvasElement, forca: number, repeteU: number
   return acaba(cv, repeteU, repeteV, false)
 }
 
+/**
+ * ═══ MICRORRELEVO — a segunda escala de detalhe ═══
+ *
+ * O DIAGNÓSTICO. Todas as superfícies desta cena têm UMA escala de detalhe. A
+ * régua de deck tem grão, o concreto tem poro, a pedra tem mancha — e cada uma
+ * dessas coisas tem um tamanho só. Isso funciona na distância em que o texel
+ * corresponde ao pixel e desmancha nas duas pontas: de longe vira papa (o mipmap
+ * resolve), e de PERTO vira superfície lisa entre um traço e outro, porque não
+ * há nada acontecendo na escala do milímetro.
+ *
+ * Material de verdade tem no mínimo duas escalas. O deck tem o veio (centímetros)
+ * E a fibra levantada (décimos de milímetro). O concreto tem a mancha (decímetros)
+ * E o poro fino (milímetros). O olho usa a escala GRANDE para identificar o
+ * material e a PEQUENA para acreditar nele.
+ *
+ * A saída não é aumentar a resolução do mapa base: para o deck ter microrrelevo
+ * na régua inteira, o canvas precisaria de uns 4096², e são doze mapas destes na
+ * cena. O que a indústria faz há vinte anos é DETAIL MAPPING — um segundo mapa,
+ * pequeno e compartilhado por todos os materiais, ladrilhado dezenas de vezes
+ * mais denso e SOMADO ao relevo base dentro do shader.
+ *
+ * Um mapa de 512² para a cena inteira, e ele nunca repete visivelmente porque a
+ * frequência dele está abaixo do que o olho consegue seguir como padrão.
+ *
+ * O QUE ELE TEM, e os três são necessários:
+ *  - GRÃO: milhares de pontos minúsculos. É o que tira o "plástico" de qualquer
+ *    superfície fosca.
+ *  - RISCO: traços finos em ângulos variados. Toda superfície que alguém tocou
+ *    tem risco, e é o detalhe que separa material USADO de material renderizado.
+ *  - PORO: poucas depressões maiores. São o que quebra a uniformidade do grão,
+ *    que sozinho lê como ruído de TV.
+ */
+export function microrrelevo(): THREE.Texture {
+  const n = 512
+  const [alt, h] = tela(n)
+  h.fillStyle = '#808080'
+  h.fillRect(0, 0, n, n)
+
+  // GRÃO. Cada ponto é claro ou escuro em torno do cinza médio: o campo de
+  // altura oscila para os dois lados, e é a oscilação — não o valor — que o
+  // Sobel transforma em relevo.
+  for (let i = 0; i < 2600; i++) {
+    const x = ruido(i, 301) * n
+    const y = ruido(i, 302) * n
+    const r = 1.4 + ruido(i, 303) * 3.2
+    const v = ruido(i, 304)
+    h.fillStyle = v > 0.5 ? `rgba(255,255,255,${(v - 0.5) * 0.5})` : `rgba(0,0,0,${(0.5 - v) * 0.5})`
+    h.beginPath()
+    h.arc(x, y, r, 0, Math.PI * 2)
+    h.fill()
+  }
+
+  // RISCO. Curtos, finos e em qualquer ângulo — risco todo na mesma direção lê
+  // como escovado, que é outro material.
+  h.lineCap = 'round'
+  for (let i = 0; i < 260; i++) {
+    const x = ruido(i, 305) * n
+    const y = ruido(i, 306) * n
+    const a = ruido(i, 307) * Math.PI * 2
+    const comp = 14 + ruido(i, 308) * 62
+    const claro = ruido(i, 309) > 0.45
+    h.strokeStyle = claro ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.26)'
+    h.lineWidth = 1.4 + ruido(i, 310) * 2.2
+    h.beginPath()
+    h.moveTo(x, y)
+    h.lineTo(x + Math.cos(a) * comp, y + Math.sin(a) * comp)
+    h.stroke()
+  }
+
+  // PORO. Depressões macias, para o grão não virar chuvisco uniforme.
+  for (let i = 0; i < 90; i++) {
+    const x = ruido(i, 311) * n
+    const y = ruido(i, 312) * n
+    const r = 7 + ruido(i, 313) * 18
+    const g = h.createRadialGradient(x, y, 0, x, y, r)
+    g.addColorStop(0, 'rgba(0,0,0,0.36)')
+    g.addColorStop(1, 'rgba(0,0,0,0)')
+    h.fillStyle = g
+    h.fillRect(x - r, y - r, r * 2, r * 2)
+  }
+
+  // Força 1,0: o microrrelevo entra SOMADO ao relevo base, e a soma de dois
+  // mapas fortes estoura a normal. Quem regula a presença dele é `forca` em
+  // `comDetalhe`, por material — aqui o mapa fica neutro.
+  return normalDaAltura(alt, 1.0, 1, 1)
+}
+
+/**
+ * O ÂNCORA DA INJEÇÃO, isolado numa constante porque ele é frágil por natureza.
+ *
+ * `onBeforeCompile` faz `String.replace` no shader gerado pelo three, e replace
+ * que não casa **não dá erro**: devolve a string intacta e o material compila
+ * perfeitamente, sem o detalhe. É a pior classe de falha que existe — silenciosa
+ * e invisível até alguém comparar dois renders.
+ *
+ * Por isso o texto fica aqui e `predio-materiais.test.ts` verifica que ele ainda
+ * existe em `THREE.ShaderChunk.normal_fragment_maps`. Se o three mudar o chunk
+ * numa atualização, o teste quebra antes do render.
+ */
+export const ANCORA_DA_NORMAL = 'mapN.xy *= normalScale;'
+export const ANCORA_DO_VERTICE = '#include <project_vertex>'
+
+/**
+ * Mistura o microrrelevo na normal de um material, dentro do shader.
+ *
+ * ═══ POR QUE A PROJEÇÃO É EM MUNDO, E NÃO EM UV ═══
+ *
+ * A primeira versão amostrava o detalhe em `vNormalMapUv * escala`, que é o jeito
+ * clássico. Ele não serve AQUI, e o motivo é uma decisão que já está no coração
+ * desta cena: o `Coletor` desenha quase tudo a partir de geometrias UNITÁRIAS
+ * escaladas pela matriz da instância — e escala de matriz não mexe na UV.
+ *
+ * O chapim do parapeito é uma `BoxGeometry(1, …)` esticada 30 vezes em x. A UV
+ * dele continua indo de 0 a 1 ao longo de trinta metros. O tampo do bar é outra
+ * caixa, de cinco metros, com a mesma UV de 0 a 1. Amarrado à UV, o mesmo
+ * `escala` daria um grão de 4 cm num e de 24 cm no outro — e no chapim ele sairia
+ * ESTICADO trinta vezes num eixo e não no outro, que é o defeito mais visível
+ * que uma textura pode ter.
+ *
+ * Projetando em MUNDO o problema desaparece por construção: `escala` passa a ser
+ * "ladrilhos por metro", um número só, igual em cada peça da cena
+ * independentemente de como ela foi escalada. Um grão de 4 cm é um grão de 4 cm.
+ *
+ * ═══ TRIPLANAR, E O PREÇO DELE ═══
+ *
+ * Projeção em mundo precisa escolher DOIS eixos, e a escolha certa depende da
+ * face: o topo do deck quer XZ, a lateral do parapeito quer XY. Escolher um só
+ * esticaria a textura em todas as faces perpendiculares a ele.
+ *
+ * Então são três amostras — uma por plano — misturadas pelo peso do quadrado da
+ * normal de mundo. `pow(…, 4)` aperta a mistura: com peso linear a faixa de
+ * transição fica larga e as três projeções se sobrepõem numa papa; com expoente
+ * alto cada face usa quase só a sua.
+ *
+ * Três `texture2D` por fragmento em vez de uma, em seis materiais opacos. É o
+ * custo, e ele é consciente: a alternativa não é "mais barato", é "errado".
+ *
+ * ═══ A MISTURA É UDN ═══
+ *
+ * Somar as três componentes e normalizar achata o relevo base quando o detalhe é
+ * forte. UDN soma só XY e MULTIPLICA Z: preserva a direção dominante do mapa
+ * grande e deixa o pequeno modular a inclinação. Duas somas e uma multiplicação.
+ */
+export function comDetalhe(
+  material: THREE.MeshStandardMaterial,
+  detalhe: THREE.Texture,
+  /**
+   * Ladrilhos por METRO — e o intervalo útil é 3 a 6, não 20.
+   *
+   * Eu escrevi 28 na primeira versão pensando "grão de 3,6 cm" e o render não
+   * mudou nada. A conta que faltava: o mapa tem 512 texels por ladrilho, então
+   * com 28 ladrilhos por metro cada texel cobre 0,07 mm — e um traço de 2 texels
+   * vira 0,14 mm. Nada disso sobrevive à reamostragem para pixel.
+   *
+   * Com 4 ladrilhos por metro o ladrilho tem 25 cm e cada texel vale 0,5 mm: o
+   * poro de 12 texels vira 6 mm e o risco de 40 vira 2 cm. São essas as
+   * dimensões que ainda existem depois do mipmap.
+   */
+  escala: number,
+  forca: number,
+): THREE.MeshStandardMaterial {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.mapaDeDetalhe = { value: detalhe }
+    shader.uniforms.escalaDoDetalhe = { value: escala }
+    shader.uniforms.forcaDoDetalhe = { value: forca }
+
+    /**
+     * A POSIÇÃO E A NORMAL DE MUNDO SAEM DAQUI, e a instância é o detalhe que
+     * quase escapa: `modelMatrix` NÃO contém a matriz da cópia. Numa
+     * `InstancedMesh` ela vem separada em `instanceMatrix`, e é o three que as
+     * combina dentro de `project_vertex`. Fazer a conta sem ela poria o
+     * microrrelevo de todas as oitenta garrafas no mesmo ponto do mundo.
+     *
+     * `objectNormal` ainda está em escopo aqui porque `beginnormal_vertex` vem
+     * antes de `project_vertex` no vertex shader do `meshphysical`.
+     */
+    shader.vertexShader =
+      'varying vec3 vPosMundo;\nvarying vec3 vNormalMundo;\n' +
+      shader.vertexShader.replace(
+        ANCORA_DO_VERTICE,
+        `${ANCORA_DO_VERTICE}
+        {
+          vec4 pDetalhe = vec4( transformed, 1.0 );
+          mat3 mDetalhe = mat3( modelMatrix );
+          #ifdef USE_INSTANCING
+            pDetalhe = instanceMatrix * pDetalhe;
+            mDetalhe = mDetalhe * mat3( instanceMatrix );
+          #endif
+          vPosMundo = ( modelMatrix * pDetalhe ).xyz;
+          vNormalMundo = normalize( mDetalhe * objectNormal );
+        }`,
+      )
+
+    /**
+     * ═══ O `#include` AINDA NÃO FOI EXPANDIDO AQUI ═══
+     *
+     * Este foi o erro que me custou dois renders, e ele é exatamente a falha
+     * silenciosa que o teste existia para pegar — só que o teste estava errado
+     * junto.
+     *
+     * A primeira versão fazia `shader.fragmentShader.replace('mapN.xy *=
+     * normalScale;', …)`. Aquela linha mora dentro do chunk
+     * `normal_fragment_maps`, e o three chama `onBeforeCompile` ANTES de resolver
+     * os `#include`: o que chega aqui é o shader do `meshphysical` com
+     * `#include <normal_fragment_maps>` ainda literal. O alvo não existia, o
+     * replace devolveu a string intacta, tudo compilou e o deck ficou liso.
+     *
+     * A prova foi por exagero: subi a força de 0,55 para 3,0 e o render não
+     * mudou um pixel. Efeito que não responde ao controle dele não está ligado.
+     *
+     * A correção é expandir o chunk À MÃO — pegar o texto de `ShaderChunk`,
+     * injetar nele e trocar o `#include` inteiro pelo resultado. Tem de ser
+     * dentro do chunk porque `mapN` só existe lá dentro: depois do `#include` a
+     * variável saiu de escopo e `normal` já foi calculada.
+     *
+     * (O âncora do VÉRTICE é um `#include` e por isso sempre funcionou — o
+     * contraste entre os dois é o que torna o erro tão fácil de cometer.)
+     */
+    const chunkComDetalhe = THREE.ShaderChunk.normal_fragment_maps.replace(
+      ANCORA_DA_NORMAL,
+      `${ANCORA_DA_NORMAL}
+        {
+          vec3 pesoDetalhe = abs( normalize( vNormalMundo ) );
+          pesoDetalhe = pow( pesoDetalhe, vec3( 4.0 ) );
+          pesoDetalhe /= max( 0.0001, pesoDetalhe.x + pesoDetalhe.y + pesoDetalhe.z );
+          vec3 pDet = vPosMundo * escalaDoDetalhe;
+          vec3 detX = texture2D( mapaDeDetalhe, pDet.zy ).xyz * 2.0 - 1.0;
+          vec3 detY = texture2D( mapaDeDetalhe, pDet.xz ).xyz * 2.0 - 1.0;
+          vec3 detZ = texture2D( mapaDeDetalhe, pDet.xy ).xyz * 2.0 - 1.0;
+          vec3 detN = detX * pesoDetalhe.x + detY * pesoDetalhe.y + detZ * pesoDetalhe.z;
+          mapN = vec3( mapN.xy + detN.xy * forcaDoDetalhe, mapN.z * detN.z );
+        }`,
+    )
+    shader.fragmentShader =
+      'uniform sampler2D mapaDeDetalhe;\nuniform float escalaDoDetalhe;\nuniform float forcaDoDetalhe;\nvarying vec3 vPosMundo;\nvarying vec3 vNormalMundo;\n' +
+      shader.fragmentShader.replace('#include <normal_fragment_maps>', chunkComDetalhe)
+  }
+  /**
+   * SEM ISTO, O DETALHE NÃO APARECE EM METADE DOS MATERIAIS.
+   *
+   * O three guarda programas compilados num cache com chave derivada dos
+   * parâmetros do material — e `onBeforeCompile` NÃO entra nessa chave. Dois
+   * materiais com os mesmos parâmetros e injeções diferentes recebem o MESMO
+   * programa: o primeiro a compilar ganha, o segundo herda o shader dele em
+   * silêncio. Com três escalas de detalhe diferentes na cena, dois dos três
+   * sairiam errados.
+   */
+  material.customProgramCacheKey = () => `detalhe-${escala}-${forca}`
+  return material
+}
+
 export type Superficie = {
   map: THREE.Texture
   normalMap: THREE.Texture

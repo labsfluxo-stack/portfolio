@@ -7,6 +7,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { Coletor } from './predio-instancias'
 import {
   casca,
+  comDetalhe,
   comRepeticao,
   concreto,
   folha,
@@ -14,6 +15,7 @@ import {
   fronde,
   graminea,
   madeiraDeDeck,
+  microrrelevo,
   normalDeAgua,
   paredeLavada,
   veuDagua,
@@ -285,6 +287,28 @@ export function Cobertura({
       PRATELEIRAS_BAR.map((y) => (y - NICHO_BASE) / NICHO_ALTURA),
     )
     const lavagemDaParede = paredeLavada()
+    /**
+     * O MICRORRELEVO E COMPARTILHADO POR TODAS AS SUPERFICIES GRANDES.
+     *
+     * Um mapa de 512 para a cena inteira. Ele nao repete visivelmente porque a
+     * frequencia dele esta abaixo do que o olho segue como padrao — e e por ser
+     * um so que ele cabe: doze mapas base a 4096 para ter a mesma densidade
+     * custariam duzentos megabytes de textura.
+     *
+     * A ESCALA E EM LADRILHOS POR METRO, e o intervalo util e 3 a 6 — nao 20.
+     * Com 512 texels por ladrilho, 4 ladrilhos por metro poem cada texel em meio
+     * milimetro, e e nessa faixa que o poro e o risco sobrevivem ao mipmap. Ver
+     * a conta inteira em `comDetalhe`.
+     *
+     *  - deck (4,5 / 0,70): a regua e vista de raspao, onde o relevo mais
+     *    aparece; grao um pouco mais fino e forca alta.
+     *  - madeira escura (4,2 / 0,60): pergolado, marcenaria do bar, estante.
+     *  - concreto (3,6 / 0,85): poro e o relevo que mais some em superficie
+     *    grande, e a parede do fundo tem trinta metros. Grao grosso, forca alta.
+     *  - pedra (4,0 / 0,60): chapim e tampo sao vistos de perto pelo visitante.
+     *  - corten (3,2 / 0,75): ferrugem tem grao mais grosso que concreto.
+     */
+    const detalhe = microrrelevo()
     // O PISO DO ESCRITORIO E MADEIRA, e nao um marrom liso. Era a segunda maior
     // area do interior depois da parede, e a unica sem nenhuma informacao — um
     // retangulo de cor chapada no lugar de onde a cena mais mostra chao. Repete
@@ -567,18 +591,24 @@ export function Cobertura({
     // ── materiais ─────────────────────────────────────────────────────────
     // Cor BRANCA no material sempre que houver `instanceColor`: a cor da cópia
     // multiplica a do material, então branco faz da cópia a cor final.
-    const mDeck = new THREE.MeshStandardMaterial({
-      color: '#ffffff',
-      roughness: 0.86,
-      ...madeira,
-    })
-    const mMadeiraEscura = new THREE.MeshStandardMaterial({
-      color: '#6b4a2e',
-      roughness: 0.82,
-      map: madeira.map,
-      normalMap: madeira.normalMap,
-      roughnessMap: madeira.roughnessMap,
-    })
+    const mDeck = comDetalhe(
+      new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.86, ...madeira }),
+      detalhe,
+      4.5,
+      0.7,
+    )
+    const mMadeiraEscura = comDetalhe(
+      new THREE.MeshStandardMaterial({
+        color: '#6b4a2e',
+        roughness: 0.82,
+        map: madeira.map,
+        normalMap: madeira.normalMap,
+        roughnessMap: madeira.roughnessMap,
+      }),
+      detalhe,
+      4.2,
+      0.6,
+    )
     // Alumínio ESCOVADO, não polido: rugosidade 0,34 quebra o reflexo em vez de
     // devolver o céu inteiro. Metal polido numa cena com uma luz só vira mancha.
     const mMetal = new THREE.MeshStandardMaterial({
@@ -731,13 +761,18 @@ export function Cobertura({
      * e com o caixilho pintado, e é desse contraste que a caixa de vidro tira a
      * aparência de construção em vez de maquete.
      */
-    const mParedeConcreto = new THREE.MeshStandardMaterial({
-      color: '#bcae97',
-      roughness: 0.95,
-      map: pedra.map,
-      normalMap: pedra.normalMap,
-      roughnessMap: pedra.roughnessMap,
-    })
+    const mParedeConcreto = comDetalhe(
+      new THREE.MeshStandardMaterial({
+        color: '#bcae97',
+        roughness: 0.95,
+        map: pedra.map,
+        normalMap: pedra.normalMap,
+        roughnessMap: pedra.roughnessMap,
+      }),
+      detalhe,
+      3.6,
+      0.85,
+    )
     const mJunta = new THREE.MeshStandardMaterial({ color: '#7d715f', roughness: 0.98 })
     /**
      * CASCA DE VERDADE, E NÃO MAIS O GRÃO DA RÉGUA DE DECK.
@@ -805,21 +840,31 @@ export function Cobertura({
     })
     // CORTEN: aco que enferruja de proposito e para. Ferrugem tem textura, entao
     // reaproveita o relevo do concreto — poro e mancha servem aos dois.
-    const mCorten = new THREE.MeshStandardMaterial({
-      color: '#7d4a30',
-      roughness: 0.88,
-      metalness: 0.22,
-      map: pedra.map,
-      normalMap: pedra.normalMap,
-      roughnessMap: pedra.roughnessMap,
-    })
-    const mPedra = new THREE.MeshStandardMaterial({
-      color: '#cfc4ad',
-      roughness: 0.8,
-      map: pedra.map,
-      normalMap: pedra.normalMap,
-      roughnessMap: pedra.roughnessMap,
-    })
+    const mCorten = comDetalhe(
+      new THREE.MeshStandardMaterial({
+        color: '#7d4a30',
+        roughness: 0.88,
+        metalness: 0.22,
+        map: pedra.map,
+        normalMap: pedra.normalMap,
+        roughnessMap: pedra.roughnessMap,
+      }),
+      detalhe,
+      3.2,
+      0.75,
+    )
+    const mPedra = comDetalhe(
+      new THREE.MeshStandardMaterial({
+        color: '#cfc4ad',
+        roughness: 0.8,
+        map: pedra.map,
+        normalMap: pedra.normalMap,
+        roughnessMap: pedra.roughnessMap,
+      }),
+      detalhe,
+      4.0,
+      0.6,
+    )
     const mVidroGarrafa = new THREE.MeshStandardMaterial({
       color: '#ffffff',
       roughness: 0.16,
