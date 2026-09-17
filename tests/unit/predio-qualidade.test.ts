@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CAPACIDADES_INICIAIS,
   DEGRAU_DA_PERSPECTIVA,
+  DEGRAU_DO_BRILHO,
   capacidadesDo,
   temPerspectiva,
 } from '@/components/predio/predio-qualidade'
@@ -33,7 +34,7 @@ describe('qualidade do prédio', () => {
   })
 
   it('só as duas pontas ganham perspectiva, e só com folga', () => {
-    const cheio = { perspectiva: true }
+    const cheio = { perspectiva: true, brilho: true }
     expect(temPerspectiva(0, cheio)).toBe(true)
     expect(temPerspectiva(ANDARES.length - 1, cheio)).toBe(true)
     for (let i = 1; i < ANDARES.length - 1; i++) {

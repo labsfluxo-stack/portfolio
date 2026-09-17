@@ -3,6 +3,10 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { AnchorHTMLAttributes, ReactNode, Ref, RefObject } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import type { Dictionary, Locale } from '@/content/types'
 import { ANDARES, type ChaveAndar, type ObjetoDoAndar } from './predio-programa'
 import {
@@ -1041,6 +1045,106 @@ type Alvo = {
   clicavel: boolean
 }
 
+/**
+ * ═══ O BRILHO DAS FONTES PRÁTICAS ═══
+ *
+ * Esta cena é um entardecer cheio de coisa acesa — varal, nicho do bar, painel
+ * do escritório, cascata, fitas de LED, oitenta janelas da cidade, o disco do
+ * sol — e nenhuma delas GLOWA. Cada uma é um retângulo de cor viva com borda
+ * dura, porque é isso que um pixel emissivo é sem um passe que o espalhe.
+ *
+ * O olho nunca viu uma fonte de luz com borda dura. A lente do olho, a da câmera
+ * e a atmosfera entre as duas espalham a luz forte para os pixels vizinhos, e a
+ * quantidade desse espalhamento é COMO se percebe intensidade — uma fonte que
+ * não sangra lê como um adesivo colorido, por mais saturada que seja. É por isso
+ * que bloom é o passe que mais muda "renderizado" para "fotografado" numa cena
+ * noturna, e é por isso que ele vem antes de qualquer outro pós.
+ *
+ * ═══ POR QUE O TONE MAPPING CONTINUA CERTO ═══
+ *
+ * Bloom só funciona em HDR LINEAR: ele precisa distinguir um branco de valor 1
+ * de uma lâmpada de valor 6, e depois do ACES os dois já viraram o mesmo branco.
+ * Espalhar DEPOIS do tone mapping devolve um halo leitoso e uniforme.
+ *
+ * Aqui isso sai de graça, e por uma decisão do próprio three: em
+ * `WebGLPrograms.getParameters` o tone mapping do material vira `NoToneMapping`
+ * sempre que o destino é um render target em vez da tela. Como o composer
+ * desenha para um alvo, a cena chega ao bloom em linear; o `OutputPass` no fim
+ * aplica ACES e a conversão de espaço de cor uma única vez, ao escrever no
+ * canvas. Nada a desligar, nada a compensar.
+ *
+ * ═══ O QUE ISTO NÃO É ═══
+ *
+ * Não é um efeito ligado no máximo, e os números vieram de render.
+ *
+ * A primeira tentativa — força 0,62, limiar 0,82 — transformou a cena e
+ * ESTRAGOU: o sol comeu o canto superior, o interior do escritório virou clarão
+ * sem estante nem mesa dentro, e a imagem inteira perdeu contraste. O motivo é
+ * que o céu desta cena tem luminância perto de 0,9 em quase toda a área, então
+ * um limiar de 0,82 não seleciona fonte nenhuma: seleciona o quadro.
+ *
+ * Com 0,88 de limiar e 0,34 de força o passe volta a ser o que deve ser — um
+ * halo em volta do que estoura, e não uma névoa por cima de tudo.
+ *
+ * ═══ E FALTA ALCANCE DINÂMICO DE VERDADE ═══
+ *
+ * Fica registrado o limite real desta etapa: quase nada nesta cena passa de 1,0
+ * em linear. As fontes práticas são `MeshBasicMaterial` com cor em hexadecimal,
+ * e hexadecimal não passa de 1. Então "o que estoura" é uma faixa estreitíssima,
+ * e qualquer limiar ou pega o céu junto ou não pega quase nada.
+ *
+ * O jeito certo de resolver é dar HEADROOM às práticas — multiplicar a cor
+ * delas acima de 1 para que só elas cruzem o limiar — e isso muda o brilho
+ * aparente de cada peça, então é ajuste para fazer olhando, um a um. Fica como
+ * próximo passo declarado, não como algo que eu tenha feito às escuras aqui.
+ */
+const BRILHO = { forca: 0.34, raio: 0.45, limiar: 0.88 } as const
+
+function useBrilho(ligado: boolean) {
+  const gl = useThree((s) => s.gl)
+  const cena = useThree((s) => s.scene)
+  const camera = useThree((s) => s.camera)
+  const tamanho = useThree((s) => s.size)
+
+  const composer = useMemo(() => {
+    if (!ligado) return null
+    const c = new EffectComposer(gl)
+    c.addPass(new RenderPass(cena, camera))
+    /**
+     * A RESOLUÇÃO DO PASSE É METADE DA TELA, e isso não é economia: é o desenho.
+     *
+     * Bloom é um borrão largo. Calculá-lo em resolução cheia gasta quatro vezes
+     * mais banda para produzir um resultado que, depois de espalhado por dezenas
+     * de pixels, ninguém distingue do de metade. A pirâmide de `UnrealBloomPass`
+     * já reduz cinco vezes internamente — começar de metade só apara o degrau
+     * mais caro e mais inútil dela.
+     */
+    const meia = new THREE.Vector2(
+      Math.max(1, Math.round(tamanho.width / 2)),
+      Math.max(1, Math.round(tamanho.height / 2)),
+    )
+    c.addPass(new UnrealBloomPass(meia, BRILHO.forca, BRILHO.raio, BRILHO.limiar))
+    // O `OutputPass` é quem aplica ACES e o espaço de cor no fim da cadeia. Sem
+    // ele a imagem sai linear na tela: clara demais, lavada e sem a rolagem de
+    // alta luz que o resto da cena foi ajustado em cima.
+    c.addPass(new OutputPass())
+    return c
+  }, [ligado, gl, cena, camera, tamanho.width, tamanho.height])
+
+  useEffect(() => {
+    if (!composer) return
+    composer.setSize(tamanho.width, tamanho.height)
+    composer.setPixelRatio(gl.getPixelRatio())
+  }, [composer, tamanho.width, tamanho.height, gl])
+
+  // Descarta os alvos de render quando o composer troca — de degrau de
+  // qualidade, de tamanho de janela ou de desmontagem. São quatro texturas de
+  // tela; deixá-las para o coletor é vazar memória de GPU.
+  useEffect(() => () => composer?.dispose(), [composer])
+
+  return composer
+}
+
 function Cena({
   vsync,
   vivos,
@@ -1092,6 +1196,29 @@ function Cena({
     luz.shadow.map = null
   }, [tier.shadow])
 
+  const brilho = useBrilho(capacidades.brilho)
+  /**
+   * QUEM DESENHA A CENA PASSA A SER ESTE LAÇO, e ele é registrado SEMPRE.
+   *
+   * O r3f desenha sozinho enquanto todo `useFrame` estiver na prioridade 0.
+   * Basta UM callback com prioridade maior para ele desligar o desenho
+   * automático e passar a responsabilidade adiante — e isso vale para a árvore
+   * inteira, não só para quem registrou.
+   *
+   * Daí o `if` estar DENTRO do callback e não em volta do `useFrame`. Registrar
+   * condicionalmente quebraria a regra dos hooks, e — pior — nos degraus sem
+   * bloom o r3f já teria desligado o desenho dele em algum quadro anterior e a
+   * tela ficaria preta. Aqui a prioridade é constante e o que muda é só quem
+   * escreve o pixel final.
+   *
+   * Prioridade 1 também garante a ORDEM: todos os callbacks de prioridade 0 —
+   * inclusive o que posiciona a câmera e atualiza a matriz — já rodaram quando
+   * este começa.
+   */
+  useFrame(({ gl, scene, camera }) => {
+    if (brilho) brilho.render()
+    else gl.render(scene, camera)
+  }, 1)
   const arAlvo = useMemo(() => new THREE.Color(), [])
   // Largura de janela da última medição das âncoras — ver o aparo no laço.
   const medidasVelhas = useRef(0)
