@@ -1,5 +1,5 @@
 'use client'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Coletor } from './predio-instancias'
@@ -140,7 +140,12 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
      * que não embaça junto com o prédio dela salta para a frente e desfaz a
      * profundidade que a névoa acabou de construir.
      */
-    const mJanela = new THREE.MeshBasicMaterial({ color: '#ffeccd' })
+    // O valor tambem desceu de #ffeccd para #e3c79c. `MeshBasicMaterial` nao
+    // passa por iluminacao nenhuma, entao a cor que se escreve aqui e exatamente
+    // o pixel que sai — e branco-creme puro a 20 m e mais claro que qualquer
+    // coisa do terraco, inclusive o nicho do bar, que e a peca que DEVE ser a
+    // mais quente do quadro.
+    const mJanela = new THREE.MeshBasicMaterial({ color: '#e3c79c' })
     // Janela APAGADA nao e um buraco preto: e vidro refletindo o ceu de fim de
     // tarde, entao ela e mais CLARA que a fachada e levemente azulada. Pintar de
     // preto e o erro que faz predio distante parecer queimado.
@@ -156,10 +161,36 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
     const mLuzAerea = new THREE.MeshBasicMaterial({ color: '#ff3b30' })
 
     const gCubo = new THREE.BoxGeometry(1, 1, 1)
-    // FITA DE VIDRO, nao janela furada. Escalada em X por predio.
-    const gFitaVidro = new THREE.BoxGeometry(1, 0.3, 0.05)
-    const gTrechoAceso = new THREE.BoxGeometry(0.34, 0.26, 0.06)
+    /**
+     * A FRAÇÃO DE VIDRO ERA A COISA ERRADA, e não o vocabulário.
+     *
+     * O módulo já falava a língua certa — fita corrida, montante, peitoril,
+     * platibanda, recuo no topo, luz de obstáculo. E o render continuava lendo
+     * como prédio de janela furada dos anos 70. A causa estava num número: a
+     * fita tinha 0,30 m num pé-direito de 0,95, ou seja 32% de vidro e 68% de
+     * peitoril.
+     *
+     * Trinta e dois por cento É a proporção de fachada de alvenaria. Cortina de
+     * vidro contemporânea fica entre 65% e 75% — o peitoril vira uma faixa
+     * estreita que mal esconde a laje, e o que o olho vê de longe é uma pele de
+     * vidro contínua com linhas horizontais finas.
+     *
+     * Escrever "fita corrida" no código e deixar 32% é o tipo de erro que
+     * sobrevive a qualquer leitura: o nome da variável concorda com a intenção e
+     * o valor concorda com o oposto dela.
+     */
+    const PE_DIREITO_CIDADE = 0.95
+    const gFitaVidro = new THREE.BoxGeometry(1, 0.66, 0.05)
+    // O TRECHO ACESO acompanha. Ele tinha 0,34 x 0,26 — um retangulinho no meio
+    // da fita, que e exatamente o desenho de uma janela. Em planta livre quem
+    // acende e um VAO INTEIRO entre dois montantes, de laje a laje.
+    const gTrechoAceso = new THREE.BoxGeometry(0.4, 0.58, 0.06)
     const gMontanteFachada = new THREE.BoxGeometry(0.05, 1, 0.06)
+    // ALETA VERTICAL: o brise que corre a fachada inteira de baixo a cima, sem
+    // interrupcao por andar. E o segundo vocabulario contemporaneo, e o que
+    // diferencia uma torre de escritorio de uma de apartamento — a primeira nao
+    // tem laje aparente na fachada, tem pele lisa com aleta.
+    const gAleta = new THREE.BoxGeometry(0.07, 1, 0.14)
     const gLuzAerea = new THREE.BoxGeometry(0.1, 0.1, 0.1)
     const gAntena = new THREE.BoxGeometry(0.17, 2.0, 0.17)
     const gCaixa = new THREE.BoxGeometry(1.2, 0.6, 1.2)
@@ -173,9 +204,40 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
       for (let i = 0; i < faixa.n; i++) {
         // Deslocamento lateral próprio: fileira em passo exato lê como pente.
         const x = inicio + i * faixa.passo + (ruido(i, f * 3 + 1) - 0.5) * faixa.passo * 0.5
-        const larg = faixa.largura[0] + ruido(i, f * 3 + 2) * (faixa.largura[1] - faixa.largura[0])
-        const topo = faixa.topo[0] + ruido(i, f * 3 + 3) * (faixa.topo[1] - faixa.topo[0])
-        const prof = 1.6 + ruido(i, f * 3 + 4) * 1.4
+        /**
+         * DOIS TIPOS DE TORRE, e é a variedade que faltava.
+         *
+         * Toda a cidade era a mesma fachada: fita horizontal com peitoril, em
+         * prédios de proporção parecida. Skyline real tem pelo menos duas
+         * famílias convivendo, e elas são distinguíveis a 20 m:
+         *
+         *  - LAMINADA (tipo 0): laje aparente na fachada, faixa horizontal a cada
+         *    pé-direito. É o desenho de torre residencial e de escritório dos
+         *    anos 90 para cá, e o que dá ESCALA — sem essa repetição não há como
+         *    saber se a caixa tem quatro andares ou quarenta.
+         *
+         *  - PELE LISA (tipo 1): sem laje aparente, vidro de baixo a cima cortado
+         *    só por aletas verticais que correm a fachada inteira. É a torre de
+         *    escritório contemporânea, e ela é mais ALTA e mais ESTREITA — 25% a
+         *    mais de altura e 20% a menos de largura, que é a proporção que o
+         *    olho associa a "torre nova".
+         *
+         * Um terço delas é do tipo 1: o suficiente para a linha do horizonte ter
+         * duas vozes, pouco o bastante para nenhuma virar padrão.
+         */
+        const peleLisa = ruido(i, f * 3 + 9) > 0.66
+        const larg =
+          (faixa.largura[0] + ruido(i, f * 3 + 2) * (faixa.largura[1] - faixa.largura[0])) *
+          (peleLisa ? 0.78 : 1)
+        // O teto de 7,5 continua valendo, e ele foi MEDIDO: acima disso a silhueta
+        // sai pelo topo do quadro. A torre esbelta ganha altura dentro do teto,
+        // nunca além dele.
+        const topo = Math.min(
+          7.5,
+          (faixa.topo[0] + ruido(i, f * 3 + 3) * (faixa.topo[1] - faixa.topo[0])) *
+            (peleLisa ? 1.28 : 1),
+        )
+        const prof = (1.6 + ruido(i, f * 3 + 4) * 1.4) * (peleLisa ? 0.82 : 1)
         const alturaCaixa = topo - BASE
         const z = faixa.z + (ruido(i, f * 3 + 5) - 0.5) * 1.2
 
@@ -249,16 +311,20 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
           [0, 0, 0],
           [larg + 0.16, 1, prof + 0.16],
         )
-        const andares = Math.max(1, Math.floor((topo - BASE - 0.6) / 0.95))
-        for (let l = 0; l < andares; l++)
-          col.poe(
-            'faixaLaje',
-            gFaixaLaje,
-            material,
-            [x, topo - 0.95 - l * 0.95, z],
-            [0, 0, 0],
-            [larg + 0.07, 1, prof + 0.07],
-          )
+        const andares = Math.max(1, Math.floor((topo - BASE - 0.6) / PE_DIREITO_CIDADE))
+        // A laje aparente só existe na torre LAMINADA. Na de pele lisa ela é
+        // justamente o que não há: o vidro corre de baixo a cima e quem corta a
+        // fachada é a aleta vertical.
+        if (!peleLisa)
+          for (let l = 0; l < andares; l++)
+            col.poe(
+              'faixaLaje',
+              gFaixaLaje,
+              material,
+              [x, topo - PE_DIREITO_CIDADE * (l + 1), z],
+              [0, 0, 0],
+              [larg + 0.07, 1, prof + 0.07],
+            )
         if (topo > 2.4)
           for (let m = 0; m < 2; m++)
             col.poe('ar', gArCondicionado, material, [
@@ -288,35 +354,89 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
          * E a luz acesa passa a ser um TRECHO da fita, não uma janela inteira:
          * em planta livre quem acende é uma área, não um cômodo.
          */
-        for (let l = 0; l < andares; l++) {
-          const yFita = topo - 0.5 - l * 0.95
+        const zFachada = z + prof / 2 + 0.02
+        const montantes = Math.max(2, Math.round(larg / 0.42))
+        if (peleLisa) {
+          /**
+           * PELE LISA: UM pano de vidro do térreo à platibanda, e aletas
+           * verticais correndo a altura inteira.
+           *
+           * O ponto é a CONTINUIDADE. Empilhar fitas de andar em andar, por mais
+           * altas que sejam, sempre devolve uma sequência de faixas — e faixa é o
+           * que o olho lê como laje aparente. Aqui o vidro é uma peça só, e por
+           * isso a torre não tem andar visível nenhum: ela é uma lâmina.
+           *
+           * A aleta é o que impede essa lâmina de virar um espelho chapado. Ela
+           * vai de baixo a cima sem interrupção, que é exatamente o contrário do
+           * montante da outra família — lá ele tem a altura de um andar e
+           * reinicia a cada laje.
+           */
+          const alturaPele = topo - BASE - 0.5
           col.poe(
             'fitaVidro',
             gFitaVidro,
             mVidroEscuro,
-            [x, yFita, z + prof / 2 + 0.02],
+            [x, topo - 0.28 - alturaPele / 2, zFachada],
             [0, 0, 0],
-            [larg * 0.92, 1, 1],
+            [larg * 0.94, alturaPele / 0.66, 1],
           )
-          // Montantes do caixilho: sem a divisão vertical, a fita é uma faixa
-          // lisa e o prédio perde escala.
-          const montantes = Math.max(2, Math.round(larg / 0.42))
           for (let m = 0; m <= montantes; m++)
             col.poe(
-              'montanteFachada',
-              gMontanteFachada,
+              'aleta',
+              gAleta,
               material,
-              [x - larg * 0.46 + (m * larg * 0.92) / montantes, yFita, z + prof / 2 + 0.05],
+              [x - larg * 0.47 + (m * larg * 0.94) / montantes, topo - 0.28 - alturaPele / 2, zFachada + 0.05],
               [0, 0, 0],
-              [1, 0.32, 1],
+              [1, alturaPele, 1],
             )
+        }
+        for (let l = 0; l < andares; l++) {
+          const yFita = topo - 0.5 - l * PE_DIREITO_CIDADE
+          if (!peleLisa) {
+            col.poe(
+              'fitaVidro',
+              gFitaVidro,
+              mVidroEscuro,
+              [x, yFita, zFachada],
+              [0, 0, 0],
+              [larg * 0.92, 1, 1],
+            )
+            // Montantes do caixilho: sem a divisão vertical, a fita é uma faixa
+            // lisa e o prédio perde escala. Eles têm a altura da fita, e não a do
+            // andar — montante é peça de caixilho, não de estrutura.
+            for (let m = 0; m <= montantes; m++)
+              col.poe(
+                'montanteFachada',
+                gMontanteFachada,
+                material,
+                [x - larg * 0.46 + (m * larg * 0.92) / montantes, yFita, zFachada + 0.03],
+                [0, 0, 0],
+                [1, 0.68, 1],
+              )
+          }
+          /**
+           * O TRECHO ACESO é o vão inteiro entre dois montantes, e não um
+           * retângulo no meio da fita. Em planta livre quem acende é uma ÁREA.
+           *
+           * METADE ACESA, e o número foi medido no render.
+           *
+           * Com o limiar em 0,7 (30% acesos) a torre ficava salpicada e lia como
+           * prédio antigo com meia dúzia de luzes. Corrigi para 0,34 — 66% — e o
+           * render devolveu o problema oposto: com o trecho ocupando quase a fita
+           * inteira, dois terços acesos viram uma PAREDE de luz, e o skyline
+           * passou a puxar o olho para longe do terraço, que é o assunto.
+           *
+           * Em 0,52 a torre continua trabalhando às seis da tarde e para de
+           * competir. É a mesma lição do emissivo da cascata: acender demais uma
+           * superfície apaga o desenho dela.
+           */
           const trechos = Math.max(2, Math.round(larg / 0.5))
           for (let t = 0; t < trechos; t++)
-            if (ruido(i * 31 + t * 7 + l, f + 11) > 0.7)
+            if (ruido(i * 31 + t * 7 + l, f + 11) > 0.52)
               col.poe('trechoAceso', gTrechoAceso, mJanela, [
                 x - larg * 0.42 + (t * larg * 0.84) / (trechos - 1),
                 yFita,
-                z + prof / 2 + 0.04,
+                zFachada + 0.03,
               ])
         }
 
@@ -358,10 +478,25 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
     return saida
   }, [cor, corDistante, ceu])
 
-  useMemo(() => {
+  /**
+   * `useEffect`, E NÃO `useMemo` — o terceiro e último lugar com este vazamento.
+   *
+   * `useMemo` memoriza o valor de retorno: a função de limpeza virava um valor
+   * guardado que ninguém chamava, e as malhas nunca saíam da cena. Na cobertura
+   * isso produziu um escritório e um bar fantasmas; aqui as dependências são as
+   * três cores, que a descida muda ao trocar de andar — e uma cidade duplicada
+   * sobre a outra é justamente o tipo de defeito que ninguém reporta porque lê
+   * como "skyline mais densa".
+   *
+   * Consertado junto com os outros dois em vez de esperar alguém ver.
+   */
+  useEffect(() => {
     for (const m of malhas) scene.add(m)
     return () => {
-      for (const m of malhas) scene.remove(m)
+      for (const m of malhas) {
+        scene.remove(m)
+        if (m instanceof THREE.Mesh) m.geometry.dispose()
+      }
     }
   }, [malhas, scene])
 
