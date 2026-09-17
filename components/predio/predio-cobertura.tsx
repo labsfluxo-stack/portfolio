@@ -15,6 +15,7 @@ import {
   fronde,
   graminea,
   madeiraDeDeck,
+  massaDeFolhagem,
   microrrelevo,
   normalDeAgua,
   paredeLavada,
@@ -287,6 +288,7 @@ export function Cobertura({
       PRATELEIRAS_BAR.map((y) => (y - NICHO_BASE) / NICHO_ALTURA),
     )
     const lavagemDaParede = paredeLavada()
+    const mosqueadoDaCopa = massaDeFolhagem()
     /**
      * O MICRORRELEVO E COMPARTILHADO POR TODAS AS SUPERFICIES GRANDES.
      *
@@ -749,10 +751,29 @@ export function Cobertura({
       emissiveIntensity: 0.3,
       emissive: new THREE.Color('#5a2038'),
     })
+    /**
+     * O NUCLEO DA COPA PERDE O `flatShading` E GANHA MOSQUEADO.
+     *
+     * Ele e um `IcosahedronGeometry(0.27, 0)` — vinte faces — escalado para 46 cm
+     * de raio. Com `flatShading` cada face vira um plano de valor unico, e o que
+     * o zoom mostrou foi um poliedro cinza-esverdeado dentro da copa, com cara de
+     * pedra lapidada.
+     *
+     * Suavizar sozinho nao resolveria: esfera lisa le como bola de bilhar, o
+     * mesmo erro com outra cara. O que faltava era superficie na escala da FOLHA,
+     * e e isso que `massaDeFolhagem` desenha — folhas sobrepostas em tres verdes,
+     * com os vaos escuros entre grupos que uma copa tem.
+     *
+     * A cor volta a ser branca porque a tinta continua vindo da instancia: o
+     * nucleo usa `TONS_DE_OLIVA[0]`, o mais escuro da paleta, que e o que o poe
+     * ATRAS das folhas em vez de competir com elas.
+     */
     const mFolhaSolida = new THREE.MeshStandardMaterial({
       color: '#ffffff',
       roughness: 0.95,
-      flatShading: true,
+      map: mosqueadoDaCopa.map,
+      normalMap: mosqueadoDaCopa.normalMap,
+      roughnessMap: mosqueadoDaCopa.roughnessMap,
     })
     /**
      * Era o material da caixa de escada. Sobreviveu a ela porque a LAJE do
@@ -837,6 +858,11 @@ export function Cobertura({
       map: laminaViva.map,
       normalMap: laminaViva.normalMap,
       roughnessMap: laminaViva.roughnessMap,
+      // O recorte que afina a lamina ate a ponta. `alphaTest` e nao
+      // `transparent`: sem ordenacao por profundidade e sem passe extra, e com
+      // sombra do formato certo — a mesma escolha da folha e da fronde.
+      alphaMap: laminaViva.alfa,
+      alphaTest: 0.45,
     })
     // CORTEN: aco que enferruja de proposito e para. Ferrugem tem textura, entao
     // reaproveita o relevo do concreto — poro e mancha servem aos dois.
@@ -1022,12 +1048,7 @@ export function Cobertura({
     const TONS_DE_OLIVA = ['#5f7361', '#6e8168', '#aab89b', '#7d8e74', '#c0cbae', '#8d9c85'].map(
       (c) => new THREE.Color(c),
     )
-    // GRAMINEA em contraluz: palha dourada, nao verde. A lamina seca da ponta e
-    // a que pega o sol de fim de tarde, e e por isso que graminea e a unica
-    // vegetacao que ACENDE quando o sol esta atras dela.
-    // Metade PALHA, metade VERDE. So palha lia como mato seco; graminea viva tem
-    // a base verde e a ponta dourada, e e a mistura das duas que da o efeito de
-    // contraluz em vez de campo queimado.
+
     /**
      * AS FLORES SAO A UNICA COR NAO-VERDE DO JARDIM, e por isso elas pesam muito
      * mais do que o numero delas sugere.
@@ -1042,7 +1063,27 @@ export function Cobertura({
     const TONS_DE_FLOR = ['#c4477e', '#d9639b', '#f2e6ea', '#a8386a', '#ffffff', '#e08ab4'].map(
       (c) => new THREE.Color(c),
     )
-    const TONS_DE_GRAMINEA = ['#c2ab72', '#7f8b52', '#d4c088', '#6d7c46', '#b9a86a', '#8c9558'].map(
+    /**
+     * A GRAMINEA DEIXA DE SER METADE FENO, e este e um caso de argumento que
+     * ERA verdadeiro e parou de ser.
+     *
+     * A paleta tinha tres tons de palha em seis (#c2ab72, #d4c088, #b9a86a), e o
+     * comentario que estava aqui defendia isso: graminea em contraluz acende, a
+     * lamina seca da ponta pega o sol de fim de tarde. Estava certo — enquanto o
+     * FUNDO dela fosse a parede de concreto clara lavada pelos sete fachos.
+     *
+     * O fundo mudou. Hoje atras da graminea corre a cascata, que e azul escura.
+     * Palha contra escuro nao acende: ela le como feno morto, e foi isso que o
+     * zoom mostrou — um canteiro de varetas secas.
+     *
+     * Agora sao cinco verdes de valores diferentes e UM caqui. Touceira real tem
+     * laminas secas no meio das vivas; o que ela nao tem e metade do volume
+     * morto. A ponta dourada continua existindo, e agora vem de onde deveria ter
+     * vindo desde o comeco: do degrade da propria textura, que vai de verde na
+     * base a palha clara na ponta. Cor de instancia pinta a lamina INTEIRA — ela
+     * nunca foi o lugar de representar so a ponta.
+     */
+    const TONS_DE_GRAMINEA = ['#6d7c46', '#7f8b52', '#8c9558', '#5e6d3e', '#93a05c', '#a2945c'].map(
       (c) => new THREE.Color(c),
     )
     // NOVE TONS, e nao cinco. Com cinco, as doze garrafas de uma prateleira

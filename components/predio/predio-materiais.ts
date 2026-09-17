@@ -1569,6 +1569,109 @@ export function veuDagua(): Superficie {
 }
 
 /**
+ * MASSA DE FOLHAGEM — o miolo da copa, que era um poliedro cinza.
+ *
+ * O NÚCLEO DA OLIVEIRA são quarenta icosaedros sólidos, e a intenção deles está
+ * certa: sem massa escura por trás, vê-se o céu através da árvore inteira e ela
+ * perde peso; com ela, as folhas chatas ficam recortadas contra algo.
+ *
+ * O que estava errado era a SUPERFÍCIE. `IcosahedronGeometry(…, 0)` tem vinte
+ * faces, e com `flatShading` cada uma vira um plano de valor único. Escalado
+ * para 46 cm de raio isso não lê como folhagem: lê como pedra lapidada. No zoom
+ * aparecia um poliedro cinza-esverdeado dentro da copa.
+ *
+ * A saída não é suavizar — esfera lisa lê como bola de bilhar, o mesmo erro com
+ * outra cara. É dar à massa a única coisa que identifica folhagem vista de
+ * longe: um mosqueado de muitas folhas sobrepostas, com claro e escuro na escala
+ * da FOLHA e não na da esfera.
+ *
+ * O desenho é feito de folhas de verdade — dezenas de lanceoladas em ângulos e
+ * verdes diferentes — e não de ruído. Ruído dá granulado uniforme; folha sobre
+ * folha dá AGLOMERADO, com vãos escuros entre grupos, que é o que a copa tem.
+ */
+export function massaDeFolhagem(): Superficie {
+  const n = 256
+  const [cor, c] = tela(n)
+  const [altura, h] = tela(n)
+  const [rugo, r] = tela(n)
+
+  // O fundo é o VÃO entre folhas: quase preto, e é dele que vem a profundidade.
+  // Começar de um verde médio daria uma massa chapada com folhas por cima.
+  c.fillStyle = '#26311f'
+  c.fillRect(0, 0, n, n)
+  h.fillStyle = '#3c3c3c'
+  h.fillRect(0, 0, n, n)
+  r.fillStyle = '#d2d2d2'
+  r.fillRect(0, 0, n, n)
+
+  /** Uma folha do mosqueado: lanceolada, num ângulo qualquer. */
+  const folhinha = (ctx: CanvasRenderingContext2D, i: number, estilo: string, escala: number) => {
+    const x = ruido(i, 801) * n
+    const y = ruido(i, 802) * n
+    const a = ruido(i, 803) * Math.PI * 2
+    const comp = n * (0.045 + ruido(i, 804) * 0.075) * escala
+    const larg = comp * (0.3 + ruido(i, 805) * 0.22)
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.rotate(a)
+    ctx.fillStyle = estilo
+    ctx.beginPath()
+    ctx.moveTo(-comp / 2, 0)
+    ctx.quadraticCurveTo(0, -larg, comp / 2, 0)
+    ctx.quadraticCurveTo(0, larg, -comp / 2, 0)
+    ctx.closePath()
+    ctx.fill()
+    ctx.restore()
+  }
+
+  /**
+   * TRÊS CAMADAS, DA MAIS ESCURA PARA A MAIS CLARA, e a ordem é o efeito.
+   *
+   * Folha que está por baixo recebe menos luz. Desenhando as escuras primeiro e
+   * as claras por cima, as claras cobrem parcialmente as escuras e o que sobra
+   * das escuras são os VÃOS — exatamente a relação que existe numa copa. Na
+   * ordem inversa sai uma massa clara salpicada de manchas escuras, que lê como
+   * folha doente.
+   *
+   * O ladrilhamento é garantido desenhando cada camada quatro vezes, deslocada
+   * meia textura em cada direção: folha cortada na borda direita reaparece na
+   * esquerda. Sem isso a emenda vira uma linha de vãos escuros.
+   */
+  const camadas = [
+    { quantas: 150, tinta: '#33452a', relevo: 'rgba(0,0,0,0.5)', escala: 1.15 },
+    { quantas: 130, tinta: '#4a6138', relevo: 'rgba(128,128,128,0.6)', escala: 1.0 },
+    { quantas: 95, tinta: '#6a8351', relevo: 'rgba(255,255,255,0.55)', escala: 0.85 },
+  ]
+  for (const [ci, camada] of camadas.entries()) {
+    for (const [dx, dy] of [
+      [0, 0],
+      [n, 0],
+      [0, n],
+      [n, n],
+    ] as const) {
+      c.save()
+      h.save()
+      c.translate(dx - n / 2, dy - n / 2)
+      h.translate(dx - n / 2, dy - n / 2)
+      for (let i = 0; i < camada.quantas; i++) {
+        folhinha(c, i + ci * 1000, camada.tinta, camada.escala)
+        folhinha(h, i + ci * 1000, camada.relevo, camada.escala)
+      }
+      c.restore()
+      h.restore()
+    }
+  }
+
+  return {
+    map: acaba(cor, 1, 1, true),
+    // Força 1,8: o relevo aqui é a folha inteira, não um poro. Ele precisa ser
+    // forte o bastante para a esfera deixar de parecer uma esfera.
+    normalMap: normalDaAltura(altura, 1.8, 1, 1),
+    roughnessMap: acaba(rugo, 1, 1, false),
+  }
+}
+
+/**
  * LÂMINA DE GRAMÍNEA — a última planta da cobertura sem textura nenhuma.
  *
  * A gramínea era um material branco liso com a cor na instância: sem mapa, sem
@@ -1592,7 +1695,7 @@ export function veuDagua(): Superficie {
  * Tudo em VALOR, quase sem matiz: a cor continua vindo da instância. Mesma regra
  * de sempre — textura é padrão, cor é tinta.
  */
-export function graminea(): Superficie {
+export function graminea(): Superficie & { alfa: THREE.Texture } {
   const n = 64
   const [cor, c] = tela(n)
   const [altura, h] = tela(n)
@@ -1643,6 +1746,49 @@ export function graminea(): Superficie {
     }
   }
 
+  /**
+   * O RECORTE QUE AFINA A LÂMINA ATÉ A PONTA.
+   *
+   * A gramínea é uma `BoxGeometry` escalada em Y: uma fita de largura constante
+   * que termina em CORTE RETO. Isso é o que fazia a touceira ler como feixe de
+   * varetas mesmo depois de a cor ficar verde — nenhuma folha do mundo termina
+   * numa aresta perpendicular.
+   *
+   * Lâmina de gramínea tem a largura máxima no primeiro terço e afina daí até
+   * uma ponta fina. Recortar isso por alfa muda a SILHUETA sem tocar na
+   * geometria, que continua sendo dois triângulos por face.
+   *
+   * O expoente 1,6 no afinamento é o que separa lâmina de triângulo: com
+   * decaimento linear a folha vira uma cunha reta; com expoente ela guarda
+   * largura no meio e fecha depressa perto do ápice, que é a curva real.
+   */
+  const [alf, a] = tela(n)
+  a.fillStyle = '#000000'
+  a.fillRect(0, 0, n, n)
+  a.fillStyle = '#ffffff'
+  a.beginPath()
+  const PASSOS = 24
+  for (let i = 0; i <= PASSOS; i++) {
+    const v = i / PASSOS
+    // A base também estreita um pouco: a lâmina sai de uma bainha, não de uma
+    // fita cortada.
+    const abre = Math.min(1, v / 0.14)
+    const fecha = (1 - Math.max(0, (v - 0.3) / 0.7)) ** 1.6
+    const meia = 0.5 * n * Math.min(abre, 0.18 + fecha * 0.82)
+    const y = (1 - v) * n
+    if (i === 0) a.moveTo(n / 2 - meia, y)
+    else a.lineTo(n / 2 - meia, y)
+  }
+  for (let i = PASSOS; i >= 0; i--) {
+    const v = i / PASSOS
+    const abre = Math.min(1, v / 0.14)
+    const fecha = (1 - Math.max(0, (v - 0.3) / 0.7)) ** 1.6
+    const meia = 0.5 * n * Math.min(abre, 0.18 + fecha * 0.82)
+    a.lineTo(n / 2 + meia, (1 - v) * n)
+  }
+  a.closePath()
+  a.fill()
+
   return {
     map: acaba(cor, 1, 1, true),
     // Força alta porque a dobra é o gesto inteiro da peça: a lâmina tem 3 cm de
@@ -1650,6 +1796,7 @@ export function graminea(): Superficie {
     // diferença de luz entre as duas abas, não a estria.
     normalMap: normalDaAltura(altura, 2.6, 1, 1),
     roughnessMap: acaba(rugo, 1, 1, false),
+    alfa: acaba(alf, 1, 1, false),
   }
 }
 
