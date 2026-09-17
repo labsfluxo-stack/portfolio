@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
@@ -12,6 +12,7 @@ import {
   concreto,
   folha,
   brilhoDeNicho,
+  comVento,
   fronde,
   graminea,
   madeiraDeDeck,
@@ -259,6 +260,19 @@ export function Cobertura({
 }) {
   const { scene } = useThree()
   const ondaDagua = useMemo(() => normalDeAgua(), [])
+  /**
+   * O RELOGIO DO VENTO, e ele vive FORA do `useMemo` das malhas.
+   *
+   * E um objeto `{ value }` compartilhado por REFERENCIA com o uniforme de todos
+   * os materiais de vegetacao. Escrever nele por quadro e a unica coisa que o
+   * JavaScript faz pelo vento inteiro — nenhuma matriz recalculada, nenhum buffer
+   * de instancia reenviado, nenhuma malha tocada.
+   *
+   * Fora do `useMemo` porque ele e o unico estado que atravessa quadros: se o
+   * andar remontar — na promocao de parallax para perspectiva, por exemplo —, o
+   * balanco tem de continuar de onde estava em vez de saltar para zero.
+   */
+  const relogioDoVento = useRef({ value: 0 }).current
 
   const malhas = useMemo(() => {
     const col = new Coletor()
@@ -317,6 +331,36 @@ export function Cobertura({
     // 7 x 3 sobre 5,8 x 2,0 m, que poe a tabua perto de 80 cm: largura de piso
     // de engenharia, e nao de regua de deck.
     const tabuaDoEscritorio = comRepeticao(madeira, 7, 3)
+
+    /**
+     * ═══ O VENTO NA VEGETACAO ═══
+     *
+     * Cada planta tem BASE e ALCANCE proprios, e nenhum dos dois e arbitrario: a
+     * base e o `y` onde aquela planta e engastada, e o alcance e a altura em que
+     * o balanco satura. Com os dois errados o efeito le como gelatina em vez de
+     * vento.
+     *
+     *  - folha de oliveira (0,055 / piso+1,75 / 3,0): engastada no TRONCO, nao no
+     *    chao. A copa comeca a 2,85 e vai a 4,4, entao a ponta dela pega o peso
+     *    cheio — que e o que uma oliveira faz: o tronco nao se mexe e a copa toda
+     *    ondula.
+     *  - folha larga (0,045 / piso+0,50 / 1,7): arbusto engastado na calha.
+     *  - fronde (0,075 / piso+2,60 / 2,2): a MAIOR amplitude da cena, e por
+     *    fisica — fronde de palmeira tem mais de dois metros de braco de alavanca
+     *    e e a coisa que mais se mexe num terraco com vento.
+     *  - graminea (0,038 / piso+0,50 / 1,3): amplitude menor em metros porque a
+     *    lamina e curta, e ainda assim a mais visivel de todas, porque sao mais
+     *    de mil laminas ondulando em fase deslocada.
+     *  - massa da copa (0,045): acompanha a folha de oliveira. Nucleo parado com
+     *    folha balancando faz ele reaparecer como o poliedro que acabou de sumir.
+     *  - galho e raminho (0,030 / piso+0,50 / 3,0): menos que a folha, e nunca
+     *    zero. Haste parada com folha balancando separa visualmente as duas.
+     *
+     * O QUE NAO ACOMPANHA: a sombra. O passe de profundidade usa outro shader, e
+     * ele nao leva a injecao — entao a sombra da folha fica parada enquanto a
+     * folha balanca. Com amplitude de quatro centimetros e sombra de folhagem ja
+     * difusa, isso nao se ve; fica escrito porque a 20 cm se veria.
+     */
 
     // ── geometrias ────────────────────────────────────────────────────────
     // Raio de 5 mm na régua: é o chanfro que uma régua de deck de verdade tem,
@@ -646,7 +690,8 @@ export function Cobertura({
      * achatar o sombreamento dele nao muda nada. Quem faz a variacao aqui e a
      * ORIENTACAO de cada folha, nao a faceta da malha.
      */
-    const mFolha = new THREE.MeshStandardMaterial({
+    const mFolha = comVento(
+      new THREE.MeshStandardMaterial({
       color: '#ffffff',
       roughness: 0.84,
       side: THREE.DoubleSide,
@@ -685,7 +730,12 @@ export function Cobertura({
        */
       emissive: new THREE.Color('#4a6b32'),
       emissiveIntensity: 0.22,
-    })
+      }),
+      relogioDoVento,
+      0.1,
+      piso + 1.75,
+      3,
+    )
     /**
      * A FOLHA LARGA GANHA MATERIAL PRÓPRIO, com o recorte ovalado e a nervação
      * palmada. Antes ela era a lanceolada esmagada num plano 1,3:1 — o que dava
@@ -695,7 +745,8 @@ export function Cobertura({
      * de planta tropical é mais FINA e translúcida que folha de oliveira, que é
      * dura e cerosa. Em contraluz ela acende mais.
      */
-    const mFolhaLarga = new THREE.MeshStandardMaterial({
+    const mFolhaLarga = comVento(
+      new THREE.MeshStandardMaterial({
       color: '#ffffff',
       roughness: 0.78,
       side: THREE.DoubleSide,
@@ -706,12 +757,33 @@ export function Cobertura({
       roughnessMap: recorteDeFolhaLarga.rugosidade,
       alphaTest: 0.45,
       emissive: new THREE.Color('#4a6b32'),
-      emissiveIntensity: 0.28,
-    })
+      /**
+       * 0,10 e nao 0,28, e o motivo e um efeito colateral que so apareceu quando
+       * a paleta do arbusto escureceu.
+       *
+       * O emissivo e SOMADO, independente da cor da instancia. Com a paleta
+       * antiga — que herdava os cinza-claros da oliveira — ele era uma fracao
+       * pequena do difuso e fazia o que devia: fingir a translucidez da folha em
+       * contraluz. Com a paleta verde-escura o difuso caiu para perto de 0,03 em
+       * linear e o emissivo, parado em 0,04, passou a ser MAIOR que ele. A folha
+       * deixou de ser iluminada e passou a brilhar sozinha: no render virou uma
+       * chapa verde-clara uniforme, mais clara do que antes de escurecer a cor.
+       *
+       * E o mesmo tipo de armadilha da graminea: um numero que estava certo
+       * contra um contexto e continuou parado quando o contexto mudou.
+       */
+      emissiveIntensity: 0.1,
+      }),
+      relogioDoVento,
+      0.085,
+      piso + 0.5,
+      1.7,
+    )
     // Madeira de oliveira e CLARA e acinzentada, nao marrom escura.
     // Nucleo da copa: solido e fosco, so para dar massa escura atras das folhas.
     // FRONDE: mesmo recorte por alfa da folha, com a silhueta pinada propria.
-    const mFronde = new THREE.MeshStandardMaterial({
+    const mFronde = comVento(
+      new THREE.MeshStandardMaterial({
       // Verde de verdade e nao branco: o mapa ja e claro, e multiplicado por
       // branco a fronde saia lavada — palmeira ao contraluz e ESCURA com a borda
       // acesa, nunca uma pena palida.
@@ -729,7 +801,12 @@ export function Cobertura({
       alphaTest: 0.4,
       emissive: new THREE.Color('#42632c'),
       emissiveIntensity: 0.16,
-    })
+      }),
+      relogioDoVento,
+      0.14,
+      piso + 2.6,
+      2.2,
+    )
     // A água PARADA da calha da cascata: quase lisa e com reflexo do ambiente
     // alto, porque a única coisa que a faz ler como água a essa distância é
     // devolver o céu. Escura porque a calha é funda e está na sombra da parede.
@@ -768,13 +845,19 @@ export function Cobertura({
      * nucleo usa `TONS_DE_OLIVA[0]`, o mais escuro da paleta, que e o que o poe
      * ATRAS das folhas em vez de competir com elas.
      */
-    const mFolhaSolida = new THREE.MeshStandardMaterial({
+    const mFolhaSolida = comVento(
+      new THREE.MeshStandardMaterial({
       color: '#ffffff',
       roughness: 0.95,
       map: mosqueadoDaCopa.map,
       normalMap: mosqueadoDaCopa.normalMap,
       roughnessMap: mosqueadoDaCopa.roughnessMap,
-    })
+      }),
+      relogioDoVento,
+      0.09,
+      piso + 1.75,
+      3,
+    )
     /**
      * Era o material da caixa de escada. Sobreviveu a ela porque a LAJE do
      * escritório pede exatamente isto: concreto aparente com poro e mancha. Uma
@@ -825,13 +908,50 @@ export function Cobertura({
       normalMap: troncoOliva.normalMap,
       roughnessMap: troncoOliva.roughnessMap,
     })
-    const mGalhoOliva = new THREE.MeshStandardMaterial({
+    const mGalhoOliva = comVento(
+      new THREE.MeshStandardMaterial({
       color: '#83796c',
       roughness: 0.97,
       map: galhoOliva.map,
       normalMap: galhoOliva.normalMap,
       roughnessMap: galhoOliva.roughnessMap,
-    })
+      }),
+      relogioDoVento,
+      0.085,
+      piso + 1.75,
+      3,
+    )
+    /**
+     * A HASTE DO ARBUSTO GANHA MATERIAL PROPRIO, e o motivo e de ANCORAGEM.
+     *
+     * `mGalhoOliva` servia duas coisas em alturas e engastes completamente
+     * diferentes: o raminho da copa da oliveira (y 2,85 a 4,4, engastado no
+     * tronco) e a haste do macico do canteiro (y 0,5 a 2,2, engastada na calha).
+     * Um vento so nao serve aos dois — o peso e calculado pela altura acima da
+     * BASE, e as bases sao outras.
+     *
+     * Com amplitude de tres centimetros isso passava despercebido. Ao dobrar a
+     * forca a pedido do dono, folha e haste no mesmo ponto do espaco passariam a
+     * receber pesos diferentes, e a folha sairia deslizando por cima da haste que
+     * deveria a sustentar. Um material a mais e uma chamada de desenho a mais; a
+     * alternativa e vegetacao que se desmonta quando o vento aperta.
+     *
+     * A haste anda um pouco MENOS que a folha (0,07 contra 0,085) de proposito:
+     * folha na ponta de um peciolo se mexe mais que o ramo que a segura.
+     */
+    const mHasteArbusto = comVento(
+      new THREE.MeshStandardMaterial({
+        color: '#83796c',
+        roughness: 0.97,
+        map: galhoOliva.map,
+        normalMap: galhoOliva.normalMap,
+        roughnessMap: galhoOliva.roughnessMap,
+      }),
+      relogioDoVento,
+      0.07,
+      piso + 0.5,
+      1.7,
+    )
     // ESTIPE: repetição 6 em V sobre 4,2 m de altura, com 10 anéis por ladrilho —
     // dá um anel a cada 7 cm, que é o passo real de uma palmeira adulta. Anel
     // espaçado demais lê como bambu; junto demais, como rosca de parafuso.
@@ -851,7 +971,8 @@ export function Cobertura({
     // sem relevo, a lâmina recebe um valor único do topo à base e a touceira lê
     // como feixe de varetas. Ver `graminea()` em `predio-materiais.ts`.
     const laminaViva = graminea()
-    const mGramineaMat = new THREE.MeshStandardMaterial({
+    const mGramineaMat = comVento(
+      new THREE.MeshStandardMaterial({
       color: '#ffffff',
       roughness: 0.82,
       side: THREE.DoubleSide,
@@ -863,7 +984,12 @@ export function Cobertura({
       // sombra do formato certo — a mesma escolha da folha e da fronde.
       alphaMap: laminaViva.alfa,
       alphaTest: 0.45,
-    })
+      }),
+      relogioDoVento,
+      0.072,
+      piso + 0.5,
+      1.3,
+    )
     // CORTEN: aco que enferruja de proposito e para. Ferrugem tem textura, entao
     // reaproveita o relevo do concreto — poro e mancha servem aos dois.
     const mCorten = comDetalhe(
@@ -1045,6 +1171,19 @@ export function Cobertura({
      * Quatro escuras contra duas claras, e nao tres a tres — a copa tem de ter
      * PESO, e peso vem do lado escuro.
      */
+    /**
+     * A DIFERENCA DE TOM ENTRE AS DUAS COPAS E DO SOL, E FICA.
+     *
+     * Eu tinha subido esta paleta um terco para igualar as duas, e o dono olhou
+     * e disse para deixar como estava. Esta certo, e vale registrar por que:
+     * as duas arvores sempre usaram a MESMA paleta. O sol esta em azimute 152,
+     * atras e a direita — a copa de x = 3,48 recebe o rasante e a de x = -2,11
+     * fica na sombra propria da cena.
+     *
+     * Duas arvores identicas recebendo luz diferente e o que acontece num
+     * terraco de verdade. Igualar as duas seria apagar a unica informacao de
+     * direcao de luz que a vegetacao carrega.
+     */
     const TONS_DE_OLIVA = ['#5f7361', '#6e8168', '#aab89b', '#7d8e74', '#c0cbae', '#8d9c85'].map(
       (c) => new THREE.Color(c),
     )
@@ -1083,6 +1222,22 @@ export function Cobertura({
      * base a palha clara na ponta. Cor de instancia pinta a lamina INTEIRA — ela
      * nunca foi o lugar de representar so a ponta.
      */
+    /**
+     * O ARBUSTO GANHA PALETA PROPRIA, e ele estava usando a errada.
+     *
+     * As folhas do macico saiam de `TONS_DE_OLIVA`, que tem dois cinza-claros
+     * (#aab89b e #c0cbae). Aqueles tons existem por um motivo especifico e bom: a
+     * face de baixo da folha de oliveira e quase branca, e e ela que o vento vira
+     * para cima — e o prateado que identifica a especie a distancia.
+     *
+     * Folha larga tropical nao tem nada disso. Ela e VERDE ESCURA e cerosa, e
+     * herdar o prateado da oliveira deixava o macico do fundo palido justamente
+     * onde ele deveria ser a massa mais escura do jardim — e a massa contra a
+     * qual tudo o mais recorta.
+     */
+    const TONS_DE_ARBUSTO = ['#40603a', '#4d7342', '#375434', '#588447', '#456a3a', '#628e4f'].map(
+      (c) => new THREE.Color(c),
+    )
     const TONS_DE_GRAMINEA = ['#6d7c46', '#7f8b52', '#8c9558', '#5e6d3e', '#93a05c', '#a2945c'].map(
       (c) => new THREE.Color(c),
     )
@@ -1864,16 +2019,33 @@ export function Cobertura({
       // NUCLEO: oito tufos solidos no miolo, so para a copa ter massa escura por
       // tras das folhas. Sem eles ve-se o ceu atraves da arvore inteira e ela
       // perde peso; com eles, as folhas chatas ficam recortadas contra algo.
+      /**
+       * O NUCLEO ENCOLHEU PARA DENTRO DA NUVEM DE FOLHAS, e era esta a causa da
+       * "parte escura" que o dono apontou.
+       *
+       * Nao era falta de folha: era o nucleo TRANSBORDANDO. Os tufos iam ate
+       * 0,78 de raio e cada um tem 0,27 escalado por 1,7 — ou seja 0,46 —, entao
+       * a massa chegava a 1,24 m do eixo. As folhas param em 0,94. A casca
+       * escura ficava do lado de FORA da folhagem, e nenhuma quantidade de folha
+       * cobre o que esta por cima delas.
+       *
+       * Com alcance 0,52 e escala 1,4, o nucleo chega a 0,90 — logo abaixo da
+       * envoltoria das folhas. Ele volta a ser o que deveria ser desde o comeco:
+       * massa POR TRAS, nunca por cima.
+       */
       for (let t = 0; t < 40; t++) {
         const a = ruido(t, 55 + k) * Math.PI * 2
-        const r = ruido(t, 56 + k) * 0.78
+        const r = ruido(t, 56 + k) * 0.52
         col.poe(
           'nucleoOliva',
           gTufoOliva,
           mFolhaSolida,
           [x + Math.sin(a) * r, piso + 3.1 + ruido(t, 57 + k) * 1.1, zArvores + Math.cos(a) * r],
           [ruido(t, 58 + k) * 3, ruido(t, 59 + k) * 3, 0],
-          [1.7, 1.25, 1.7],
+          [1.4, 1.05, 1.4],
+          // O tom mais escuro da paleta: e ele que poe a massa ATRAS das folhas
+          // em vez de competir com elas. Quem cobre essa massa e a quantidade de
+          // folha, nao a cor dela.
           TONS_DE_OLIVA[0]!,
         )
       }
@@ -1903,7 +2075,7 @@ export function Cobertura({
        */
       // Mais ramalhetes e mais folha por ramalhete: o recorte por alfa tirou
       // quase metade da area de cada quad, e sem repor a copa RAREIA.
-      const ramalhetes = 118
+      const ramalhetes = 320
       for (let b = 0; b < ramalhetes; b++) {
         // O pé do raminho fica na casca da copa. A raiz quadrada empurra para
         // FORA, porque o miolo é oco — é na periferia que está a luz.
@@ -1938,9 +2110,9 @@ export function Cobertura({
           [1, comp / 0.3, 1],
         )
 
-        for (let f = 0; f < 19; f++) {
+        for (let f = 0; f < 24; f++) {
           // Ao LONGO do raminho, e não em volta dele.
-          const u = 0.12 + (f / 19) * 0.98
+          const u = 0.12 + (f / 24) * 0.98
           const g = b * 17 + f
           col.poe(
             'folhaOliva',
@@ -2429,25 +2601,83 @@ export function Cobertura({
       if (foraDoJardim(xm)) continue
       const alturaMoita = 1.1 + ruido(m, 400) * 1.05
       const zm = zFundoVerde + (ruido(m, 401) - 0.5) * 0.5
-      for (let f = 0; f < 44; f++) {
-        const a = ruido(f, 410 + m) * Math.PI * 2
-        const r = Math.sqrt(ruido(f, 411 + m)) * 0.52
+      /**
+       * A FOLHA DO MACICO PASSA A NASCER NUMA HASTE — e este era o ultimo
+       * confete do jardim.
+       *
+       * As 44 folhas de cada moita estavam espalhadas num VOLUME esferico, cada
+       * uma girada ao acaso nos tres eixos e sem nada que a ligasse a coisa
+       * alguma. No zoom isso aparece exatamente como e: folhas largas boiando no
+       * ar na frente da cascata.
+       *
+       * E o mesmo defeito que a copa da oliveira ja teve e ja resolveu — o
+       * comentario do ramalhete esta a poucas linhas daqui. Folha nao flutua
+       * distribuida num volume: ela nasce em sequencia ao longo de uma haste, e e
+       * por isso que qualquer massa vegetal e feita de GRUMOS e nao de nuvem.
+       *
+       * Aqui a estrutura e de arbusto e nao de arvore, entao as hastes saem do
+       * PE da moita e abrem para fora e para cima, em leque. Sete hastes de seis
+       * folhas dao as mesmas 42 folhas de antes, agora organizadas.
+       *
+       * E a haste e DESENHADA. Sem ela o grumo continua desligado — foi ela que
+       * resolveu a copa da oliveira, e e ela que resolve aqui.
+       */
+      const HASTES = 11
+      for (let hs = 0; hs < HASTES; hs++) {
+        const az = (hs / HASTES) * Math.PI * 2 + ruido(hs, 410 + m) * 0.9
+        // Quanto mais deitada a haste, mais curta: e o desenho de um arbusto,
+        // onde a haste central e a mais alta e as de fora se abrem e caem.
+        const abre = 0.25 + ruido(hs, 411 + m) * 0.85
+        const comp = alturaMoita * (0.95 - abre * 0.35)
+        const pe: [number, number, number] = [
+          xm + Math.sin(az) * 0.1,
+          piso + 0.5,
+          zm + Math.cos(az) * 0.08,
+        ]
+        // Direcao da haste: sobe e abre. O 0,7 em z achata o leque, porque a
+        // moita e mais larga em x do que funda.
+        const dir: [number, number, number] = [
+          Math.sin(az) * Math.sin(abre),
+          Math.cos(abre),
+          Math.cos(az) * Math.sin(abre) * 0.7,
+        ]
         col.poe(
-          'folhaArbusto',
-          gFolhaLarga,
-          mFolhaLarga,
-          [
-            xm + Math.sin(a) * r,
-            piso + 0.5 + ruido(f, 412 + m) * alturaMoita,
-            zm + Math.cos(a) * r * 0.7,
-          ],
-          [ruido(f, 413 + m) * 3, ruido(f, 414 + m) * 6, ruido(f, 415 + m) * 3],
-          (() => {
-            const e = 0.8 + ruido(f, 416 + m) * 0.7
-            return [e, e, e] as [number, number, number]
-          })(),
-          TONS_DE_OLIVA[(f + m) % TONS_DE_OLIVA.length]!,
+          'hasteArbusto',
+          gRaminho,
+          mHasteArbusto,
+          [pe[0] + dir[0] * comp * 0.5, pe[1] + dir[1] * comp * 0.5, pe[2] + dir[2] * comp * 0.5],
+          [Math.cos(az) * abre, az, -Math.sin(az) * abre],
+          [1.6, comp / 0.3, 1.6],
         )
+        for (let f = 0; f < 9; f++) {
+          // Ao LONGO da haste, e nao em volta dela. A primeira folha nasce a 22%
+          // do pe: arbusto tem colo limpo, a folha nao comeca no chao.
+          const u = 0.22 + (f / 9) * 0.86
+          const g = m * 31 + hs * 7 + f
+          col.poe(
+            'folhaArbusto',
+            gFolhaLarga,
+            mFolhaLarga,
+            [
+              pe[0] + dir[0] * comp * u + (ruido(g, 412) - 0.5) * 0.11,
+              pe[1] + dir[1] * comp * u + (ruido(g, 413) - 0.5) * 0.09,
+              pe[2] + dir[2] * comp * u + (ruido(g, 414) - 0.5) * 0.11,
+            ],
+            // Segue o eixo da haste com dispersao, e o terceiro angulo e o
+            // ROLAMENTO em torno do proprio peciolo — e ele que faz duas folhas
+            // vizinhas pegarem luz diferente.
+            [
+              Math.cos(az) * abre + (ruido(g, 415) - 0.5) * 0.9,
+              az + (ruido(g, 416) - 0.5) * 1.5,
+              -Math.sin(az) * abre + (ruido(g, 417) - 0.5) * 1.2,
+            ],
+            (() => {
+              const e = 0.85 + ruido(g, 418) * 0.6
+              return [e, e, e] as [number, number, number]
+            })(),
+            TONS_DE_ARBUSTO[(f + hs + m) % TONS_DE_ARBUSTO.length]!,
+          )
+        }
       }
     }
 
@@ -2607,7 +2837,7 @@ export function Cobertura({
       const xc = -meiaLargura + 0.8 + (c / 21) * (meiaLargura * 2 - 1.6)
       // A gramínea chega a 1,3 m: era ela a que mais cobria o vidro.
       if (foraDoJardim(xc)) continue
-      for (let b = 0; b < 54; b++) {
+      for (let b = 0; b < 76; b++) {
         const a = ruido(b, 420 + c) * Math.PI * 2
         const raio = ruido(b, 421 + c) * 0.34
         const alt = 0.5 + ruido(b, 422 + c) * 0.8
@@ -3021,6 +3251,20 @@ export function Cobertura({
     aguaDaParede.map.offset.y += passo * 0.52
     aguaDaParede.normalMap.offset.y += passo * 0.38
     aguaDaParede.roughnessMap.offset.y += passo * 0.38
+    /**
+     * E O VENTO INTEIRO É ESTA LINHA.
+     *
+     * Um float por quadro, compartilhado por referência com o uniforme de todos
+     * os materiais de vegetação. A alternativa seria recompor a matriz de cada
+     * uma das mais de sete mil folhas, lâminas e frondes e reenviar o buffer de
+     * instâncias a cada quadro — o que não é uma otimização perdida, é o que
+     * inviabilizaria o efeito.
+     *
+     * O mesmo `passo` aparado da cascata, e pelo mesmo motivo: `delta` estoura
+     * quando a aba volta do segundo plano, e meio segundo de salto teleportaria
+     * o balanço em vez de continuá-lo.
+     */
+    relogioDoVento.value += passo
   })
   // Repetidos do bloco instanciado de propósito: o vidro e a luz são as duas
   // únicas peças do escritório que NÃO podem ser instanciadas — uma é

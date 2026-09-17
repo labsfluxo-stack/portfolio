@@ -211,6 +211,125 @@ export const ANCORA_DA_NORMAL = 'mapN.xy *= normalScale;'
 export const ANCORA_DO_VERTICE = '#include <project_vertex>'
 
 /**
+ * ═══ VENTO ═══
+ *
+ * Toda a vegetação desta cena está PARADA, e parada é a única coisa que planta
+ * nunca está. Num terraço aberto, a dez andares de altura, ao entardecer, a
+ * imobilidade absoluta é o que mais denuncia que aquilo é geometria — mais que
+ * qualquer textura, porque o olho detecta ausência de movimento antes de
+ * detectar qualquer detalhe de superfície.
+ *
+ * ═══ NO VERTEX SHADER, E NÃO NO JAVASCRIPT ═══
+ *
+ * A alternativa seria mexer nas matrizes das instâncias a cada quadro. São mais
+ * de sete mil folhas, lâminas e frondes na cobertura: sete mil `compose()` por
+ * quadro na thread principal, mais o envio do buffer inteiro para a GPU. Isso
+ * não é uma otimização perdida, é uma decisão que inviabilizaria o efeito.
+ *
+ * No shader o custo é um `sin` por vértice e UM uniforme por quadro. A malha
+ * não é tocada, o buffer de instâncias não é reenviado, e o JavaScript escreve
+ * um float.
+ *
+ * ═══ O DESLOCAMENTO É EM ESPAÇO DE VISTA ═══
+ *
+ * O balanço precisa ser em MUNDO — todas as plantas cedem para o mesmo lado,
+ * senão cada peça balança no seu próprio eixo e o resultado lê como gelatina em
+ * vez de vento. Mas `transformed` está em espaço de OBJETO, e voltar de mundo
+ * para objeto exigiria inverter a matriz por vértice.
+ *
+ * A saída é deslocar depois de `project_vertex`, onde `mvPosition` já existe:
+ * basta girar o vetor de mundo pela `viewMatrix` (sem translação, por isso o
+ * `w = 0`) e somar. Uma multiplicação de matriz por vértice, nenhuma inversão.
+ *
+ * ═══ O PESO PELA ALTURA É O QUE FAZ SER VENTO ═══
+ *
+ * Planta é engastada no chão: a base não se move e a ponta descreve um arco. Um
+ * deslocamento uniforme faria a moita inteira deslizar de lado, que é o efeito
+ * de um tapete sendo puxado, não de vento.
+ *
+ * `peso` é a altura acima da base elevada a 1,7. O expoente é o que concentra o
+ * movimento no terço superior — com expoente 1 a moita inteira se inclina como
+ * um bloco rígido.
+ *
+ * ═══ DUAS ONDAS, NÃO UMA ═══
+ *
+ * Um seno só é um metrônomo, e o olho acha o período em dois segundos. Duas
+ * frequências incomensuráveis (1,1 e 2,3) nunca repetem o mesmo desenho, e a
+ * segunda, mais rápida e mais fraca, é a rajada por cima da brisa.
+ *
+ * A FASE vem da posição de mundo, então a onda ATRAVESSA o jardim em vez de
+ * todas as plantas pulsarem juntas — é isso que se lê como uma rajada passando.
+ *
+ * ═══ E O MESMO `#include` NÃO EXPANDIDO, DE NOVO ═══
+ *
+ * `gl_Position` mora dentro do chunk `project_vertex`, exatamente como
+ * `mapN.xy *= normalScale;` mora dentro de `normal_fragment_maps`. Procurar por
+ * ele no shader que chega a `onBeforeCompile` não encontra nada, e o replace
+ * falha em silêncio — foi o erro que custou dois renders no detail mapping.
+ *
+ * Então aqui já se nasce fazendo o certo: expandir o chunk à mão e trocar o
+ * `#include` inteiro. A constante guarda o nome do include, não o texto de
+ * dentro dele, e o teste verifica os dois.
+ */
+export const ANCORA_DO_VENTO = '#include <project_vertex>'
+
+export function comVento(
+  material: THREE.Material,
+  relogio: { value: number },
+  /** Amplitude em metros no topo da planta. "Leve" vive entre 0,02 e 0,06. */
+  forca: number,
+  /** Y de mundo onde a planta é engastada: abaixo disso não há movimento. */
+  base: number,
+  /** Altura em que o peso satura. Acima dela o balanço não cresce mais. */
+  alcance: number,
+): THREE.Material {
+  const anterior = material.onBeforeCompile
+  material.onBeforeCompile = (shader, renderer) => {
+    anterior?.call(material, shader, renderer)
+    shader.uniforms.relogioDoVento = relogio
+    shader.uniforms.forcaDoVento = { value: forca }
+    shader.uniforms.baseDoVento = { value: base }
+    shader.uniforms.alcanceDoVento = { value: alcance }
+    const chunkComVento =
+      THREE.ShaderChunk.project_vertex +
+      `
+        {
+          vec4 pVento = vec4( transformed, 1.0 );
+          #ifdef USE_INSTANCING
+            pVento = instanceMatrix * pVento;
+          #endif
+          vec3 pmVento = ( modelMatrix * pVento ).xyz;
+          float peso = pow( clamp( ( pmVento.y - baseDoVento ) / alcanceDoVento, 0.0, 1.0 ), 1.7 );
+          float fase = pmVento.x * 0.55 + pmVento.z * 0.4;
+          float onda =
+            sin( relogioDoVento * 1.1 + fase ) * 0.68 +
+            sin( relogioDoVento * 2.3 + fase * 1.7 ) * 0.32;
+          vec3 empurra = vec3( onda, 0.0, onda * 0.42 ) * forcaDoVento * peso;
+          mvPosition.xyz += ( viewMatrix * vec4( empurra, 0.0 ) ).xyz;
+        }
+        gl_Position = projectionMatrix * mvPosition;`
+    shader.vertexShader =
+      [
+        'uniform float relogioDoVento;',
+        'uniform float forcaDoVento;',
+        'uniform float baseDoVento;',
+        'uniform float alcanceDoVento;',
+        '',
+      ].join('\n') + shader.vertexShader.replace(ANCORA_DO_VENTO, chunkComVento)
+  }
+  /**
+   * A chave de cache tem de carregar os quatro números, pela mesma razão do
+   * detalhe: `onBeforeCompile` não entra na chave que o three monta, e dois
+   * materiais de parâmetros iguais com ventos diferentes receberiam o programa
+   * do primeiro a compilar. A gramínea sairia balançando como a palmeira.
+   */
+  const antes = material.customProgramCacheKey?.bind(material)
+  material.customProgramCacheKey = () =>
+    `${antes ? antes() : ''}|vento-${forca}-${base}-${alcance}`
+  return material
+}
+
+/**
  * Mistura o microrrelevo na normal de um material, dentro do shader.
  *
  * ═══ POR QUE A PROJEÇÃO É EM MUNDO, E NÃO EM UV ═══
