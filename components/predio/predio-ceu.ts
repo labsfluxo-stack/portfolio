@@ -80,6 +80,55 @@ const RAMPA: readonly (readonly [number, string])[] = [
 /** Onde o sol está, em fração da largura de um mapa equirretangular. */
 const U_DO_SOL = 0.5 + SOL.azimute / 360
 
+/**
+ * ═══ A JANELA DE CÉU QUE A LENTE DE FATO ENQUADRA ═══
+ *
+ * MEDIDA, não estimada, e as três tentativas que precederam a medição explicam
+ * por que ela vira constante em vez de continuar sendo palpite.
+ *
+ * O plano do céu tem 46 m de altura e 140 m de largura, e a lente pega uma
+ * fração pequena dos dois. Pintar nuvem fora dessa fração não é só trabalho
+ * perdido: é trabalho que CONSOME a quantidade de nuvem que se achava ter
+ * colocado. Foi o que aconteceu — duas rodadas inteiras em que os cúmulos
+ * simplesmente não apareciam, porque metade de cada faixa caía abaixo da linha
+ * do casario e a outra metade acima da borda de cima da tela.
+ *
+ * COMO FOI MEDIDO (e como refazer se a câmera mudar): pinta-se na textura uma
+ * régua de blocos sólidos magenta/verde de 0,025 de `v`, com o valor escrito
+ * dentro de cada bloco, e captura-se o quadro. Dois detalhes que custaram uma
+ * rodada cada:
+ *
+ *  - Os rótulos precisam se repetir ao longo da LARGURA. Escritos só nas bordas
+ *    da textura, eles caem nos 43 m de plano que ficam fora do enquadramento.
+ *  - A régua precisa ser de BLOCOS, não de linhas finas. A primeira versão usou
+ *    linhas de 1 px sobre um céu que agora tem mechas de cirro finas e
+ *    horizontais — um instrumento feito da mesma matéria da coisa medida não
+ *    mede nada.
+ *
+ * O RESULTADO: 2120 px de tela por unidade de `v`, com a borda de cima da tela
+ * em v = 0,650 e a silhueta da cidade comendo tudo abaixo de ~0,82. A janela
+ * inteira tem 0,16 de altura — as faixas que eu vinha usando tinham de 0,13 a
+ * 0,25, ou seja, eram do tamanho da janela ou maiores, e centradas fora dela.
+ *
+ * Note que isto NÃO depende de `fracaoVisivel`. Aquele parâmetro comprime a
+ * RAMPA DE COR dentro do plano; esta janela é geometria pura de câmera. Amarrar
+ * uma coisa na outra, que foi a minha primeira tentativa, é mais uma constante
+ * emprestada de outro sistema de coordenadas — a mesma armadilha que o
+ * parâmetro `uDoSol` acabou de consertar logo abaixo.
+ */
+const CEU_VISIVEL = { topo: 0.655, base: 0.815 } as const
+
+/**
+ * Uma faixa de altura dentro da janela visível, em fração dela: 0 é a borda de
+ * cima da tela, 1 é a linha do casario. Escrever as camadas assim significa que
+ * elas não podem mais cair fora do quadro por construção, e que recalibrar a
+ * câmera é mexer em `CEU_VISIVEL` e em mais nada.
+ */
+function faixa(de: number, ate: number): readonly [number, number] {
+  const { topo, base } = CEU_VISIVEL
+  return [topo + (base - topo) * de, topo + (base - topo) * ate]
+}
+
 function aplicaRampa(g: CanvasGradient, de: number, ate: number) {
   for (const [t, cor] of RAMPA) {
     const p = de + (ate - de) * t
@@ -131,6 +180,64 @@ function ruido(i: number, k: number): number {
  *    baixo, então ela estica. Nuvem redonda no horizonte é o erro mais comum de
  *    céu desenhado.
  */
+/** Uma bolha macia: cor cheia no centro, alfa zero na borda. */
+function bolha(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  rx: number,
+  ry: number,
+  cor: string,
+  alfa: number,
+) {
+  ctx.save()
+  ctx.globalAlpha = alfa
+  ctx.translate(x, y)
+  ctx.scale(1, ry / rx)
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx)
+  g.addColorStop(0, cor)
+  // A parada em 0,55 mantém o miolo cheio: sem ela o degradê começa a cair do
+  // centro e a nuvem inteira vira uma mancha difusa sem corpo.
+  g.addColorStop(0.55, cor)
+  g.addColorStop(1, cor.replace(/[\d.]+\)$/, '0)'))
+  ctx.fillStyle = g
+  ctx.beginPath()
+  ctx.arc(0, 0, rx, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+/**
+ * A MESMA BOLHA, MAIS AS DUAS CÓPIAS QUE FAZEM A TEXTURA EMENDAR.
+ *
+ * Uma camada que ROLA precisa ser um ladrilho perfeito no eixo horizontal: no
+ * instante em que `offset.x` passa de 0,999 para 0,000 a borda direita encosta
+ * na esquerda, e qualquer nuvem cortada pela margem vira uma emenda vertical
+ * atravessando o céu inteiro — uma vez a cada volta, que é o pior tipo de
+ * defeito, o que só aparece depois que todo mundo parou de olhar.
+ *
+ * Desenhar cada bolha também em `x − largura` e `x + largura` resolve por
+ * construção: o que sai por um lado entra pelo outro, pintado. O canvas descarta
+ * sozinho o que cai fora, então as duas cópias extras custam quase nada — e isto
+ * roda uma vez na montagem da textura.
+ */
+function bolhaEmenda(
+  ctx: CanvasRenderingContext2D,
+  largura: number,
+  enrola: boolean,
+  x: number,
+  y: number,
+  rx: number,
+  ry: number,
+  cor: string,
+  alfa: number,
+) {
+  bolha(ctx, x, y, rx, ry, cor, alfa)
+  if (!enrola) return
+  bolha(ctx, x - largura, y, rx, ry, cor, alfa)
+  bolha(ctx, x + largura, y, rx, ry, cor, alfa)
+}
+
 function pintaNuvens(
   ctx: CanvasRenderingContext2D,
   largura: number,
@@ -139,27 +246,30 @@ function pintaNuvens(
   vAte: number,
   quantidade: number,
   ladoDoSol: number,
+  /**
+   * ONDE O SOL ESTÁ **NESTA** PROJEÇÃO, e o parâmetro nasceu de um defeito.
+   *
+   * A função lia o `U_DO_SOL` do módulo, que é a coordenada do sol no mapa
+   * EQUIRRETANGULAR. No plano de fundo o sol não está lá: ele está em `solU`,
+   * que quem chama projeta da direção da luz na geometria do plano. As duas
+   * coordenadas não coincidem, então as nuvens douradas do fundo se agrupavam
+   * num ponto do céu e o disco do sol ficava em outro — o quadro dizia que a luz
+   * vinha de dois lugares.
+   *
+   * É a quinta ocorrência da mesma armadilha nesta cena: constante de um sistema
+   * de coordenadas usada dentro de outro. Vira parâmetro.
+   */
+  uDoSol: number,
+  /**
+   * Se o eixo U dá a volta. No equirretangular e numa camada que rola, sim — e aí
+   * a distância ao sol precisa passar pela emenda e cada bolha precisa das
+   * cópias. No plano de fundo, não: ele tem duas bordas de verdade.
+   */
+  enrola: boolean,
+  semente = 0,
 ) {
-  /** Uma bolha macia: cor cheia no centro, alfa zero na borda. */
-  const bolha = (x: number, y: number, rx: number, ry: number, cor: string, alfa: number) => {
-    ctx.save()
-    ctx.globalAlpha = alfa
-    ctx.translate(x, y)
-    ctx.scale(1, ry / rx)
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx)
-    g.addColorStop(0, cor)
-    // A parada em 0,55 mantém o miolo cheio: sem ela o degradê começa a cair do
-    // centro e a nuvem inteira vira uma mancha difusa sem corpo.
-    g.addColorStop(0.55, cor)
-    g.addColorStop(1, cor.replace(/[\d.]+\)$/, '0)'))
-    ctx.fillStyle = g
-    ctx.beginPath()
-    ctx.arc(0, 0, rx, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.restore()
-  }
-
-  for (let i = 0; i < quantidade; i++) {
+  for (let n = 0; n < quantidade; n++) {
+    const i = n + semente
     const u = ruido(i, 1)
     const t = ruido(i, 2)
     const v = vDe + (vAte - vDe) * t
@@ -169,16 +279,17 @@ function pintaNuvens(
     const x = u * largura
     const y = v * altura
     /**
-     * A PROXIMIDADE DO SOL, medida no eixo U com a volta pelo outro lado.
+     * A PROXIMIDADE DO SOL, medida no eixo U com a volta pelo outro lado quando
+     * ela existe.
      *
-     * O mapa é equirretangular: `u` = 0 e `u` = 1 são o mesmo meridiano. Uma
-     * nuvem em 0,02 está perto de um sol em 0,98, e a subtração direta diria que
-     * está do outro lado do céu. `min(d, 1 − d)` resolve, e sem isso a faixa de
-     * nuvens douradas teria um corte seco na emenda da textura.
+     * Num mapa que emenda, `u` = 0 e `u` = 1 são o mesmo meridiano: uma nuvem em
+     * 0,02 está perto de um sol em 0,98, e a subtração direta diria que está do
+     * outro lado do céu. `min(d, 1 − d)` resolve, e sem isso a faixa de nuvens
+     * douradas teria um corte seco na emenda.
      */
-    const dU = Math.abs(u - U_DO_SOL)
-    const pertoDoSol = 1 - Math.min(dU, 1 - dU) / 0.5
-    const calor = pertoDoSol ** 2.2
+    const dU = Math.abs(u - uDoSol)
+    const pertoDoSol = 1 - (enrola ? Math.min(dU, 1 - dU) : dU) / 0.5
+    const calor = Math.max(0, pertoDoSol) ** 2.2
     const opacidade = (0.2 + ruido(i, 5) * 0.34) * (0.7 + calor * 0.5)
 
     // Corpo: malva frio longe do sol, malva quente perto. Nunca cinza puro —
@@ -204,12 +315,146 @@ function pintaNuvens(
       // afina nas bordas em vez de terminar em parede.
       const escala = 0.45 + Math.sin(f * Math.PI) * 0.8
       const rx = larg * 0.42 * escala * (0.7 + ruido(i * 13 + b, 7) * 0.7)
-      bolha(
+      bolhaEmenda(
+        ctx,
+        largura,
+        enrola,
         bx + (emBaixo ? ladoDoSol * larg * 0.08 : 0),
         by,
         rx,
         rx * (alt / larg) * (emBaixo ? 2.1 : 2.8),
         emBaixo ? corBase : corTopo,
+        1,
+      )
+    }
+
+    /**
+     * ═══ A SEGUNDA OITAVA: AS BOSSAS DO TOPO ═══
+     *
+     * Com uma escala só de bolha, o aglomerado tem contorno de LENTE — sobe, faz
+     * uma curva e desce. Nenhuma nuvem tem esse contorno: cúmulo é convecção, e
+     * convecção produz torres de vários tamanhos brotando da mesma base. O que se
+     * reconhece como nuvem é justamente a irregularidade da linha de cima.
+     *
+     * É o mesmo princípio do ruído fractal — uma oitava dá uma mancha, duas dão
+     * forma — só que aplicado à SILHUETA em vez de à densidade. Bossas pequenas,
+     * ~1/3 do raio das bolhas grandes, empurradas para cima da linha média.
+     *
+     * Elas levam a cor do TOPO mesmo estando mais altas: nesta hora a luz entra
+     * rasante por baixo da camada, então tudo que sobe fica na sombra da própria
+     * nuvem. Pintar as torres claras inverteria o horário.
+     */
+    const bossas = 4 + Math.floor(ruido(i, 11) * 5)
+    for (let s = 0; s < bossas; s++) {
+      const f = (s + 0.5) / bossas
+      const bx = x + (f - 0.5) * larg * 1.5 + (ruido(i * 17 + s, 12) - 0.5) * larg * 0.2
+      const by = y - alt * (0.25 + ruido(i * 17 + s, 13) * 0.55)
+      const rx = larg * 0.14 * (0.55 + ruido(i * 17 + s, 14) * 0.95)
+      bolhaEmenda(ctx, largura, enrola, bx, by, rx, rx * (alt / larg) * 2.4, corTopo, 0.85)
+    }
+
+    /**
+     * ═══ A FRANJA A SOTAVENTO ═══
+     *
+     * Nuvem não termina: ela se desfia. A borda que o vento leva se estica em
+     * véus finos que somem aos poucos, e é essa franja — mais do que a forma do
+     * corpo — que diz ao olho que aquilo está dentro de ar em movimento. Sem ela
+     * o aglomerado fica com aparência de objeto pousado no céu.
+     *
+     * Três véus, muito achatados (8× mais largos que altos), alfa baixo,
+     * saindo pelo lado do sol porque é para lá que o vento desta cena sopra — o
+     * mesmo `ladoDoSol` que já desloca as barrigas.
+     */
+    for (let w = 0; w < 3; w++) {
+      const fx = x + ladoDoSol * larg * (0.75 + w * 0.42)
+      const fy = y + (ruido(i * 19 + w, 15) - 0.5) * alt * 0.9
+      const rx = larg * (0.3 + ruido(i * 19 + w, 16) * 0.26)
+      bolhaEmenda(ctx, largura, enrola, fx, fy, rx, rx * 0.11, corBase, 0.4 - w * 0.1)
+    }
+  }
+}
+
+/**
+ * ═══ O CIRRO — a camada que faltava, e ela não é um cúmulo menor ═══
+ *
+ * Um céu de hora dourada tem DOIS andares de nuvem, e eles não se parecem:
+ *
+ *  - O cúmulo, a 2 km, é água líquida. Tem volume, tem barriga, tem sombra
+ *    própria, e é o que esta cena já desenhava.
+ *  - O CIRRO, a 10 km, é gelo. Não tem volume nenhum — é um véu de cristais
+ *    arrastado pelo jato, e o que se vê são FIOS paralelos, quase horizontais,
+ *    finíssimos.
+ *
+ * E o cirro é o que acende primeiro e apaga por último: estando três vezes mais
+ * alto, ele ainda pega sol cheio quando o chão já está na sombra. Aquelas
+ * mechas rosa-douradas atravessando o azul no fim da tarde são sempre cirro.
+ * Um céu de pôr do sol sem elas fica com um vazio na parte de cima que nenhuma
+ * quantidade de cúmulo preenche — o degradê sobe limpo demais e volta a ler
+ * como papel colorido, que é o defeito de origem deste arquivo.
+ *
+ * DESENHADO COMO FEIXE E NÃO COMO MANCHA. Cada cirro é um punhado de fios
+ * paralelos, cada fio uma bolha esticada 12 a 20 vezes mais em X do que em Y,
+ * com um cisalhamento leve para o feixe não ser um retângulo. A separação entre
+ * os fios é o assunto: uma mancha achatada única leria como borrão de dedo.
+ */
+function pintaCirros(
+  ctx: CanvasRenderingContext2D,
+  largura: number,
+  altura: number,
+  vDe: number,
+  vAte: number,
+  quantidade: number,
+  uDoSol: number,
+  enrola: boolean,
+) {
+  for (let i = 0; i < quantidade; i++) {
+    const u = ruido(i, 31)
+    const t = ruido(i, 32)
+    const v = vDe + (vAte - vDe) * t
+    const x = u * largura
+    const y = v * altura
+    const comp = largura * (0.09 + ruido(i, 33) * 0.15)
+    const esp = altura * (0.012 + ruido(i, 34) * 0.022)
+    // O cisalhamento: os fios de cima ficam um pouco à frente dos de baixo,
+    // porque o vento é mais forte no topo da camada. É pequeno de propósito —
+    // cirro muito inclinado lê como risco de lápis.
+    const inclina = (ruido(i, 35) - 0.5) * 0.55
+
+    const dU = Math.abs(u - uDoSol)
+    const calor = Math.max(0, 1 - (enrola ? Math.min(dU, 1 - dU) : dU) / 0.5) ** 1.6
+    /**
+     * O CIRRO É PÁLIDO, e a tentação de subir esse alfa é forte e errada.
+     *
+     * Ele é opticamente fino: vê-se o céu ATRAVÉS dele, sempre. Um cirro opaco
+     * vira um rabisco branco colado no degradê — que é exatamente o erro de
+     * "nuvem de adesivo" que as bolhas macias vieram consertar lá em cima, só
+     * que com outra forma.
+     */
+    const alfa = (0.05 + ruido(i, 36) * 0.08) * (0.5 + calor * 1.1)
+    // Perto do sol o gelo fica dourado; longe, rosa-acinzentado frio. O cirro é
+    // o que mais muda de cor no céu porque é o mais alto: o raio que chega nele
+    // atravessou muito mais atmosfera do que o que chega no cúmulo.
+    const cor = `rgba(${Math.round(198 + calor * 56)},${Math.round(172 + calor * 62)},${Math.round(176 + calor * 26)},${alfa.toFixed(3)})`
+
+    const fios = 4 + Math.floor(ruido(i, 37) * 5)
+    for (let f = 0; f < fios; f++) {
+      const p = fios === 1 ? 0.5 : f / (fios - 1)
+      // Os fios do meio são os mais longos: dá ao feixe uma ponta afilada nas
+      // duas extremidades, que é como uma mecha de cirro de fato termina.
+      const longo = comp * (0.35 + Math.sin(p * Math.PI) * 0.65) * (0.7 + ruido(i * 23 + f, 38) * 0.6)
+      const fy = y + (p - 0.5) * esp
+      const fx = x + (p - 0.5) * esp * inclina * 8 + (ruido(i * 23 + f, 39) - 0.5) * comp * 0.22
+      bolhaEmenda(
+        ctx,
+        largura,
+        enrola,
+        fx,
+        fy,
+        longo,
+        // 1/16 do comprimento, com piso de meio pixel: fio de cirro é fino, mas
+        // fino demais desaparece na interpolação da textura e a mecha some.
+        Math.max(0.6, longo * (0.04 + ruido(i * 23 + f, 40) * 0.035)),
+        cor,
         1,
       )
     }
@@ -390,7 +635,30 @@ export function texturaDeCeu(
    * vir aqui.
    */
   pintaBrilho(ctx, largura, altura, solU, solV, largura * 0.46)
-  pintaNuvens(ctx, largura, altura, 1 - fracaoVisivel * 0.82, 0.995, 26, 1)
+  /**
+   * SÓ A FAIXA DO HORIZONTE FICA AQUI, e as outras duas camadas saíram para
+   * texturas próprias que ROLAM (ver `texturaDeNuvens`).
+   *
+   * A divisão não é arbitrária, é de paralaxe. Nuvem baixa no horizonte está a
+   * dezenas de quilômetros: por mais que ande, o ângulo que ela varre por minuto
+   * é quase zero, e ela parece parada. Nuvem de meia altura, mais perto e mais
+   * acima, atravessa o enquadramento de forma visível. Deixar as do horizonte
+   * assadas no degradê é o que ELAS de fato fazem — e de quebra elas continuam
+   * ancoradas no sol, com a barriga acesa do lado certo, que é o detalhe que
+   * uma camada rolante não consegue manter.
+   *
+   * `solU` e não `U_DO_SOL`: este é o plano, não a esfera. Ver o parâmetro.
+   */
+  /**
+   * O ANDAR DE BAIXO: as nuvens do horizonte, no terço inferior da janela —
+   * logo acima da silhueta da cidade, que é onde uma nuvem distante aparece.
+   * Elas ficam AQUI, assadas no degradê, e não numa camada que rola, porque
+   * nuvem baixa a dezenas de quilômetros varre um ângulo por minuto perto de
+   * zero: ela de fato parece parada. Em troca, continua ancorada no sol, com a
+   * barriga acesa do lado certo — o que uma camada rolante não mantém.
+   */
+  const horizonte = faixa(0.56, 1)
+  pintaNuvens(ctx, largura, altura, horizonte[0], horizonte[1], 15, 1, solU, false)
   // O disco vem DEPOIS das nuvens: sol atrás de nuvem fica encoberto, e aqui ele
   // está acima da camada. Antes delas, o halo ficaria lavado por cima.
   pintaDisco(ctx, largura, altura, solU, solV, 18)
@@ -401,6 +669,113 @@ export function texturaDeCeu(
   tex.colorSpace = THREE.SRGBColorSpace
   tex.anisotropy = 8
   return tex
+}
+
+/** As duas camadas de nuvem que andam, e a altura em que cada uma vive. */
+export type CamadaDeNuvem = 'cirro' | 'cumulo'
+
+/**
+ * ═══ A NUVEM QUE ANDA ═══
+ *
+ * Céu parado é a coisa que mais denuncia cenário pintado, e o motivo é que o
+ * olho tem um detector de movimento muito melhor do que de forma. Uma cena com
+ * água correndo, folha balançando e luz acesa, tendo por trás um céu que não se
+ * mexe um pixel em três minutos, lê como fotografia colada atrás de uma maquete
+ * — e o defeito aparece justamente porque o resto ficou bom.
+ *
+ * COMO SE FAZ ISSO POR UMA CHAMADA DE DESENHO: a nuvem sai do degradê e vira uma
+ * textura TRANSPARENTE num plano próprio à frente dele, e o laço de quadro
+ * avança `map.offset.x`. Não há shader, não há partícula, não há simulação: é
+ * uma textura rolando, que é como todo céu de jogo é feito desde que existem
+ * jogos. O custo é um quad por camada.
+ *
+ * O PREÇO É A EMENDA, e ele é pago em `bolhaEmenda`: a textura tem de ladrilhar
+ * perfeitamente no eixo X, senão a volta do ciclo mostra uma costura vertical
+ * cortando o céu.
+ *
+ * DUAS CAMADAS, E ELAS ANDAM EM VELOCIDADES DIFERENTES. Isso é paralaxe, e é o
+ * que transforma "uma textura rolando" em "ar com profundidade": o cirro está
+ * cinco vezes mais alto que o cúmulo, então varre muito menos ângulo por minuto
+ * e precisa andar MAIS DEVAGAR. Duas camadas na mesma velocidade leriam como uma
+ * chapa só; invertidas, o céu ficaria de dentro para fora sem ninguém saber
+ * dizer por quê.
+ */
+export function texturaDeNuvens(camada: CamadaDeNuvem, solU: number): THREE.CanvasTexture {
+  /**
+   * O CIRRO CABE EM METADE DA RESOLUÇÃO, e o cúmulo não.
+   *
+   * O que custa texel é BORDA: o cúmulo tem silhueta recortada, com bossas de
+   * segunda oitava que são o assunto da forma, e a 1024 elas chegam à tela já
+   * interpoladas — o mesmo defeito que levou o degradê de fundo de 1024 para
+   * 2048. O cirro é o oposto: é um véu sem nenhuma borda dura em lugar nenhum, e
+   * metade da resolução é literalmente invisível nele. São 6 MB de memória de
+   * vídeo que não se gasta.
+   */
+  const largura = camada === 'cirro' ? 1024 : 2048
+  const altura = largura / 2
+  const cv = document.createElement('canvas')
+  cv.width = largura
+  cv.height = altura
+  const ctx = cv.getContext('2d')!
+
+  if (camada === 'cirro') {
+    /**
+     * VINTE E DOIS E NÃO TRINTA E QUATRO, e a diferença é entre céu e listra.
+     *
+     * Com 34 mechas — cada uma com até oito fios, cada fio repetido nas duas
+     * cópias de emenda — os feixes se encostavam e o céu inteiro virou uma
+     * superfície escovada de ponta a ponta, sem um palmo de degradê limpo. O
+     * efeito lê como filtro aplicado por cima, que é o oposto do que o cirro
+     * deveria fazer.
+     *
+     * Cirro de verdade vem em BANCOS, com céu aberto entre eles. O que dá a
+     * leitura não é a quantidade de fio, é o contraste entre a mecha e o azul
+     * vazio ao lado dela.
+     */
+    // O andar de cima, e é o único que ocupa a parte da janela onde não há
+    // casario nenhum: acima de tudo, contra o céu aberto. É por isso que o
+    // cirro é a camada que mais trabalha no quadro.
+    const alto = faixa(0, 0.38)
+    pintaCirros(ctx, largura, altura, alto[0], alto[1], 22, solU, true)
+  } else {
+    /**
+     * A SEMENTE 400 EXISTE PARA ESTA CAMADA NÃO SER A DE BAIXO DESLOCADA.
+     *
+     * `ruido(i, k)` é determinístico: com os mesmos índices saem as mesmas
+     * nuvens, nas mesmas posições relativas. Sem deslocar a semente, a faixa que
+     * rola seria uma cópia exata da faixa do horizonte pairando acima dela, e
+     * duas fileiras idênticas de nuvem é o tipo de repetição que o olho pega na
+     * primeira olhada mesmo sem saber o que está vendo.
+     */
+    const meio = faixa(0.22, 0.66)
+    pintaNuvens(ctx, largura, altura, meio[0], meio[1], 13, 1, solU, true, 400)
+  }
+
+  const tex = new THREE.CanvasTexture(cv)
+  tex.colorSpace = THREE.SRGBColorSpace
+  // `RepeatWrapping` no X é o que permite `offset.x` correr indefinidamente; no
+  // Y ele tem de ser preso, senão a nuvem mais alta reaparece embaixo do
+  // horizonte na primeira vez que a amostragem passar de 1.
+  tex.wrapS = THREE.RepeatWrapping
+  tex.wrapT = THREE.ClampToEdgeWrapping
+  tex.anisotropy = 8
+  return tex
+}
+
+/**
+ * Quanto de textura cada camada anda por segundo.
+ *
+ * Uma volta inteira é a largura do plano do céu, 140 m. O cúmulo a 0,0023
+ * atravessa 0,32 m de cena por segundo — cerca de 19 m por minuto, num
+ * enquadramento de uns 54 m de largura. É lento o bastante para nunca chamar
+ * atenção e rápido o bastante para, depois de dez segundos parado, o céu estar
+ * demonstravelmente em outro lugar. Vento de verdade num terraço faz isso.
+ *
+ * O cirro anda a 40 % disso pela razão de paralaxe do comentário acima.
+ */
+export const DERIVA_DAS_NUVENS: Readonly<Record<CamadaDeNuvem, number>> = {
+  cumulo: 0.0023,
+  cirro: 0.00092,
 }
 
 /**
@@ -451,7 +826,14 @@ export function criaAmbiente(
     ctx.rect(0, 0, largura, altura * 0.5)
     ctx.clip()
     pintaBrilho(ctx, largura, altura, U_DO_SOL, 0.47, largura * 0.3)
-    pintaNuvens(ctx, largura, altura, 0.2, 0.49, 22, 1)
+    // `U_DO_SOL` aqui, e não `solU`: este mapa É equirretangular, e é o único
+    // lugar do arquivo onde essa coordenada é a certa. Daí `enrola` também ser
+    // verdadeiro — a esfera fecha.
+    pintaNuvens(ctx, largura, altura, 0.2, 0.49, 22, 1, U_DO_SOL, true)
+    // O cirro entra no ambiente pelo mesmo motivo que tudo aqui: o que a lâmina
+    // d'água devolve tem de ser o céu que está na tela. Com o cirro só no fundo,
+    // a piscina refletiria um céu mais vazio que o de cima dela.
+    pintaCirros(ctx, largura, altura, 0.12, 0.42, 26, U_DO_SOL, true)
     ctx.restore()
   }
 

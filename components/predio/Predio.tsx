@@ -37,7 +37,7 @@ import { capacidadesDo, temPerspectiva, type Capacidades } from './predio-qualid
 import { progressoDoCurso, useRepasseDeRolagem } from './predio-rolagem'
 import { TIERS, type Tier, createMeter, judge, startingStep } from '../three/portico-quality'
 import { Datacenter } from './predio-datacenter'
-import { criaAmbiente, texturaDeCeu } from './predio-ceu'
+import { criaAmbiente, DERIVA_DAS_NUVENS, texturaDeCeu, texturaDeNuvens } from './predio-ceu'
 import { Cobertura } from './predio-cobertura'
 import { Cidade } from './predio-cidade'
 import { comRepeticao, concretoCompartilhado } from './predio-materiais'
@@ -1012,11 +1012,82 @@ function Ceu() {
   const textura = useMemo(() => texturaDeCeu(u, v), [u, v])
   useEffect(() => () => textura.dispose(), [textura])
 
+  /**
+   * AS DUAS CAMADAS QUE ANDAM. O porquê está em `texturaDeNuvens`; aqui fica só
+   * o que é de cena.
+   *
+   * `useEffect` e não `useMemo` para o descarte: `useMemo` NUNCA executa a função
+   * de limpeza que se devolve dele. Esta cena já pagou esse erro uma vez, com
+   * andares fantasmas se acumulando a cada promoção de paralaxe para
+   * perspectiva, e o defeito apareceu como três sintomas diferentes antes de
+   * alguém achar a causa. Textura de 2048 vazando por remontagem seria a mesma
+   * história com outro nome.
+   */
+  const nuvens = useMemo(
+    () => ({ cumulo: texturaDeNuvens('cumulo', u), cirro: texturaDeNuvens('cirro', u) }),
+    [u],
+  )
+  useEffect(
+    () => () => {
+      nuvens.cumulo.dispose()
+      nuvens.cirro.dispose()
+    },
+    [nuvens],
+  )
+
+  /**
+   * O RELÓGIO DAS NUVENS USA `elapsedTime` E NÃO UM ACUMULADOR DE `delta`.
+   *
+   * Os dois dariam quase a mesma coisa, mas só um é imune a pausa: quando a aba
+   * vai para segundo plano o navegador para de chamar o quadro, e um acumulador
+   * simplesmente congela — o céu volta exatamente de onde parou. Com o tempo
+   * decorrido, ele volta de onde ESTARIA se ninguém tivesse saído, que é o que o
+   * céu faz. É a diferença entre uma cena que continua existindo sem plateia e
+   * uma que espera por ela.
+   */
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime
+    nuvens.cumulo.offset.x = (t * DERIVA_DAS_NUVENS.cumulo) % 1
+    nuvens.cirro.offset.x = (t * DERIVA_DAS_NUVENS.cirro) % 1
+  })
+
   return (
-    <mesh position={[0, CEU_ALTURA / 2, CEU_Z_LOCAL]}>
-      <planeGeometry args={[CEU_LARGURA, CEU_ALTURA]} />
-      <meshBasicMaterial map={textura} toneMapped={false} fog={false} />
-    </mesh>
+    <group position={[0, CEU_ALTURA / 2, CEU_Z_LOCAL]}>
+      <mesh>
+        <planeGeometry args={[CEU_LARGURA, CEU_ALTURA]} />
+        <meshBasicMaterial map={textura} toneMapped={false} fog={false} />
+      </mesh>
+      {/*
+        AS CAMADAS VÊM NA ORDEM DA ALTURA REAL: o cirro está mais longe, então
+        fica atrás do cúmulo. Dez centímetros de separação bastam — é longe o
+        bastante para o teste de profundidade decidir sem cintilar e perto o
+        bastante para não gerar paralaxe própria entre as duas.
+
+        `depthWrite` desligado nas duas porque elas são transparentes: uma
+        superfície translúcida que escreve profundidade recorta o que vier depois
+        dela pelo seu retângulo inteiro, e não pelo que ela de fato cobre.
+      */}
+      <mesh position={[0, 0, 0.06]}>
+        <planeGeometry args={[CEU_LARGURA, CEU_ALTURA]} />
+        <meshBasicMaterial
+          map={nuvens.cirro}
+          transparent
+          depthWrite={false}
+          toneMapped={false}
+          fog={false}
+        />
+      </mesh>
+      <mesh position={[0, 0, 0.12]}>
+        <planeGeometry args={[CEU_LARGURA, CEU_ALTURA]} />
+        <meshBasicMaterial
+          map={nuvens.cumulo}
+          transparent
+          depthWrite={false}
+          toneMapped={false}
+          fog={false}
+        />
+      </mesh>
+    </group>
   )
 }
 
