@@ -535,6 +535,11 @@ export function Cobertura({
     const gBalizador = new THREE.CylinderGeometry(0.045, 0.045, 0.012, 10)
     const gFacho = new THREE.PlaneGeometry(0.5, 1.5)
     const gFitaLed = new THREE.BoxGeometry(1, 0.03, 0.03)
+    // ESPETO DE JARDIM: corpo enterrado na terra e lente virada para cima. E a
+    // luminaria que ilumina arvore em qualquer terraco, e a unica que se pode
+    // enfiar num canteiro sem obra.
+    const gEspeto = new THREE.CylinderGeometry(0.019, 0.024, 0.17, 6)
+    const gLente = new THREE.CylinderGeometry(0.036, 0.03, 0.012, 10)
     // Folha de oliveira e LANCEOLADA: estreita e comprida, quase uma lamina.
     // O quad e mais LARGO que a folha: o recorte por alfa come as pontas, entao a
     // folha util fica com cerca de 55% da area. A geometria compensa a diferenca.
@@ -852,6 +857,29 @@ export function Cobertura({
       map: mosqueadoDaCopa.map,
       normalMap: mosqueadoDaCopa.normalMap,
       roughnessMap: mosqueadoDaCopa.roughnessMap,
+      /**
+       * O PISO DE LUZ DA MASSA, e e ele que mata as manchas PRETAS que restavam
+       * dentro das copas.
+       *
+       * O que fazia preto nao era a cor do nucleo: era a face dele virada para o
+       * lado contrario ao sol. O sol esta em azimute 152; a metade norte de cada
+       * tufo recebe so o ambiente, e ambiente baixo vezes `TONS_DE_OLIVA[0]`
+       * vezes os vaos escuros da textura chega a zero. Tres fatores escuros
+       * multiplicados nao dao penumbra, dao buraco.
+       *
+       * Copa de verdade nunca tem buraco preto porque o miolo e iluminado por
+       * REBOTE — folha clara refletindo em folha clara, e agora tambem pelos
+       * espetos que acabaram de entrar no canteiro. O emissivo e somado e
+       * independente da cor da instancia, entao ele funciona exatamente como
+       * esse piso: a sombra propria para de cair abaixo de um verde escuro em
+       * vez de ir ao preto, e o lado iluminado nao muda nada.
+       *
+       * 0,35 e nao mais: emissivo alto aqui apaga o volume da copa inteira — foi
+       * o erro que a folha larga ja cometeu uma vez, quando 0,28 calibrado para
+       * paleta clara passou a superar o difuso depois que a paleta escureceu.
+       */
+      emissive: new THREE.Color('#33452f'),
+      emissiveIntensity: 0.35,
       }),
       relogioDoVento,
       0.09,
@@ -1049,6 +1077,56 @@ export function Cobertura({
      * domado — senao o balizador vira um cinza claro e perde a razao de existir.
      */
     const mBalizador = new THREE.MeshBasicMaterial({ color: '#ffd9a0', toneMapped: false })
+    /**
+     * O FACHO QUE SOBE PARA A COPA, e ele nao e o mesmo da parede.
+     *
+     * Duas diferencas, e as duas sao de fisica. A primeira e OPACIDADE: o facho
+     * de parede bate num plano solido a um metro e devolve quase tudo; este
+     * atravessa folhagem, que espalha e absorve.
+     *
+     * 0,10 E NAO 0,34, e o numero veio do render. Com 0,34 os planos pararam de
+     * ler como luz e passaram a ler como CHAPA: laminas verde-palidas de borda
+     * definida subindo do canteiro, com cara de acrilico. Facho no AR nao e o
+     * mesmo caso do facho na parede — la o plano representa luz POUSADA numa
+     * superficie, e pode ser forte; aqui ele representa luz ATRAVESSANDO ar, e ar
+     * quase nao espalha. O que se ve de um feixe de jardim de verdade e um veu,
+     * nao um painel.
+     *
+     * A segunda e COR. Luz de jardim e mais fria que luz de sala — nao por gosto,
+     * mas porque folha iluminada por luz quente fica marrom. Um branco levemente
+     * esverdeado mantem o verde da copa vivo, e e o que toda instalacao de
+     * paisagismo usa.
+     */
+    const mFachoDeCopa = new THREE.MeshBasicMaterial({
+      color: '#bfe0c0',
+      transparent: true,
+      opacity: 0.1,
+      alphaMap: manchaDeSombra(),
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
+    })
+    /**
+     * A POCA DO BALIZADOR e outro material, e a diferenca com o facho de copa e
+     * a mesma que existe entre ar e chao.
+     *
+     * O facho de copa e luz ATRAVESSANDO ar: ve-se um veu, e ele e frio porque
+     * folha sob luz quente fica marrom. A poca e luz POUSADA na madeira do
+     * canteiro — superficie solida devolvendo quase tudo, como o facho da parede
+     * do fundo. Pode ser mais forte, e tem de ser QUENTE: a lampada e a mesma
+     * `#ffd9a0` do balizador, e uma poca fria sobre madeira escura nao le como
+     * luz, le como poeira. Foi exatamente isso que apareceu no primeiro render,
+     * quando as duas familias dividiam um material so.
+     */
+    const mPocaDeBalizador = new THREE.MeshBasicMaterial({
+      color: '#ffcf96',
+      transparent: true,
+      opacity: 0.3,
+      alphaMap: manchaDeSombra(),
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
+    })
     // O FACHO e um plano com degrade de alfa, nao um cone de volume: volumetrico
     // de verdade custa um passe, e a essa distancia o leque de luz na parede le
     // igual por um quad com mapa de alfa.
@@ -1891,6 +1969,82 @@ export function Cobertura({
     }
 
     /**
+     * ═══ AS LUZES DE JARDIM ═══
+     *
+     * Duas familias, e elas fazem trabalhos opostos.
+     *
+     * O ESPETO SOB A ARVORE ilumina de baixo para cima. E o gesto mais
+     * reconhecivel de paisagismo noturno, e ele existe por uma razao que nao e
+     * decorativa: a copa e a unica parte da arvore que o sol ja nao alcanca ao
+     * entardecer, e sem luz vinda do chao ela vira uma silhueta preta. Dois por
+     * arvore, afastados do tronco, porque um so achata a copa num leque.
+     *
+     * O BALIZADOR NO CANTEIRO ilumina o proprio canteiro e marca o limite dele.
+     * Nao aponta para nada: ele E o ponto de luz, e o que ele faz pelo quadro e
+     * pontilhar a faixa mais escura da cena com uma linha de brilhos.
+     *
+     * NENHUMA DAS DUAS E UMA LUZ DE VERDADE, e isso e deliberado. Cada
+     * `pointLight` nova entra no laco de iluminacao de TODOS os materiais da
+     * cena — e ja sao tres. O facho aditivo e o mesmo recurso que a cena usa na
+     * parede do fundo desde o comeco: um plano com degrade de alfa somando luz
+     * onde ela deveria estar. A 18 m de distancia ele le igual, e custa zero no
+     * shader de todo o resto.
+     *
+     * O facho e CRUZADO — dois planos a 90 graus. Um plano so desaparece quando
+     * visto de perfil, e a camera desce ao longo da cena: o cruzamento garante
+     * que sempre haja um deles de frente.
+     */
+    for (const xArv of EIXOS_DOS_VaOS) {
+      for (const lado of [-1, 1]) {
+        const xe = xArv + lado * 0.44
+        const ze = zArvores + 0.34
+        col.poe('espeto', gEspeto, mMetal, [xe, piso + 0.78, ze])
+        col.poe('lenteEspeto', gLente, mBalizador, [xe, piso + 0.87, ze])
+        // O facho sobe da lente ate o meio da copa: 2,4 m de altura sobre uma
+        // peca de 1,5, e a largura abre com a distancia como um cone faria.
+        for (const giro of [0, Math.PI / 2])
+          col.poe(
+            'fachoCopa',
+            gFacho,
+            mFachoDeCopa,
+            [xe, piso + 2.0, ze],
+            [0, giro, 0],
+            // Estreito. Com 1,9 de largura o feixe tinha quase um metro na base e
+            // cobria o tronco inteiro — feixe de espeto abre, mas sai de uma
+            // lente de tres centimetros.
+            [0.8, 1.5, 1],
+          )
+      }
+    }
+    /**
+     * Os balizadores correm a calha inteira, a cada 1,4 m. O passo vem da
+     * LARGURA DO JARDIM e nao de um numero fixo: se o vao entre as duas
+     * construcoes mudar, eles se redistribuem em vez de sobrar ou faltar na
+     * ponta.
+     */
+    {
+      const largura = X_PERGOLA_ATE - X_PERGOLA_DE
+      const quantos = Math.max(2, Math.round(largura / 1.4))
+      for (let b = 0; b <= quantos; b++) {
+        const xb = X_PERGOLA_DE + 0.35 + (b * (largura - 0.7)) / quantos
+        col.poe('balizadorJardim', gBalizador, mBalizador, [xb, piso + 0.56, zCanteiro + 0.86])
+        // Um facho curto e deitado em volta de cada um: e o circulo de luz no
+        // chao que diz que aquilo ilumina alguma coisa, e nao so acende.
+        col.poe(
+          'fachoJardim',
+          gFacho,
+          mPocaDeBalizador,
+          [xb, piso + 0.57, zCanteiro + 0.86],
+          [-Math.PI / 2, 0, 0],
+          // Meio metro de poca, e nao um metro e meio: balizador de canteiro
+          // ilumina o proprio pe. Na escala anterior as pocas se tocavam e a
+          // calha inteira virava uma faixa clara continua.
+          [0.5, 0.42, 1],
+        )
+      }
+    }
+
+    /**
      * ═══ A VEGETAÇÃO, REFEITA COM O VOCABULÁRIO DE COBERTURA CONTEMPORÂNEA ═══
      *
      * O que estava aqui era "planta genérica": tronco reto, copa de esferas verde
@@ -2035,14 +2189,14 @@ export function Cobertura({
        */
       for (let t = 0; t < 40; t++) {
         const a = ruido(t, 55 + k) * Math.PI * 2
-        const r = ruido(t, 56 + k) * 0.52
+        const r = ruido(t, 56 + k) * 0.40
         col.poe(
           'nucleoOliva',
           gTufoOliva,
           mFolhaSolida,
           [x + Math.sin(a) * r, piso + 3.1 + ruido(t, 57 + k) * 1.1, zArvores + Math.cos(a) * r],
           [ruido(t, 58 + k) * 3, ruido(t, 59 + k) * 3, 0],
-          [1.4, 1.05, 1.4],
+          [1.22, 0.95, 1.22],
           // O tom mais escuro da paleta: e ele que poe a massa ATRAS das folhas
           // em vez de competir com elas. Quem cobre essa massa e a quantidade de
           // folha, nao a cor dela.
