@@ -28,7 +28,13 @@ import {
   corDoAndar,
   corDoRotulo,
 } from './predio-luz'
-import { capacidadesDo, temPerspectiva, type Capacidades } from './predio-qualidade'
+import {
+  aplicaVeredito,
+  capacidadesDo,
+  temPerspectiva,
+  type Capacidades,
+  type Escada,
+} from './predio-qualidade'
 // A rolagem mora FORA deste arquivo desde a revisão final, e o motivo é de
 // arquitetura: o atalho de teclado precisa valer também SEM a cena (movimento
 // reduzido, aparelho sem WebGL, navegador embutido do Instagram), e quem está
@@ -530,7 +536,11 @@ function useQualidade(vsync: number): {
   medir: (delta: number) => void
 } {
   const setDpr = useThree((state) => state.setDpr)
-  const [degrau, setDegrau] = useState(startingStep)
+  // Degrau e piso são UM estado só. Separados — um `useState` e um `useRef` —
+  // eles podem discordar por um render, e é justamente no render da troca que a
+  // catraca precisa estar certa.
+  const [escada, setEscada] = useState<Escada>(() => ({ degrau: startingStep(), piso: 0 }))
+  const degrau = escada.degrau
   const meter = useRef(createMeter())
 
   const tier = TIERS[Math.min(degrau, TIERS.length - 1)] ?? TIERS[0]!
@@ -543,10 +553,27 @@ function useQualidade(vsync: number): {
     setDpr(tier.dpr)
   }, [tier.dpr, setDpr])
 
+  /**
+   * A CATRACA — a decisão inteira, com a aritmética que a justifica, mora em
+   * `aplicaVeredito`. Aqui fica só a costura com `judge`.
+   *
+   * O PISO É PASSADO PARA `judge` PELOS PARÂMETROS QUE ELE JÁ TEM: ele só
+   * devolve 'up' quando `step > 0`, então basta contar os degraus a partir do
+   * piso em vez de zero. Sem isso `judge` continuaria pedindo promoções que
+   * `aplicaVeredito` descarta em silêncio, e cada pedido descartado reiniciaria
+   * o `SETTLE` dele — a escada pararia de medir para sempre, trocando uma
+   * oscilação visível por uma cegueira invisível. Nenhuma linha muda na escada
+   * do Pórtico, que é compartilhada.
+   */
   const medir = (delta: number): void => {
-    const veredito = judge(meter.current, delta, vsync, degrau, TIERS.length)
-    if (veredito === 'down') setDegrau((atual) => atual + 1)
-    else if (veredito === 'up') setDegrau((atual) => atual - 1)
+    const veredito = judge(
+      meter.current,
+      delta,
+      vsync,
+      escada.degrau - escada.piso,
+      TIERS.length - escada.piso,
+    )
+    if (veredito !== 'hold') setEscada((atual) => aplicaVeredito(atual, veredito))
   }
 
   return { tier, capacidades, medir }

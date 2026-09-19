@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import * as THREE from 'three'
-import { ANCORA_DA_NORMAL, ANCORA_DO_VERTICE, comDetalhe } from '@/components/predio/predio-materiais'
+import {
+  ANCORA_DA_NORMAL,
+  ANCORA_DO_VERTICE,
+  comDetalhe,
+  comOndulacao,
+} from '@/components/predio/predio-materiais'
 
 /**
  * A INJEÇÃO DE SHADER É A ÚNICA COISA DESTA CENA QUE FALHA EM SILÊNCIO.
@@ -132,5 +137,63 @@ describe('detail mapping do microrrelevo', () => {
     const a = comDetalhe(new THREE.MeshStandardMaterial(), new THREE.Texture(), 14, 0.5)
     const b = comDetalhe(new THREE.MeshStandardMaterial(), new THREE.Texture(), 26, 0.5)
     expect(a.customProgramCacheKey()).not.toBe(b.customProgramCacheKey())
+  })
+})
+
+/**
+ * A ONDULAÇÃO DA LÂMINA usa o MESMO âncora e corre exatamente o mesmo risco.
+ *
+ * Vale repetir por que isto não é teste redundante com o de cima: as duas
+ * injeções são independentes, e a de água tem um modo de falha a mais. Ela
+ * SOBRESCREVE `mapN` em vez de somar a ele — se o replace não achar o alvo, a
+ * lâmina não fica sem ondulação, ela fica com o mapa de normal PARADO, que é
+ * visualmente muito parecido com ondulação lenta num JPEG. Um defeito que se
+ * disfarça de funcionamento é justamente o que precisa de teste.
+ */
+describe('ondulacao da lamina', () => {
+  it('a injeção troca mapN pelos dois trens de onda', () => {
+    const material = comOndulacao(new THREE.MeshStandardMaterial(), { value: 0 }, 3.2, 1.35)
+    const shader = {
+      uniforms: {} as Record<string, { value: unknown }>,
+      vertexShader: THREE.ShaderLib.physical.vertexShader,
+      fragmentShader: THREE.ShaderLib.physical.fragmentShader,
+    }
+    material.onBeforeCompile(shader as never, null as never)
+
+    expect(shader.fragmentShader).toContain('uniform float relogioDaAgua;')
+    // DUAS amostras. Uma só significaria que a ondulação voltou a ser uma
+    // textura transladando, que é o artefato que esta função existe para não
+    // ter: a piscina inteira deslizando para o lado.
+    expect(shader.fragmentShader).toContain('texture2D( normalMap, uvA )')
+    expect(shader.fragmentShader).toContain('texture2D( normalMap, uvB )')
+    // As duas escalas têm de ser incomensuráveis, senão o padrão combinado
+    // fecha um período e a repetição aparece.
+    expect(shader.fragmentShader).toContain('baseOnda * 1.7')
+    // E o resultado SUBSTITUI `mapN` — somar deixaria um relevo fixo por baixo
+    // da ondulação, uma marca d'água parada dentro de água que se mexe.
+    const i = shader.fragmentShader.indexOf(ANCORA_DA_NORMAL)
+    expect(i).toBeGreaterThan(-1)
+    expect(shader.fragmentShader.indexOf('mapN = vec3( ondaN.xy')).toBeGreaterThan(i)
+  })
+
+  it('o relógio chega ao shader POR REFERÊNCIA', () => {
+    /**
+     * É o contrato inteiro da animação: o laço de quadro escreve num objeto e o
+     * uniforme tem de ser esse MESMO objeto. Copiar o valor na montagem faria a
+     * água compilar, aparecer e nunca se mexer — e ninguém olha o console por
+     * causa disso.
+     */
+    const relogio = { value: 0 }
+    const material = comOndulacao(new THREE.MeshStandardMaterial(), relogio, 3.2, 1.35)
+    const shader = {
+      uniforms: {} as Record<string, { value: unknown }>,
+      vertexShader: '',
+      fragmentShader: THREE.ShaderLib.physical.fragmentShader,
+    }
+    material.onBeforeCompile(shader as never, null as never)
+    relogio.value = 7.5
+    expect(shader.uniforms.relogioDaAgua!.value).toBe(7.5)
+    expect(shader.uniforms.escalaDaOnda!.value).toBe(3.2)
+    expect(shader.uniforms.forcaDaOnda!.value).toBe(1.35)
   })
 })

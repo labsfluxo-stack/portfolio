@@ -47,6 +47,85 @@ export const DEGRAU_DA_PERSPECTIVA = 0
  */
 export const DEGRAU_DO_BRILHO = 1
 
+/**
+ * O estado da escada: em que degrau se está, e qual é o degrau mais alto ainda
+ * permitido. `piso` só sobe.
+ */
+export type Escada = { degrau: number; piso: number }
+
+/**
+ * A cara da cena naquele degrau, como uma string comparável.
+ *
+ * `Object.values` e não os campos escritos à mão, de propósito: uma capacidade
+ * nova entra em `Capacidades` e passa a ser protegida pela catraca sem ninguém
+ * lembrar de vir aqui. Escrever `a.perspectiva !== b.perspectiva || …` seria uma
+ * lista que envelhece em silêncio — e envelhecer em silêncio é exatamente o modo
+ * de falha que este arquivo inteiro existe para evitar.
+ */
+const aparenciaDo = (degrau: number) => Object.values(capacidadesDo(degrau)).join('|')
+
+/**
+ * ═══ A CATRACA DAS FRONTEIRAS VISÍVEIS ═══
+ *
+ * DOIS DEFEITOS RELATADOS, UMA CAUSA SÓ. Primeiro "uma hora carrega perto, outra
+ * distante, e fica oscilando"; depois "as luzes estão apagando e voltando". Não
+ * são coisas diferentes: é a escada de qualidade pingando entre dois degraus, em
+ * duas fronteiras diferentes.
+ *
+ * A ARITMÉTICA, que é o que prova não ser questão de afinar número:
+ *
+ *   `judge` desce quando a mediana passa de 2,2 × vsync e sobe quando ela cai
+ *   abaixo de 1,25 × vsync. A histerese entre as duas é um fator de 1,76 — ela
+ *   tolera um degrau que custe até 76 % a mais que o anterior. Qualquer degrau
+ *   que custe MAIS que isso oscila para sempre, por construção: sobe, fica
+ *   lento, desce, fica rápido, sobe de novo, a cada `SETTLE`.
+ *
+ *   FRONTEIRA 0 ↔ 1 — a perspectiva. `dpr` vai de 1,25 para 2,0, o que sozinho
+ *   dá (2 / 1,25)² = 2,56 de custo de fragmento, e ainda liga `perspectiva`,
+ *   levando `prof` de 7 para 13 m na cobertura e no térreo: os dois deixam de
+ *   ser plano de paralaxe e viram sala inteira. 2,56 já estoura 1,76 sozinho.
+ *   Visível porque `prof` alimenta `piscinaZ` e `zDaParedeDoAndar` — a piscina
+ *   muda de tamanho e a cascata muda de lugar. "Ora perto, ora distante".
+ *
+ *   FRONTEIRA 1 ↔ 2 — o brilho. `dpr` de 1,0 para 1,25 dá 1,5625, e o passe de
+ *   bloom acrescenta o seu custo fixo de tela cheia por cima. O produto passa de
+ *   1,76 com folga. Visível porque bloom é o que põe halo nas fontes: sem ele o
+ *   varal de lâmpadas vira um cordão de pontinhos chapados e o nicho do bar
+ *   perde o facho. É literalmente "as luzes apagando e voltando".
+ *
+ * E A SEGUNDA FRONTEIRA A MINHA PRIMEIRA SONDA NÃO VIA. Ela media `dpr` pelo
+ * tamanho do buffer do canvas, e entre os degraus 1 e 2 o `dpr` muda pouco —
+ * 1,25 para 1,0 — enquanto o que o olho percebe (o bloom) não aparece em medida
+ * de tamanho nenhuma. Medir o sintoma errado faz uma oscilação real parecer
+ * escada assentada.
+ *
+ * POR QUE CATRACA E NÃO UM LIMIAR NOVO. Um limiar honesto para subir ao degrau 0
+ * teria de ser "a mediana no degrau 1 é menor que 1,25 × vsync ÷ 2,56", isto é,
+ * menor que 0,49 × vsync — abaixo do próprio vsync, que é o piso físico.
+ * Impossível de satisfazer. Subir de degrau, nessas fronteiras, é por construção
+ * uma APOSTA que nenhuma medição feita no degrau de baixo pode justificar.
+ *
+ * Então cada fronteira é apostada UMA vez. Se der errado, o piso sobe e aquele
+ * degrau sai do jogo pelo resto da sessão. Quem aguenta fica com o efeito; quem
+ * não aguenta vê uma troca, em vez de um pisca-pisca.
+ *
+ * A CATRACA FECHA SÓ ONDE A CARA DA CENA MUDA, e é isso que `aparenciaDo`
+ * decide. Entre degraus que só mexem em resolução e tamanho de sombra, a troca é
+ * suave e reversível, e travar ali impediria a cena de se recuperar de uma
+ * lentidão passageira — outra aba comendo a GPU, uma carga de textura — que é
+ * justamente o caso para o qual a escada sobe. A regra não enumera fronteiras:
+ * ela compara o que se vê nos dois lados. Fronteira nova nasce protegida.
+ */
+export function aplicaVeredito(estado: Escada, veredito: 'hold' | 'down' | 'up'): Escada {
+  if (veredito === 'down') {
+    const destino = Math.min(TIERS.length - 1, estado.degrau + 1)
+    const mudouACara = aparenciaDo(estado.degrau) !== aparenciaDo(destino)
+    return { degrau: destino, piso: mudouACara ? Math.max(estado.piso, destino) : estado.piso }
+  }
+  if (veredito === 'up') return { ...estado, degrau: Math.max(estado.piso, estado.degrau - 1) }
+  return estado
+}
+
 export function capacidadesDo(degrau: number): Capacidades {
   const dentroDaEscada = degrau >= 0 && degrau < TIERS.length
   return {

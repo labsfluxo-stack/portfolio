@@ -12,6 +12,8 @@ import {
   concreto,
   folha,
   brilhoDeNicho,
+  causticas,
+  comOndulacao,
   comVento,
   fronde,
   graminea,
@@ -217,31 +219,75 @@ const piscinaZ = (zCentro: number, prof: number) => {
   }
 }
 
+const ESCRITORIO = { x: -7.8, largura: 5.8, altura: 2.92, profundidade: 2.0 }
 /**
- * A CASCATA CORRE A PAREDE INTEIRA — menos onde o escritório encosta nela.
+ * O BAR, subido para o escopo do módulo pela mesma razão que o escritório já
+ * estava aqui: ele é uma das duas PONTAS do terraço, e três coisas fora do
+ * `useMemo` das malhas precisam saber onde ele termina — o limite da cascata, o
+ * eixo do pergolado e a própria montagem do bar.
  *
- * O fundo do escritório É a parede do andar (ver `zDaParedeDoAndar`), então um
- * véu d'água colado nela apareceria DENTRO da sala, atrás da estante. A parede
- * se parte em dois trechos, e a folga de 5 cm de cada lado do volume evita que o
- * véu raspe no caixilho.
- *
- * Devolve pares [de, até] em x, já descartando trecho degenerado — se um dia o
- * escritório crescer até a borda da laje, o trecho daquele lado simplesmente
- * não existe em vez de virar uma peça de largura negativa.
+ * `beiral` é o quanto a laje e os pilares avançam além da largura do balcão. É
+ * essa face, e não a do balcão, que define o "fim do bar" quando se olha a
+ * cobertura de frente.
  */
-const TRECHOS_DA_CASCATA = (
-  xEsc: number,
-  largura: number,
-  meiaLargura: number,
-): [number, number][] =>
+const BAR = { x: 9.0, largura: 4.9, beiral: 0.4 }
+/** Face externa de cada construção — as duas pontas do terraço, em x. */
+const X_FIM_DO_ESCRITORIO = ESCRITORIO.x - ESCRITORIO.largura / 2
+const X_FIM_DO_BAR = BAR.x + BAR.largura / 2 + BAR.beiral
+
+/**
+ * A CASCATA CORRE ENTRE AS DUAS CONSTRUÇÕES — e só entre elas.
+ *
+ * ELA IA DE PONTA A PONTA DA LAJE, os 30 m inteiros. O problema não é de
+ * verossimilhança, é de COMPOSIÇÃO: um véu d'água de trinta metros não tem
+ * começo nem fim dentro do quadro, e uma superfície que entra e sai de cena
+ * pelos dois lados deixa de ser um objeto e vira um fundo. Limitada às pontas do
+ * escritório e do bar, ela ganha as duas bordas — e passa a ser lida como a
+ * parede de água DAQUELE pátio, contida pelas duas construções que o formam.
+ *
+ * O ESCRITÓRIO AINDA RECORTA O SEU TRECHO. O fundo dele É a parede do andar (ver
+ * `zDaParedeDoAndar`), então véu colado nela apareceria DENTRO da sala, atrás da
+ * estante. Com o limite novo o trecho da esquerda fica degenerado — vai de
+ * −10,70 a −10,75 — e o filtro o descarta sozinho, sem ninguém precisar saber
+ * disso aqui. É por isso que o filtro existe em vez de dois `if`.
+ *
+ * Devolve pares [de, até] em x. Se um dia o escritório crescer até a ponta, o
+ * trecho daquele lado simplesmente não existe em vez de virar uma peça de
+ * largura negativa.
+ */
+/**
+ * QUANTOS METROS DE PAREDE CABEM NUM LADRILHO DO VÉU — e este número é a
+ * ESCALA de tudo que está desenhado na textura da água.
+ *
+ * ERA 1,4 M, E ISSO FAZIA A CASCATA PARECER CHUVA. A textura tem três oitavas
+ * de largura relativa: filamento, cordão e lençol. Mas "relativa" é relativa ao
+ * LADRILHO — com 1,4 m, o cordão de 0,004 a 0,018 do ladrilho media de 5 mm a
+ * 2,5 cm, e o "lençol", que o comentário do gerador chama de escala de metros,
+ * não passava de 20 cm. O render devolveu exatamente o que esses números dizem:
+ * riscos verticais finos e uniformes num painel azul, com cara de vidro riscado.
+ *
+ * Nenhuma quantidade de oitava conserta isso, porque o problema não é a falta
+ * de escalas — é que as três estavam comprimidas na mesma década de tamanho.
+ *
+ * A 3,2 m o cordão passa a medir de 1,3 a 5,8 cm, que é a espessura de um filete
+ * de água de verdade numa parede de três metros, e o lençol chega a 45 cm. De
+ * quebra, a aeração — manchas de 1 a 5 cm, invisíveis antes — vira mancha de
+ * 3 a 11 cm, que é o tamanho em que ela finalmente aparece.
+ *
+ * O limite superior é o próprio ladrilho: nada desenhado aqui pode ser maior que
+ * ele sem se repetir. É por isso que a variação de escala de METROS de verdade
+ * fica por conta da geometria — a soleira, a calha, o recorte do escritório — e
+ * não da textura.
+ */
+const LADRILHO_DO_VEU = 3.2
+
+const TRECHOS_DA_CASCATA = (xEsc: number, largura: number): [number, number][] =>
   (
     [
-      [-meiaLargura, xEsc - largura / 2 - 0.05],
-      [xEsc + largura / 2 + 0.05, meiaLargura],
+      [X_FIM_DO_ESCRITORIO, xEsc - largura / 2 - 0.05],
+      [xEsc + largura / 2 + 0.05, X_FIM_DO_BAR],
     ] as [number, number][]
   ).filter(([de, ate]) => ate - de > 0.5)
-
-const ESCRITORIO = { x: -7.8, largura: 5.8, altura: 2.92, profundidade: 2.0 }
 /** Face interna da parede do andar — é ela que fecha o escritório por trás. */
 const zDaParedeDoAndar = (zCentro: number, prof: number) => zCentro - prof / 2 + 0.15
 const zDoEscritorio = (zCentro: number, prof: number) =>
@@ -1402,7 +1448,12 @@ export function Cobertura({
      */
     const SOFFIT = piso + ESCRITORIO.altura
     const X_PERGOLA_DE = ESCRITORIO.x + ESCRITORIO.largura / 2
-    const X_PERGOLA_ATE = 6.27
+    // A face interna do bar, DERIVADA e não mais cravada em 6,27: o pergolado
+    // encosta exatamente onde a laje do bar começa. Um literal aqui se
+    // descolaria em silêncio no dia em que o bar mudasse de largura — que é a
+    // mesma armadilha de constante emprestada já documentada em outros quatro
+    // pontos desta cena.
+    const X_PERGOLA_ATE = BAR.x - BAR.largura / 2 - BAR.beiral
     /**
      * ═══ O JARDIM RECEBE A MESMA ORDEM QUE O TELHADO ═══
      *
@@ -1477,7 +1528,18 @@ export function Cobertura({
      * BORDA. Amarrada a `piscina.frente`, ela fica onde estiver a borda, hoje e
      * quando a piscina mudar de novo.
      */
-    const zDaEscada = piscina.frente - 0.35
+    /**
+     * E O Z TAMBÉM MUDA, pela mesma correção: o arco agora ATRAVESSA a borda em
+     * vez de ficar todo dentro d'água, então o eixo dele é a própria borda e não
+     * um recuo de 35 cm para dentro do tanque. Com o recuo antigo a perna
+     * "de fora" pousaria a 15 cm da pedra, no ar sobre a lâmina.
+     *
+     * Dois centímetros à frente da lâmina põem a perna externa em −1,775, dentro
+     * dos 42 cm da pedra de acabamento, e a interna 16 cm submersa. As duas
+     * cotas saem de `piscina`, como tudo que encosta nela desde que esta escada
+     * foi parar no meio da água pela primeira vez.
+     */
+    const zDaEscada = piscina.frente + 0.02
     /**
      * O X DA ESCADA TAMBEM SAI DA PISCINA, e ele acabou de precisar disso.
      *
@@ -1721,8 +1783,8 @@ export function Cobertura({
      *    terraço em vez de ele ser um móvel solto no meio dele.
      * 4. AS TAÇAS PENDURADAS de boca para baixo no trilho sob a bandeira.
      */
-    const xBar = 9.0
-    const LARG_BAR = 4.9
+    const xBar = BAR.x
+    const LARG_BAR = BAR.largura
     sombra(xBar, zBar, 5.6, 2.0)
     // O nicho aceso, 6 cm atrás das prateleiras. A cor é mais quente e mais
     // escura que a do escritório de propósito: luz de bar é âmbar baixa, não a
@@ -3129,7 +3191,7 @@ export function Cobertura({
      * mesma razão do pano de vidro do escritório: `InstancedMesh` transparente é
      * ordenada como um objeto só, e este precisa ser desenhado depois da parede.
      */
-    for (const [de, ate] of TRECHOS_DA_CASCATA(xEsc, LARG_ESC, meiaLargura)) {
+    for (const [de, ate] of TRECHOS_DA_CASCATA(xEsc, LARG_ESC)) {
       const meio = (de + ate) / 2
       const larg = ate - de
       // Soleira: a pedra de onde a água transborda. Sem ela o véu nasce do nada
@@ -3266,19 +3328,56 @@ export function Cobertura({
      * São dois corrimãos lado a lado, afastados 0,52 m: é por entre eles que se
      * desce. Um só seria um puxador; dois é uma escada.
      */
+    /**
+     * ═══ O ARCO ESTAVA NO PLANO ERRADO — a terceira vez que esta escada quebra ═══
+     *
+     * O comentário acima descreve a peça certa: "a perna de dentro do tanque
+     * desce até o degrau submerso; a de fora morre na pedra da borda". O código
+     * não fazia isso, e a razão é uma linha que não existia.
+     *
+     * `TorusGeometry` nasce no plano XY. Sem rotação, o arco de meia rosca abre
+     * ao longo de X — ou seja, as duas pernas de um mesmo corrimão ficam LADO A
+     * LADO no mesmo z, as duas dentro d'água. Com dois corrimãos, o que se
+     * construía eram quatro postes enfileirados em x segurando dois arquinhos,
+     * sem nenhuma relação com a borda da piscina. Não é uma escada: é uma
+     * grade de 36 cm plantada na água.
+     *
+     * Corrimão de piscina atravessa a borda. O arco tem de abrir em Z, com uma
+     * perna na pedra e outra submersa — é a TRAVESSIA que o torna uma entrada. O
+     * giro de π/2 em Y é a peça que faltava, e com ele as pernas passam a ser
+     * deslocadas em z, não em x.
+     *
+     * E POR ISSO AS DUAS PERNAS TÊM COMPRIMENTOS DIFERENTES. Com as duas dentro
+     * d'água dava para usar um cilindro só; atravessando a borda, a de fora
+     * precisa parar no topo da pedra (21 cm) e a de dentro precisa chegar ao
+     * fundo (52 cm). Mesma geometria, escala de matriz diferente — que é a regra
+     * do coletor: tamanho variável é escala, nunca geometria nova.
+     */
     const RAIO_CORRIMAO = 0.18
     for (const dxCorrimao of [-0.26, 0.26]) {
       const xc = xDaEscada + dxCorrimao
-      col.poe('corrimaoEscada', gCorrimaoEscada, mMetal, [xc, piso + 0.3, zDaEscada])
-      // As duas pernas, nas pontas do arco. A de dentro do tanque desce até o
-      // degrau submerso; a de fora morre na pedra da borda — e é essa diferença
-      // que faz a peça ler como ENTRADA e não como alça decorativa.
-      for (const lado of [-1, 1])
+      col.poe(
+        'corrimaoEscada',
+        gCorrimaoEscada,
+        mMetal,
+        [xc, piso + 0.3, zDaEscada],
+        [0, Math.PI / 2, 0],
+      )
+      for (const [lado, comprimento, centro] of [
+        // Dentro do tanque (−z): desce os 52 cm inteiros até o piso do tanque.
+        [-1, 1, piso + 0.04],
+        // Sobre a pedra (+z): 21 cm, do fim do arco ao topo da borda. Ela é
+        // curta porque a pedra está 30 cm acima do fundo — perna igual à outra
+        // atravessaria a borda e sairia por baixo dela.
+        [1, 0.404, piso + 0.195],
+      ] as const)
         col.poe(
           'hasteEscada',
           gHasteEscada,
           mMetal,
-          [xc + lado * RAIO_CORRIMAO, piso + 0.04, zDaEscada],
+          [xc, centro, zDaEscada + lado * RAIO_CORRIMAO],
+          [0, 0, 0],
+          [1, comprimento, 1],
         )
     }
     // Degrau submerso: a prateleira rasa que toda piscina tem na entrada. Vista
@@ -3368,13 +3467,29 @@ export function Cobertura({
    * ordenada como um objeto só, e este precisa ser desenhado depois da parede
    * que ele cobre.
    *
-   * A repetição em U é a largura do trecho dividida por 1,4 m, e não um número
-   * fixo: dois trechos de larguras diferentes com a mesma repetição teriam
-   * cordões de espessuras diferentes, e nada denuncia textura repetida mais
-   * rápido que escala inconsistente entre peças vizinhas.
+   * A repetição em U é a largura do trecho dividida por `LADRILHO_DO_VEU`, e não
+   * um número fixo: dois trechos de larguras diferentes com a mesma repetição
+   * teriam cordões de espessuras diferentes, e nada denuncia textura repetida
+   * mais rápido que escala inconsistente entre peças vizinhas.
    */
   const aguaDaParede = useMemo(() => veuDagua(), [])
-  const trechos = TRECHOS_DA_CASCATA(ESCRITORIO.x, ESCRITORIO.largura, meiaLargura)
+  /**
+   * O relógio da lâmina e as duas cópias da teia de cáusticas.
+   *
+   * São DUAS texturas e não uma usada duas vezes: `offset` mora na textura, não
+   * no material, então dois planos apontando para o mesmo objeto andariam
+   * juntos — e duas camadas em fase são uma camada só, com o dobro do custo.
+   */
+  const relogioDaAgua = useRef({ value: 0 }).current
+  const [caustica, caustica2] = useMemo(() => [causticas(), causticas()], [])
+  useEffect(
+    () => () => {
+      caustica.dispose()
+      caustica2.dispose()
+    },
+    [caustica, caustica2],
+  )
+  const trechos = TRECHOS_DA_CASCATA(ESCRITORIO.x, ESCRITORIO.largura)
   const zParedeFundo = zDaParedeDoAndar(zCentro, prof)
   /**
    * A QUEDA É ANIMADA POR `offset`, e é a coisa mais barata que existe: um
@@ -3419,6 +3534,23 @@ export function Cobertura({
      * o balanço em vez de continuá-lo.
      */
     relogioDoVento.value += passo
+    /**
+     * O RELÓGIO DA LÂMINA, e ele é de outra natureza que os dois de cima.
+     *
+     * A cascata desloca `offset` porque a água dela DESCE de fato — há uma
+     * direção real e o deslocamento é ela. A lâmina não tem direção nenhuma: o
+     * relógio aqui alimenta os dois trens de onda cruzados do shader, que se
+     * interferem sem ir a lugar nenhum. Ver `comOndulacao`.
+     */
+    relogioDaAgua.value += passo
+    // As cáusticas do fundo andam MENOS que a superfície, e em direções
+    // diferentes entre si. A teia no fundo é a sombra invertida da ondulação lá
+    // em cima, projetada através de 1,2 m de água: ela se refaz no lugar em vez
+    // de correr, e duas camadas cruzadas são o que produz esse cintilar.
+    caustica.offset.x += passo * 0.012
+    caustica.offset.y += passo * 0.019
+    caustica2.offset.x -= passo * 0.017
+    caustica2.offset.y += passo * 0.009
   })
   // Repetidos do bloco instanciado de propósito: o vidro e a luz são as duas
   // únicas peças do escritório que NÃO podem ser instanciadas — uma é
@@ -3493,12 +3625,12 @@ export function Cobertura({
             normalScale={new THREE.Vector2(1.6, 1.6)}
             roughnessMap={aguaDaParede.roughnessMap}
             onUpdate={(m) => {
-              // A repetição sai da LARGURA DO TRECHO: com um número fixo, os dois
-              // trechos (um de 4 m, outro de 20) teriam cordões de espessuras
+              // A repetição sai da LARGURA DO TRECHO: com um número fixo, dois
+              // trechos de larguras diferentes teriam cordões de espessuras
               // diferentes lado a lado.
               for (const t of [m.map, m.normalMap, m.roughnessMap]) {
                 if (!t) continue
-                t.repeat.set((ate - de) / 1.4, 1)
+                t.repeat.set((ate - de) / LADRILHO_DO_VEU, 1)
                 t.needsUpdate = true
               }
             }}
@@ -3597,6 +3729,48 @@ export function Cobertura({
         <planeGeometry args={[piscina.largura, piscina.profundidade]} />
         <meshStandardMaterial color="#17495a" roughness={0.9} />
       </mesh>
+      {/* ═══ AS CÁUSTICAS, EM DUAS CAMADAS CRUZADAS ═══
+       *
+       * Uma camada só desliza; duas em escalas e direções diferentes
+       * INTERFEREM, e é a interferência que cintila no lugar em vez de correr.
+       * É o mesmo princípio dos dois trens de onda da superfície, resolvido
+       * aqui com geometria em vez de shader — porque a teia é aditiva, e
+       * `AdditiveBlending` faz a soma de graça no misturador.
+       *
+       * `toneMapped` desligado: a cáustica é uma CONCENTRAÇÃO de luz, e o
+       * mapeamento de tom existe justamente para comprimir os altos. Deixá-lo
+       * agir tiraria dela a única coisa que ela tem — o estouro.
+       *
+       * Sem `depthWrite`, e a 1 e 2 cm do fundo para o teste de profundidade
+       * não brigar com a laje do tanque. */}
+      {[
+        { t: caustica, y: 0.01, r: 2.1, o: 0.5 },
+        { t: caustica2, y: 0.02, r: 3.4, o: 0.34 },
+      ].map(({ t, y, r, o }) => (
+        <mesh
+          key={y}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[piscina.x, piso - 0.22 + y, zEspelho]}
+        >
+          <planeGeometry args={[piscina.largura, piscina.profundidade]} />
+          <meshBasicMaterial
+            map={t}
+            transparent
+            opacity={o}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+            onUpdate={(m) => {
+              if (!m.map) return
+              // A repetição sai das MEDIDAS DO TANQUE, não de um número fixo:
+              // a piscina já encolheu uma vez, e a teia tem de manter a escala
+              // em metros quando isso acontecer de novo.
+              m.map.repeat.set(piscina.largura / r, piscina.profundidade / r)
+              m.map.needsUpdate = true
+            }}
+          />
+        </mesh>
+      ))}
       {/* A LÂMINA D'ÁGUA.
        *
        * RUGOSIDADE 0,3 foi o número que a fez virar água, e não a cor: eu troquei
@@ -3611,6 +3785,15 @@ export function Cobertura({
        * reflexo limpo lê como vidro ou como chapa — nunca como água. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[piscina.x, piso + 0.06, zEspelho]}>
         <planeGeometry args={[piscina.largura, piscina.profundidade]} />
+        {/* A ONDULAÇÃO VIVA. O mapa de normal parado saía como vidro martelado:
+         * o que o olho usa para reconhecer água é o reflexo QUEBRANDO e se
+         * refazendo, e relevo congelado não quebra nada. O porquê de não bastar
+         * rolar o `offset` — e por que isso funciona na cascata e não aqui —
+         * está escrito em `comOndulacao`.
+         *
+         * `ref` com `comOndulacao` e não uma prop: a injeção é feita UMA vez no
+         * material, e refazê-la a cada render encadearia um `onBeforeCompile`
+         * novo por cima do anterior a cada quadro. */}
         <meshStandardMaterial
           color="#2d8ba1"
           roughness={0.3}
@@ -3620,6 +3803,16 @@ export function Cobertura({
           opacity={0.86}
           normalMap={ondaDagua}
           normalScale={new THREE.Vector2(0.35, 0.35)}
+          ref={(m) => {
+            if (m && !m.userData.ondulado) {
+              m.userData.ondulado = true
+              // Força 1,8 e não 1,35: a lâmina é vista a 7,8° do horizonte, e
+              // nesse rasante a inclinação da onda precisa ser maior para que a
+              // quebra do reflexo apareça. Acima disso o reflexo vira granulado.
+              comOndulacao(m, relogioDaAgua, 3.2, 1.8)
+              m.needsUpdate = true
+            }
+          }}
         />
       </mesh>
       {/* BORDA DA LÂMINA, e ela já ENGOLIU a água uma vez: a caixa de pedra

@@ -478,6 +478,98 @@ export function comDetalhe(
   return material
 }
 
+/**
+ * ═══ A ONDULAÇÃO DA LÂMINA — dois trens de onda cruzados ═══
+ *
+ * O DIAGNÓSTICO. A piscina tinha um mapa de normal parado. Água parada de
+ * verdade não existe ao ar livre: sempre há vento, sempre há a chegada da
+ * cascata, e o que o olho usa para reconhecer água é o reflexo QUEBRANDO e se
+ * refazendo. Uma lâmina com relevo congelado lê como vidro martelado.
+ *
+ * E A CORREÇÃO ÓBVIA ESTÁ ERRADA. Rolar o `offset` do mapa de normal — que é o
+ * que a cascata faz e funciona lá — aqui produz o artefato pior de todos: o
+ * padrão inteiro TRANSLADA rigidamente, e o que se vê é a piscina deslizando
+ * para o lado. Funciona na cascata porque lá a água de fato desce em bloco, na
+ * direção do deslocamento. Numa lâmina horizontal não há direção nenhuma, e
+ * qualquer deslocamento único vira uma direção inventada.
+ *
+ * O QUE ONDULAÇÃO É, DE FATO: a soma de vários trens de onda com direções,
+ * comprimentos e velocidades diferentes. Nenhum deles sozinho é visível; o que
+ * se vê é a INTERFERÊNCIA entre eles, que aparece e some sem ir a lugar nenhum.
+ * Duas amostras já bastam para o olho — a terceira não paga o texel.
+ *
+ * Os dois trens são incomensuráveis de propósito: escalas 1 e 1,7, direções que
+ * não são múltiplas uma da outra, velocidades diferentes. Se o período deles
+ * fechasse, o padrão combinado se repetiria e a repetição é justamente o que
+ * denuncia o truque.
+ *
+ * O CUSTO É UMA AMOSTRA DE TEXTURA POR PIXEL, contra as três do triplanar. Não
+ * há geometria nova, não há malha tocada por quadro, não há `pointLight`: o
+ * JavaScript só escreve um float no relógio, exatamente como o vento da
+ * vegetação.
+ *
+ * A amostra ESTÁTICA que o chunk já fez é descartada de propósito. Somá-la aos
+ * dois trens deixaria um relevo fixo por baixo da ondulação — uma marca d'água
+ * parada dentro de água que se mexe, que é o defeito que esta função existe para
+ * não ter. Um texel lido à toa é barato; um padrão congelado não.
+ */
+export function comOndulacao<T extends THREE.Material>(
+  material: T,
+  relogio: { value: number },
+  escala: number,
+  forca: number,
+): T {
+  const anterior = material.onBeforeCompile
+  material.onBeforeCompile = (shader, renderer) => {
+    anterior?.call(material, shader, renderer)
+    shader.uniforms.relogioDaAgua = relogio
+    shader.uniforms.escalaDaOnda = { value: escala }
+    shader.uniforms.forcaDaOnda = { value: forca }
+
+    // Expandido à mão pelo mesmo motivo documentado em `comDetalhe`: o three
+    // chama isto ANTES de resolver os `#include`, e `mapN` só existe dentro do
+    // chunk. Replace que não acha o alvo não lança — devolve a string intacta e
+    // o efeito some sem uma linha de erro em lugar nenhum.
+    const chunk = THREE.ShaderChunk.normal_fragment_maps.replace(
+      ANCORA_DA_NORMAL,
+      `${ANCORA_DA_NORMAL}
+        {
+          vec2 baseOnda = vNormalMapUv * escalaDaOnda;
+          // AS VELOCIDADES SUBIRAM 2,4×, e o motivo é de escala física. O
+          // deslocamento está em LADRILHOS por segundo, e um ladrilho aqui tem
+          // 2,5 m: 0,021 davam 5 cm/s. A sonda de dois quadros acusava
+          // movimento — havia mesmo —, mas 5 cm/s numa lâmina de 8 m é lento
+          // demais para o olho ler como água, e o dono viu o que a sonda não
+          // sabia medir. A 12 cm/s a interferência se refaz num ritmo que se
+          // percebe sem virar correnteza.
+          vec2 uvA = baseOnda + vec2( 0.050, 0.031 ) * relogioDaAgua;
+          vec2 uvB = baseOnda * 1.7 + vec2( -0.034, 0.046 ) * relogioDaAgua;
+          vec3 tremA = texture2D( normalMap, uvA ).xyz * 2.0 - 1.0;
+          vec3 tremB = texture2D( normalMap, uvB ).xyz * 2.0 - 1.0;
+          // Mistura UDN: somam-se as INCLINAÇÕES e preserva-se o eixo Z. Somar
+          // os vetores inteiros e normalizar achataria os dois relevos na
+          // média, que é o contrário de sobrepor duas ondulações.
+          vec3 ondaN = vec3( tremA.xy + tremB.xy, tremA.z );
+          mapN = vec3( ondaN.xy * normalScale * forcaDaOnda, ondaN.z );
+        }`,
+    )
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <normal_fragment_maps>', chunk)
+      .replace(
+        'void main() {',
+        `uniform float relogioDaAgua;
+         uniform float escalaDaOnda;
+         uniform float forcaDaOnda;
+         void main() {`,
+      )
+  }
+  // Mesma razão de `comDetalhe`: `onBeforeCompile` não entra na chave do cache
+  // de programas do three, e sem isto um material herdaria em silêncio o shader
+  // compilado de outro com os mesmos parâmetros.
+  material.customProgramCacheKey = () => `ondulacao-${escala}-${forca}`
+  return material
+}
+
 export type Superficie = {
   map: THREE.Texture
   normalMap: THREE.Texture
@@ -1596,7 +1688,16 @@ export function brilhoDeNicho(faixas: number[]): THREE.Texture {
  * escala de um filete e não de uma calha.
  */
 export function veuDagua(): Superficie {
-  const n = 256
+  /**
+   * 512 E NÃO 256, e o motivo é o que a textura passou a ter dentro dela.
+   *
+   * Com uma escala só de cordão, 256 bastava: o filete mais fino tinha 1 px e
+   * era o menor detalhe existente. A versão em três oitavas põe filamentos de
+   * um terço dessa largura, e a 256 eles caem abaixo do texel — viram ruído
+   * cinza em vez de fio. Dobrar a resolução é o que torna a terceira oitava
+   * visível; sem isso ela seria só custo.
+   */
+  const n = 512
   const [cor, c] = tela(n)
   const [altura, h] = tela(n)
   const [rugo, r] = tela(n)
@@ -1639,7 +1740,7 @@ export function veuDagua(): Superficie {
     ctx.lineWidth = largura
     ctx.lineCap = 'round'
     ctx.beginPath()
-    for (let y = 0; y <= n; y += 8) {
+    for (let y = 0; y <= n; y += 6) {
       const x = x0 + Math.sin((y / n) * Math.PI * 2 * freq + i) * amplitude
       if (y === 0) ctx.moveTo(x, y)
       else ctx.lineTo(x, y)
@@ -1647,6 +1748,43 @@ export function veuDagua(): Superficie {
     ctx.stroke()
   }
 
+  /**
+   * ═══ TRÊS OITAVAS, E NÃO UMA ═══
+   *
+   * A versão anterior tinha 46 cordões de uma faixa de largura só. Isso dá uma
+   * superfície ESTATISTICAMENTE UNIFORME: qualquer recorte dela se parece com
+   * qualquer outro, e superfície uniforme não lê como água — lê como tecido.
+   *
+   * Água caindo numa parede se organiza em três escalas ao mesmo tempo, e as
+   * três estão sempre visíveis juntas:
+   *
+   *  1. O LENÇOL. Metros de largura. É onde a vazão se concentra por causa da
+   *     soleira — nenhuma soleira é perfeitamente nivelada, então sempre há
+   *     trechos com mais e com menos água. É a oitava que faltava, e é a que
+   *     dá ao véu uma composição em vez de uma trama.
+   *  2. O CORDÃO. Centímetros. A tensão superficial junta o fluxo em filetes
+   *     paralelos, e é o cordão que pega o sol de raspão.
+   *  3. O FILAMENTO. Milímetros. O fio que se desprende do cordão. É ele que
+   *     impede o véu de ficar liso entre um cordão e outro quando a câmera
+   *     chega perto.
+   *
+   * Sem a escala grande, o olho não tem em que pousar; sem a pequena, a
+   * superfície desmancha de perto. Uma oitava só falha nas duas pontas.
+   */
+
+  // ── 1. LENÇÓIS: as faixas largas onde a vazão se concentra ──
+  // Quase nada na cor e bastante no RELEVO: o lençol não é mais claro que o
+  // resto, ele é mais GROSSO — e o que se vê da espessura é a sombra na borda.
+  for (let i = 0; i < 7; i++) {
+    const largura = n * (0.05 + ruido(i, 70) * 0.09)
+    cordao(h, i * 7 + 3, `rgba(255,255,255,${0.14 + ruido(i, 71) * 0.12})`, largura)
+    cordao(c, i * 7 + 3, `rgba(200,224,234,${0.07 + ruido(i, 72) * 0.07})`, largura)
+    // Água mais grossa é água mais LISA: onde o lençol é cheio, o fluxo é
+    // laminar e o reflexo fica inteiro. Escuro no mapa de rugosidade.
+    cordao(r, i * 7 + 3, 'rgba(0,0,0,0.5)', largura)
+  }
+
+  // ── 2. CORDÕES ──
   for (let i = 0; i < 46; i++) {
     const largura = n * (0.004 + ruido(i, 58) * 0.014)
     // O cordão é uma CRISTA no relevo (claro) com um vale de cada lado — é esse
@@ -1660,22 +1798,55 @@ export function veuDagua(): Superficie {
     cordao(r, i, `rgba(120,120,120,${0.2 + ruido(i, 61) * 0.3})`, largura * 1.8)
   }
 
-  // AERAÇÃO: manchas brancas ESTICADAS na vertical. Redondas leriam como bolha;
-  // o alongamento no sentido da queda é o que diz velocidade.
-  for (let i = 0; i < 34; i++) {
+  // ── 3. FILAMENTOS: o fio que se desprende do cordão ──
+  // Só na cor e de leve no relevo. Um filamento de meio milímetro não tem
+  // espessura que projete sombra; o que ele tem é brilho.
+  for (let i = 0; i < 110; i++) {
+    const largura = n * (0.0015 + ruido(i, 73) * 0.0028)
+    cordao(c, i * 3 + 101, `rgba(240,250,255,${0.2 + ruido(i, 74) * 0.36})`, largura)
+    cordao(h, i * 3 + 101, `rgba(255,255,255,${0.12 + ruido(i, 75) * 0.2})`, largura)
+  }
+
+  /**
+   * ═══ AERAÇÃO — e ela agora entra TAMBÉM no mapa de rugosidade ═══
+   *
+   * Manchas brancas esticadas na vertical: redondas leriam como bolha, e o
+   * alongamento no sentido da queda é o que diz velocidade.
+   *
+   * O QUE FALTAVA ERA A RUGOSIDADE. Água aerada é branca porque deixou de ser
+   * água e virou espuma — milhões de superfícies pequenas em ângulos aleatórios.
+   * Isso é a definição de superfície RUGOSA, e o mapa de rugosidade estava liso
+   * por igual em toda a textura. O resultado é que o brilho especular corria
+   * inteiro por cima da espuma, como se ela fosse vidro.
+   *
+   * Pintando a mesma mancha clara no mapa de rugosidade, o reflexo MORRE
+   * exatamente onde a água embranquece — e é esse contraste entre trecho
+   * espelhado e trecho fosco, dentro da mesma lâmina, que separa cascata de
+   * plástico texturado. É de graça: a mancha já estava sendo calculada.
+   */
+  // 48 e não 34: com o ladrilho passando de 1,4 m para 3,2 m, cada mancha ficou
+  // 2,3 vezes maior mas também ficou 2,3 vezes mais rara por metro de parede.
+  // Mantendo a contagem, a aeração teria sumido justamente na rodada em que ela
+  // finalmente ganhou tamanho para aparecer.
+  for (let i = 0; i < 48; i++) {
     const x = ruido(i, 62) * n
     const y = ruido(i, 63) * n
     const w = n * (0.01 + ruido(i, 64) * 0.025)
     const alt = n * (0.06 + ruido(i, 65) * 0.18)
-    c.save()
-    c.translate(x, y)
-    c.scale(1, alt / w)
-    const g = c.createRadialGradient(0, 0, 0, 0, 0, w)
-    g.addColorStop(0, 'rgba(255,255,255,0.8)')
-    g.addColorStop(1, 'rgba(255,255,255,0)')
-    c.fillStyle = g
-    c.fillRect(-w, -w, w * 2, w * 2)
-    c.restore()
+    for (const [ctx, forte] of [
+      [c, 0.8],
+      [r, 0.66],
+    ] as const) {
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.scale(1, alt / w)
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, w)
+      g.addColorStop(0, `rgba(255,255,255,${forte})`)
+      g.addColorStop(1, 'rgba(255,255,255,0)')
+      ctx.fillStyle = g
+      ctx.fillRect(-w, -w, w * 2, w * 2)
+      ctx.restore()
+    }
   }
 
   return {
@@ -1931,6 +2102,76 @@ export function graminea(): Superficie & { alfa: THREE.Texture } {
  * A soma de seis ondas de frequências incomensuráveis evita o padrão de grade
  * que duas ondas perpendiculares produzem — grade lê como toalha de plástico.
  */
+/**
+ * ═══ CÁUSTICAS — a teia de luz no fundo da piscina ═══
+ *
+ * É O DETALHE QUE FALTAVA PARA A PISCINA TER FUNDO. O piso do tanque era um
+ * plano de cor chapada, e cor chapada debaixo d'água não existe: a superfície
+ * ondulada funciona como uma lente irregular, concentrando a luz do sol em
+ * filamentos que se cruzam e se refazem. Sem eles, a lâmina pode estar
+ * perfeita e a piscina continua parecendo um tampo de acrílico azul.
+ *
+ * E É A ÚNICA COISA NA CENA QUE PROVA QUE A ÁGUA TEM ESPESSURA. Reflexo na
+ * superfície diz que existe uma superfície; cáustica no fundo diz que existe um
+ * VOLUME entre a superfície e ele. São informações diferentes, e a segunda é a
+ * que estava ausente.
+ *
+ * COMO SE DESENHA UMA SEM SIMULAR REFRAÇÃO: o que caracteriza a cáustica é ser
+ * uma CRISTA — uma linha fina e muito clara com queda abrupta dos dois lados,
+ * não uma mancha. Some-se um punhado de ondas, tome-se a distância do resultado
+ * a zero e eleve-se `1 − d` a uma potência alta: o expoente esmaga tudo que não
+ * está quase exatamente sobre a linha de nível, e sobra a teia.
+ *
+ * As frequências são INTEIRAS em número de ciclos por ladrilho, e isso não é
+ * detalhe: qualquer frequência fracionária quebra a emenda da textura, e o
+ * fundo da piscina é uma superfície grande com repetição visível.
+ *
+ * A terceira onda é DEFORMADA pela primeira (`+ w1 * 1.3` dentro do seno). Sem
+ * isso as três somas dão um padrão de losangos regulares, que lê como tela de
+ * arame. A deformação é o que curva as linhas e faz a teia parecer orgânica —
+ * e ela preserva o ladrilhamento, porque a deformação também é periódica.
+ */
+export function causticas(): THREE.Texture {
+  const n = 256
+  const [cv, ctx] = tela(n)
+  const img = ctx.createImageData(n, n)
+  const T = (Math.PI * 2) / n
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      /**
+       * AS QUATRO FREQUÊNCIAS NÃO PODEM TER FATOR COMUM, e a primeira versão
+       * tinha: (3,2), (2,−4), (5,3) e (4,−1) caem numa rede de losangos porque
+       * as componentes se alinham periodicamente. O render devolveu uma tela de
+       * arame, que é o defeito que a deformação existia para evitar — e a
+       * deformação sozinha não resolve, porque ela curva as linhas sem mudar a
+       * grade que as organiza.
+       *
+       * Com (3,2), (2,−5), (7,3) e (5,−4) as direções são mutuamente primas e a
+       * teia só se fecha no ladrilho inteiro. A deformação, agora mais forte,
+       * faz o resto.
+       */
+      const w1 = Math.sin((3 * x + 2 * y) * T)
+      const w2 = Math.sin((2 * x - 5 * y) * T + 1.7)
+      const w3 = Math.sin((7 * x + 3 * y) * T + w1 * 2.1)
+      const w4 = Math.sin((5 * x - 4 * y) * T + w2 * 1.6)
+      const d = Math.abs(w1 + w2 + w3 + w4) / 4
+      // Potência 9: é ela que transforma a soma de ondas num FILAMENTO. Com
+      // expoente baixo o resultado é uma mancha suave — bonita e inútil, porque
+      // cáustica sem borda dura não se distingue de reflexo difuso.
+      const v = Math.pow(Math.max(0, 1 - d), 9)
+      const i = (y * n + x) * 4
+      // Levemente esverdeada: a luz que chega ao fundo atravessou a massa
+      // d'água, que come o vermelho primeiro. Cáustica branca lê como projeção.
+      img.data[i] = v * 205
+      img.data[i + 1] = v * 255
+      img.data[i + 2] = v * 236
+      img.data[i + 3] = 255
+    }
+  }
+  ctx.putImageData(img, 0, 0)
+  return acaba(cv, 1, 1, true)
+}
+
 export function normalDeAgua(): THREE.Texture {
   const n = 256
   const [alt, a] = tela(n)
