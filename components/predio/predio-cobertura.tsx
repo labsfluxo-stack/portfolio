@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Coletor } from './predio-instancias'
 import {
   casca,
@@ -15,14 +14,18 @@ import {
   causticas,
   comOndulacao,
   comVento,
+  derrameDeVidro,
+  fachoDeEspeto,
   fronde,
   graminea,
   madeiraDeDeck,
   massaDeFolhagem,
   microrrelevo,
   normalDeAgua,
+  OPACIDADE_LIMPA,
   paredeLavada,
   veuDagua,
+  vidroPlano,
 } from './predio-materiais'
 
 /**
@@ -93,37 +96,6 @@ function manchaDeSombra(): THREE.CanvasTexture {
 function ruido(i: number, k: number): number {
   const s = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453
   return s - Math.floor(s)
-}
-
-/**
- * A curva de um fio pendurado — catenária, `y = a·cosh(x/a)`, não parábola.
- *
- * Fio solto pelo próprio peso tem componente horizontal de tensão constante e
- * vertical crescendo ao longo do arco. Parece parábola e não é; a diferença
- * aparece justamente perto dos apoios, que é onde o olho repara. A mesma conta
- * já governa o cabeamento do datacenter, e pelo mesmo motivo: fio reto é o erro
- * que denuncia cena montada.
- *
- * Parametrizada pela FLECHA — o quanto afunda no meio — porque é a barriga que
- * se ajusta a olho, não a densidade linear.
- */
-function catenaria(
-  de: THREE.Vector3,
-  ate: THREE.Vector3,
-  flecha: number,
-  n: number,
-): THREE.Vector3[] {
-  const c = 2.2
-  const base = Math.cosh(c) - 1
-  const pontos: THREE.Vector3[] = []
-  for (let i = 0; i <= n; i++) {
-    const u = i / n
-    const t = u * 2 - 1
-    const p = new THREE.Vector3().lerpVectors(de, ate, u)
-    p.y -= flecha * ((Math.cosh(c) - Math.cosh(c * t)) / base)
-    pontos.push(p)
-  }
-  return pontos
 }
 
 /**
@@ -279,7 +251,68 @@ const X_FIM_DO_BAR = BAR.x + BAR.largura / 2 + BAR.beiral
  * fica por conta da geometria — a soleira, a calha, o recorte do escritório — e
  * não da textura.
  */
+/**
+ * ═══ UMA FONTE DE LUZ, EM VALOR HDR ═══
+ *
+ * O PROBLEMA QUE ISTO RESOLVE. Cor em hexadecimal nunca passa de 1,0. Enquanto
+ * as luminárias desta cena eram `#ffd9a0` puro, elas tinham EXATAMENTE o mesmo
+ * valor que uma parede branca ao sol — e para o passe de brilho as duas eram a
+ * mesma coisa. Daí o limiar do bloom ter subido para 0,88 e mesmo assim pegar o
+ * céu: não havia limiar possível, porque não havia diferença a separar.
+ *
+ * Fonte de luz não é uma superfície clara. Ela é uma superfície que EMITE, e num
+ * quadro de hora dourada ela emite dez, vinte vezes mais que o entorno. Essa
+ * razão é o alcance dinâmico, e é ela que faz uma lâmpada parecer acesa numa
+ * foto em vez de parecer pintada de branco.
+ *
+ * `THREE.Color` guarda float, não byte: multiplicar depois de converter para
+ * linear dá valores acima de 1 sem truque nenhum. O alvo do composer é
+ * `HalfFloatType`, então eles chegam inteiros ao passe de brilho; o `OutputPass`
+ * comprime tudo de volta no fim, com o ACES rolando as altas em vez de cortá-las.
+ *
+ * E POR ISSO `toneMapped` VOLTA A SER VERDADEIRO nestas peças. O `false` existia
+ * como remédio para a falta de headroom — sem ele, ACES amassava a luminária no
+ * mesmo bege de tudo. Com valor de verdade acima de 1 o remédio virou veneno:
+ * `false` faz a peça pular a curva e ser cortada em 1,0 pelo quadro de 8 bits,
+ * perdendo justamente a rolagem que a faz parecer quente no miolo e branca no
+ * centro. E tinha um efeito colateral que ninguém tinha ligado: nos degraus sem
+ * composer a cena desenha direto na tela COM tone mapping, e nos degraus com
+ * composer o ACES vem do `OutputPass` — então `toneMapped: false` fazia as
+ * luminárias mudarem de aparência entre degraus de qualidade. Uma causa a menos
+ * para "as luzes apagando e voltando".
+ */
+const fonte = (hex: string, ganho: number) => new THREE.Color(hex).multiplyScalar(ganho)
+
 const LADRILHO_DO_VEU = 3.2
+
+/**
+ * Quantos metros de vidro cabem num ladrilho de `vidroPlano`.
+ *
+ * A onda de rolo tem período de METROS — é o que faz o reflexo serpentear ao
+ * correr pela fachada. Com um ladrilho pequeno ela viraria textura de superfície
+ * e o vidro leria como vidro fosco; com um grande demais, a fachada inteira cabe
+ * numa crista só e não acontece nada. Dois metros e meio é o passo em que a onda
+ * atravessa um pano de escritório uma vez e meia.
+ *
+ * O mesmo número serve o guarda-corpo, e é esse o ponto: duas peças de vidro
+ * vizinhas com ondas de escalas diferentes denunciam textura na hora.
+ */
+const LADRILHO_DO_VIDRO = 2.5
+/**
+ * A inclinação da onda na normal. Baixíssima de propósito — ver `vidroPlano`:
+ * qualquer valor que faça a onda APARECER como relevo transformou vidro em água.
+ */
+const VIDRO_RELEVO = new THREE.Vector2(0.35, 0.35)
+
+/**
+ * O envelope do facho do espeto: quanto ele sobe e quanto ele abre lá em cima.
+ *
+ * 1,9 m põe o topo do feixe em `piso + 2,77`, dentro da copa da oliveira, que é
+ * o que um espeto de jardim faz — ele ilumina a MASSA, não passa por ela. E 90
+ * cm de boca é a abertura de uma lente com difusor a essa distância: mais que
+ * isso vira holofote, menos vira laser.
+ */
+const FACHO_ESPETO = { altura: 1.9, boca: 0.9 }
 
 const TRECHOS_DA_CASCATA = (xEsc: number, largura: number): [number, number][] =>
   (
@@ -438,8 +471,6 @@ export function Cobertura({
     const gVigaPergola = new RoundedBoxGeometry(12.2, 0.14, 0.13, 1, 0.008)
     const gChapa = new THREE.BoxGeometry(0.19, 0.22, 0.012)
     const gParafuso = new THREE.CylinderGeometry(0.012, 0.012, 0.03, 6)
-    const gSoquete = new THREE.CylinderGeometry(0.016, 0.02, 0.055, 6)
-    const gLampada = new THREE.SphereGeometry(0.038, 8, 6)
     // MAO-FRANCESA: a diagonal entre poste e viga. Portico so com pecas
     // ortogonais e instavel de verdade, e o olho conhece isso — pergolado sem
     // contraventamento le como montagem provisoria.
@@ -672,8 +703,31 @@ export function Cobertura({
     // reguas. Sem ela o deck termina mostrando o corte da madeira.
     const gRodapeDeck = new THREE.BoxGeometry(0.03, 0.055, 1)
     // Ralo do deck, em grelha.
-    const gRalo = new THREE.BoxGeometry(0.26, 0.012, 0.26)
-    const gBarraRalo = new THREE.BoxGeometry(0.018, 0.016, 0.24)
+    /**
+     * ═══ O RALO VIROU LINEAR, E O MOTIVO É A GRADE DE PIXELS ═══
+     *
+     * O QUE ERA: um ralo quadrado de 26 cm com cinco barras de 1,8 cm espaçadas
+     * de 5 cm, em aço com `metalness` 0,9. O dono apontou dois borrões brancos
+     * pontilhados no deck e perguntou se era normal. Não é — são os dois ralos.
+     *
+     * E ISSO NÃO É DEFEITO DE MATERIAL, É DE ESCALA. Àquela distância a peça
+     * ocupa uns 50 px e cada barra fica com 2 px, com 7 px de passo. Uma feição
+     * de 2 px em metal quase espelhado contra um céu de poente só pode ser uma
+     * de duas coisas por pixel — estouro ou vão escuro — e qual delas sai
+     * depende de onde o centro do pixel calha de cair. É a definição de
+     * serrilhamento: a geometria é mais fina que a grade de amostragem. Nenhum
+     * ajuste de cor, rugosidade ou sombra conserta isso; ou a feição cresce, ou
+     * ela sai.
+     *
+     * RALO LINEAR É A RESPOSTA CERTA POR DOIS MOTIVOS ao mesmo tempo. É o que um
+     * deck contemporâneo de verdade usa — canaleta rente à borda, não grelha
+     * quadrada de quintal — e é a única forma que SOBREVIVE a esta escala: 1,1 m
+     * de comprimento dá mais de duzentos pixels, e 6 cm de largura dá uns doze.
+     * Uma linha escura o olho lê como fresta; um pontilhado de 2 px ele lê como
+     * sujeira no render.
+     */
+    const gRaloLinear = new THREE.BoxGeometry(1.1, 0.01, 0.055)
+    const gMolduraRalo = new THREE.BoxGeometry(1.18, 0.014, 0.095)
     // PISCINA: corrimao de escada em U invertido, e a faixa de pastilha da linha
     // d'agua — as duas coisas que nenhuma piscina deixa de ter.
     const gCorrimaoEscada = new THREE.TorusGeometry(0.18, 0.019, 6, 12, Math.PI)
@@ -713,17 +767,15 @@ export function Cobertura({
       metalness: 0.88,
       roughness: 0.34,
     })
-    // Lampada: emissivo moderado + `toneMapped: false` para o vidro nao ser
-    // comido pela curva de exposicao do fim de tarde.
-    const mLampada = new THREE.MeshStandardMaterial({
-      color: '#ffd9a0',
-      emissive: new THREE.Color('#ffcf8a'),
-      emissiveIntensity: 2.6,
-      roughness: 0.25,
-      toneMapped: false,
-    })
-    const mFio = new THREE.MeshStandardMaterial({ color: '#26221e', roughness: 0.9 })
     const mAco = new THREE.MeshStandardMaterial({ color: '#8f8b84', metalness: 0.9, roughness: 0.42 })
+    // A GRELHA DA CANALETA. Escura e fosca de propósito: o que o olho lê numa
+    // canaleta é o VÃO, não a grade. `metalness` baixa porque grelha de ralo é
+    // alumínio anodizado ou ferro pintado, e nenhum dos dois espelha nada.
+    const mRaloFundo = new THREE.MeshStandardMaterial({
+      color: '#33302c',
+      metalness: 0.25,
+      roughness: 0.85,
+    })
     const mVaso = new THREE.MeshStandardMaterial({
       color: '#a89c86',
       roughness: 0.94,
@@ -1122,7 +1174,9 @@ export function Cobertura({
      * para domar o alto da cena, e fonte de luz e justamente o que nao deve ser
      * domado — senao o balizador vira um cinza claro e perde a razao de existir.
      */
-    const mBalizador = new THREE.MeshBasicMaterial({ color: '#ffd9a0', toneMapped: false })
+    // Ganho 3,0: é a lente do espeto e o disco do balizador, vistos de frente.
+    // São as fontes mais próximas da câmera e as que mais precisam estourar.
+    const mBalizador = new THREE.MeshBasicMaterial({ color: fonte('#ffd9a0', 3.0) })
     /**
      * O FACHO QUE SOBE PARA A COPA, e ele nao e o mesmo da parede.
      *
@@ -1146,8 +1200,12 @@ export function Cobertura({
     const mFachoDeCopa = new THREE.MeshBasicMaterial({
       color: '#bfe0c0',
       transparent: true,
-      opacity: 0.1,
-      alphaMap: manchaDeSombra(),
+      // 0,16 e não 0,10: o desenho novo já concentra o brilho no pé do feixe e
+      // o apaga na subida, então a mesma presença cabe numa área muito menor. A
+      // opacidade baixa de antes compensava uma forma errada — corrigida a
+      // forma, ela passou a apagar um feixe que já estava certo.
+      opacity: 0.16,
+      alphaMap: fachoDeEspeto(),
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       toneMapped: false,
@@ -1176,23 +1234,59 @@ export function Cobertura({
     // O FACHO e um plano com degrade de alfa, nao um cone de volume: volumetrico
     // de verdade custa um passe, e a essa distancia o leque de luz na parede le
     // igual por um quad com mapa de alfa.
+    /**
+     * O DERRAME DO ESCRITÓRIO NO DECK — e ele deixou de ser uma elipse.
+     *
+     * Este material nasceu para os sete fachos que lavavam a parede do fundo. A
+     * cascata os substituiu e sobrou UM uso: a mancha que a caixa de vidro joga
+     * na madeira. Só que ele continuou com a textura de facho de parede — um
+     * degradê radial — esticada para 5,75 × 5,1 m, e o dono apontou: "essa luz
+     * de reflexo dessa forma aí não faz sentido".
+     *
+     * Não faz. Elipse é o rastro de uma fonte PONTUAL; uma parede de vidro de
+     * 5,8 m produz um trapézio listrado pelos montantes, mais forte colado no
+     * pé do vidro. `derrameDeVidro` desenha isso. Ver o comentário de lá.
+     *
+     * A opacidade caiu de 0,75 para 0,5 junto: a textura antiga tinha o máximo
+     * no centro da elipse, a três metros da fachada, e precisava de força para
+     * chegar ao vidro. A nova já nasce no máximo exatamente onde a luz sai.
+     *
+     * FAIXAS = 4 porque o caixilho tem montante a cada 1,45 m em 5,8 m de pano.
+     * Número repetido é número que diverge: sai da mesma conta que desenha o
+     * caixilho, e não de um literal escolhido a olho.
+     */
     const mFacho = new THREE.MeshBasicMaterial({
       color: '#ffc98a',
       transparent: true,
-      // 0,75 e nao 0,3: mistura ADITIVA soma ao que ja esta la, e a parede de
-      // concreto nao e escura. Com 0,3 a soma cabia dentro do ruido da textura e
-      // o facho simplesmente nao aparecia.
-      opacity: 0.75,
-      alphaMap: manchaDeSombra(),
+      opacity: 0.5,
+      alphaMap: derrameDeVidro(Math.round(ESCRITORIO.largura / 1.45)),
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       toneMapped: false,
     })
-    const mFitaLed = new THREE.MeshBasicMaterial({ color: '#ffdca8', toneMapped: false })
+    /**
+     * A FITA DO BAR FICOU EM 1,35, e o número veio do render — ela foi a única
+     * peça que o headroom estragou.
+     *
+     * Com 2,4 ela virou a coisa mais clara do quadro: uma barra branca de quatro
+     * metros e meio dominando o terço direito. E o erro é de ÁREA, não de
+     * intensidade. As outras fontes são pontuais — lente de espeto, disco de
+     * balizador, bulbo de pendente — e brilho pontual estoura sem pesar. Uma
+     * fita corrida tem centenas de vezes mais pixels, então o mesmo valor por
+     * pixel vira uma massa de luz. O olho soma área.
+     *
+     * A regra que sai disso, e ela vale para a próxima fonte que entrar na cena:
+     * o ganho tem de cair com o tamanho aparente da peça. Fonte grande brilha
+     * MENOS por pixel para brilhar IGUAL no quadro.
+     */
+    const mFitaLed = new THREE.MeshBasicMaterial({ color: fonte('#ffdca8', 1.35) })
     // A fita da cascata é FRIA, e a do bar é quente. São as duas únicas linhas
     // acesas do terraço, e se tivessem a mesma cor o olho leria as duas como a
     // mesma instalação. Luz de água puxa o turquesa; luz de balcão, o âmbar.
-    const mFitaAgua = new THREE.MeshBasicMaterial({ color: '#7fe3f2', toneMapped: false })
+    // A fita da água fica DENTRO da calha, submersa e atrás do véu: parte do que
+    // ela emite é absorvida antes de chegar ao olho, então ela pede ganho maior
+    // para render o mesmo brilho aparente que a do bar, que está exposta.
+    const mFitaAgua = new THREE.MeshBasicMaterial({ color: fonte('#7fe3f2', 2.8) })
     /**
      * OS MATERIAIS DO ESCRITÓRIO, e o que decide todos eles é uma restrição:
      * o sol está ATRÁS do prédio (azimute 152°), então nenhuma luz direta entra
@@ -1222,7 +1316,14 @@ export function Cobertura({
       color: '#a8712f',
       roughness: 1,
       emissive: new THREE.Color('#ff9a3c'),
-      emissiveIntensity: 1.5,
+      // 1,05 e não 1,5: pela mesma regra de área da fita, algumas linhas acima.
+      // O nicho tem quase cinco metros por dois e meio — é a maior superfície
+      // emissora da cena inteira. Com 1,5 ele cruzava o limiar do brilho em toda
+      // a sua área e a prateleira de garrafas virava um bloco de luz sem
+      // garrafa dentro, apagando as trinta silhuetas que ela existe para
+      // mostrar. Logo abaixo do limiar, ele ACENDE sem FLORESCER — que é o que
+      // uma fita atrás de vidro colorido faz.
+      emissiveIntensity: 1.05,
       // O mesmo desenho pinta e modula a emissão: a faixa clara é também a que
       // mais acende, que é o que uma fita sob prateleira faz.
       map: brilhoDoNicho,
@@ -1259,8 +1360,14 @@ export function Cobertura({
       metalness: 0.55,
     })
     const mEstofado = new THREE.MeshStandardMaterial({ color: '#3b3a38', roughness: 0.9 })
-    const mTela = new THREE.MeshBasicMaterial({ color: '#cfe0ee', toneMapped: false })
-    const mLuminaria = new THREE.MeshBasicMaterial({ color: '#ffd9a4', toneMapped: false })
+    // TELA e LUMINÁRIA pedem ganhos bem diferentes, e a diferença é o assunto.
+    // Monitor é uma superfície acesa de poucas centenas de nits — ele vence a
+    // sala e perde do céu, e por isso mal deve florescer. Pendente é uma FONTE:
+    // ordens de grandeza acima, e é dele que se espera o halo. Dar o mesmo ganho
+    // aos dois faria o monitor brilhar como uma lâmpada, que é o tipo de erro
+    // que ninguém sabe nomear mas todo mundo sente.
+    const mTela = new THREE.MeshBasicMaterial({ color: fonte('#cfe0ee', 1.25) })
+    const mLuminaria = new THREE.MeshBasicMaterial({ color: fonte('#ffd9a4', 3.4) })
     // A lombada do livro é o único lugar da cena onde cor saturada em quantidade
     // é bem-vinda: estante monocromática lê como cenografia de loja.
     const TONS_DE_LIVRO = [
@@ -1377,7 +1484,6 @@ export function Cobertura({
       (c) => new THREE.Color(c),
     )
 
-    const fiosDoVaral: THREE.BufferGeometry[] = []
 
     const sombra = (x: number, z: number, larg: number, profund: number) =>
       col.poe(
@@ -1583,11 +1689,19 @@ export function Cobertura({
       TONS_DE_DECK[2]!,
     )
     // RALO. Laje de cobertura escoa agua, e o ralo e o unico objeto do piso que
-    // prova isso. Fica no ponto baixo, perto da borda.
+    // prova isso. Fica no ponto baixo, perto da borda. Ver `gRaloLinear` para
+    // por que ele deixou de ser uma grelha quadrada.
     for (const xr of [-6.2, 4.8]) {
-      col.poe('ralo', gRalo, mAco, [xr, piso + 0.026, zCentro + prof * 0.345])
-      for (let b = 0; b < 5; b++)
-        col.poe('barraRalo', gBarraRalo, mAco, [xr - 0.1 + b * 0.05, piso + 0.032, zCentro + prof * 0.345])
+      const zRalo = zCentro + prof * 0.345
+      // A moldura e de aco e fica EMBAIXO: o que se ve dela sao os dois filetes
+      // claros de cada lado da fresta, e e esse par de linhas que diz que a
+      // canaleta esta embutida no deck em vez de apoiada nele.
+      col.poe('molduraRalo', gMolduraRalo, mAco, [xr, piso + 0.02, zRalo])
+      // A grelha e ESCURA e fosca, nao aco polido. Canaleta e um vao com uma
+      // grade por cima: o que chega ao olho e a sombra do vao, nao o brilho da
+      // grade. Aco polido aqui devolvia o poente inteiro e a fresta virava a
+      // coisa mais clara do deck, que e o contrario do que ela e.
+      col.poe('raloLinear', gRaloLinear, mRaloFundo, [xr, piso + 0.027, zRalo])
     }
 
     /**
@@ -1680,42 +1794,23 @@ export function Cobertura({
     }
 
     /**
-     * VARAL DE LUZES sobre o pergolado — o detalhe que mais diz "cobertura de
-     * empresa" com menos geometria.
+     * -- varal de luzes: REMOVIDO, a pedido do dono ---------------------------
      *
-     * Resolve duas coisas de uma vez. A primeira é semântica: pergolado com
-     * varal de lâmpada é o vocabulário de terraço que RECEBE gente, e a spec
-     * pede que este andar diga "os negócios vão bem" sem escrever. A segunda é
-     * de composição: são três linhas CURVAS atravessando uma região que só tinha
-     * retas paralelas, e é a curva contra a reta que impede o pergolado de ler
-     * como grade.
+     * Eram três catenárias sob o pergolado com vinte lâmpadas cada. O que elas
+     * resolviam está escrito aqui porque some junto com elas, e quem vier depois
+     * precisa saber o que a cena perdeu: a curva contra a reta, que impedia o
+     * pergolado de ler como grade, e o vocabulário de "terraço que recebe
+     * gente", que a spec pede sem escrever.
      *
-     * As lâmpadas ficam com emissivo MODERADO de propósito. O sol ainda está
-     * acima do horizonte, e varal estourado às cinco da tarde é erro de
-     * continuidade — a essa hora ele mal se distingue, e é justamente esse
-     * "acabaram de acender" que situa o horário.
+     * As duas coisas continuam supridas por outras peças — as copas e a
+     * catenária do jardim quebram a ortogonalidade, e o bar aceso com banquetas
+     * carrega o "alguém usa isto". Se um dia a cena voltar a parecer uma grade
+     * de madeira, é aqui que estava o remédio antigo.
+     *
+     * Saíram com ele: `catenaria`, `mFio`, `gSoquete`, `gLampada`, `mLampada` e
+     * a fusão de geometrias no fim do `useMemo` — eram usados só por este bloco,
+     * e código morto que parece vivo é pior que código faltando.
      */
-    const zsVaral = [zPergolaFrente, (zPergolaFrente + zPergolaFundo) / 2, zPergolaFundo]
-    for (const [v, zv] of zsVaral.entries()) {
-      // O varal pendura SOB as vigas, e não entre elas. Em `piso + 2,86` ele
-      // atravessava o próprio pergolado: a viga ocupa de 2,69 a 2,83 e o caibro
-      // de 2,83 a 2,92, então o fio passava dentro da madeira e só reaparecia na
-      // barriga da catenária. E as pontas nascem no vão útil do pergolado, não
-      // mais nas posições dos postes antigos.
-      const a = new THREE.Vector3(X_PERGOLA_DE + 0.3, yPosteTopo - 0.06, zv)
-      const b = new THREE.Vector3(X_PERGOLA_ATE - 0.3, yPosteTopo - 0.06, zv)
-      const flecha = 0.32 + v * 0.07
-      const curva = new THREE.CatmullRomCurve3(catenaria(a, b, flecha, 16))
-      fiosDoVaral.push(new THREE.TubeGeometry(curva, 34, 0.0085, 4, false))
-      // As lâmpadas seguem a posição EXATA da curva. Interpoladas em linha reta
-      // elas flutuariam acima da barriga do fio no meio do vão — que é o erro
-      // clássico de varal desenhado.
-      for (const [i, pt] of catenaria(a, b, flecha, 21).entries()) {
-        if (i === 0 || i === 21) continue
-        col.poe('soquete', gSoquete, mAco, [pt.x, pt.y - 0.042, pt.z])
-        col.poe('lampada', gLampada, mLampada, [pt.x, pt.y - 0.1, pt.z])
-      }
-    }
 
     /**
      * -- espreguicadeiras: NENHUMA ------------------------------------------
@@ -2062,19 +2157,28 @@ export function Cobertura({
         const ze = zArvores + 0.34
         col.poe('espeto', gEspeto, mMetal, [xe, piso + 0.78, ze])
         col.poe('lenteEspeto', gLente, mBalizador, [xe, piso + 0.87, ze])
-        // O facho sobe da lente ate o meio da copa: 2,4 m de altura sobre uma
-        // peca de 1,5, e a largura abre com a distancia como um cone faria.
+        /**
+         * O FACHO SAI DA LENTE, e essa frase é a correção inteira.
+         *
+         * Ele era um plano CENTRADO em `piso + 2,0` com um degradê radial: uma
+         * lente pálida de 40 cm × 2,25 m pairando ao lado do tronco, mais clara
+         * no meio da altura e fechada em cima E embaixo. O feixe não encostava
+         * na luminária. Agora a base do plano fica exatamente na lente e o
+         * desenho do cone vem de `fachoDeEspeto` — ver lá por que ele abre e por
+         * que ele escurece com a altura.
+         *
+         * `gFacho` é um `PlaneGeometry(0,5 × 1,5)` com origem no centro, então o
+         * plano sobe meia altura acima da lente. Escrito como conta e não como
+         * número: mexer em `ALTURA` move a peça inteira junto.
+         */
         for (const giro of [0, Math.PI / 2])
           col.poe(
             'fachoCopa',
             gFacho,
             mFachoDeCopa,
-            [xe, piso + 2.0, ze],
+            [xe, piso + 0.87 + FACHO_ESPETO.altura / 2, ze],
             [0, giro, 0],
-            // Estreito. Com 1,9 de largura o feixe tinha quase um metro na base e
-            // cobria o tronco inteiro — feixe de espeto abre, mas sai de uma
-            // lente de tres centimetros.
-            [0.8, 1.5, 1],
+            [FACHO_ESPETO.boca / 0.5, FACHO_ESPETO.altura / 1.5, 1],
           )
       }
     }
@@ -3234,18 +3338,38 @@ export function Cobertura({
      * `MeshBasicMaterial` na frente do pano de vidro apagaria justamente o que
      * ele existia para sugerir.
      */
-    // O DERRAME NO DECK: a mancha quente que o escritório joga na madeira. É a
-    // mesma peça aditiva dos fachos de parede, deitada. Sem ela o interior fica
-    // aceso e o deck na frente dele continua na penumbra — e aí a caixa de vidro
-    // lê como fotografia colada, não como fonte.
-    col.poe(
-      'facho',
-      gFacho,
-      mFacho,
-      [xEsc, piso + 0.028, zFrenteEsc + 1.5],
-      [-Math.PI / 2, 0, 0],
-      [11.5, 3.4, 1],
-    )
+    /**
+     * O DERRAME NO DECK: a mancha quente que o escritório joga na madeira. Sem
+     * ela o interior fica aceso e o deck na frente continua na penumbra — e aí a
+     * caixa de vidro lê como fotografia colada, não como fonte.
+     *
+     * A GEOMETRIA MUDOU JUNTO COM A TEXTURA, e ela é metade da correção.
+     *
+     * A peça antiga era um quadrado de 5,75 × 5,1 m CENTRADO a três metros à
+     * frente do vidro — ou seja, ela começava 50 cm DENTRO do escritório e
+     * terminava 4,5 m deck adentro, passando por baixo do guarda-corpo. A nova
+     * encosta no pé do vidro (`zFrenteEsc`) e avança `ALCANCE` para a frente,
+     * porque luz não começa antes da abertura de onde sai.
+     *
+     * A largura é a do pano MAIS a abertura do leque: um feixe que sai de uma
+     * fenda se alarga, e `derrameDeVidro` já desenha as faixas abrindo — a
+     * largura da peça precisa acompanhar, senão o leque bate numa borda reta.
+     *
+     * `gFacho` é um `PlaneGeometry(0,5 × 1,5)`, daí a divisão: tamanho variável
+     * é escala de matriz sobre uma forma unitária, que é a regra do coletor.
+     */
+    {
+      const ALCANCE = 3.1
+      const largura = ESCRITORIO.largura * 1.35
+      col.poe(
+        'facho',
+        gFacho,
+        mFacho,
+        [xEsc, piso + 0.028, zFrenteEsc + ALCANCE / 2],
+        [-Math.PI / 2, 0, 0],
+        [largura / 0.5, ALCANCE / 1.5, 1],
+      )
+    }
     // Fita de LED sob o tampo do bar: desenha a linha do movel no escuro.
     col.poe('fitaLed', gFitaLed, mFitaLed, [9.0, piso + 0.98, zBar + 0.36], [0, 0, 0], [4.4, 1, 1])
     /**
@@ -3398,20 +3522,14 @@ export function Cobertura({
         col.poe('espacador', gEspacador, mMetal, [x, piso + dy, zGuarda + 0.04], [Math.PI / 2, 0, 0])
     }
 
-    const saida: THREE.Object3D[] = col.colhe()
-    // Os fios do varal sao FUNDIDOS, nao instanciados: tres catenarias entre
-    // pontos diferentes nao sao a mesma curva escalada — esticar em X e achatar
-    // em Y deforma a secao do tubo e vira fita. E a mesma razao do cabeamento do
-    // andar 07, e o mesmo remedio: uma malha para os tres fios.
-    const fundida = fiosDoVaral.length ? mergeGeometries(fiosDoVaral, false) : null
-    for (const g of fiosDoVaral) g.dispose()
-    if (fundida) {
-      const fio = new THREE.Mesh(fundida, mFio)
-      fio.castShadow = true
-      fio.frustumCulled = false
-      saida.push(fio)
-    }
-    return saida
+    /**
+     * O tipo continua `Object3D[]` e não `InstancedMesh[]`, mesmo agora que só
+     * saem instâncias daqui. Com o varal, a fusão dos três fios entrava como
+     * `Mesh` comum; o `useEffect` que adiciona e remove já trata o caso geral, e
+     * apertar o tipo agora só criaria atrito na próxima peça que não couber no
+     * coletor — e sempre há uma.
+     */
+    return col.colhe() as THREE.Object3D[]
   }, [piso, zCentro, prof, meiaLargura])
 
   /**
@@ -3480,6 +3598,27 @@ export function Cobertura({
    * no material, então dois planos apontando para o mesmo objeto andariam
    * juntos — e duas camadas em fase são uma camada só, com o dobro do custo.
    */
+  /**
+   * DOIS CONJUNTOS DE TEXTURA DE VIDRO, e não um usado duas vezes.
+   *
+   * `repeat` mora na TEXTURA, não no material. O pano do escritório tem 5,8 m e
+   * o guarda-corpo tem 30 — eles precisam de repetições diferentes para a onda
+   * de rolo ter a mesma escala em metros nos dois. Compartilhando o objeto, o
+   * segundo `onUpdate` a rodar sobrescreveria o primeiro e um dos dois sairia
+   * com a onda na escala errada.
+   *
+   * É exatamente a mesma armadilha das duas camadas de cáustica, algumas linhas
+   * acima. Duas ocorrências já são um padrão: em três.js, textura é estado
+   * compartilhado, e "o mesmo mapa em dois lugares" quase nunca é o que se quer.
+   */
+  const [vidroEsc, vidroGuarda] = useMemo(() => [vidroPlano(), vidroPlano()], [])
+  useEffect(
+    () => () => {
+      for (const v of [vidroEsc, vidroGuarda])
+        for (const t of [v.normalMap, v.roughnessMap, v.alfa]) t.dispose()
+    },
+    [vidroEsc, vidroGuarda],
+  )
   const relogioDaAgua = useRef({ value: 0 }).current
   const [caustica, caustica2] = useMemo(() => [causticas(), causticas()], [])
   useEffect(
@@ -3654,16 +3793,43 @@ export function Cobertura({
        * `roughness` baixíssima com `envMapIntensity` alta é o que faz o pano
        * devolver o céu do entardecer em faixa — é esse filete que diz "vidro" à
        * distância em que o caixilho já tem dois pixels. */}
-      <mesh position={[xEsc, piso + 1.46, zFrenteEsc + 0.05]}>
-        <planeGeometry args={[5.8, 2.92]} />
+      <mesh position={[xEsc, piso + ESCRITORIO.altura / 2, zFrenteEsc + 0.05]}>
+        {/* As medidas saem de `ESCRITORIO` e não de 5,8 × 2,92 cravados: o pano
+         * de vidro É a fachada, e um literal aqui se descola em silêncio no dia
+         * em que o escritório mudar. Já aconteceu quatro vezes nesta cena. */}
+        <planeGeometry args={[ESCRITORIO.largura, ESCRITORIO.altura]} />
+        {/* A TEXTURA DO VIDRO. Ver `vidroPlano`: onda de rolo no relevo e
+         * película de sujeira na rugosidade e no alfa. O pano era uma lâmina de
+         * valor único — espelho ideal, que devolve o céu inteiro e limpo e por
+         * isso lê como chapa.
+         *
+         * `repeat` em U é a largura do pano dividida pelo ladrilho de 2,5 m: a
+         * onda de rolo tem período de metros, e amarrar a repetição a um número
+         * fixo faria a onda mudar de escala se o escritório mudasse de largura.
+         * Em V a mesma conta, e por isso a fração — a peça tem 2,92 m de altura,
+         * então se vê pouco mais de um ladrilho. */}
         <meshStandardMaterial
           color="#cfe2ee"
           roughness={0.04}
           metalness={0.28}
           envMapIntensity={1.5}
           transparent
-          opacity={0.12}
+          // 0,12 / `OPACIDADE_LIMPA`: o `alphaMap` multiplica, então dividir
+          // aqui devolve exatamente os 0,12 medidos no vidro limpo e deixa a
+          // sujeira ACRESCENTAR por cima, em vez de o pano inteiro clarear.
+          opacity={0.12 / OPACIDADE_LIMPA}
           depthWrite={false}
+          normalMap={vidroEsc.normalMap}
+          normalScale={VIDRO_RELEVO}
+          roughnessMap={vidroEsc.roughnessMap}
+          alphaMap={vidroEsc.alfa}
+          onUpdate={(m) => {
+            for (const t of [m.normalMap, m.roughnessMap, m.alphaMap]) {
+              if (!t) continue
+              t.repeat.set(ESCRITORIO.largura / LADRILHO_DO_VIDRO, ESCRITORIO.altura / LADRILHO_DO_VIDRO)
+              t.needsUpdate = true
+            }
+          }}
         />
       </mesh>
       {/* A ÚNICA LUZ ADICIONADA À CENA, e ela é necessária porque o emissivo do
@@ -3863,12 +4029,36 @@ export function Cobertura({
        * invisível: quem denuncia a balaustrada é o montante e o corrimão. */}
       <mesh position={[0, piso + 0.75, zGuardaCorpo]}>
         <planeGeometry args={[meiaLargura * 2, 0.82]} />
+        {/* A MESMA TEXTURA DO PANO DO ESCRITÓRIO, e no mesmo ladrilho de 2,5 m.
+         * Duas peças de vidro vizinhas com ondas de escalas diferentes
+         * denunciam textura na hora — e estas duas aparecem no mesmo quadro.
+         *
+         * `envMapIntensity` entrou: sem ela o guarda-corpo ficava com o valor
+         * padrão 1 enquanto o pano do escritório usava 1,5, e o de baixo não
+         * pegava o céu do entardecer. Guarda-corpo de vidro numa cobertura é,
+         * visto de frente, quase só reflexo de céu. */}
         <meshStandardMaterial
           color="#dbeaf3"
           roughness={0.06}
           metalness={0.2}
+          envMapIntensity={1.5}
           transparent
-          opacity={0.07}
+          // 0,07 / `OPACIDADE_LIMPA`: o `alphaMap` multiplica, então dividir
+          // aqui devolve exatamente os 0,07 medidos no vidro limpo e deixa a
+          // sujeira ACRESCENTAR por cima. Sem a divisão o guarda-corpo ficaria
+          // um terço mais transparente do que foi ajustado.
+          opacity={0.07 / OPACIDADE_LIMPA}
+          normalMap={vidroGuarda.normalMap}
+          normalScale={VIDRO_RELEVO}
+          roughnessMap={vidroGuarda.roughnessMap}
+          alphaMap={vidroGuarda.alfa}
+          onUpdate={(m) => {
+            for (const t of [m.normalMap, m.roughnessMap, m.alphaMap]) {
+              if (!t) continue
+              t.repeat.set((meiaLargura * 2) / LADRILHO_DO_VIDRO, 0.82 / LADRILHO_DO_VIDRO)
+              t.needsUpdate = true
+            }
+          }}
           side={THREE.DoubleSide}
           depthWrite={false}
         />

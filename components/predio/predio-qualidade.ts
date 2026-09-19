@@ -14,6 +14,8 @@ export type Capacidades = {
   perspectiva: boolean
   /** Passe de bloom sobre as fontes práticas. Ver `DEGRAU_DO_BRILHO`. */
   brilho: boolean
+  /** Oclusão de ambiente por tela. Ver `DEGRAU_DA_OCLUSAO`. */
+  oclusao: boolean
 }
 
 /**
@@ -24,7 +26,7 @@ export type Capacidades = {
  * segundos em que está chegando e rolando — para só depois ser socorrido. O
  * Pórtico já aprendeu isso; ver o comentário de `TIERS`.
  */
-export const CAPACIDADES_INICIAIS: Capacidades = { perspectiva: false, brilho: false }
+export const CAPACIDADES_INICIAIS: Capacidades = { perspectiva: false, brilho: false, oclusao: false }
 
 /** Só o degrau de estúdio paga perspectiva. */
 export const DEGRAU_DA_PERSPECTIVA = 0
@@ -46,6 +48,23 @@ export const DEGRAU_DA_PERSPECTIVA = 0
  * porque a fonte continua acesa e o halo fica em blocos.
  */
 export const DEGRAU_DO_BRILHO = 1
+
+/**
+ * ═══ A OCLUSÃO FICA NO DEGRAU MAIS ALTO, COM A PERSPECTIVA ═══
+ *
+ * E o motivo é que ela é a única capacidade desta cena que custa GEOMETRIA em
+ * vez de tela. Bloom e gradação são passes de fragmento: eles leem a imagem
+ * pronta e devolvem outra, e o custo não depende de quantas peças a cena tem.
+ * GTAO precisa de um mapa de profundidade e normais, e isso é a cena inteira
+ * desenhada de novo — 89 chamadas na cobertura, mais o datacenter, mais a
+ * cidade. Some-se o passe de oclusão e o de remoção de ruído por cima.
+ *
+ * Por isso ela acompanha `DEGRAU_DA_PERSPECTIVA` e não `DEGRAU_DO_BRILHO`: as
+ * duas coisas que multiplicam geometria ficam juntas, no mesmo degrau, e quem
+ * não sustenta uma não sustenta a outra. Junta-las também evita criar uma
+ * TERCEIRA fronteira visível para a catraca administrar.
+ */
+export const DEGRAU_DA_OCLUSAO = DEGRAU_DA_PERSPECTIVA
 
 /**
  * O estado da escada: em que degrau se está, e qual é o degrau mais alto ainda
@@ -131,6 +150,7 @@ export function capacidadesDo(degrau: number): Capacidades {
   return {
     perspectiva: dentroDaEscada && degrau <= DEGRAU_DA_PERSPECTIVA,
     brilho: dentroDaEscada && degrau <= DEGRAU_DO_BRILHO,
+    oclusao: dentroDaEscada && degrau <= DEGRAU_DA_OCLUSAO,
   }
 }
 

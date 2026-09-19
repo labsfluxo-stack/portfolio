@@ -36,7 +36,10 @@ describe('qualidade do prédio', () => {
   })
 
   it('só as duas pontas ganham perspectiva, e só com folga', () => {
-    const cheio = { perspectiva: true, brilho: true }
+    // `capacidadesDo(0)` e não um literal: um literal aqui precisa ser
+    // reescrito a cada capacidade nova, e foi o que acabou de acontecer quando a
+    // oclusão entrou. Derivado do degrau, o teste segue a definição sozinho.
+    const cheio = capacidadesDo(DEGRAU_DA_PERSPECTIVA)
     expect(temPerspectiva(0, cheio)).toBe(true)
     expect(temPerspectiva(ANDARES.length - 1, cheio)).toBe(true)
     for (let i = 1; i < ANDARES.length - 1; i++) {

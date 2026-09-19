@@ -304,7 +304,38 @@ export function comVento(
           float onda =
             sin( relogioDoVento * 1.1 + fase ) * 0.68 +
             sin( relogioDoVento * 2.3 + fase * 1.7 ) * 0.32;
-          vec3 empurra = vec3( onda, 0.0, onda * 0.42 ) * forcaDoVento * peso;
+          /**
+           * A RAJADA, e ela é o que separa vento de animação em ciclo.
+           *
+           * ═══ ATENÇÃO: NADA DE CRASE NESTE COMENTÁRIO ═══
+           * Ele vive DENTRO de um template literal de JavaScript. Uma crase aqui
+           * fecha a string no meio do GLSL, e o arquivo inteiro deixa de fazer
+           * sentido para o compilador a partir deste ponto. Já aconteceu: uma
+           * crase em torno de um nome de variável derrubou o servidor de dev com
+           * "Expected a semicolon", e os renders seguintes passaram a mostrar o
+           * último build bom — cena antiga, com peças que eu já tinha removido.
+           * Gastei duas rodadas achando que o problema era outro.
+           *
+           * As duas senóides acima dão um balanço de amplitude constante: cada
+           * folha oscila para sempre com a mesma força, e todas começam o ciclo
+           * juntas. Isso lê como mecanismo. Vento de verdade tem duas
+           * propriedades que faltavam:
+           *
+           *  · ele APERTA E AFROUXA — daí a envolvente lenta, de período longo
+           *    (0,37 rad/s, uns 17 segundos por ciclo), multiplicando a
+           *    amplitude entre 24 % e 100 %;
+           *  · e ele ATRAVESSA. O sinal negativo em pmVento.x faz a rajada
+           *    caminhar ao longo do jardim em vez de chegar em todo lugar ao
+           *    mesmo tempo. É
+           *    ver a planta vizinha começar a se mexer DEPOIS da primeira que
+           *    convence — é o que a gente reconhece olhando um campo de capim.
+           *
+           * O coeficiente 0,22 por metro dá um comprimento de onda de uns 28 m,
+           * pouco mais que o vão do terraço: a rajada varre a cena inteira em
+           * vez de aparecer como listras de plantas em fases diferentes.
+           */
+          float rajada = 0.62 + 0.38 * sin( relogioDoVento * 0.37 - pmVento.x * 0.22 );
+          vec3 empurra = vec3( onda, 0.0, onda * 0.42 ) * forcaDoVento * peso * rajada;
           mvPosition.xyz += ( viewMatrix * vec4( empurra, 0.0 ) ).xyz;
         }
         gl_Position = projectionMatrix * mvPosition;`
@@ -1687,6 +1718,278 @@ export function brilhoDeNicho(faixas: number[]): THREE.Texture {
  * tem 1, então o cordão precisa de umas dezenas de repetições para ficar na
  * escala de um filete e não de uma calha.
  */
+/**
+ * ═══ O DERRAME DE LUZ DE UMA FACHADA DE VIDRO ═══
+ *
+ * O QUE ESTAVA ERRADO: a mancha que o escritório joga no deck era a MESMA
+ * textura dos fachos de parede — um degradê radial —, esticada para 5,75 × 5,1 m.
+ * Ou seja, uma ELIPSE de quase seis metros no meio da madeira, com borda curva
+ * nítida. O dono viu na hora: "essa luz de reflexo dessa forma aí não faz
+ * sentido". Não faz mesmo, e por três razões independentes:
+ *
+ *  1. A FORMA. Luz que sai de um retângulo iluminado cai no chão como um
+ *     retângulo — na verdade um trapézio, que se abre à medida que se afasta da
+ *     abertura. Elipse é o que uma fonte PONTUAL faz. Uma parede de vidro de
+ *     5,8 m não tem nada de pontual.
+ *  2. A QUEDA. O degradê radial é mais claro no CENTRO da elipse, que ficava a
+ *     três metros da fachada. Luz é mais forte onde está mais perto da fonte, e
+ *     cai com o quadrado da distância — o máximo tem de estar colado no vidro.
+ *  3. AS SOMBRAS DOS MONTANTES. Um caixilho a cada 1,45 m corta o feixe em
+ *     faixas, e é esse listrado — mais do que o brilho — que diz ao olho que a
+ *     luz veio de uma JANELA. Sem ele, qualquer mancha clara serve.
+ *
+ * Então a textura desenha as três coisas. `v` é a distância à fachada: 0 é o pé
+ * do vidro, 1 é o alcance. As faixas nascem estreitas em `v = 0` e ABREM com a
+ * distância, porque a fonte tem largura e a penumbra cresce. E o alfa cai por
+ * uma curva de inverso do quadrado aparada, não por uma reta.
+ */
+export function derrameDeVidro(faixas: number): THREE.CanvasTexture {
+  const n = 256
+  const [cv, ctx] = tela(n)
+  // `ImageData` e não 65 mil `fillRect` de um pixel: o desenho é por pixel, e
+  // `fillRect` nessa contagem custa mais que todo o resto da montagem da cena.
+  const img = ctx.createImageData(n, n)
+
+  /**
+   * A ORIENTAÇÃO DO EIXO, e errá-la deixa o derrame de cabeça para baixo — com
+   * o máximo de luz na ponta LONGE da fachada, que é o defeito original com
+   * outra cara.
+   *
+   * A conta, escrita porque ela tem três passos e cada um inverte o sinal:
+   *   · numa textura, `v = 1` é o TOPO da imagem, ou seja a linha `y = 0`;
+   *   · num `PlaneGeometry`, `v = 1` é o lado +Y;
+   *   · o plano do derrame é deitado com `rotation = [-π/2, 0, 0]`, e essa
+   *     rotação leva +Y para −Z — que é o lado do escritório.
+   * Logo `y = 0` no canvas é o pé do vidro, e `d`, a distância à fachada, cresce
+   * com `y`. Se um dia o plano deitar por outra rotação, é aqui que se corrige.
+   */
+  for (let y = 0; y < n; y++) {
+    const d = y / (n - 1)
+    /**
+     * A QUEDA. `1/(1+kd)²` é o inverso do quadrado com a origem deslocada — sem
+     * o deslocamento ela explodiria em d = 0 e a primeira fileira de pixels
+     * ficaria estourada. O expoente 0,85 no fim achata um pouco a curva: o
+     * inverso do quadrado puro some rápido demais para uma fonte que é uma
+     * PAREDE e não um ponto, e o resultado ficava com cara de rodapé aceso.
+     */
+    const queda = Math.pow(1 / (1 + 2.6 * d) ** 2, 0.85)
+    // As pontas laterais morrem: a fachada tem 5,8 m e a luz não tem quina.
+    for (let x = 0; x < n; x++) {
+      const u = x / (n - 1)
+      const daBorda = Math.min(u, 1 - u) / 0.18
+      const lateral = Math.min(1, daBorda) ** 1.6
+      /**
+       * AS FAIXAS DOS MONTANTES, abrindo com a distância.
+       *
+       * `fase` conta quantos montantes cabem na largura; dividir por
+       * `(1 + v·1,1)` faz o passo CRESCER com a distância, que é o leque de um
+       * feixe saindo de uma abertura. A sombra também perde contraste: perto do
+       * vidro o montante bloqueia quase tudo, longe dele a penumbra já se
+       * fechou por cima da sombra.
+       */
+      const fase = (u * faixas) / (1 + d * 1.1)
+      const dente = Math.abs((((fase % 1) + 1) % 1) - 0.5) * 2
+      const nitidez = 1 - d * 0.75
+      const montante = 1 - (1 - dente ** 2.2) * 0.55 * nitidez
+
+      const nivel = Math.max(0, Math.min(1, queda * lateral * montante)) * 255
+      const i = (y * n + x) * 4
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = nivel
+      img.data[i + 3] = 255
+    }
+  }
+  ctx.putImageData(img, 0, 0)
+  // Não repete: a textura É o derrame inteiro, de ponta a ponta da fachada.
+  const tex = new THREE.CanvasTexture(cv)
+  tex.wrapS = THREE.ClampToEdgeWrapping
+  tex.wrapT = THREE.ClampToEdgeWrapping
+  return tex
+}
+
+/**
+ * ═══ O FACHO DE UM ESPETO DE JARDIM ═══
+ *
+ * MESMO ERRO DO DERRAME DO DECK, e vale registrar que ele se repetiu: o facho
+ * que sobe do espeto para a copa usava `manchaDeSombra` — um degradê RADIAL —
+ * esticado para 40 cm de largura por 2,25 m de altura. Isso não é um feixe, é
+ * uma LENTE: mais clara no meio da altura, com contorno fechado em cima e
+ * embaixo. No render lê como um cilindro de vidro fosco encostado na árvore.
+ *
+ * A forma certa de um feixe que sai de uma lente de 3 cm apontada para cima:
+ *
+ *  1. ELE É UM CONE. Estreito no pé, abrindo com a altura. Um facho de bordas
+ *     paralelas é um tubo, e tubo de luz não existe fora de ficção científica.
+ *  2. O MÁXIMO É EMBAIXO. A luz se dilui à medida que o cone abre — a mesma
+ *     área de brilho espalhada por uma seção maior. Cair com a altura não é
+ *     opcional, é o que faz o feixe "sair" da luminária em vez de pairar.
+ *  3. AS BORDAS SÃO MOLES E O PÉ É DURO. Onde o feixe encosta na lente há um
+ *     limite nítido; a lateral, não — é penumbra.
+ *
+ * `v = 0` é o pé (a lente) e `v = 1` é o topo. A textura não repete: ela É o
+ * facho inteiro, do bico ao fim do alcance.
+ */
+export function fachoDeEspeto(): THREE.CanvasTexture {
+  const n = 128
+  const [cv, ctx] = tela(n)
+  const img = ctx.createImageData(n, n)
+  for (let y = 0; y < n; y++) {
+    // Canvas: y = 0 é o topo da imagem, que é `v = 1`. A altura no feixe cresce
+    // de baixo para cima, então ela é o complemento.
+    const h = 1 - y / (n - 1)
+    // O CONE: meia-largura de 12 % no pé e 100 % no topo. A raiz quadrada faz o
+    // cone abrir depressa perto da lente e depois quase parar, que é o que uma
+    // lente com difusor faz — abertura fixa em graus vira curva quando o que se
+    // desenha é a SEÇÃO acumulada.
+    const meia = 0.12 + Math.sqrt(h) * 0.88
+    // A diluição: a mesma luz numa seção que cresce com a largura.
+    const dilui = (0.12 / meia) ** 0.72
+    // E o feixe morre antes do fim do quadro, senão ele termina numa borda reta.
+    const fim = Math.min(1, (1 - h) / 0.22 + 0.001) ** 0.6
+    for (let x = 0; x < n; x++) {
+      const u = Math.abs(x / (n - 1) - 0.5) * 2
+      // Dentro do cone, queda suave até a borda; fora, nada.
+      const lateral = u >= meia ? 0 : Math.cos(((u / meia) * Math.PI) / 2) ** 1.5
+      const nivel = Math.max(0, Math.min(1, dilui * lateral * fim)) * 255
+      const i = (y * n + x) * 4
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = nivel
+      img.data[i + 3] = 255
+    }
+  }
+  ctx.putImageData(img, 0, 0)
+  const tex = new THREE.CanvasTexture(cv)
+  tex.wrapS = THREE.ClampToEdgeWrapping
+  tex.wrapT = THREE.ClampToEdgeWrapping
+  return tex
+}
+
+/**
+ * ═══ VIDRO PLANO — a textura que faltava nos dois panos ═══
+ *
+ * O pano do escritório e o guarda-corpo eram superfícies LISAS PERFEITAS: um
+ * valor de rugosidade, nenhum relevo, nenhuma variação. Isso não é vidro, é
+ * espelho ideal — e espelho ideal devolve o céu inteiro e limpo, que é
+ * exatamente a leitura de "plástico" ou "chapa".
+ *
+ * DUAS COISAS DISTINGUEM VIDRO DE VERDADE, e as duas são de fabricação:
+ *
+ *  1. A ONDA DE ROLO. Vidro plano é feito flutuando sobre estanho e depois
+ *     puxado sobre roletes, que deixam uma ondulação suavíssima de período
+ *     longo — décimos de milímetro em alguns metros. Ninguém vê a onda; todo
+ *     mundo vê o que ela faz ao REFLEXO, que ondula de leve ao correr pela
+ *     fachada. É o detalhe mais reconhecível de prédio envidraçado em
+ *     fotografia, e nenhuma quantidade de rugosidade o substitui — rugosidade
+ *     borra o reflexo por igual, a onda o DOBRA.
+ *
+ *     Daí a onda ser anisotrópica: os roletes correm no sentido da largura da
+ *     chapa, então a ondulação é muito mais longa num eixo que no outro.
+ *
+ *  2. A SUJEIRA. Vidro ao ar livre nunca está limpo: tem película de poeira e
+ *     marca d'água, que não muda a cor mas muda a RUGOSIDADE em manchas moles.
+ *     É o que quebra o reflexo em trechos e impede a fachada de ler como uma
+ *     lâmina de valor único.
+ *
+ * `alfa` sai junto e é o que faz o vidro não ter transparência uniforme: onde
+ * há sujeira, ele é um pouco mais opaco. Sem isso, os dois efeitos acima
+ * acontecem no reflexo e nada acontece na transmissão — e vidro que reflete
+ * sujo e transmite limpo é outra coisa que o olho estranha sem saber dizer.
+ */
+/**
+ * O nível do `alphaMap` de `vidroPlano` no vidro LIMPO. Divida a opacidade
+ * desejada por isto: `opacity = 0,12 / OPACIDADE_LIMPA` devolve os mesmos 0,12
+ * onde não há sujeira, e um pouco mais onde há.
+ */
+export const OPACIDADE_LIMPA = 0.72
+
+export function vidroPlano(): {
+  normalMap: THREE.Texture
+  roughnessMap: THREE.Texture
+  alfa: THREE.Texture
+} {
+  const n = 256
+  const [altura, h] = tela(n)
+  const [rugo, r] = tela(n)
+  const [alfa, a] = tela(n)
+
+  // RELEVO: ondas longas, e a de menor período é a que corre no sentido dos
+  // roletes. As frequências são inteiras para a chapa poder ladrilhar sem
+  // costura — costura em vidro apareceria como um vinco reto, o pior artefato
+  // possível numa superfície que existe para ser lisa.
+  const img = h.createImageData(n, n)
+  const T = (Math.PI * 2) / n
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const onda =
+        Math.sin(y * 2 * T) * 1.0 +
+        Math.sin(y * 5 * T + 1.3) * 0.42 +
+        Math.sin((y * 3 + x * 1) * T + 2.1) * 0.3 +
+        // A única componente com frequência alta em X, e fraca: é o que impede
+        // a onda de virar um listrado perfeitamente horizontal.
+        Math.sin(x * 7 * T + 0.7) * 0.12
+      const v = (onda / 1.84) * 0.5 + 0.5
+      const i = (y * n + x) * 4
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v * 255
+      img.data[i + 3] = 255
+    }
+  }
+  h.putImageData(img, 0, 0)
+
+  // RUGOSIDADE: quase preto (liso) com manchas moles de sujeira.
+  r.fillStyle = '#0a0a0a'
+  r.fillRect(0, 0, n, n)
+  /**
+   * O ALFA NASCE EM 0,72, e não em zero, e essa é a armadilha deste mapa.
+   *
+   * O three multiplica: alfa final = `opacity` × canal do `alphaMap`. Com a base
+   * preta, o vidro ficaria INVISÍVEL em toda parte menos nas manchas de sujeira
+   * — exatamente o contrário do que se quer. A sujeira ACRESCENTA opacidade
+   * sobre um vidro que já tem a sua.
+   *
+   * A consequência é que quem usar este mapa precisa dividir a opacidade
+   * medida por 0,72 para o vidro limpo continuar com o valor de antes. Está
+   * escrito em `OPACIDADE_LIMPA`, ao lado, para ninguém ter de refazer a conta.
+   */
+  a.fillStyle = '#b8b8b8'
+  a.fillRect(0, 0, n, n)
+  for (let i = 0; i < 26; i++) {
+    const x = ruido(i, 91) * n
+    const y = ruido(i, 92) * n
+    const rx = n * (0.06 + ruido(i, 93) * 0.16)
+    // Achatadas na vertical: água escorre, e marca de escorrimento é vertical.
+    const ry = rx * (1.4 + ruido(i, 94) * 2.2)
+    const forca = 0.18 + ruido(i, 95) * 0.3
+    for (const [ctx, k] of [
+      [r, forca],
+      // Na transmissão a sujeira pesa menos que no reflexo: ela espalha a luz
+      // que BATE muito mais do que barra a que ATRAVESSA.
+      [a, forca * 0.45],
+    ] as const) {
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.scale(1, ry / rx)
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx)
+      g.addColorStop(0, `rgba(255,255,255,${k})`)
+      g.addColorStop(1, 'rgba(255,255,255,0)')
+      ctx.fillStyle = g
+      ctx.fillRect(-rx, -rx, rx * 2, rx * 2)
+      ctx.restore()
+    }
+  }
+
+  return {
+    /**
+     * FORÇA 0,22, e ela é baixa porque tem de ser.
+     *
+     * A onda de rolo tem décimos de milímetro em metros de chapa. O que se quer
+     * é uma inclinação minúscula — o bastante para o reflexo do céu serpentear
+     * de leve ao longo da fachada. Qualquer valor que faça a onda APARECER como
+     * relevo transformou vidro em água.
+     */
+    normalMap: normalDaAltura(altura, 0.22, 1, 1),
+    roughnessMap: acaba(rugo, 1, 1, false),
+    alfa: acaba(alfa, 1, 1, false),
+  }
+}
+
 export function veuDagua(): Superficie {
   /**
    * 512 E NÃO 256, e o motivo é o que a textura passou a ter dentro dela.

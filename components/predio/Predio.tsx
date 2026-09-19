@@ -7,6 +7,8 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
+import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
 import type { Dictionary, Locale } from '@/content/types'
 import { ANDARES, type ChaveAndar, type ObjetoDoAndar } from './predio-programa'
 import {
@@ -44,6 +46,7 @@ import { progressoDoCurso, useRepasseDeRolagem } from './predio-rolagem'
 import { TIERS, type Tier, createMeter, judge, startingStep } from '../three/portico-quality'
 import { Datacenter } from './predio-datacenter'
 import { criaAmbiente, DERIVA_DAS_NUVENS, texturaDeCeu, texturaDeNuvens } from './predio-ceu'
+import { shaderDeGradacao } from './predio-gradacao'
 import { Cobertura } from './predio-cobertura'
 import { Cidade } from './predio-cidade'
 import { comRepeticao, concretoCompartilhado } from './predio-materiais'
@@ -741,12 +744,42 @@ function AndarVivo({
 }) {
   const andar = ANDARES[indice]!
   const topo = topoDoAndar(indice)
-  const prof = perspectiva ? PROF_PERSPECTIVA : PROF_PARALLAX
+  const ehCobertura = indice === 0
+  /**
+   * ═══ A COBERTURA É SEMPRE FUNDA, E ISSO NÃO É UM PRIVILÉGIO ═══
+   *
+   * O DEFEITO: "às vezes fica mais próximo, às vezes mais distante" — com dois
+   * prints, um da cobertura em perspectiva e outro em paralaxe. Os dois são
+   * enquadramentos completamente diferentes, e a catraca da escada de qualidade
+   * só impede que eles alternem DENTRO de uma sessão; entre um carregamento e
+   * outro, a aposta é refeita e o visitante vê uma composição ou a outra.
+   *
+   * E AQUI ESTÁ O QUE EU DEVERIA TER MEDIDO ANTES DE ESCREVER A CATRACA: para a
+   * cobertura, `perspectiva` não economiza praticamente nada. Olhe o corpo deste
+   * componente — `<Cobertura>` é montada com os MESMOS argumentos e produz as
+   * MESMAS 89 chamadas de desenho nos dois casos. A única diferença é `prof`, que
+   * muda onde as coisas ficam, não quantas são. O que `perspectiva` foi criada
+   * para poupar é o conteúdo de uma SALA que só existe quando ela está ligada; a
+   * cobertura constrói o terraço inteiro de qualquer jeito.
+   *
+   * Ou seja: estávamos pagando a variação de enquadramento do primeiro quadro do
+   * site em troca de uma economia que não existe. `prof` alimenta `zCentro`,
+   * `piscinaZ`, `zDaParedeDoAndar` e o recuo de tudo que encosta no fundo — com
+   * 7 m o terraço inteiro se achata, a piscina perde metade da profundidade e o
+   * deck vazio toma a frente do quadro.
+   *
+   * A escada continua mandando no que ela sabe medir: resolução, sombra e bloom.
+   * Ela deixa de mandar na COMPOSIÇÃO.
+   *
+   * (O térreo, que é o outro andar com perspectiva, segue como estava: ali o
+   * conteúdo da sala é de fato condicional, e a economia é real.)
+   */
+  const prof = ehCobertura || perspectiva ? PROF_PERSPECTIVA : PROF_PARALLAX
   const zCentro = BORDA - prof / 2
   const zParede = BORDA - prof
   const piso = topo - PE_DIREITO
   const ar = corDoAndar(indice)
-  const cobertura = indice === 0
+  const cobertura = ehCobertura
   // O andar 07 (indice 1) deixa de ser mobilia generica e passa a ser um
   // datacenter de verdade: fileiras frente com frente, 42U no grid de norma,
   // equipamento de alturas mistas e LEDs piscando. Entra INSTANCIADO — em
@@ -1184,21 +1217,27 @@ type Alvo = {
  * Com 0,88 de limiar e 0,34 de força o passe volta a ser o que deve ser — um
  * halo em volta do que estoura, e não uma névoa por cima de tudo.
  *
- * ═══ E FALTA ALCANCE DINÂMICO DE VERDADE ═══
+ * ═══ E O ALCANCE DINÂMICO CHEGOU — os números acima são história ═══
  *
- * Fica registrado o limite real desta etapa: quase nada nesta cena passa de 1,0
- * em linear. As fontes práticas são `MeshBasicMaterial` com cor em hexadecimal,
- * e hexadecimal não passa de 1. Então "o que estoura" é uma faixa estreitíssima,
- * e qualquer limiar ou pega o céu junto ou não pega quase nada.
+ * O parágrafo que estava aqui registrava o limite: quase nada na cena passava de
+ * 1,0 em linear, porque as fontes práticas eram `MeshBasicMaterial` com cor em
+ * hexadecimal, e hexadecimal não passa de 1. "O que estoura" era uma faixa
+ * estreitíssima, e qualquer limiar ou pegava o céu junto ou não pegava nada. Daí
+ * o limiar alto e a força tímida.
  *
- * O jeito certo de resolver é dar HEADROOM às práticas — multiplicar a cor
- * delas acima de 1 para que só elas cruzem o limiar — e isso muda o brilho
- * aparente de cada peça, então é ajuste para fazer olhando, um a um. Fica como
- * próximo passo declarado, não como algo que eu tenha feito às escuras aqui.
+ * Agora as práticas têm HEADROOM: `fonte()` multiplica a cor delas em espaço
+ * linear até bem acima de 1 (ver o comentário lá). O alvo do composer é
+ * `HalfFloatType`, então esses valores sobrevivem inteiros até o passe de brilho.
+ *
+ * Com isso o limiar deixa de ser um compromisso e vira uma AFIRMAÇÃO: 1,15 está
+ * acima de qualquer superfície iluminada desta cena — o céu mais claro fica por
+ * volta de 0,8 em linear — e abaixo de todas as fontes. O passe seleciona
+ * exatamente o que emite, e a força pode dobrar sem lavar nada, porque agora ela
+ * multiplica cem pixels de lâmpada em vez de meio milhão de pixels de céu.
  */
-const BRILHO = { forca: 0.34, raio: 0.45, limiar: 0.88 } as const
+const BRILHO = { forca: 0.62, raio: 0.5, limiar: 1.15 } as const
 
-function useBrilho(ligado: boolean) {
+function useBrilho(ligado: boolean, comOclusao: boolean) {
   const gl = useThree((s) => s.gl)
   const cena = useThree((s) => s.scene)
   const camera = useThree((s) => s.camera)
@@ -1208,6 +1247,51 @@ function useBrilho(ligado: boolean) {
     if (!ligado) return null
     const c = new EffectComposer(gl)
     c.addPass(new RenderPass(cena, camera))
+    /**
+     * ═══ A OCLUSÃO DE AMBIENTE, E ELA VEM ANTES DO BRILHO ═══
+     *
+     * O QUE ELA RESOLVE. Toda superfície desta cena é iluminada como se nada
+     * estivesse ao lado dela. O vaso encosta no deck e o contato não escurece; a
+     * quina interna da jardineira tem o mesmo valor da face externa; o vão entre
+     * a laje e o parapeito é tão claro quanto o topo. A cena compensava isso com
+     * manchas pintadas no chão (`sombra()`), que resolvem o apoio e mais nada.
+     *
+     * Oclusão de ambiente é a luz do CÉU sendo bloqueada pela geometria vizinha.
+     * Num entardecer, metade da iluminação vem da abóbada inteira, e qualquer
+     * fresta vê menos céu que uma face aberta. É o efeito que põe penumbra em
+     * toda junta ao mesmo tempo — e é ele, mais que textura ou resolução, que faz
+     * uma imagem parecer FOTOGRAFADA em vez de MONTADA.
+     *
+     * A ORDEM É OBRIGATÓRIA: depois do desenho e ANTES do brilho. Escurecer uma
+     * fresta depois de o bloom já ter florescido nela deixaria o halo sem a
+     * fonte. E o passe de oclusão também não pode ver o resultado do bloom, ou a
+     * névoa contaria como geometria próxima.
+     *
+     * O RAIO É EM METROS, e é isso que amarra este número à cena. 0,45 m é a
+     * escala das juntas que importam aqui — tábua contra tábua, pé de vaso,
+     * rodapé, quina de calha. Raio grande vira sujeira nos cantos da sala; raio
+     * pequeno não alcança junta nenhuma e só serrilha a borda dos objetos.
+     *
+     * `blendIntensity` em 0,8 e não 1: oclusão cheia fecha demais um terraço a
+     * céu aberto, que é o caso com MENOS oclusão possível — não há teto em lugar
+     * nenhum. Aqui ela existe para dar contato, não para dar interior.
+     */
+    if (comOclusao) {
+      const ao = new GTAOPass(cena, camera, tamanho.width, tamanho.height)
+      ao.updateGtaoMaterial({
+        radius: 0.45,
+        distanceExponent: 1.2,
+        thickness: 0.8,
+        scale: 1,
+        // 12 amostras e não as 16 padrão: é o parâmetro que mais custa e o que
+        // menos se vê depois do passe de remoção de ruído, que já existe na
+        // cadeia do próprio GTAO e espalha o que faltou amostrar.
+        samples: 12,
+        screenSpaceRadius: false,
+      })
+      ao.blendIntensity = 0.8
+      c.addPass(ao)
+    }
     /**
      * A RESOLUÇÃO DO PASSE É METADE DA TELA, e isso não é economia: é o desenho.
      *
@@ -1222,12 +1306,17 @@ function useBrilho(ligado: boolean) {
       Math.max(1, Math.round(tamanho.height / 2)),
     )
     c.addPass(new UnrealBloomPass(meia, BRILHO.forca, BRILHO.raio, BRILHO.limiar))
+    // A GRADAÇÃO entra DEPOIS do brilho e ANTES da curva de exibição. As duas
+    // posições são obrigatórias e o porquê de cada uma está em
+    // `predio-gradacao.ts` — em resumo: o bloom precisa ver os valores HDR crus
+    // para escolher as fontes, e a gradação opera sobre LUZ, não sobre pixel.
+    c.addPass(new ShaderPass(shaderDeGradacao))
     // O `OutputPass` é quem aplica ACES e o espaço de cor no fim da cadeia. Sem
     // ele a imagem sai linear na tela: clara demais, lavada e sem a rolagem de
     // alta luz que o resto da cena foi ajustado em cima.
     c.addPass(new OutputPass())
     return c
-  }, [ligado, gl, cena, camera, tamanho.width, tamanho.height])
+  }, [ligado, comOclusao, gl, cena, camera, tamanho.width, tamanho.height])
 
   useEffect(() => {
     if (!composer) return
@@ -1294,7 +1383,7 @@ function Cena({
     luz.shadow.map = null
   }, [tier.shadow])
 
-  const brilho = useBrilho(capacidades.brilho)
+  const brilho = useBrilho(capacidades.brilho, capacidades.oclusao)
   /**
    * QUEM DESENHA A CENA PASSA A SER ESTE LAÇO, e ele é registrado SEMPRE.
    *
