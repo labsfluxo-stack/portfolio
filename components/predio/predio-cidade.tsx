@@ -140,12 +140,41 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
      * que não embaça junto com o prédio dela salta para a frente e desfaz a
      * profundidade que a névoa acabou de construir.
      */
-    // O valor tambem desceu de #ffeccd para #e3c79c. `MeshBasicMaterial` nao
-    // passa por iluminacao nenhuma, entao a cor que se escreve aqui e exatamente
-    // o pixel que sai — e branco-creme puro a 20 m e mais claro que qualquer
-    // coisa do terraco, inclusive o nicho do bar, que e a peca que DEVE ser a
-    // mais quente do quadro.
-    const mJanela = new THREE.MeshBasicMaterial({ color: '#e3c79c' })
+    /**
+     * ═══ A JANELA GANHA FAIXA DINÂMICA, E NÃO UM GANHO UNIFORME ═══
+     *
+     * O DIAGNÓSTICO QUE EU MESMO DEI ESTAVA MEIO ERRADO. Eu disse "as janelas
+     * ficaram sem headroom, um ganho de ~1,25 resolve". A conta desmente a
+     * segunda metade: `#e3c79c` em linear tem luminância 0,596, e o limiar do
+     * brilho é 1,15. Seria preciso ganho 1,93 só para a janela ENCOSTAR no
+     * limiar; 1,25 não chegaria nem perto, e a mudança seria invisível.
+     *
+     * E SUBIR TODAS ELAS ATÉ LÁ SERIA PIOR. Estas janelas estão a 20 m, não a
+     * quilômetros — são vidro devolvendo o sol rasante, não lâmpada distante.
+     * Ninguém vê halo em volta de uma janela a 20 m. Centenas delas acima do
+     * limiar produziriam exatamente a névoa sobre o skyline que fez o limiar
+     * subir para 0,88 e depois 1,15.
+     *
+     * O QUE DE FATO FALTAVA É VARIAÇÃO. Toda janela acesa tinha o mesmo valor —
+     * e valor único é o tell. Num skyline de verdade algumas poucas estouram
+     * (uma luminária encostada no vidro, uma sala com o teto todo aceso) e a
+     * grande maioria fica bem abaixo. É um HISTOGRAMA, não um nível.
+     *
+     * Então o headroom entra como FAIXA: cerca de uma em seis cruza o limiar e
+     * ganha halo; o resto vive entre 0,82 e 1,34 de ganho, abaixo dele. O
+     * resultado é um casario que cintila em pontos em vez de acender em bloco.
+     *
+     * E ISSO SÓ FICOU SEGURO AGORA. O comentário antigo aqui registrava que o
+     * valor tinha descido de `#ffeccd` para `#e3c79c` porque branco-creme puro a
+     * 20 m ficava mais claro que qualquer coisa do terraço, inclusive o nicho do
+     * bar — que deve ser a peça mais quente do quadro. Isso era verdade quando
+     * nada na cena passava de 1,0. Hoje o balizador está em 2,2 de luminância e
+     * o pendente em 2,5: o terraço subiu, e a janela mais estourada do casario
+     * (2,65 de ganho, 1,58 de luminância) continua abaixo dos dois.
+     */
+    const brilhoDeJanela = (ganho: number) => new THREE.Color('#e3c79c').multiplyScalar(ganho)
+    // Branco no material porque a cor vem da INSTÂNCIA e as duas se multiplicam.
+    const mJanela = new THREE.MeshBasicMaterial({ color: '#ffffff' })
     // Janela APAGADA nao e um buraco preto: e vidro refletindo o ceu de fim de
     // tarde, entao ela e mais CLARA que a fachada e levemente azulada. Pintar de
     // preto e o erro que faz predio distante parecer queimado.
@@ -432,12 +461,52 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
            */
           const trechos = Math.max(2, Math.round(larg / 0.5))
           for (let t = 0; t < trechos; t++)
-            if (ruido(i * 31 + t * 7 + l, f + 11) > 0.52)
-              col.poe('trechoAceso', gTrechoAceso, mJanela, [
-                x - larg * 0.42 + (t * larg * 0.84) / (trechos - 1),
-                yFita,
-                zFachada + 0.03,
-              ])
+            if (ruido(i * 31 + t * 7 + l, f + 11) > 0.52) {
+              /**
+               * O SORTEIO DO BRILHO usa uma semente DIFERENTE da que decidiu se
+               * o trecho está aceso (`f + 11` contra `f + 29`).
+               *
+               * Com a mesma semente, "aceso" e "muito aceso" ficariam
+               * correlacionados: os trechos que passaram por pouco no primeiro
+               * teste seriam sistematicamente os mais fracos no segundo, e a
+               * fachada ganharia um degradê que ninguém pediu. Duas perguntas
+               * independentes precisam de dois ruídos independentes.
+               */
+              const q = ruido(i * 31 + t * 7 + l, f + 29)
+              /**
+               * UMA EM DEZ ESTOURA, E A PRIMEIRA TENTATIVA ERA UMA EM SEIS.
+               *
+               * EU VIOLEI A MINHA PRÓPRIA REGRA DE ÁREA, que escrevi horas antes
+               * ao domar a fita do bar: o ganho tem de cair com o tamanho
+               * aparente do conjunto, porque o olho SOMA ÁREA. Uma janela isolada
+               * a 2,65 de ganho é um ponto bonito; duzentas delas espalhadas por
+               * metade do quadro viram uma segunda fonte de luz — e o render
+               * devolveu exatamente isso, com o casario roubando a atenção do
+               * terraço.
+               *
+               * É a mesma lição que o próprio comentário da fração de vidro, logo
+               * acima, já registrava: "acender demais uma superfície apaga o
+               * desenho dela". Só que ali o erro foi de fração de janelas acesas,
+               * e aqui de intensidade — e eu o cometi de novo por outra porta.
+               *
+               * Agora 10 % cruzam o limiar, e cruzam por pouco: o pico vai a 2,16
+               * de ganho (1,29 de luminância, contra 1,15 do limiar), o que dá um
+               * halo discreto em vez de estouro. E a maioria desceu de 0,82-1,34
+               * para 0,72-1,22, de modo que a média do casario voltou a ficar
+               * ABAIXO do que era antes desta mudança — o ganho da variação não
+               * pode vir como ganho de brilho geral.
+               */
+              const ganho = q > 0.9 ? 1.9 + (q - 0.9) * 2.6 : 0.72 + q * 0.5
+              col.poe(
+                'trechoAceso',
+                gTrechoAceso,
+                mJanela,
+                [x - larg * 0.42 + (t * larg * 0.84) / (trechos - 1), yFita, zFachada + 0.03],
+                [0, 0, 0],
+                [1, 1, 1],
+                brilhoDeJanela(ganho),
+              )
+            }
         }
 
         /**
