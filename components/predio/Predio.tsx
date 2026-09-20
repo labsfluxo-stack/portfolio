@@ -1507,6 +1507,12 @@ function Cena({
    */
   const alturaDaDescida = useRef(quadroDe(0).pose.y)
   const relogioDaCamera = useRef(0)
+  /**
+   * Quanto a cobertura está ABERTA como seção inteira: 1 parada no topo, 0 assim
+   * que a descida começa. Vem do mesmo `smoothstep` que levanta a câmera, e é
+   * lido pelo laço das âncoras — ver o piso de tela lá embaixo.
+   */
+  const coberturaAberta = useRef(1)
 
 
   // A terra sob o térreo: a cor da recepção puxada bem para baixo. Escura
@@ -1622,7 +1628,8 @@ function Cena({
       const fatia = Math.min(1, Math.max(0, quadro.estacao))
       const aberto = 1 - fatia * fatia * (3 - 2 * fatia)
       alvoY += Math.max(0, yQueExclui - quadro.pose.y) * aberto
-    }
+      coberturaAberta.current = aberto
+    } else coberturaAberta.current = 0
 
     /**
      * ═══ A RESPIRAÇÃO DA CÂMERA ═══
@@ -1788,7 +1795,34 @@ function Cena({
     for (const alvo of alvos.current.values()) {
       const el = alvo.el
       ndc.copy(alvo.mundo).project(camera)
-      if (ndc.z > 1 || Math.abs(ndc.y) > 1.25) {
+      /**
+       * ═══ O PISO DE TELA, E ELE EXISTE PORQUE O APARO CONTRADIZIA A CÂMERA ═══
+       *
+       * O DEFEITO, visível em todo render da cobertura: "07 / Servidores" e "Ver
+       * os sistemas em produção" pousados no canto inferior esquerdo do PRIMEIRO
+       * QUADRO DO SITE — rótulos de um andar que a câmera acabou de empurrar
+       * deliberadamente para fora do enquadramento.
+       *
+       * As duas metades do sistema discordavam. A câmera sobe, na cobertura, o
+       * quanto for preciso para o topo do andar 07 sair pela borda de baixo; é
+       * isso que faz o terraço ocupar uma seção inteira. Mas o aparo das âncoras
+       * GRAMPEIA qualquer alvo com |ndc.y| até 1,25 dentro da tela — então o
+       * rótulo do andar excluído era arrastado de volta para a borda e desenhado
+       * com 68 % de opacidade. A geometria saía; a legenda voltava.
+       *
+       * O aparo está certo no resto da descida: ele é o que mantém o objeto do
+       * andar vizinho clicável enquanto legível, que é o ponto de manter três
+       * andares vivos. Errado é aplicá-lo justamente onde a cena declarou que o
+       * vizinho não deve aparecer.
+       *
+       * `coberturaAberta` vem do MESMO `smoothstep` que levanta a câmera, então
+       * as duas metades passam a concordar por construção: enquanto a cobertura
+       * está aberta o piso sobe para −0,95 e nada de baixo é grampeado; quando a
+       * descida começa e a câmera volta ao eixo, o piso relaxa junto e o aparo
+       * volta a valer inteiro. Não há um segundo limiar para ficar fora de sincronia.
+       */
+      const pisoDaTela = -1.25 + coberturaAberta.current * 0.3
+      if (ndc.z > 1 || ndc.y > 1.25 || ndc.y < pisoDaTela) {
         el.style.opacity = '0'
         el.style.pointerEvents = 'none'
         continue
