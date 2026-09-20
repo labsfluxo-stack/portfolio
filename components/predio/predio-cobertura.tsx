@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
@@ -3619,6 +3619,44 @@ export function Cobertura({
     },
     [vidroEsc, vidroGuarda],
   )
+  /**
+   * ═══ O REFLEXO DA PISCINA — assado UMA vez, num mapa de cubo ═══
+   *
+   * O DEFEITO. A lâmina devolve o céu PINTADO de `criaAmbiente` — um degradê
+   * equirretangular com nuvem e sol, e mais nada. Só que uma piscina de cobertura
+   * ao anoitecer não reflete o céu: ela reflete o BAR ACESO. O ângulo de visão é
+   * rasante (7,8° do horizonte), e em rasante o Fresnel manda a refletividade
+   * para perto de 1 — quase tudo que se vê da água é reflexo, e o que está no
+   * caminho do reflexo é a cena, não a abóbada.
+   *
+   * POR QUE MAPA DE CUBO E NÃO REFLEXO PLANAR, que era a minha primeira ideia:
+   * reflexo planar renderiza a cena de uma câmera espelhada, e essa câmera
+   * depende de ONDE O OBSERVADOR ESTÁ. Assar um planar uma vez só valeria para
+   * uma posição de câmera — e a câmera desce durante a rolagem, então o reflexo
+   * ficaria errado no instante seguinte. Mapa de cubo é gravado de um PONTO e é
+   * independente do observador: vale para qualquer posição de câmera, para
+   * sempre. A mesma economia que eu queria, sem a premissa falsa.
+   *
+   * ASSADO NO QUADRO 8 E NÃO NA MONTAGEM. Ele precisa que a cena JÁ ESTEJA na
+   * árvore — o bar, o escritório, as árvores, a cidade e o céu entram por
+   * `useEffect`, depois do primeiro render. Gravar cedo demais devolveria um
+   * cubo com metade do terraço faltando, e isso não dá erro nenhum: dá um
+   * reflexo pobre que ninguém sabe explicar.
+   *
+   * O CUSTO É UM SOLAVANCO ÚNICO de seis faces, no começo, e zero por quadro
+   * depois. Contra o planar, que seria uma renderização inteira da cena a cada
+   * quadro — era isso ou não ter reflexo.
+   */
+  const [espelhoDaAgua, setEspelhoDaAgua] = useState<THREE.Texture | null>(null)
+  const lamina = useRef<THREE.Mesh>(null)
+  const quadrosAteAssar = useRef(0)
+  useEffect(
+    () => () => {
+      espelhoDaAgua?.dispose()
+    },
+    [espelhoDaAgua],
+  )
+
   const relogioDaAgua = useRef({ value: 0 }).current
   const [caustica, caustica2] = useMemo(() => [causticas(), causticas()], [])
   useEffect(
@@ -3652,7 +3690,46 @@ export function Cobertura({
    * no render — foi o dono quem apontou. Fica escrito porque o próximo a mexer
    * aqui vai ter exatamente a mesma dúvida.
    */
-  useFrame((_, delta) => {
+  useFrame(({ gl }, delta) => {
+    /**
+     * A GRAVAÇÃO DO CUBO, e ela acontece exatamente uma vez.
+     *
+     * A LÂMINA SAI DA CENA DURANTE A GRAVAÇÃO, e sem isso o efeito se come: uma
+     * superfície refletora gravando um mapa que ela mesma vai usar enxerga a si
+     * própria, e o que entra no cubo é o buraco preto dela em vez do que está
+     * atrás. É o equivalente de apontar a câmera para o monitor que a exibe.
+     *
+     * A CÂMERA FICA MEIO METRO ACIMA DA LÂMINA, não sobre ela. Colada na água,
+     * a metade de baixo do cubo seria o fundo do tanque a dois centímetros — um
+     * borrão azul ocupando três faces. Meio metro põe o horizonte do cubo na
+     * altura de quem olha a água de pé, que é de onde vêm os raios que importam.
+     */
+    if (quadrosAteAssar.current >= 0) {
+      quadrosAteAssar.current += 1
+      if (quadrosAteAssar.current === 8) {
+        quadrosAteAssar.current = -1
+        const visivel = lamina.current?.visible
+        if (lamina.current) lamina.current.visible = false
+        // 256 por face basta: o reflexo é visto através de uma normal que o
+        // quebra em ondulação, e resolução de reflexo que ninguém consegue
+        // seguir com o olho é memória de vídeo jogada fora. Meio-float porque a
+        // cena tem fontes acima de 1 e um cubo de 8 bits as cortaria em branco,
+        // matando justamente o brilho do bar que este mapa existe para trazer.
+        const alvo = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType })
+        const cubo = new THREE.CubeCamera(0.3, 80, alvo)
+        cubo.position.set(piscina.x, piso + 0.5, zEspelho)
+        cubo.update(gl, scene)
+        // O PMREM não é opcional: mapa cru só serve para espelho perfeito, e a
+        // lâmina tem rugosidade 0,3. É ele que pré-filtra por nível de aspereza
+        // para o reflexo embaçar na medida certa em vez de ficar de vidro.
+        const pmrem = new THREE.PMREMGenerator(gl)
+        const filtrado = pmrem.fromCubemap(alvo.texture)
+        pmrem.dispose()
+        alvo.dispose()
+        if (lamina.current) lamina.current.visible = visivel ?? true
+        setEspelhoDaAgua(filtrado.texture)
+      }
+    }
     // O passo é limitado porque `delta` estoura quando a aba volta do segundo
     // plano, e um salto de meio segundo teleportaria a queda.
     const passo = Math.min(delta, 0.05)
@@ -3949,7 +4026,11 @@ export function Cobertura({
        * a torna reconhecível é o reflexo QUEBRANDO em ondulação. Com a
        * superfície lisa, o reflexo do céu fica inteiro e limpo, e lâmina de
        * reflexo limpo lê como vidro ou como chapa — nunca como água. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[piscina.x, piso + 0.06, zEspelho]}>
+      <mesh
+        ref={lamina}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[piscina.x, piso + 0.06, zEspelho]}
+      >
         <planeGeometry args={[piscina.largura, piscina.profundidade]} />
         {/* A ONDULAÇÃO VIVA. O mapa de normal parado saía como vidro martelado:
          * o que o olho usa para reconhecer água é o reflexo QUEBRANDO e se
@@ -3962,9 +4043,40 @@ export function Cobertura({
          * novo por cima do anterior a cada quadro. */}
         <meshStandardMaterial
           color="#2d8ba1"
-          roughness={0.3}
-          metalness={0.05}
-          envMapIntensity={0.9}
+          /**
+           * RUGOSIDADE 0,18 E NÃO 0,3, e a mudança é consequência direta do
+           * reflexo novo.
+           *
+           * O 0,3 foi ajustado contra um ambiente CHAPADO — o céu pintado, que
+           * é quase uniforme. Contra um fundo sem contraste, rugosidade alta era
+           * o único jeito de a lâmina não virar espelho de chapa. Com o mapa de
+           * cubo, o ambiente passou a ter bar aceso, escritório, árvore e
+           * parapeito: há contraste de sobra, e agora é a rugosidade que
+           * atrapalha — ela BORRA o reflexo e apaga justamente a variação que a
+           * ondulação deveria produzir. O primeiro render com o cubo mostrou
+           * isso: metade esquerda da piscina virou um turquesa liso.
+           *
+           * Água é lisa. Com 0,18 o reflexo fica nítido o bastante para os dois
+           * trens de onda o quebrarem em cintilação — e é a cintilação, não a
+           * cor, que se lê como superfície líquida.
+           */
+          roughness={0.18}
+          /**
+           * `metalness` 0,25 e não 0,05, e a subida é consequência do reflexo
+           * novo. Em `MeshStandardMaterial` é ela que diz quanto do `envMap`
+           * entra: com 0,05 o mapa de cubo recém-gravado chegaria à água como um
+           * sussurro, e o bar aceso — que é a razão inteira de gravá-lo — não
+           * apareceria. Água não é metal, mas vista em rasante ela se comporta
+           * como um, e é esse comportamento que o número está imitando.
+           *
+           * `envMap` só existe depois do quadro 8. Até lá a lâmina cai no
+           * ambiente da cena, que é o céu pintado — ou seja, exatamente como ela
+           * era antes. A transição acontece uma vez, nos primeiros instantes,
+           * antes de qualquer rolagem.
+           */
+          metalness={0.25}
+          envMap={espelhoDaAgua}
+          envMapIntensity={1.15}
           transparent
           opacity={0.86}
           normalMap={ondaDagua}

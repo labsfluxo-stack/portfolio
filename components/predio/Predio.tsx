@@ -47,6 +47,7 @@ import { TIERS, type Tier, createMeter, judge, startingStep } from '../three/por
 import { Datacenter } from './predio-datacenter'
 import { criaAmbiente, DERIVA_DAS_NUVENS, texturaDeCeu, texturaDeNuvens } from './predio-ceu'
 import { shaderDeGradacao } from './predio-gradacao'
+import { shaderDeFoco } from './predio-foco'
 import { Cobertura } from './predio-cobertura'
 import { Cidade } from './predio-cidade'
 import { comRepeticao, concretoCompartilhado } from './predio-materiais'
@@ -1237,6 +1238,26 @@ type Alvo = {
  */
 const BRILHO = { forca: 0.62, raio: 0.5, limiar: 1.15 } as const
 
+/**
+ * Um passe de tela cheia não participa do teste de profundidade, e o three não
+ * assume isso por conta própria.
+ *
+ * `ShaderPass` monta um `ShaderMaterial` com os padrões da classe —
+ * `depthTest` e `depthWrite` LIGADOS — e não limpa o alvo antes de desenhar. O
+ * resultado é um quadrilátero em z = 0 sendo testado contra a profundidade que
+ * sobrou do passe anterior, e escrevendo por cima dela. Nos alvos do pingue-
+ * pongue isso vai de inofensivo a destrutivo dependendo do que ficou no buffer,
+ * e o modo de falha é o pior que há: intermitente e sem erro.
+ *
+ * Passe de pós-processamento é uma operação sobre uma IMAGEM. Ele não tem
+ * posição no mundo, e portanto não tem o que testar nem o que registrar.
+ */
+function semProfundidade(passe: ShaderPass) {
+  const m = passe.material as THREE.Material
+  m.depthTest = false
+  m.depthWrite = false
+}
+
 function useBrilho(ligado: boolean, comOclusao: boolean) {
   const gl = useThree((s) => s.gl)
   const cena = useThree((s) => s.scene)
@@ -1245,7 +1266,51 @@ function useBrilho(ligado: boolean, comOclusao: boolean) {
 
   const composer = useMemo(() => {
     if (!ligado) return null
-    const c = new EffectComposer(gl)
+    /**
+     * O ALVO DO COMPOSER É NOSSO, e ele carrega um `DepthTexture`.
+     *
+     * A lente (`predio-foco.ts`) precisa saber a que distância está cada pixel.
+     * A alternativa seria desenhar a cena outra vez num material de
+     * profundidade — uma passagem de geometria inteira, e a oclusão já cobra
+     * uma. Mas o desenho normal JÁ escreve profundidade no z-buffer e a joga
+     * fora no fim do quadro; pedir que ela seja guardada numa textura custa
+     * memória e nenhum desenho.
+     *
+     * `HalfFloatType` porque é o que o `EffectComposer` usaria sozinho, e a cena
+     * tem fontes acima de 1: um alvo de 8 bits as cortaria antes do brilho.
+     */
+    const alvo = new THREE.WebGLRenderTarget(
+      Math.max(1, tamanho.width),
+      Math.max(1, tamanho.height),
+      { type: THREE.HalfFloatType },
+    )
+    alvo.depthTexture = new THREE.DepthTexture(
+      Math.max(1, tamanho.width),
+      Math.max(1, tamanho.height),
+    )
+    const c = new EffectComposer(gl, alvo)
+    /**
+     * ═══ O SEGUNDO ALVO NÃO PODE DIVIDIR A TEXTURA DE PROFUNDIDADE ═══
+     *
+     * E esta linha é a correção de um defeito real, achado lendo a fonte do
+     * `EffectComposer` depois de a lente sair borrando tudo por igual.
+     *
+     * O composer faz `renderTarget2 = renderTarget.clone()`, e `copy()` de um
+     * `WebGLRenderTarget` copia `depthTexture` POR REFERÊNCIA. Os dois alvos do
+     * pingue-pongue passam a apontar para a MESMA textura de profundidade.
+     *
+     * A consequência é uma realimentação: a lente lê `tDepth` ao mesmo tempo em
+     * que essa textura está ligada como anexo de profundidade do alvo em que ela
+     * está escrevendo. Ler e escrever a mesma textura no mesmo desenho é
+     * comportamento indefinido em OpenGL — não dá erro, dá lixo. Foi por isso
+     * que mudar a abertura de 0,85 para 0,28 não mudou nada no render: o raio
+     * não vinha da fórmula, vinha de uma leitura corrompida.
+     *
+     * Zerando aqui, o alvo 2 passa a usar um renderbuffer de profundidade
+     * próprio, e a textura fica sendo só o que ela devia ser: o registro do que
+     * o `RenderPass` desenhou.
+     */
+    c.renderTarget2.depthTexture = null
     c.addPass(new RenderPass(cena, camera))
     /**
      * ═══ A OCLUSÃO DE AMBIENTE, E ELA VEM ANTES DO BRILHO ═══
@@ -1305,12 +1370,37 @@ function useBrilho(ligado: boolean, comOclusao: boolean) {
       Math.max(1, Math.round(tamanho.width / 2)),
       Math.max(1, Math.round(tamanho.height / 2)),
     )
+    /**
+     * A LENTE, e ela vem ANTES do brilho de propósito.
+     *
+     * Num sistema óptico de verdade a luz atravessa a lente e SÓ DEPOIS espalha
+     * no vidro e no sensor. Então o que floresce é a imagem já desfocada — um
+     * ponto de luz fora de foco vira um disco, e é esse disco que ganha halo.
+     * Invertendo a ordem, o brilho sairia de um ponto nítido e o borrão viria
+     * por cima: halo redondo perfeito em volta de uma fonte borrada, que é
+     * exatamente a cara de efeito colado em pós-produção.
+     *
+     * A lente também acompanha a oclusão no mesmo degrau, e não por afinidade:
+     * ela depende do `DepthTexture` do alvo, que só existe quando o composer
+     * existe, e o composer inteiro é a fronteira do brilho.
+     */
+    if (comOclusao && camera instanceof THREE.PerspectiveCamera) {
+      const lente = new ShaderPass(shaderDeFoco(camera))
+      // `noUncheckedIndexedAccess` está ligado e uniforme é índice de string: o
+      // `!` afirma o que `shaderDeFoco` garante, em vez de afrouxar a checagem.
+      lente.uniforms.tDepth!.value = alvo.depthTexture
+      lente.uniforms.proporcao!.value = tamanho.width / Math.max(1, tamanho.height)
+      semProfundidade(lente)
+      c.addPass(lente)
+    }
     c.addPass(new UnrealBloomPass(meia, BRILHO.forca, BRILHO.raio, BRILHO.limiar))
     // A GRADAÇÃO entra DEPOIS do brilho e ANTES da curva de exibição. As duas
     // posições são obrigatórias e o porquê de cada uma está em
     // `predio-gradacao.ts` — em resumo: o bloom precisa ver os valores HDR crus
     // para escolher as fontes, e a gradação opera sobre LUZ, não sobre pixel.
-    c.addPass(new ShaderPass(shaderDeGradacao))
+    const gradacao = new ShaderPass(shaderDeGradacao)
+    semProfundidade(gradacao)
+    c.addPass(gradacao)
     // O `OutputPass` é quem aplica ACES e o espaço de cor no fim da cadeia. Sem
     // ele a imagem sai linear na tela: clara demais, lavada e sem a rolagem de
     // alta luz que o resto da cena foi ajustado em cima.
@@ -1354,6 +1444,13 @@ function Cena({
   const planos = useRef<(THREE.Group | null)[]>([])
   const primeiroQuadro = useRef(true)
   const ultimoAndar = useRef(-1)
+  /**
+   * A altura que a DESCIDA quer, sem o sopro da câmera somado. Ver a respiração
+   * no laço de quadro: manter as duas separadas é o que impede o sopro de
+   * realimentar o amortecimento da rolagem.
+   */
+  const alturaDaDescida = useRef(quadroDe(0).pose.y)
+  const relogioDaCamera = useRef(0)
 
 
   // A terra sob o térreo: a cor da recepção puxada bem para baixo. Escura
@@ -1471,12 +1568,46 @@ function Cena({
       alvoY += Math.max(0, yQueExclui - quadro.pose.y) * aberto
     }
 
-    // TODO O MOVIMENTO ACONTECE AQUI. Em nenhum `useEffect`.
+    /**
+     * ═══ A RESPIRAÇÃO DA CÂMERA ═══
+     *
+     * Plano de cinema nunca está perfeitamente parado. Mesmo numa cabeça
+     * fluida, mesmo num travelling, sobra uma deriva de milímetros — e o olho
+     * conhece essa deriva sem saber que conhece. Imagem de imobilidade
+     * ARITMÉTICA só existe em render, e é um dos tells mais fortes que há.
+     *
+     * Três centímetros em X, dois em Y, com dois períodos incomensuráveis (11 e
+     * 17 segundos) para o ciclo não fechar e o movimento não virar um vaivém
+     * reconhecível. A três metros da cena isso é meio grau de arco: ninguém
+     * consegue apontar, todo mundo sente.
+     *
+     * DUAS PRECAUÇÕES, e as duas são de correção e não de gosto:
+     *
+     *  · `semInercia` desliga a respiração inteira. Quem pede movimento reduzido
+     *    está pedindo isto também — talvez sobretudo isto, porque é movimento
+     *    que não responde a nenhuma ação de quem assiste.
+     *
+     *  · O AMORTECIMENTO LÊ DE UM `ref`, NÃO DA CÂMERA. Se ele continuasse
+     *    lendo `camera.position.y`, estaria lendo a altura JÁ RESPIRADA e
+     *    tentando amortecê-la em direção ao alvo — a respiração entraria na
+     *    malha de realimentação da rolagem e viraria oscilação, com período e
+     *    amplitude que ninguém pediu. A altura da descida e o sopro da câmera
+     *    somam-se no fim; nunca se misturam antes.
+     */
+    alturaDaDescida.current = semInercia
+      ? alvoY
+      : amortecer(alturaDaDescida.current, alvoY, delta)
+    const t = relogioDaCamera.current + delta
+    relogioDaCamera.current = t
+    const sopro = semInercia ? 0 : 1
     camera.position.set(
-      0,
-      semInercia ? alvoY : amortecer(camera.position.y, alvoY, delta),
+      Math.sin(t / 11) * 0.03 * sopro,
+      alturaDaDescida.current + Math.sin(t / 17 + 1.3) * 0.02 * sopro,
       quadro.pose.z,
     )
+    // `lookAt` continua mirando a MESMA altura da câmera: o passeio em X gera um
+    // giro minúsculo, que é o que uma cabeça de tripé faz, e o passeio em Y não
+    // gera inclinação nenhuma — a cena continua sem pitch, como sempre foi.
     camera.lookAt(0, camera.position.y, 0)
     // A matriz precisa estar fresca ANTES da projeção das âncoras lá embaixo:
     // o r3f só atualiza o grafo depois deste callback, então sem esta linha as
