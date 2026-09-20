@@ -599,7 +599,65 @@ function useQualidade(vsync: number): {
  * `useLayoutEffect` e não `useEffect`: com o segundo, o primeiro quadro sai na
  * lente de partida e o enquadramento "pula" uma vez ao abrir a página.
  */
-const ABERTURA = { alvo: 8.6, min: 40, max: 62 } as const
+/**
+ * ═══ `alvo` ERA 8,6 E NÃO MANDAVA EM NADA ═══
+ *
+ * O QUE ELE SIGNIFICA: a meia-largura, em metros, que se quer enquadrar no plano
+ * da frente do prédio. É o parâmetro que traduz "sem margem lateral" em lente.
+ *
+ * COMO ELE MORREU. 8,6 foi calibrado quando `RECUO` valia 11,5 m. Só que
+ * `RECUO`, aqui, é `quadroDe(0).pose.z` — e esse número deixou de ser 11,5 no
+ * dia em que a descida ganhou AVANÇO de câmera: a câmera passa a CHEGAR quando
+ * assenta num andar, e em repouso na cobertura ela está a 5,9 m, não a 11,5.
+ * Ninguém veio revisar `alvo`.
+ *
+ * A CONSEQUÊNCIA, medida: pedir 8,6 m de meia-largura a 5,9 m de distância exige
+ * uma lente de 78,7°, e o teto é 62. Ou seja, a conta estourava o limite em
+ * QUALQUER proporção de tela até ultrawide, e o que a cena usava era o teto — um
+ * número escolhido para proteger o retrato de celular, virado padrão de todo
+ * mundo. `alvo` podia valer 8,6 ou 40 que o resultado seria o mesmo.
+ *
+ * É a sétima ocorrência da mesma armadilha nesta cena: constante calibrada
+ * contra um valor que mudou depois, em outro arquivo, sem que nada quebrasse.
+ *
+ * ═══ 6,30 E NÃO OUTRO NÚMERO, E A ESCOLHA É DELIBERADA ═══
+ *
+ * 6,30 é EXATAMENTE a meia-largura que o teto de 62° já entrega em 16:9:
+ *   tan(31°) × 5,9 × (16/9) = 0,6009 × 10,489 = 6,30.
+ *
+ * Ou seja, em tela larga comum o enquadramento não muda um pixel. Isso é o
+ * ponto: a correção é de SIGNIFICADO, não de composição — o enquadramento atual
+ * é o que o dono aprovou olhando, e reenquadrar a home seria decisão dele, não
+ * consequência de eu ter achado um número morto.
+ *
+ * O QUE MUDA é o comportamento fora de 16:9. Com a lente presa no teto, a
+ * cobertura horizontal CRESCIA com a largura da janela: tela ultrawide via mais
+ * terraço, tela quadrada via menos. Com `alvo` valendo de novo, a vertical se
+ * ajusta para manter os 6,30 m constantes — que é a definição de "sem margem
+ * lateral" e a razão de este parâmetro existir. Em retrato de celular a conta
+ * continua estourando o teto, e ali o prédio sangra pelas laterais de propósito.
+ */
+const ABERTURA = { alvo: 6.3, min: 40, max: 62 } as const
+
+/**
+ * A lente vertical, em graus, para uma proporção de tela.
+ *
+ * Exportada e pura porque é ARITMÉTICA, e aritmética sobre constantes é a única
+ * parte disto que uma suíte consegue guardar. `alvo` já morreu uma vez em
+ * silêncio — calibrado contra um `RECUO` que mudou em outro arquivo — e o que
+ * mata esse tipo de defeito é uma afirmação escrita sobre o resultado, não um
+ * comentário. Ver `tests/unit/predio-lente.test.ts`.
+ */
+export function lenteVertical(aspecto: number): number {
+  const vertical = (2 * Math.atan(ABERTURA.alvo / RECUO / Math.max(0.01, aspecto)) * 180) / Math.PI
+  return Math.min(ABERTURA.max, Math.max(ABERTURA.min, vertical))
+}
+
+/** Quantos metros de meia-largura a lente enquadra no plano da frente. */
+export function meiaLarguraEnquadrada(aspecto: number): number {
+  const meiaVertical = (lenteVertical(aspecto) / 2) * (Math.PI / 180)
+  return Math.tan(meiaVertical) * aspecto * RECUO
+}
 
 function Enquadramento() {
   const camera = useThree((state) => state.camera)
@@ -608,9 +666,7 @@ function Enquadramento() {
 
   useLayoutEffect(() => {
     if (!(camera instanceof THREE.PerspectiveCamera)) return
-    const aspecto = largura / Math.max(1, altura)
-    const vertical = (2 * Math.atan(ABERTURA.alvo / RECUO / aspecto) * 180) / Math.PI
-    camera.fov = Math.min(ABERTURA.max, Math.max(ABERTURA.min, vertical))
+    camera.fov = lenteVertical(largura / Math.max(1, altura))
     camera.updateProjectionMatrix()
   }, [camera, largura, altura])
 
