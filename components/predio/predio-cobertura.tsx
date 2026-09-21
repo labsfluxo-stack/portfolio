@@ -882,6 +882,42 @@ export function Cobertura({
       piso + 0.5,
       1.7,
     )
+    /**
+     * ═══ A MESMA FOLHA, SEM VENTO — e ela existe para a planta de DENTRO ═══
+     *
+     * O DEFEITO: a planta do escritório dividia `mFolhaLarga` com os arbustos do
+     * canteiro, e junto com o recorte da folha ela herdava o balanço. Ou seja, um
+     * vaso atrás de um pano de vidro selado, num volume com forro e ar
+     * condicionado, tinha as folhas oscilando ao vento do terraço.
+     *
+     * NÃO É INVISÍVEL: a amplitude chega a uns 5 cm, e a essa distância a planta
+     * inteira ocupa ~40 px — o movimento dá uns 4 px. É pouco para alguém
+     * apontar e suficiente para a sala não parecer fechada, que é justamente o
+     * que o pano de vidro existe para dizer.
+     *
+     * É a mesma classe de erro de `mGalhoOliva` servindo raminho de copa e haste
+     * de arbusto ao mesmo tempo: um material compartilhado por peças que vivem em
+     * CONDIÇÕES diferentes. Ali o problema era a altura de engaste; aqui é estar
+     * dentro ou fora do edifício.
+     *
+     * CUSTO ZERO EM CHAMADAS DE DESENHO. A folha da planta interna já tem chave
+     * própria no coletor (`escFolhaPlanta`), então ela já era uma `InstancedMesh`
+     * separada — o que se separa aqui é só o objeto de material. E o shader sai
+     * mais simples, sem a injeção do vértice.
+     */
+    const mFolhaInterna = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.78,
+      side: THREE.DoubleSide,
+      map: recorteDeFolhaLarga.mapa,
+      alphaMap: recorteDeFolhaLarga.alfa,
+      normalMap: recorteDeFolhaLarga.normal,
+      normalScale: new THREE.Vector2(0.6, 0.6),
+      roughnessMap: recorteDeFolhaLarga.rugosidade,
+      alphaTest: 0.45,
+      emissive: new THREE.Color('#4a6b32'),
+      emissiveIntensity: 0.1,
+    })
     // Madeira de oliveira e CLARA e acinzentada, nao marrom escura.
     // Nucleo da copa: solido e fosco, so para dar massa escura atras das folhas.
     // FRONDE: mesmo recorte por alfa da folha, com a silhueta pinada propria.
@@ -2698,7 +2734,8 @@ export function Cobertura({
       col.poe(
         'escFolhaPlanta',
         gFolhaLarga,
-        mFolhaLarga,
+        // Sem vento: ela está DENTRO da caixa de vidro. Ver `mFolhaInterna`.
+        mFolhaInterna,
         [xPlanta + Math.sin(a) * r, piso + 0.55 + ruido(f, 722) * 1.25, zPlanta + Math.cos(a) * r * 0.8],
         [ruido(f, 723) * 3, ruido(f, 724) * 6, ruido(f, 725) * 3],
         [1.5, 1.5, 1],
