@@ -1376,6 +1376,34 @@ const BRILHO = { forca: 0.62, raio: 0.5, limiar: 1.15 } as const
  * Passe de pós-processamento é uma operação sobre uma IMAGEM. Ele não tem
  * posição no mundo, e portanto não tem o que testar nem o que registrar.
  */
+/**
+ * Faz o passe ler a profundidade DO BUFFER QUE ELE ESTÁ LENDO, a cada quadro.
+ *
+ * É a única forma de acertar isto sem depender da paridade da cadeia. O
+ * `EffectComposer` alterna os dois alvos e NÃO os reinicia no começo do quadro,
+ * então com um número ímpar de passes que alternam a cena cai ora num, ora no
+ * outro. Amarrar a textura de profundidade num alvo fixo acerta em metade dos
+ * quadros e produz laço de realimentação na outra metade — que é o que fazia a
+ * tela piscar preto.
+ *
+ * Lendo `readBuffer.depthTexture` no momento do desenho, a pergunta deixa de ser
+ * "em qual alvo a cena está?" e passa a ser "de onde eu estou lendo?", que o
+ * próprio composer responde. E como o passe escreve no OUTRO alvo, que tem
+ * textura de profundidade própria, não há como reler o que se escreve.
+ *
+ * A resolução vem junto e pelo mesmo motivo: ela precisa ser a do buffer de
+ * desenho, não a da janela em pixels de CSS. Com `dpr` 2 as duas diferem por
+ * um fator de dois, e `1/resolucao` é o passo de vizinho que a normal usa.
+ */
+function comProfundidadeDoAlvo(passe: ShaderPass) {
+  const original = passe.render.bind(passe)
+  passe.render = (renderer, writeBuffer, readBuffer, deltaTime, maskActive) => {
+    passe.uniforms.tDepth!.value = readBuffer.depthTexture
+    passe.uniforms.resolucao!.value.set(readBuffer.width, readBuffer.height)
+    original(renderer, writeBuffer, readBuffer, deltaTime, maskActive)
+  }
+}
+
 function semProfundidade(passe: ShaderPass) {
   const m = passe.material as THREE.Material
   m.depthTest = false
@@ -1414,27 +1442,44 @@ function useBrilho(ligado: boolean, comOclusao: boolean) {
     )
     const c = new EffectComposer(gl, alvo)
     /**
-     * ═══ O SEGUNDO ALVO NÃO PODE DIVIDIR A TEXTURA DE PROFUNDIDADE ═══
+     * ═══ CADA ALVO COM A SUA PRÓPRIA TEXTURA DE PROFUNDIDADE ═══
      *
-     * E esta linha é a correção de um defeito real, achado lendo a fonte do
-     * `EffectComposer` depois de a lente sair borrando tudo por igual.
+     * Esta linha é a correção de um defeito que me custou duas tentativas
+     * erradas, e o erro foi de SUPOSIÇÃO — eu não tinha lido a fonte.
      *
-     * O composer faz `renderTarget2 = renderTarget.clone()`, e `copy()` de um
-     * `WebGLRenderTarget` copia `depthTexture` POR REFERÊNCIA. Os dois alvos do
-     * pingue-pongue passam a apontar para a MESMA textura de profundidade.
+     * TRÊS FATOS DO `EffectComposer`, todos contraintuitivos:
      *
-     * A consequência é uma realimentação: a lente lê `tDepth` ao mesmo tempo em
-     * que essa textura está ligada como anexo de profundidade do alvo em que ela
-     * está escrevendo. Ler e escrever a mesma textura no mesmo desenho é
-     * comportamento indefinido em OpenGL — não dá erro, dá lixo. Foi por isso
-     * que mudar a abertura de 0,85 para 0,28 não mudou nada no render: o raio
-     * não vinha da fórmula, vinha de uma leitura corrompida.
+     *  1. Ele inicializa `writeBuffer = renderTarget1` e `readBuffer =
+     *     renderTarget2`. O alvo que a gente entrega no construtor NÃO é o
+     *     primeiro a receber o desenho.
+     *  2. `RenderPass` tem `needsSwap = false` e desenha no READBUFFER, não no
+     *     write. Ou seja, a cena vai para o `renderTarget2`.
+     *  3. `renderTarget2 = renderTarget1.clone()`, e `copy()` copia
+     *     `depthTexture` POR REFERÊNCIA — os dois passam a apontar para a mesma.
      *
-     * Zerando aqui, o alvo 2 passa a usar um renderbuffer de profundidade
-     * próprio, e a textura fica sendo só o que ela devia ser: o registro do que
-     * o `RenderPass` desenhou.
+     * E O QUE FECHA A ARMADILHA É A PARIDADE. Esta cadeia tem TRÊS passes que
+     * alternam (profundidade, gradação, saída). Três é ímpar, então os buffers
+     * terminam o quadro TROCADOS e o quadro seguinte começa invertido. A cena é
+     * desenhada ora num alvo, ora no outro.
+     *
+     * Com uma textura de profundidade só, isso dá exatamente o defeito que o
+     * dono reportou: num quadro a profundidade é escrita e lida certo; no
+     * seguinte a cena foi para o outro alvo, a textura está velha, e o passe a
+     * amostra ENQUANTO escreve no alvo dela — laço de realimentação, que o WebGL
+     * acusa como `GL_INVALID_OPERATION`. Alternando. Isso é piscar.
+     *
+     * A minha primeira "correção" foi anular a profundidade do `renderTarget2`,
+     * que é justamente o alvo onde o `RenderPass` desenha primeiro. Piorou.
+     *
+     * A CORREÇÃO CERTA não tenta adivinhar a paridade: cada alvo ganha a SUA
+     * textura, e o passe lê a do buffer que está lendo (ver `comProfundidadeDoAlvo`).
+     * Assim funciona em qualquer paridade, e continua funcionando se alguém
+     * acrescentar ou remover um passe amanhã.
      */
-    c.renderTarget2.depthTexture = null
+    c.renderTarget2.depthTexture = new THREE.DepthTexture(
+      Math.max(1, tamanho.width),
+      Math.max(1, tamanho.height),
+    )
     c.addPass(new RenderPass(cena, camera))
     /**
      * ═══ O PASSE DE PROFUNDIDADE — OCLUSÃO E LENTE JUNTAS, ANTES DO BRILHO ═══
@@ -1450,21 +1495,20 @@ function useBrilho(ligado: boolean, comOclusao: boolean) {
      * atravessa a lente e SÓ DEPOIS espalha no vidro, então o que floresce é a
      * imagem já desfocada.
      *
-     * POR QUE UM PASSE SÓ: o composer alterna entre dois alvos, e apenas UM
-     * deles carrega a textura de profundidade. Um segundo passe que a lesse
-     * cairia na fase em que escreve nesse mesmo alvo — laço de realimentação,
-     * que o WebGL acusa como GL_INVALID_OPERATION. O traçado completo, e o que
-     * se perde ao derivar a normal da profundidade em vez de desenhá-la, estão
-     * em predio-profundidade.ts.
+     * POR QUE UM PASSE SÓ: cada passe que lê profundidade precisa estar lendo do
+     * buffer onde a cena acabou de ser desenhada, e escrevendo no outro. Com dois
+     * passes em sequência, o segundo lê a saída do primeiro — que não tem
+     * profundidade de cena nenhuma. Fundir resolve isso e ainda lê a
+     * profundidade uma vez em vez de duas. O traçado completo, e o que se perde
+     * ao derivar a normal da profundidade em vez de desenhá-la, estão em
+     * predio-profundidade.ts.
      */
     if (comOclusao && camera instanceof THREE.PerspectiveCamera) {
       const profundidade = new ShaderPass(shaderDeProfundidade(camera))
-      profundidade.uniforms.tDepth!.value = alvo.depthTexture
-      profundidade.uniforms.resolucao!.value = new THREE.Vector2(
-        Math.max(1, tamanho.width),
-        Math.max(1, tamanho.height),
-      )
       profundidade.uniforms.proporcao!.value = tamanho.width / Math.max(1, tamanho.height)
+      // `tDepth` e `resolucao` são ligados A CADA QUADRO, ao buffer de leitura —
+      // ver `comProfundidadeDoAlvo` para por que um alvo fixo pisca.
+      comProfundidadeDoAlvo(profundidade)
       semProfundidade(profundidade)
       c.addPass(profundidade)
     }

@@ -59,28 +59,24 @@ export const DEGRAU_DO_BRILHO = 1
  * desenhada de novo — 89 chamadas na cobertura, mais o datacenter, mais a
  * cidade. Some-se o passe de oclusão e o de remoção de ruído por cima.
  *
- * ═══ E HOJE ELA ESTÁ DESLIGADA EM PRODUÇÃO: −1 ═══
+ * Por isso ela acompanha `DEGRAU_DA_PERSPECTIVA` e não `DEGRAU_DO_BRILHO`: as
+ * duas coisas que multiplicam custo ficam no mesmo degrau, e juntá-las evita
+ * criar uma TERCEIRA fronteira visível para a catraca administrar.
  *
- * −1 é menor que qualquer degrau, então `degrau <= DEGRAU_DA_OCLUSAO` nunca é
- * verdadeiro e a capacidade some do caminho normal. Não é uma decisão de
- * desempenho: é CONTENÇÃO.
+ * ═══ ELA JÁ ESTEVE DESLIGADA AQUI, POR ALGUMAS HORAS ═══
  *
- * O dono reportou a tela PISCANDO PRETO na URL sem parâmetro nenhum, e eu não
- * consigo reproduzir. O ambiente headless roda em SwiftShader e nunca promove ao
- * degrau 0 — que é justamente onde o defeito aparece, porque a máquina dele TEM
- * folga de mediana e a escada o promove para lá. Tentei forçar o degrau no
- * headless e o passe é lento demais ali para o navegador terminar um quadro:
- * são umas trinta leituras de textura por pixel, em processador.
+ * O dono reportou a tela PISCANDO PRETO, e eu não conseguia reproduzir: o
+ * defeito só existia no degrau 0, a máquina dele chega lá porque a mediana está
+ * saturada no vsync, o headless nunca promove, e ao forçar o degrau o navegador
+ * não terminava um quadro. O único lugar onde o defeito existia era o único onde
+ * eu não conseguia medir. Pus `-1` aqui como CONTENÇÃO — cena quebrada no ar é
+ * pior que efeito perdido — e a capacidade seguiu alcançável por
+ * `?profundidade=1`, que foi o que permitiu confirmar a causa por eliminação.
  *
- * Deixar uma cena quebrada no ar enquanto se investiga é pior que perder o
- * efeito. Então a capacidade sai do caminho padrão e continua alcançável por
- * `?profundidade=1`, para ser exercitada na GPU onde o defeito existe.
- *
- * QUANDO VOLTAR: isto vira `DEGRAU_DA_PERSPECTIVA` de novo. As duas coisas que
- * multiplicam custo ficam no mesmo degrau, e juntá-las evita criar uma terceira
- * fronteira visível para a catraca administrar.
+ * A causa acabou sendo a paridade dos alvos do composer, e está documentada em
+ * `Predio.tsx`, em `comProfundidadeDoAlvo`. Isto voltou ao normal.
  */
-export const DEGRAU_DA_OCLUSAO = -1
+export const DEGRAU_DA_OCLUSAO = DEGRAU_DA_PERSPECTIVA
 
 /**
  * O estado da escada: em que degrau se está, e qual é o degrau mais alto ainda
