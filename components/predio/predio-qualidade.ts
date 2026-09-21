@@ -59,12 +59,28 @@ export const DEGRAU_DO_BRILHO = 1
  * desenhada de novo — 89 chamadas na cobertura, mais o datacenter, mais a
  * cidade. Some-se o passe de oclusão e o de remoção de ruído por cima.
  *
- * Por isso ela acompanha `DEGRAU_DA_PERSPECTIVA` e não `DEGRAU_DO_BRILHO`: as
- * duas coisas que multiplicam geometria ficam juntas, no mesmo degrau, e quem
- * não sustenta uma não sustenta a outra. Junta-las também evita criar uma
- * TERCEIRA fronteira visível para a catraca administrar.
+ * ═══ E HOJE ELA ESTÁ DESLIGADA EM PRODUÇÃO: −1 ═══
+ *
+ * −1 é menor que qualquer degrau, então `degrau <= DEGRAU_DA_OCLUSAO` nunca é
+ * verdadeiro e a capacidade some do caminho normal. Não é uma decisão de
+ * desempenho: é CONTENÇÃO.
+ *
+ * O dono reportou a tela PISCANDO PRETO na URL sem parâmetro nenhum, e eu não
+ * consigo reproduzir. O ambiente headless roda em SwiftShader e nunca promove ao
+ * degrau 0 — que é justamente onde o defeito aparece, porque a máquina dele TEM
+ * folga de mediana e a escada o promove para lá. Tentei forçar o degrau no
+ * headless e o passe é lento demais ali para o navegador terminar um quadro:
+ * são umas trinta leituras de textura por pixel, em processador.
+ *
+ * Deixar uma cena quebrada no ar enquanto se investiga é pior que perder o
+ * efeito. Então a capacidade sai do caminho padrão e continua alcançável por
+ * `?profundidade=1`, para ser exercitada na GPU onde o defeito existe.
+ *
+ * QUANDO VOLTAR: isto vira `DEGRAU_DA_PERSPECTIVA` de novo. As duas coisas que
+ * multiplicam custo ficam no mesmo degrau, e juntá-las evita criar uma terceira
+ * fronteira visível para a catraca administrar.
  */
-export const DEGRAU_DA_OCLUSAO = DEGRAU_DA_PERSPECTIVA
+export const DEGRAU_DA_OCLUSAO = -1
 
 /**
  * O estado da escada: em que degrau se está, e qual é o degrau mais alto ainda

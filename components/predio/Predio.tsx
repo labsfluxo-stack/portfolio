@@ -8,7 +8,6 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
-import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
 import type { Dictionary, Locale } from '@/content/types'
 import { ANDARES, type ChaveAndar, type ObjetoDoAndar } from './predio-programa'
 import {
@@ -47,7 +46,8 @@ import { TIERS, type Tier, createMeter, judge, startingStep } from '../three/por
 import { Datacenter } from './predio-datacenter'
 import { criaAmbiente, DERIVA_DAS_NUVENS, texturaDeCeu, texturaDeNuvens } from './predio-ceu'
 import { shaderDeGradacao } from './predio-gradacao'
-import { shaderDeFoco } from './predio-foco'
+import { DEGRAU_FIXO, LIGADO, PROFUNDIDADE_FORCADA, leitura, registra, veredito } from './predio-medicao'
+import { shaderDeProfundidade } from './predio-profundidade'
 import { Cobertura } from './predio-cobertura'
 import { Cidade } from './predio-cidade'
 import { comRepeticao, concretoCompartilhado } from './predio-materiais'
@@ -538,12 +538,16 @@ function useQualidade(vsync: number): {
   tier: Tier
   capacidades: Capacidades
   medir: (delta: number) => void
+  degrau: number
 } {
   const setDpr = useThree((state) => state.setDpr)
   // Degrau e piso são UM estado só. Separados — um `useState` e um `useRef` —
   // eles podem discordar por um render, e é justamente no render da troca que a
   // catraca precisa estar certa.
-  const [escada, setEscada] = useState<Escada>(() => ({ degrau: startingStep(), piso: 0 }))
+  const [escada, setEscada] = useState<Escada>(() => ({
+    degrau: DEGRAU_FIXO ?? startingStep(),
+    piso: 0,
+  }))
   const degrau = escada.degrau
   const meter = useRef(createMeter())
 
@@ -570,6 +574,16 @@ function useQualidade(vsync: number): {
    * do Pórtico, que é compartilhada.
    */
   const medir = (delta: number): void => {
+    /**
+     * COM O DEGRAU FIXADO PELA URL, a escada não mede e não se move.
+     *
+     * É o que torna o A/B possível: para saber o custo da oclusão é preciso o
+     * mesmo hardware, a mesma janela e a mesma cena, com e sem ela. Deixar a
+     * escada correr durante a medição faz as duas metades da comparação
+     * acontecerem em degraus diferentes, e aí não se compara nada. Ver
+     * `predio-medicao.ts`.
+     */
+    if (DEGRAU_FIXO !== null) return
     const veredito = judge(
       meter.current,
       delta,
@@ -580,7 +594,61 @@ function useQualidade(vsync: number): {
     if (veredito !== 'hold') setEscada((atual) => aplicaVeredito(atual, veredito))
   }
 
-  return { tier, capacidades, medir }
+  return { tier, capacidades, medir, degrau: escada.degrau }
+}
+
+/**
+ * A LEITURA NA TELA — só existe com `?medir=1`.
+ *
+ * Ela lê de um objeto mutável de módulo em vez de estado de React, e isso é
+ * deliberado: o laço de quadro escreve nele sessenta vezes por segundo, e
+ * transformar cada escrita num `setState` daria sessenta renderizações de React
+ * por segundo só para atualizar um painel — o que mudaria justamente o número
+ * que se está tentando medir. O painel se redesenha duas vezes por segundo, por
+ * um intervalo, e é o bastante para ler.
+ *
+ * `pointerEvents: none` porque esta cena já perdeu a rolagem uma vez por causa
+ * de uma caixa de DOM com ponteiro ligado por cima do canvas.
+ */
+function LeituraDeDesempenho() {
+  const [, redesenha] = useState(0)
+  useEffect(() => {
+    if (!LIGADO) return
+    const t = window.setInterval(() => redesenha((n) => n + 1), 500)
+    return () => window.clearInterval(t)
+  }, [])
+  if (!LIGADO) return null
+  const l = leitura
+  return (
+    <div
+      data-testid="predio-medicao"
+      style={{
+        position: 'fixed',
+        left: 12,
+        top: 12,
+        zIndex: 60,
+        pointerEvents: 'none',
+        font: '12px/1.5 ui-monospace, monospace',
+        color: '#e8e2d6',
+        background: 'rgba(12,10,8,0.82)',
+        padding: '10px 12px',
+        borderRadius: 6,
+        whiteSpace: 'pre',
+      }}
+    >
+      {[
+        `degrau ${l.degrau}${DEGRAU_FIXO !== null ? ' (fixo)' : ''}   dpr ${l.dpr.toFixed(2)}`,
+        `${l.capacidades}`,
+        '',
+        `mediana  ${l.mediana.toFixed(1)} ms   (${l.razao.toFixed(2)} x vsync)`,
+        `p95      ${l.p95.toFixed(1)} ms   (${l.razaoP95.toFixed(2)} x vsync)`,
+        '',
+        `chamadas ${l.chamadas}   triangulos ${(l.triangulos / 1000).toFixed(0)}k`,
+        '',
+        veredito(l.razaoP95),
+      ].join('\n')}
+    </div>
+  )
 }
 
 // ── Enquadramento ─────────────────────────────────────────────────────────
@@ -1325,7 +1393,7 @@ function useBrilho(ligado: boolean, comOclusao: boolean) {
     /**
      * O ALVO DO COMPOSER É NOSSO, e ele carrega um `DepthTexture`.
      *
-     * A lente (`predio-foco.ts`) precisa saber a que distância está cada pixel.
+     * A lente e a oclusao (predio-profundidade.ts) precisam saber a que distância está cada pixel.
      * A alternativa seria desenhar a cena outra vez num material de
      * profundidade — uma passagem de geometria inteira, e a oclusão já cobra
      * uma. Mas o desenho normal JÁ escreve profundidade no z-buffer e a joga
@@ -1369,49 +1437,36 @@ function useBrilho(ligado: boolean, comOclusao: boolean) {
     c.renderTarget2.depthTexture = null
     c.addPass(new RenderPass(cena, camera))
     /**
-     * ═══ A OCLUSÃO DE AMBIENTE, E ELA VEM ANTES DO BRILHO ═══
+     * ═══ O PASSE DE PROFUNDIDADE — OCLUSÃO E LENTE JUNTAS, ANTES DO BRILHO ═══
      *
-     * O QUE ELA RESOLVE. Toda superfície desta cena é iluminada como se nada
-     * estivesse ao lado dela. O vaso encosta no deck e o contato não escurece; a
-     * quina interna da jardineira tem o mesmo valor da face externa; o vão entre
-     * a laje e o parapeito é tão claro quanto o topo. A cena compensava isso com
-     * manchas pintadas no chão (`sombra()`), que resolvem o apoio e mais nada.
+     * O QUE A OCLUSÃO RESOLVE. Toda superfície desta cena era iluminada como se
+     * nada estivesse ao lado dela: o vaso encosta no deck e o contato não
+     * escurece, a quina interna da jardineira tem o mesmo valor da face externa.
+     * As manchas pintadas no chão resolvem o apoio e mais nada.
      *
-     * Oclusão de ambiente é a luz do CÉU sendo bloqueada pela geometria vizinha.
-     * Num entardecer, metade da iluminação vem da abóbada inteira, e qualquer
-     * fresta vê menos céu que uma face aberta. É o efeito que põe penumbra em
-     * toda junta ao mesmo tempo — e é ele, mais que textura ou resolução, que faz
-     * uma imagem parecer FOTOGRAFADA em vez de MONTADA.
+     * A ORDEM É OBRIGATÓRIA e vale para as duas: depois do desenho e ANTES do
+     * brilho. Escurecer uma fresta depois de o bloom já ter florescido nela
+     * deixaria o halo sem a fonte; e num sistema óptico de verdade a luz
+     * atravessa a lente e SÓ DEPOIS espalha no vidro, então o que floresce é a
+     * imagem já desfocada.
      *
-     * A ORDEM É OBRIGATÓRIA: depois do desenho e ANTES do brilho. Escurecer uma
-     * fresta depois de o bloom já ter florescido nela deixaria o halo sem a
-     * fonte. E o passe de oclusão também não pode ver o resultado do bloom, ou a
-     * névoa contaria como geometria próxima.
-     *
-     * O RAIO É EM METROS, e é isso que amarra este número à cena. 0,45 m é a
-     * escala das juntas que importam aqui — tábua contra tábua, pé de vaso,
-     * rodapé, quina de calha. Raio grande vira sujeira nos cantos da sala; raio
-     * pequeno não alcança junta nenhuma e só serrilha a borda dos objetos.
-     *
-     * `blendIntensity` em 0,8 e não 1: oclusão cheia fecha demais um terraço a
-     * céu aberto, que é o caso com MENOS oclusão possível — não há teto em lugar
-     * nenhum. Aqui ela existe para dar contato, não para dar interior.
+     * POR QUE UM PASSE SÓ: o composer alterna entre dois alvos, e apenas UM
+     * deles carrega a textura de profundidade. Um segundo passe que a lesse
+     * cairia na fase em que escreve nesse mesmo alvo — laço de realimentação,
+     * que o WebGL acusa como GL_INVALID_OPERATION. O traçado completo, e o que
+     * se perde ao derivar a normal da profundidade em vez de desenhá-la, estão
+     * em predio-profundidade.ts.
      */
-    if (comOclusao) {
-      const ao = new GTAOPass(cena, camera, tamanho.width, tamanho.height)
-      ao.updateGtaoMaterial({
-        radius: 0.45,
-        distanceExponent: 1.2,
-        thickness: 0.8,
-        scale: 1,
-        // 12 amostras e não as 16 padrão: é o parâmetro que mais custa e o que
-        // menos se vê depois do passe de remoção de ruído, que já existe na
-        // cadeia do próprio GTAO e espalha o que faltou amostrar.
-        samples: 12,
-        screenSpaceRadius: false,
-      })
-      ao.blendIntensity = 0.8
-      c.addPass(ao)
+    if (comOclusao && camera instanceof THREE.PerspectiveCamera) {
+      const profundidade = new ShaderPass(shaderDeProfundidade(camera))
+      profundidade.uniforms.tDepth!.value = alvo.depthTexture
+      profundidade.uniforms.resolucao!.value = new THREE.Vector2(
+        Math.max(1, tamanho.width),
+        Math.max(1, tamanho.height),
+      )
+      profundidade.uniforms.proporcao!.value = tamanho.width / Math.max(1, tamanho.height)
+      semProfundidade(profundidade)
+      c.addPass(profundidade)
     }
     /**
      * A RESOLUÇÃO DO PASSE É METADE DA TELA, e isso não é economia: é o desenho.
@@ -1426,29 +1481,6 @@ function useBrilho(ligado: boolean, comOclusao: boolean) {
       Math.max(1, Math.round(tamanho.width / 2)),
       Math.max(1, Math.round(tamanho.height / 2)),
     )
-    /**
-     * A LENTE, e ela vem ANTES do brilho de propósito.
-     *
-     * Num sistema óptico de verdade a luz atravessa a lente e SÓ DEPOIS espalha
-     * no vidro e no sensor. Então o que floresce é a imagem já desfocada — um
-     * ponto de luz fora de foco vira um disco, e é esse disco que ganha halo.
-     * Invertendo a ordem, o brilho sairia de um ponto nítido e o borrão viria
-     * por cima: halo redondo perfeito em volta de uma fonte borrada, que é
-     * exatamente a cara de efeito colado em pós-produção.
-     *
-     * A lente também acompanha a oclusão no mesmo degrau, e não por afinidade:
-     * ela depende do `DepthTexture` do alvo, que só existe quando o composer
-     * existe, e o composer inteiro é a fronteira do brilho.
-     */
-    if (comOclusao && camera instanceof THREE.PerspectiveCamera) {
-      const lente = new ShaderPass(shaderDeFoco(camera))
-      // `noUncheckedIndexedAccess` está ligado e uniforme é índice de string: o
-      // `!` afirma o que `shaderDeFoco` garante, em vez de afrouxar a checagem.
-      lente.uniforms.tDepth!.value = alvo.depthTexture
-      lente.uniforms.proporcao!.value = tamanho.width / Math.max(1, tamanho.height)
-      semProfundidade(lente)
-      c.addPass(lente)
-    }
     c.addPass(new UnrealBloomPass(meia, BRILHO.forca, BRILHO.raio, BRILHO.limiar))
     // A GRADAÇÃO entra DEPOIS do brilho e ANTES da curva de exibição. As duas
     // posições são obrigatórias e o porquê de cada uma está em
@@ -1494,7 +1526,7 @@ function Cena({
   aoTrocarDeAndar: (andar: number) => void
 }) {
   const progresso = useProgressoDeRolagem()
-  const { tier, capacidades, medir } = useQualidade(vsync)
+  const { tier, capacidades, medir, degrau: escadaAtual } = useQualidade(vsync)
   const semInercia = useSemInercia()
   const sol = useRef<THREE.DirectionalLight>(null)
   const planos = useRef<(THREE.Group | null)[]>([])
@@ -1542,7 +1574,7 @@ function Cena({
     luz.shadow.map = null
   }, [tier.shadow])
 
-  const brilho = useBrilho(capacidades.brilho, capacidades.oclusao)
+  const brilho = useBrilho(capacidades.brilho, capacidades.oclusao || PROFUNDIDADE_FORCADA)
   /**
    * QUEM DESENHA A CENA PASSA A SER ESTE LAÇO, e ele é registrado SEMPRE.
    *
@@ -1562,9 +1594,54 @@ function Cena({
    * este começa.
    */
   useFrame(({ gl, scene, camera }) => {
+    /**
+     * `autoReset` DESLIGADO enquanto se mede, e sem isto a contagem mente.
+     *
+     * O three zera `info.render` no INÍCIO de cada chamada de `render()`. Com o
+     * composer, um quadro são vários `render()` — um por passe —, então o que
+     * sobra no fim é a conta do ÚLTIMO deles, que é um quadrilátero de tela
+     * cheia. Foi o que a primeira medição mostrou: "chamadas 1, triangulos 0k"
+     * numa cena de mais de cem instâncias.
+     *
+     * Zerando à mão aqui, antes do desenho, e deixando o acumulador correr por
+     * todos os passes, a leitura passa a ser o custo do QUADRO — que é o que se
+     * quer saber. Só acontece com `?medir=1`.
+     */
+    if (LIGADO) {
+      gl.info.autoReset = false
+      gl.info.reset()
+    }
     if (brilho) brilho.render()
     else gl.render(scene, camera)
   }, 1)
+  /**
+   * O MEDIDOR, em prioridade 2 — depois do desenho, e por isso.
+   *
+   * `gl.info.render` é zerado pelo renderizador a cada quadro e só está cheio
+   * DEPOIS que o desenho aconteceu. Lido antes, devolveria as contas do quadro
+   * anterior; lido aqui, devolve as deste — inclusive as chamadas de todos os
+   * passes do composer, que é justamente o custo que se quer enxergar.
+   *
+   * Sem `?medir=1` a função sai na primeira linha e nada disto acontece.
+   */
+  useFrame(({ gl }, delta) => {
+    if (!LIGADO) return
+    registra(
+      delta,
+      vsync,
+      escadaAtual,
+      gl.getPixelRatio(),
+      gl.info.render.calls,
+      gl.info.render.triangles,
+      [
+        capacidades.perspectiva ? 'perspectiva' : '',
+        capacidades.brilho ? 'brilho' : '',
+        capacidades.oclusao ? 'oclusao+lente' : '',
+      ]
+        .filter(Boolean)
+        .join(' · ') || 'nenhuma',
+    )
+  }, 2)
   const arAlvo = useMemo(() => new THREE.Color(), [])
   // Largura de janela da última medição das âncoras — ver o aparo no laço.
   const medidasVelhas = useRef(0)
@@ -2143,6 +2220,7 @@ export function Predio({ dict, locale, vsync }: { dict: Dictionary; locale: Loca
         />
       </Canvas>
       <Sobreposicao dict={dict} locale={locale} vivos={vivos} brilhos={brilhos} alvos={alvos} />
+      <LeituraDeDesempenho />
     </div>
   )
 }
