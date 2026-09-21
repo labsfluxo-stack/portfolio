@@ -22,6 +22,22 @@
  * FRAGMENTO e as 438 chamadas a mais continuavam lá. Atacar a metade errada da
  * conta é o tipo de erro que só a medição desfaz.
  *
+ * ═══ 1b. O RESULTADO, MEDIDO NA MESMA MÁQUINA ═══
+ *
+ *   degrau 0, antes    888 chamadas   2.066k tri   p95 2,02 x vsync   PERDE
+ *   degrau 0, depois   451 chamadas   1.033k tri   p95 1,02 x vsync   LIMPO
+ *
+ * As chamadas caíram para 451, e o "1" a mais sobre as 450 do degrau sem
+ * oclusão é exatamente o quadrilátero de tela cheia deste passe: a conta fecha
+ * na unidade. Os triângulos caíram pela metade — a segunda passagem de
+ * geometria sumiu.
+ *
+ * E o número que surpreende: o degrau 0 roda em `dpr` 2,0 contra 1,25 do degrau
+ * 1, ou seja 2,56 vezes mais fragmento, MAIS a oclusão e a lente — e mesmo
+ * assim o p95 dele (1,02) ficou melhor que o do degrau 1 (1,03). Isso diz que a
+ * cena nunca esteve limitada por fragmento; estava limitada por CHAMADA DE
+ * DESENHO. Vale guardar para a próxima vez que algo parecer caro aqui.
+ *
  * ═══ 2. POR QUE AS DUAS NUM PASSE SÓ, E NÃO EM DOIS ═══
  *
  * Com a oclusão e a lente como passes separados, o navegador acusou:
