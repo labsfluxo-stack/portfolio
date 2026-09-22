@@ -46,7 +46,15 @@ import { TIERS, type Tier, createMeter, judge, startingStep } from '../three/por
 import { Datacenter } from './predio-datacenter'
 import { criaAmbiente, DERIVA_DAS_NUVENS, texturaDeCeu, texturaDeNuvens } from './predio-ceu'
 import { shaderDeGradacao } from './predio-gradacao'
-import { DEGRAU_FIXO, LIGADO, PROFUNDIDADE_FORCADA, leitura, registra, veredito } from './predio-medicao'
+import {
+  CAMERA_PARADA,
+  DEGRAU_FIXO,
+  LIGADO,
+  PROFUNDIDADE_FORCADA,
+  leitura,
+  registra,
+  veredito,
+} from './predio-medicao'
 import { shaderDeProfundidade } from './predio-profundidade'
 import { Cobertura } from './predio-cobertura'
 import { Cidade } from './predio-cidade'
@@ -1771,6 +1779,13 @@ function Cena({
      *    está pedindo isto também — talvez sobretudo isto, porque é movimento
      *    que não responde a nenhuma ação de quem assiste.
      *
+     *  · `CAMERA_PARADA` (`?parado=1`) faz o mesmo, e existe por outra razão:
+     *    as sondas de movimento. Elas provam que o vento ou a água animam
+     *    comparando dois quadros do mesmo recorte, e a respiração move TODA
+     *    aresta do quadro entre as duas capturas — com ela viva, a sonda
+     *    responde "em movimento" com o efeito morto. Ver `predio-medicao.ts`,
+     *    inclusive por que `prefers-reduced-motion` não serve de alavanca.
+     *
      *  · O AMORTECIMENTO LÊ DE UM `ref`, NÃO DA CÂMERA. Se ele continuasse
      *    lendo `camera.position.y`, estaria lendo a altura JÁ RESPIRADA e
      *    tentando amortecê-la em direção ao alvo — a respiração entraria na
@@ -1778,12 +1793,13 @@ function Cena({
      *    amplitude que ninguém pediu. A altura da descida e o sopro da câmera
      *    somam-se no fim; nunca se misturam antes.
      */
-    alturaDaDescida.current = semInercia
+    const imovel = semInercia || CAMERA_PARADA
+    alturaDaDescida.current = imovel
       ? alvoY
       : amortecer(alturaDaDescida.current, alvoY, delta)
     const t = relogioDaCamera.current + delta
     relogioDaCamera.current = t
-    const sopro = semInercia ? 0 : 1
+    const sopro = imovel ? 0 : 1
     camera.position.set(
       Math.sin(t / 11) * 0.03 * sopro,
       alturaDaDescida.current + Math.sin(t / 17 + 1.3) * 0.02 * sopro,
@@ -1820,7 +1836,10 @@ function Cena({
     planos.current.forEach((grupo, i) => {
       if (!grupo) return
       const alvo = quadro.pose.y - (quadro.planos[i] ?? 0)
-      grupo.position.y = semInercia ? alvo : amortecer(grupo.position.y, alvo, delta)
+      // `imovel` e não `semInercia`: os planos de paralaxe também têm de chegar
+      // ao alvo de uma vez com a câmera parada, ou uma sonda que fotografa antes
+      // do amortecimento assentar mediria o assentamento em vez do efeito.
+      grupo.position.y = imovel ? alvo : amortecer(grupo.position.y, alvo, delta)
     })
 
     // O sol acompanha a altura da câmera. Sem isso, a câmera de sombra teria

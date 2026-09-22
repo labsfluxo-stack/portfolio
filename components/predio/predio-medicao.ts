@@ -64,6 +64,34 @@ export const DEGRAU_FIXO: number | null = (() => {
  */
 export const PROFUNDIDADE_FORCADA = parametros.get('profundidade') === '1'
 
+/**
+ * ═══ `?parado=1` — a câmera para, e SÓ a câmera ═══
+ *
+ * O QUE ISTO CONSERTA. As sondas de movimento desta feature provam animação
+ * comparando dois quadros do mesmo recorte: bytes diferentes, logo alguma coisa
+ * se mexeu. O raciocínio só vale se a ÚNICA coisa capaz de se mexer ali for o
+ * efeito sob teste — e há muito tempo não é. A câmera respira o tempo todo
+ * (3 cm em X com período de 11 s, 2 cm em Y com período de 17 s): entre duas
+ * capturas separadas por dois segundos, toda aresta do quadro anda uma fração
+ * de pixel. Com a câmera viva, a sonda responde EM MOVIMENTO estando o vento
+ * vivo ou morto — e uma sonda que responde a mesma coisa nos dois casos não
+ * mede nada. É o mesmo defeito da mediana saturada no vsync, em outra roupa.
+ *
+ * POR QUE NÃO USAR `prefers-reduced-motion`, que já zera a respiração. Porque
+ * `PredioSlot` nem monta a cena com a preferência ligada — fica o fallback em
+ * HTML, e não existe canvas para fotografar. A alavanca que parecia de graça
+ * apaga justamente o que se quer medir.
+ *
+ * O QUE ELE NÃO DESLIGA, e é isto que o torna útil: vento, cascata, lâmina,
+ * cáusticas e deriva das nuvens continuam correndo. Eles são alimentados por
+ * `passo` no laço da cobertura e pelo relógio do céu, nenhum dos dois ligado à
+ * câmera. Parar a câmera separa o movimento da CENA do movimento do PONTO DE
+ * VISTA, que é a separação sem a qual nenhuma das quatro sondas conclui nada.
+ *
+ * Custo em produção: o mesmo dos outros três — uma leitura de string.
+ */
+export const CAMERA_PARADA = parametros.get('parado') === '1'
+
 export type Leitura = {
   /** Mediana do intervalo entre quadros, em milissegundos. */
   mediana: number
