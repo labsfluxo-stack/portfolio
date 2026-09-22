@@ -762,12 +762,46 @@ export function Cobertura({
     )
     // Alumínio ESCOVADO, não polido: rugosidade 0,34 quebra o reflexo em vez de
     // devolver o céu inteiro. Metal polido numa cena com uma luz só vira mancha.
-    const mMetal = new THREE.MeshStandardMaterial({
-      color: '#c9c6bf',
-      metalness: 0.88,
-      roughness: 0.34,
-    })
-    const mAco = new THREE.MeshStandardMaterial({ color: '#8f8b84', metalness: 0.9, roughness: 0.42 })
+    /**
+     * ═══ OS METAIS GANHAM MICRORRELEVO, E ERAM OS ÚLTIMOS SEM MAPA NENHUM ═══
+     *
+     * Deck, concreto, corten e pedra passaram pelo tratamento triplanar há
+     * tempos. Os dois metais ficaram para trás: cor, `metalness`, `roughness` e
+     * nada mais. Uma superfície metálica com rugosidade EXATAMENTE uniforme não
+     * existe — e o olho sabe disso sem saber que sabe, porque o que ele lê num
+     * metal não é a cor, é o comportamento do reflexo ao longo da peça.
+     *
+     * Rugosidade constante devolve um reflexo que muda só com a curvatura. Isso
+     * lê como PLÁSTICO PINTADO DE CINZA, e é o mesmo defeito que a lâmina da
+     * piscina tinha antes da ondulação: reflexo limpo demais.
+     *
+     * O microrrelevo é sutil de propósito — 0,35 e 0,3 de força, contra 0,85 do
+     * concreto. Metal de serralheria é escovado ou anodizado, não martelado: o
+     * que se quer é a especular tremer ao correr pelo montante, não o tubo
+     * parecer batido.
+     *
+     * A ESCALA É ALTA (14 e 11 lajotas por metro) porque a peça é PEQUENA. Um
+     * montante tem 2,6 cm de diâmetro; na escala de 3,6 do concreto, o tubo
+     * inteiro caberia dentro de um décimo de lajota e não haveria variação
+     * nenhuma ao longo dele. Detalhe tem de ser medido contra o objeto, não
+     * contra a cena.
+     */
+    const mMetal = comDetalhe(
+      new THREE.MeshStandardMaterial({
+        color: '#c9c6bf',
+        metalness: 0.88,
+        roughness: 0.34,
+      }),
+      detalhe,
+      14,
+      0.35,
+    )
+    const mAco = comDetalhe(
+      new THREE.MeshStandardMaterial({ color: '#8f8b84', metalness: 0.9, roughness: 0.42 }),
+      detalhe,
+      11,
+      0.3,
+    )
     // A GRELHA DA CANALETA. Escura e fosca de propósito: o que o olho lê numa
     // canaleta é o VÃO, não a grade. `metalness` baixa porque grelha de ralo é
     // alumínio anodizado ou ferro pintado, e nenhum dos dois espelha nada.
@@ -1172,6 +1206,62 @@ export function Cobertura({
         color: '#cfc4ad',
         roughness: 0.8,
         map: pedra.map,
+        normalMap: pedra.normalMap,
+        roughnessMap: pedra.roughnessMap,
+      }),
+      detalhe,
+      4.0,
+      0.6,
+    )
+    /**
+     * ═══ A PEDRA DA BORDA DA PISCINA, MAIS CLARA — E O PORQUÊ GENERALIZA ═══
+     *
+     * A borda vivia no JSX com `color="#cfc4ad"` e NENHUM mapa. Ao mudá-la para
+     * o coletor eu lhe dei `mPedra`, que tem exatamente a mesma cor base — e ela
+     * SUMIU do quadro, encostando no tom do deck.
+     *
+     * Não era posição nem escala: pintada de magenta, a moldura apareceu inteira
+     * e perfeita. Era cor. E a causa é uma propriedade do modelo que é fácil
+     * esquecer:
+     *
+     *   MAPA DE COR MULTIPLICA. Ele não substitui a cor base, ele a modula.
+     *
+     * A textura de `concreto()` tem fundo `#c7b9a2`, que em linear vale cerca de
+     * (0,57 0,48 0,36). Multiplicando a base `#cfc4ad` — linear (0,62 0,55 0,42)
+     * — o resultado cai para (0,36 0,27 0,15): pouco mais da METADE do brilho, e
+     * puxado para o marrom. O material "igual" ao antigo era, na verdade, quase
+     * duas vezes mais escuro.
+     *
+     * ═══ E A CORREÇÃO NÃO É CLAREAR A BASE. É TIRAR O MAPA DE COR ═══
+     *
+     * Primeiro eu tentei compensar: dividir a base pela média do mapa e usar
+     * `#ddd1b8`. Errou para baixo — a borda continuou encostando no deck. O mapa
+     * de `concreto()` não é só o fundo `#c7b9a2`: ele leva manchas escuras por
+     * cima, e a média real é bem menor que a do fundo. Calibrar contra uma média
+     * que eu não meço é adivinhar com mais casas decimais.
+     *
+     * Então a variável sai. A borda fica com `normalMap` e `roughnessMap` e SEM
+     * `map`:
+     *
+     *   · o relevo e a variação de brilho — que era o que faltava — continuam;
+     *   · o ALBEDO volta a ser exatamente `#cfc4ad`, o valor em que a peça foi
+     *     ajustada quando alguém olhou para a tela e decidiu que a moldura tinha
+     *     de ler mais clara que o deck.
+     *
+     * Textura não é obrigada a vir em três mapas. Aqui o que a pedra precisava
+     * era de PORO e de variação de especular, não de variação de cor: pedra
+     * polida de borda de piscina é, de fato, quase uniforme em tom.
+     *
+     * MATERIAL PRÓPRIO E NÃO `mPedra` RETOCADA: a mesma pedra serve o tampo do
+     * bar, as prateleiras, a soleira da cascata e o degrau submerso, e todas
+     * estão ajustadas contra o valor atual. Mexer em `mPedra` consertaria a borda
+     * e desajustaria quatro peças — e não custa nada, porque a borda já tem
+     * chave própria no coletor e portanto já é uma malha separada.
+     */
+    const mPedraBorda = comDetalhe(
+      new THREE.MeshStandardMaterial({
+        color: '#cfc4ad',
+        roughness: 0.82,
         normalMap: pedra.normalMap,
         roughnessMap: pedra.roughnessMap,
       }),
@@ -3546,6 +3636,36 @@ export function Cobertura({
     // faixa que da PROFUNDIDADE — fundo de cor uniforme le como chapa pintada.
     col.poe('degrauSubmerso', gDegrauSubmerso, mPedra, [xDaEscada, piso - 0.08, zDaEscada - 0.3])
 
+    /**
+     * ═══ A BORDA DE ACABAMENTO DA PISCINA ═══
+     *
+     * Quatro peças, e não uma caixa: a moldura precisa ter espessura visível nos
+     * quatro lados, e uma caixa só mostra o lado de fora. Ela sobe 1 cm ACIMA da
+     * lâmina, e é esse degrau que diz que a água está CONTIDA — sem ele a lâmina
+     * lê como poça sobre o deck. (Já engoliu a água uma vez, quando o topo ficou
+     * 2,5 cm acima do plano d'água e o que se via era uma laje branca.)
+     *
+     * Vieram do JSX, onde eram quatro `<mesh>` com material declarado na linha e
+     * sem mapa nenhum. Aqui ganham `mPedra` — a mesma cor que já tinham, agora
+     * com pedra, normal, rugosidade e microrrelevo triplanar — e viram UMA
+     * chamada de desenho em vez de quatro.
+     *
+     * Tamanho por escala de matriz sobre `gCaixa`, que é a regra do coletor:
+     * geometria unitária, variação na matriz.
+     */
+    for (const cz of [piscina.frente + 0.195, piscina.fundo - 0.195])
+      col.poe('bordaPiscina', gCaixa, mPedraBorda, [piscina.x, piso + 0.045, cz], [0, 0, 0], [
+        piscina.largura + 0.9,
+        0.09,
+        0.42,
+      ])
+    for (const bx of [piscina.x - piscina.bordaX, piscina.x + piscina.bordaX])
+      col.poe('bordaPiscina', gCaixa, mPedraBorda, [bx, piso + 0.045, piscina.centro], [0, 0, 0], [
+        0.42,
+        0.09,
+        piscina.profundidade + 0.39,
+      ])
+
     // ── guarda-corpo ──────────────────────────────────────────────────────
     const montantes = Math.floor((meiaLargura * 2) / 2.1)
     for (let i = 0; i <= montantes; i++) {
@@ -4143,18 +4263,25 @@ export function Cobertura({
        *
        * Quatro peças porque a moldura precisa ter espessura visível nos quatro
        * lados, e uma caixa só mostra o lado de fora. */}
-      {[piscina.frente + 0.195, piscina.fundo - 0.195].map((cz) => (
-        <mesh key={cz} position={[piscina.x, piso + 0.045, cz]}>
-          <boxGeometry args={[piscina.largura + 0.9, 0.09, 0.42]} />
-          <meshStandardMaterial color="#cfc4ad" roughness={0.82} />
-        </mesh>
-      ))}
-      {[piscina.x - piscina.bordaX, piscina.x + piscina.bordaX].map((bx) => (
-        <mesh key={bx} position={[bx, piso + 0.045, zEspelho]}>
-          <boxGeometry args={[0.42, 0.09, piscina.profundidade + 0.39]} />
-          <meshStandardMaterial color="#cfc4ad" roughness={0.82} />
-        </mesh>
-      ))}
+      {/* ═══ AS QUATRO PEDRAS MUDARAM-SE PARA O COLETOR ═══
+       *
+       * Elas estavam aqui como quatro `<mesh>` soltos, com um material declarado
+       * na linha: `color="#cfc4ad" roughness={0.82}` e mais nada. Exatamente a
+       * mesma cor de `mPedra` — que existe a quinhentas linhas daqui, com mapa de
+       * pedra, mapa de normal, mapa de rugosidade e microrrelevo triplanar.
+       *
+       * Ou seja: a peça mais clara e mais contínua do primeiro plano, a moldura
+       * que emoldura o assunto do quadro, era a única superfície grande da cena
+       * sem textura nenhuma. Não por decisão — por ter nascido no arquivo errado.
+       *
+       * E MUDAR DE LUGAR PAGA DUAS VEZES. Quatro `<mesh>` são quatro chamadas de
+       * desenho; no coletor viram uma. A medição de hoje mostrou que esta cena é
+       * limitada por CHAMADA e não por fragmento, então três chamadas a menos
+       * valem mais aqui do que qualquer economia de pixel.
+       *
+       * Ficam no JSX só as peças que não podem ser instanciadas: as
+       * transparentes, que precisam ser ordenadas contra o que está atrás. Pedra
+       * opaca não é uma delas. */}
       {/* O TANQUE: as paredes que seguram a água. Sem elas o fundo escuro fica
        * flutuando e vê-se o deck por baixo pela lateral.
        *
