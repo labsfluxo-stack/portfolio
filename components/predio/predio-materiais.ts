@@ -573,8 +573,26 @@ export function comOndulacao<T extends THREE.Material>(
           // demais para o olho ler como água, e o dono viu o que a sonda não
           // sabia medir. A 12 cm/s a interferência se refaz num ritmo que se
           // percebe sem virar correnteza.
-          vec2 uvA = baseOnda + vec2( 0.050, 0.031 ) * relogioDaAgua;
-          vec2 uvB = baseOnda * 1.7 + vec2( -0.034, 0.046 ) * relogioDaAgua;
+          //
+          // E ELAS AGORA SAO MULTIPLICADAS PELA ESCALA, que e a correcao que
+          // estas linhas carregam. As constantes estavam em LADRILHOS por
+          // segundo, e o tamanho do ladrilho e exatamente o que escalaDaOnda
+          // define: mexer na escala mudava a velocidade junto, em proporcao
+          // inversa e sem avisar. Quem fosse engrossar a onda a deixaria lenta
+          // no mesmo gesto e passaria a tarde procurando o motivo.
+          //
+          // Em fracao da SUPERFICIE por segundo, o numero fica independente da
+          // escala. Os valores abaixo reproduzem os anteriores a menos do
+          // arredondamento quando a escala vale 3,2 — a unica em uso quando
+          // eles foram ajustados pelo olho do dono.
+          //
+          // NENHUMA CRASE DAQUI PARA BAIXO: isto e um template literal, e uma
+          // crase fecha a string no meio do shader. Ja derrubou o servidor de
+          // dev duas vezes nesta feature.
+          vec2 vA = vec2( 0.0156, 0.0097 ) * escalaDaOnda;
+          vec2 vB = vec2( -0.0106, 0.0144 ) * escalaDaOnda;
+          vec2 uvA = baseOnda + vA * relogioDaAgua;
+          vec2 uvB = baseOnda * 1.7 + vB * relogioDaAgua;
           vec3 tremA = texture2D( normalMap, uvA ).xyz * 2.0 - 1.0;
           vec3 tremB = texture2D( normalMap, uvB ).xyz * 2.0 - 1.0;
           // Mistura UDN: somam-se as INCLINAÇÕES e preserva-se o eixo Z. Somar

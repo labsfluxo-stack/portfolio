@@ -4241,10 +4241,43 @@ export function Cobertura({
           ref={(m) => {
             if (m && !m.userData.ondulado) {
               m.userData.ondulado = true
-              // Força 1,8 e não 1,35: a lâmina é vista a 7,8° do horizonte, e
-              // nesse rasante a inclinação da onda precisa ser maior para que a
-              // quebra do reflexo apareça. Acima disso o reflexo vira granulado.
-              comOndulacao(m, relogioDaAgua, 3.2, 1.8)
+              /**
+               * ═══ ESCALA 1,2 E NÃO 3,2, E A MEDIÇÃO QUE DECIDIU ISSO ═══
+               *
+               * A sonda de movimento deu 0,91 de média na lâmina contra 4,6 das
+               * cáusticas logo abaixo e 5,2 da cascata ao lado. Ela mesma avisa
+               * que não confia nesse número — mede |gradiente| × deslocamento, e
+               * água é superfície lisa. Quem decidiu foi o mapa de diferença
+               * amplificado: a lâmina INTEIRA muda, uniformemente, mas a mudança
+               * é GRANULADO fino, sem nenhuma frente de onda.
+               *
+               * A ARITMÉTICA DO PORQUÊ. A escala é em ladrilhos sobre a lâmina
+               * de 8 m; a 3,2 o ladrilho tinha 2,5 m, e a textura de onda carrega
+               * de 3,6 a 17 ondas por ladrilho — comprimentos de 15 a 70 cm. Na
+               * horizontal isso são 11 a 52 px, o que se veria. Só que a lâmina
+               * é vista a 7,8° do horizonte, e o rasante comprime o eixo
+               * profundo cerca de dez vezes: cada onda ficava com 1 a 5 px de
+               * ALTURA. Abaixo do pixel não existe onda, existe cintilação.
+               *
+               * A 1,2 o ladrilho passa a ter 6,7 m e as ondas, de 40 cm a 1,9 m:
+               * 3 a 13 px na vertical, 30 a 140 px na horizontal. Aí há frente
+               * de onda para o olho seguir.
+               *
+               * E O COMENTÁRIO QUE ESTAVA AQUI CULPAVA O RASANTE PELA COISA
+               * CERTA E PUXAVA A ALAVANCA ERRADA. Ele dizia, corretamente, que o
+               * ângulo exige mais inclinação — e subia a FORÇA de 1,35 para 1,8,
+               * terminando com "acima disso o reflexo vira granulado". Força
+               * aumenta a amplitude do que já é pequeno demais: granulado mais
+               * forte continua granulado. Quem muda o TAMANHO da onda é a escala.
+               *
+               * A força volta a 1,35 junto: com onda grande a inclinação de 1,8
+               * exagera, e 1,35 era o valor de antes da compensação que agora
+               * não é mais necessária.
+               *
+               * A velocidade não precisa de retoque: desde esta entrega ela é
+               * fração da superfície e não do ladrilho — ver `comOndulacao`.
+               */
+              comOndulacao(m, relogioDaAgua, 1.2, 1.35)
               m.needsUpdate = true
             }
           }}
