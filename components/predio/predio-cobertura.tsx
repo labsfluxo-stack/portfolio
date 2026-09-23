@@ -3667,7 +3667,15 @@ export function Cobertura({
       )
     }
     // Fita de LED sob o tampo do bar: desenha a linha do movel no escuro.
-    col.poe('fitaLed', gFitaLed, mFitaLed, [9.0, piso + 0.98, zBar + 0.36], [0, 0, 0], [4.4, 1, 1])
+    //
+    // `xBar` E NAO O 9.0 QUE ESTAVA AQUI. O valor cravado era igual a `BAR.x`,
+    // entao a fita estava no lugar certo — por coincidencia. Este arquivo ja
+    // documenta quatro pecas atropeladas por literal desatualizado (o z da
+    // escada da piscina duas vezes, os postes do pergolado, a largura da
+    // lamina), e esta seria a quinta no dia em que o bar andasse um metro: a
+    // fita ficaria acesa no vazio ao lado dele, e ninguem ligaria uma coisa a
+    // outra.
+    col.poe('fitaLed', gFitaLed, mFitaLed, [xBar, piso + 0.98, zBar + 0.36], [0, 0, 0], [4.4, 1, 1])
     /**
      * E ATRÁS DAS GARRAFAS: uma fita por prateleira. É o que faz um bar ler como
      * bar de noite.
@@ -4333,6 +4341,52 @@ export function Cobertura({
       [xRecepcao + 0.72, piso + 1.12, zRecepcao + 0.1],
       [0, 0, 0],
       [0.16, 0.05, 0.16],
+    )
+    /**
+     * ═══ A FITA SOB O TAMPO, E POR QUE NÃO FOI UMA SEGUNDA ARANDELA ═══
+     *
+     * Eu tinha proposto resolver o escuro do balcão com outra arandela na quina
+     * do núcleo. Não resolveria, e a razão é geométrica: o balcão está a 2,95 m
+     * do eixo do núcleo, ou seja FORA do plano da face dele. Arandela lava a
+     * parede em que está montada; não há parede atrás do balcão para lavar.
+     *
+     * O que ilumina um balcão de recepção de noite é a fita embutida sob a aba
+     * do tampo — luz que nasce escondida e desce pelo corpo do móvel. É por isso
+     * que o tampo avança 6 cm além do corpo dos dois lados: essa aba não era
+     * decorativa, ela existe para esconder uma fita, e agora esconde.
+     *
+     * `mFitaLed`, a MESMA fita âmbar do balcão do bar. As duas são balcões, do
+     * mesmo projeto, nas duas pontas do terraço — e é a repetição do material
+     * que faz as pontas lerem como um par em vez de duas invenções.
+     *
+     * SEM POÇA DE LUZ NO DECK, de propósito. A tentação é somar uma mancha
+     * embaixo, e a mancha pronta desta cena é redonda: seria a quarta elipse
+     * onde cabe outra forma. O derrame de uma fita linear é uma FAIXA, e antes
+     * de desenhar a faixa certa prefiro deixar só a fita, que já acende sozinha
+     * porque o bloom a alcança — é o que acontece com a do bar.
+     *
+     * ═══ A PRIMEIRA POSIÇÃO ESCONDEU A FITA, E O ERRO É DE PONTO DE VISTA ═══
+     *
+     * Eu a pus DEBAixo da aba do tampo, encaixada sob os 6 cm de avanço, que é
+     * onde uma fita de verdade fica. No render ela sumiu — e é consequência de
+     * geometria, não de tamanho: a câmera está ACIMA do balcão, então a aba que
+     * esconde a fita de quem passa esconde também de quem olha de cima. A do bar
+     * escapa disso porque avança mais.
+     *
+     * Ela desce 4,5 cm e avança para a face do corpo: fita aparente sob o lábio
+     * do tampo, que é igualmente comum em balcão e é a única que esta câmera vê.
+     *
+     * E usa `gFitaLed` com a MESMA CHAVE da do bar — zero chamada de desenho
+     * nova, e a espessura passa a ser literalmente a mesma peça que já foi
+     * provada legível naquela distância, em vez de um número meu.
+     */
+    col.poe(
+      'fitaLed',
+      gFitaLed,
+      mFitaLed,
+      [xRecepcao, piso + 0.955, zRecepcao + 0.315],
+      [0, 0, 0],
+      [1.9, 1, 1],
     )
 
     // ── guarda-corpo ──────────────────────────────────────────────────────
