@@ -75,6 +75,66 @@ describe('escada de qualidade da cena', () => {
     const veredito = rodar(createMeter(), 29, WARMUP + 6, 1 / 30)
     expect(veredito, 'painel de 30 Hz não é máquina lenta').not.toBe('down')
   })
+
+  /**
+   * ═══ A CEGUEIRA DA MEDIANA SATURADA ═══
+   *
+   * `judge` decide pela MEDIANA, e mediana não mede custo quando há folga: ela
+   * mede a TAXA DO MONITOR. O navegador entrega quadros no ritmo do vsync e não
+   * mais rápido, então toda máquina que dá conta marca 16,7 ms — com margem de
+   * 1 % ou perdendo um quadro em dez, o número é o mesmo.
+   *
+   * O modo de falha que isso cria é específico e invisível para a escada: uma
+   * máquina que QUASE aguenta o degrau mais caro fica nele para sempre,
+   * engasgando, porque a mediana nunca acusa. Ninguém percebe uma mediana; todo
+   * mundo percebe uma travada.
+   *
+   * O CASO AQUI É EXATAMENTE ESSE: nove quadros no vsync e um quadro dobrado,
+   * repetidamente. A mediana sai 16,7 ms — impecável. Um em cada dez quadros é
+   * perdido, que é o dobro dos 5 % que o medidor da cena já chama de "engasgo
+   * visível".
+   *
+   * Este teste falha contra a versão da `judge` que só olha a mediana, e é por
+   * isso que ele existe antes da correção.
+   */
+  it('rebaixa quando a mediana está travada no vsync mas um quadro em dez é perdido', () => {
+    const meter = createMeter()
+    const vsync = 1 / 60
+    let ultimo = 'hold'
+    // Seis segundos de quadros: nove no vsync, o décimo custando o dobro.
+    for (let i = 0; i < 360; i++) {
+      const delta = i % 10 === 9 ? vsync * 2 : vsync
+      const verdict = judge(meter, delta, vsync, 1, TIERS.length)
+      if (verdict !== 'hold') ultimo = verdict
+    }
+    expect(
+      ultimo,
+      'a escada não viu a cauda: mediana no vsync, mas 10 % dos quadros perdidos',
+    ).toBe('down')
+  })
+
+  /**
+   * E A REGRA DA CAUDA NÃO PODE DISPARAR NUM SOLUÇO ISOLADO.
+   *
+   * Um quadro perdido de vez em quando é coleta de lixo, é uma textura
+   * chegando, é outra aba acordando — não é a cena ser cara demais. Rebaixar
+   * por causa disso trocaria um engasgo de um quadro por uma degradação
+   * permanente, porque na fronteira 0↔1 a catraca fecha e o degrau sai do jogo
+   * pelo resto da sessão.
+   *
+   * Um em cinquenta (2 %) fica abaixo do limiar e tem de passar.
+   */
+  it('não rebaixa por um soluço isolado com a mediana saudável', () => {
+    const meter = createMeter()
+    const vsync = 1 / 60
+    let ultimo = 'hold'
+    for (let i = 0; i < 360; i++) {
+      const delta = i % 50 === 49 ? vsync * 2 : vsync
+      const verdict = judge(meter, delta, vsync, 1, TIERS.length)
+      if (verdict !== 'hold') ultimo = verdict
+    }
+    expect(ultimo, 'rebaixou por um soluço isolado').not.toBe('down')
+  })
 })
 
 describe('medição do período do monitor', () => {

@@ -201,13 +201,28 @@ export function registra(
  *   até 1,9   perde de vez em quando
  *   acima     perde um quadro inteiro em 5 % ou mais — visível
  *
- * ═══ E A ESCADA TEM A MESMA CEGUEIRA ═══
+ * ═══ A ESCADA TINHA A MESMA CEGUEIRA, E DEIXOU DE TER ═══
  *
- * Fica registrado porque é uma limitação de verdade, não deste medidor: `judge`
- * decide pela MEDIANA. Numa máquina travada no vsync ele vê 16,7 ms e conclui
- * que há folga de sobra — inclusive quando um em cada vinte quadros está sendo
- * perdido. A escada não derruba o degrau 0 nessa situação; ela não tem como
- * saber. Quem descobre é quem olha a tela.
+ * Ficava registrado aqui que `judge` decidia pela MEDIANA e que, numa máquina
+ * travada no vsync, ela via 16,7 ms e concluía folga de sobra mesmo com um em
+ * cada vinte quadros sendo perdido — de modo que a escada nunca derrubava o
+ * degrau 0 nessa situação.
+ *
+ * Era pior do que estava escrito. Alimentada com nove quadros no vsync e um
+ * dobrado, `judge` não respondia `hold`: respondia `up`. Ela PROMOVIA uma
+ * máquina que já perdia 10 % dos quadros.
+ *
+ * Hoje ela conta também a FRAÇÃO de quadros acima de 1,5 × vsync e rebaixa
+ * quando passa de 8 % numa janela de pelo menos 24 amostras — taxa, e não
+ * percentil, porque o p95 de trinta amostras é uma estatística de ordem que uma
+ * pausa de coleta de lixo move sozinha. Ver `judge` em
+ * `components/three/portico-quality.ts`, onde o raciocínio inteiro está.
+ *
+ * O QUE ISSO CONSERTA ALÉM DO ÓBVIO: a catraca de `predio-qualidade.ts` foi
+ * desenhada em cima da ideia de que cada fronteira visível é APOSTADA uma vez e,
+ * se der errado, o piso sobe. A aposta só se resolve se alguém for capaz de
+ * perceber que ela falhou — e, no degrau 0 de uma máquina travada no vsync,
+ * ninguém era. A catraca fechava sobre um veredito que nunca vinha.
  */
 export function veredito(razaoP95: number): string {
   if (razaoP95 === 0) return 'medindo…'

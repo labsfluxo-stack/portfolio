@@ -172,12 +172,62 @@ export function judge(
 
   const sorted = [...meter.gaps.subarray(0, meter.at)].sort((a, b) => a - b)
   const median = sorted[meter.at >> 1] ?? 0
+  /**
+   * ═══ A TAXA DE QUADROS PERDIDOS, PORQUE A MEDIANA É CEGA COM FOLGA ═══
+   *
+   * A mediana não mede o custo da cena quando há folga: ela mede a TAXA DO
+   * MONITOR. O navegador entrega quadros no ritmo do vsync e não mais rápido,
+   * então toda máquina que dá conta marca o mesmo número, com 1 % de margem ou
+   * perdendo um quadro em dez. Instrumento saturado responde igual a situações
+   * opostas.
+   *
+   * O modo de falha que isso criava não era "deixar de rebaixar" — era PROMOVER.
+   * O teste que trouxe esta correção alimentou `judge` com nove quadros no vsync
+   * e um dobrado, repetidamente, e ela devolveu `up`: via a mediana impecável,
+   * concluía folga de sobra e subia o degrau de uma máquina que já estava
+   * perdendo 10 % dos quadros. Quem mora nesse caso fica no degrau mais caro
+   * para sempre, engasgando, e a escada nunca fica sabendo.
+   *
+   * ═══ TAXA, E NÃO PERCENTIL ═══
+   *
+   * O medidor da cena (`predio-medicao.ts`) usa p95 e está certo para o que ele
+   * faz: relatar. Aqui não serve. A janela fecha com pelo menos 10 quadros e
+   * meio segundo, o que na prática dá umas três dezenas de amostras — e o p95 de
+   * trinta amostras é a SEGUNDA PIOR, ou seja uma estatística de ordem que uma
+   * pausa de coleta de lixo move sozinha.
+   *
+   * Contar a FRAÇÃO de quadros atrasados é robusto onde o percentil é frágil:
+   * um soluço isolado muda a fração em 1/30, e não desloca o veredito.
+   *
+   * ATRASADO É ACIMA DE 1,5 × vsync — o quadro não chegou a tempo e esperou a
+   * próxima varredura. Abaixo disso é jitter de agendamento, não quadro perdido.
+   *
+   * ═══ OS DOIS GUARDAS, E O QUE CADA UM IMPEDE ═══
+   *
+   * `at >= 24` restringe a regra a máquinas RÁPIDAS, que são as únicas onde ela
+   * é necessária. Numa máquina lenta a janela fecha com os 10 quadros mínimos e
+   * todos eles passam de 1,5 × vsync — a taxa daria 100 % e a regra dispararia
+   * junto com a da mediana, sem acrescentar nada além de ruído. Lá quem decide
+   * continua sendo a mediana, que enxerga bem.
+   *
+   * 8 % e não os 5 % que o medidor chama de visível, e a diferença é o preço do
+   * erro. Na fronteira 0↔1 a catraca FECHA: um rebaixamento equivocado ali tira
+   * o degrau do jogo pelo resto da sessão. Com trinta amostras, 8 % exige três
+   * quadros perdidos — três em meio segundo é um regime, não um soluço.
+   */
+  const atrasados = sorted.filter((d) => d > vsync * 1.5).length
+  const taxaDePerda = meter.at > 0 ? atrasados / meter.at : 0
+  const amostras = meter.at
   meter.at = 0
   meter.span = 0
 
   // Metade da taxa do monitor, e nunca mais folgado que 45 quadros por segundo.
   const slow = Math.max(vsync * 2.2, 1 / 45)
   if (median > slow && step < steps - 1) {
+    meter.since = meter.age
+    return 'down'
+  }
+  if (amostras >= 24 && taxaDePerda > 0.08 && step < steps - 1) {
     meter.since = meter.age
     return 'down'
   }
