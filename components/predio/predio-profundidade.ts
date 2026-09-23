@@ -125,11 +125,36 @@ export const OCLUSAO = {
    */
   raio: 0.45,
   /**
-   * Quanto ela fecha. 0,8 e não 1: oclusão cheia fecha demais um terraço a céu
-   * aberto, que é o caso com MENOS oclusão possível — não há teto em lugar
-   * nenhum. Aqui ela existe para dar contato, não para dar interior.
+   * ═══ 1,25, E ERA 0,8 ═══
+   *
+   * O argumento de 0,8 era este, e continua verdadeiro em tese: oclusão cheia
+   * fecha demais um terraço a céu aberto, que é o caso com MENOS oclusão
+   * possível — não há teto em lugar nenhum. O erro não estava no raciocínio,
+   * estava em nunca ter sido medido.
+   *
+   * O A/B com região de controle mediu: na faixa do deck e do parapeito — as
+   * únicas do quadro sem animação, com ruído de controle de 0,02 e 0,01 — o
+   * passe inteiro move 3,46 e 0,93, e a oclusão responde por cerca de um SEXTO
+   * disso. Ela existe, cai onde deve, e é fraca demais para o trabalho que tem.
+   *
+   * ═══ E O TRABALHO QUE ELA TEM CRESCEU ═══
+   *
+   * O sol está atrás do prédio (azimute 152°): nenhuma luz direta bate no
+   * terraço, então quase nada ali projeta sombra. Com doze peças de mobiliário
+   * novas — espreguiçadeiras, guarda-sol, quatro mesas, oito cadeiras, o balcão
+   * da recepção —, a oclusão passou a ser o ÚNICO mecanismo da cena capaz de
+   * desenhar a linha escura onde a perna encontra a régua do deck.
+   *
+   * Objeto sem sombra de contato não parece apoiado, parece colado. Esta é a
+   * diferença entre mobiliário posto na cena e mobiliário que pertence a ela.
+   *
+   * ACIMA DE 1 EXIGE TRAVA, e é por isso que o shader ganhou uma. O fator é
+   * `1 − oclusão × intensidade`; com intensidade acima de 1, qualquer pixel com
+   * oclusão acima de `1/intensidade` produziria fator NEGATIVO — cor abaixo do
+   * preto, que no acumulador de meio-float vira artefato em vez de sombra. A
+   * trava custa uma instrução e fecha essa porta de vez.
    */
-  intensidade: 0.8,
+  intensidade: 1.25,
   /**
    * Viés contra auto-oclusão. Sem ele, a imprecisão do z-buffer faz cada
    * superfície se sombrear sozinha e a cena inteira escurece por igual — que é
@@ -324,7 +349,13 @@ export function shaderDeProfundidade(camera: THREE.PerspectiveCamera) {
         }
 
         float oclusao = clamp( somaOclusao / 8.0, 0.0, 1.0 );
-        gl_FragColor = vec4( saida * ( 1.0 - oclusao * intensidade ), cor.a );
+        // A TRAVA EXISTE PORQUE A INTENSIDADE PASSOU DE 1. Sem ela, um pixel com
+        // oclusao acima de 1/intensidade daria fator NEGATIVO — cor abaixo do
+        // preto, que no acumulador de meio-float do composer vira artefato em
+        // vez de sombra. Uma instrucao, e a porta fecha para qualquer valor
+        // futuro de intensidade.
+        float fator = clamp( 1.0 - oclusao * intensidade, 0.0, 1.0 );
+        gl_FragColor = vec4( saida * fator, cor.a );
       }`,
   }
 }

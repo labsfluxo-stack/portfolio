@@ -4349,6 +4349,28 @@ export function Cobertura({
         r * 0.82,
       ])
       /**
+       * ═══ A MANCHA QUE APOIA O CONJUNTO NO PISO ═══
+       *
+       * Eu tentei resolver isto pela OCLUSÃO primeiro, subindo a intensidade de
+       * 0,8 para 1,25 — e medi: rendeu 7 % na faixa do deck. Quase nada, e a
+       * razão é física, não de ajuste. Oclusão de ambiente é proporcional ao
+       * ângulo sólido que o objeto bloqueia, e perna de 3,5 cm a doze metros
+       * bloqueia quase nada. Nenhum valor de intensidade conserta um occlusor
+       * que praticamente não existe.
+       *
+       * O que apoia um móvel é a mancha sob a MASSA dele — e é para isso que
+       * esta cena já tem `sombra()`, usada no bar, no escritório, nas árvores e
+       * nos postes do pergolado. As doze peças que entraram hoje eram as únicas
+       * do terraço sem ela: sol atrás do prédio, nada projeta, e sem a mancha
+       * elas pairavam.
+       *
+       * Uma por CONJUNTO e não uma por peça: a mancha cobre a mesa e as duas
+       * cadeiras juntas, que é como a penumbra de um grupo de móveis se
+       * comporta — sombras individuais de objetos encostados se fundem numa só.
+       * E entra na chave `sombra`, que já existe: custo zero.
+       */
+      sombra(mesa.x, mesa.z, r * 3.4, r * 3.4)
+      /**
        * ═══ O QUE ESTÁ EM CIMA DA MESA ═══
        *
        * Mesa vazia é mesa de catálogo. O que separa um render de uma fotografia
@@ -4549,6 +4571,10 @@ export function Cobertura({
       // alguém que esteve ali — que é a diferença entre cenário e lugar usado.
       if (e === 0)
         col.poe('toalha', gCaixa, mToalha, p(0, 0.5, 0.22), [0, g, 0], [0.52, 0.07, 0.42])
+      // A mancha de apoio — ver o comentário longo nas mesas. Alongada em z
+      // porque a espreguiçadeira é comprida nesse eixo, e mancha quadrada sob
+      // móvel comprido denuncia que ela é um decalque.
+      sombra(esp.x, zEspreg, 1.0, 1.9)
     }
     /**
      * O GUARDA-SOL FECHADO, e ele é a peça mais importante deste bloco.
@@ -4576,6 +4602,8 @@ export function Cobertura({
       0.08,
       0.34,
     ])
+    sombra(xGuardaSol, zEspreg - 0.45, 0.62, 0.62)
+
     // A lona enrolada: cone e não cilindro. Guarda-sol fechado afina para cima
     // porque as varetas convergem no topo, e um tubo reto ali leria como poste.
     col.poe(
@@ -4634,6 +4662,8 @@ export function Cobertura({
       [0, 0, 0],
       [0.16, 0.05, 0.16],
     )
+    sombra(xRecepcao, zRecepcao, 2.5, 1.1)
+
     /**
      * ═══ A FITA SOB O TAMPO, E POR QUE NÃO FOI UMA SEGUNDA ARANDELA ═══
      *
