@@ -773,6 +773,10 @@ export function Cobertura({
      * olho segue.
      */
     const gCilindro = new THREE.CylinderGeometry(1, 1, 1, 18)
+    // Cone unitário — a lona enrolada do guarda-sol. Base 1, altura 1, escalado
+    // por matriz como todo o resto. 12 lados bastam: ele tem 20 cm de diâmetro
+    // na base e a silhueta já é curva nessa contagem.
+    const gCone = new THREE.ConeGeometry(1, 1, 12)
     const gAssentoBanqueta = new THREE.CylinderGeometry(0.21, 0.2, 0.09, 14)
     const gPernaBanqueta = new THREE.CylinderGeometry(0.026, 0.034, 0.72, 8)
 
@@ -1394,6 +1398,36 @@ export function Cobertura({
      * e desajustaria quatro peças — e não custa nada, porque a borda já tem
      * chave própria no coletor e portanto já é uma malha separada.
      */
+    /**
+     * ═══ O ESTOFADO DA ÁREA DE PISCINA ═══
+     *
+     * Creme e não escuro, e a decisão é de composição antes de ser de gosto. O
+     * primeiro plano do quadro é deck escuro sobre deck escuro; qualquer móvel
+     * em tom próximo desapareceria ali, que foi exatamente o que aconteceu com
+     * as mesas quando o tampo era madeira. Colchonete claro é o que separa o
+     * objeto do piso — e é também o que a peça é na vida real: lona clara, que
+     * esquenta menos ao sol.
+     *
+     * Com microrrelevo em escala alta: 9 ladrilhos por metro dá a trama da lona.
+     * Sem ele o colchonete vira plástico, que é o mesmo defeito que os metais
+     * tinham antes de ganharem mapa.
+     */
+    const mAlmofada = comDetalhe(
+      new THREE.MeshStandardMaterial({ color: '#cfc3ac', roughness: 0.95 }),
+      detalhe,
+      9,
+      0.5,
+    )
+    // A toalha é mais clara e mais lisa que a lona: algodão novo contra tecido
+    // de exterior. É a peça mais clara do terraço inteiro, e é de propósito —
+    // toalha dobrada numa espreguiçadeira é o sinal mais barato de OCUPAÇÃO que
+    // existe, e ocupação é o que separa render de fotografia.
+    const mToalha = comDetalhe(
+      new THREE.MeshStandardMaterial({ color: '#e4dccd', roughness: 0.98 }),
+      detalhe,
+      14,
+      0.6,
+    )
     const mPedraBorda = comDetalhe(
       new THREE.MeshStandardMaterial({
         color: '#cfc4ad',
@@ -4294,6 +4328,132 @@ export function Cobertura({
         }
       }
     }
+
+    // ── espreguiçadeiras e guarda-sol ─────────────────────────────────────
+    /**
+     * ═══ O TERÇO DE BAIXO DO QUADRO ERA DECK NU ═══
+     *
+     * Quarenta por cento da imagem — a faixa da frente inteira — eram réguas e
+     * uma fileira de balizadores. E o problema não é "falta objeto": é que a
+     * composição salta de vazio direto para o meio-campo, e toda fotografia de
+     * arquitetura que impressiona tem TRÊS planos. Sem o da frente não há
+     * escalonamento de profundidade, e sem escalonamento a imagem achata por
+     * mais bem iluminada que esteja.
+     *
+     * E há o argumento mais simples: PISCINA SEM ESPREGUIÇADEIRA NÃO É PISCINA.
+     * É espelho d'água. O que diz que aquela lâmina é para entrar não é a
+     * escada nem a borda — é a cadeira virada para ela.
+     *
+     * POR QUE À ESQUERDA. A ponta direita já ganhou mesas, bar e mural; pôr a
+     * área de piscina lá amontoaria tudo de um lado e deixaria o outro terço
+     * vazio. À esquerda o deck está livre da piscina para fora, e o conjunto
+     * fica ENTRE a câmera e a água — que é o que o torna primeiro plano de
+     * verdade em vez de mais um objeto no meio-campo.
+     *
+     * TUDO DERIVADO DE `piscina.frente`: se a lâmina mudar de tamanho outra vez
+     * — e ela já mudou duas —, o conjunto acompanha em vez de ficar plantado
+     * dentro da água.
+     */
+    /**
+     * ═══ ANCORADAS NA BORDA ESQUERDA DA LÂMINA, E NÃO EM x ABSOLUTO ═══
+     *
+     * A primeira tentativa usou −8,6 e −6,4, que na planta parecem o meio do
+     * deck livre. No render as duas saíram coladas na margem esquerda e o
+     * guarda-sol ficou INTEIRAMENTE fora do quadro.
+     *
+     * A causa é a própria razão de o conjunto existir: primeiro plano está mais
+     * PERTO da câmera, e perto a escala em tela é maior. A lâmina, a dez metros,
+     * rende uns 75 pixels por metro; este conjunto, a sete, rende uns 113. Cada
+     * metro lateral empurra metade a mais para fora. Intuição de planta baixa
+     * não vale no plano da frente — é preciso contar em pixels.
+     *
+     * Presas à borda da piscina, elas ficam onde ficariam de verdade (ao lado da
+     * água, não a cinco metros dela) e sobrevivem a qualquer mudança futura da
+     * lâmina, que já mudou duas vezes.
+     */
+    const xBordaEsquerda = piscina.x - piscina.largura / 2
+    const zEspreg = piscina.frente + 1.15
+    for (const [e, esp] of [
+      { x: xBordaEsquerda - 2.4, giro: 0.2 },
+      { x: xBordaEsquerda - 0.2, giro: -0.13 },
+    ].entries()) {
+      const g = esp.giro
+      const cos = Math.cos(g)
+      const sen = Math.sin(g)
+      // Gira o deslocamento local junto com a peça: sem isto o encosto ficaria
+      // no eixo do mundo e a espreguiçadeira sairia torta em vez de girada.
+      const p = (dx: number, dy: number, dz: number): [number, number, number] => [
+        esp.x + dx * cos - dz * sen,
+        piso + dy,
+        zEspreg + dx * sen + dz * cos,
+      ]
+      col.poe('estofadoEspreg', gCaixa, mAlmofada, p(0, 0.42, 0.1), [0, g, 0], [0.66, 0.09, 1.3])
+      /**
+       * O ENCOSTO RECLINADO, e a inclinação é o que identifica a peça.
+       *
+       * Espreguiçadeira com encosto vertical é cadeira; deitado, é cama. Os 52°
+       * do meio são o que o olho lê como "para ficar ao sol" — e é a única
+       * diagonal forte do primeiro plano, num quadro que é todo faixa
+       * horizontal empilhada.
+       */
+      col.poe(
+        'estofadoEspreg',
+        gCaixa,
+        mAlmofada,
+        p(0, 0.72, -0.78),
+        [-0.9, g, 0],
+        [0.66, 0.78, 0.09],
+      )
+      // Pés: mesma chave das pernas de cadeira — gCaixa com mMetal já existe
+      // como malha instanciada, então os oito pés custam zero chamada.
+      for (const px of [-1, 1])
+        for (const pz of [-1, 1])
+          col.poe('pernaCadeira', gCaixa, mMetal, p(px * 0.26, 0.19, pz * 0.5), [0, g, 0], [
+            0.035,
+            0.38,
+            0.035,
+          ])
+      // A toalha, só numa das duas. Nas duas viraria padrão; numa só, lê como
+      // alguém que esteve ali — que é a diferença entre cenário e lugar usado.
+      if (e === 0)
+        col.poe('toalha', gCaixa, mToalha, p(0, 0.5, 0.22), [0, g, 0], [0.52, 0.07, 0.42])
+    }
+    /**
+     * O GUARDA-SOL FECHADO, e ele é a peça mais importante deste bloco.
+     *
+     * O quadro é faixa horizontal empilhada — deck, lâmina, jardim, cidade, céu
+     * — e no primeiro plano não há UMA vertical. O mastro atravessa três dessas
+     * faixas de uma vez e é o que quebra o empilhamento.
+     *
+     * FECHADO porque é entardecer. Aberto, além de anacrônico, seria um disco
+     * de dois metros tapando justamente o jardim e a cascata que a cena levou
+     * semanas para acertar — a peça existe para dar vertical, não para comprar
+     * área.
+     */
+    // ENTRE AS DUAS E MEIO METRO ATRÁS: é onde um guarda-sol fica, e é o que o
+    // mantém dentro do quadro. `zEspreg - 0.45` o deixa livre da pedra da borda,
+    // que termina 40 cm à frente da lâmina.
+    const xGuardaSol = xBordaEsquerda - 1.3
+    col.poe('colunaMesa', gCilindro, mMetal, [xGuardaSol, piso + 1.15, zEspreg - 0.45], [0, 0, 0], [
+      0.035,
+      2.3,
+      0.035,
+    ])
+    col.poe('baseMesa', gCilindro, mMetal, [xGuardaSol, piso + 0.04, zEspreg - 0.45], [0, 0, 0], [
+      0.34,
+      0.08,
+      0.34,
+    ])
+    // A lona enrolada: cone e não cilindro. Guarda-sol fechado afina para cima
+    // porque as varetas convergem no topo, e um tubo reto ali leria como poste.
+    col.poe(
+      'lonaGuardaSol',
+      gCone,
+      mAlmofada,
+      [xGuardaSol, piso + 2.62, zEspreg - 0.45],
+      [0, 0, 0],
+      [0.1, 1.15, 0.1],
+    )
 
     // ── recepção ──────────────────────────────────────────────────────────
     /**
