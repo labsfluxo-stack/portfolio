@@ -743,7 +743,40 @@ export function Cobertura({
     const gBalcao = new RoundedBoxGeometry(4.6, 1.0, 0.7, 1, 0.02)
     const gTampo = new RoundedBoxGeometry(5.0, 0.09, 0.96, 1, 0.014)
     const gPrateleira = new THREE.BoxGeometry(4.3, 0.045, 0.26)
+    /**
+     * ═══ QUATRO SILHUETAS DE GARRAFA, E ANTES HAVIA UMA ═══
+     *
+     * O dono olhou a parede do bar e disse duas coisas: "não dá para ver as
+     * garrafas direito" e "todas são da mesma forma". As duas são o mesmo
+     * defeito visto de dois lados.
+     *
+     * Havia UM cilindro levemente cônico, escalado em altura, largura e cor. Cor
+     * e escala variam a MANCHA; não variam a SILHUETA. E silhueta é o que o olho
+     * usa para contar objetos — oitenta cilindros iguais atrás de um vidro
+     * retroiluminado não leem como oitenta garrafas, leem como uma textura
+     * listrada. Foi exatamente o que o render mostrou.
+     *
+     * Quatro perfis, todos primitivas baratas, escolhidos porque são as quatro
+     * silhuetas que qualquer pessoa reconhece numa prateleira de bar:
+     *
+     *  · RETA — lado paralelo, ombro alto. Uísque, rum.
+     *  · OMBRO — base larga afinando forte para o gargalo. Conhaque, borgonha.
+     *  · ALTA — estreita e comprida. Gim, vodca, licor.
+     *  · QUADRADA — prisma de quatro lados, que é um cilindro com 4 segmentos.
+     *    É a que mais destoa das outras três, e é por isso que ela está aqui:
+     *    uma forma claramente não-redonda no meio quebra a leitura de pente.
+     *
+     * Custa três chaves novas no coletor. Barato pelo que devolve — e o gargalo
+     * e o rótulo continuam compartilhados, porque gargalo é redondo em todas as
+     * quatro na vida real também.
+     */
     const gGarrafa = new THREE.CylinderGeometry(0.037, 0.043, 0.3, 8)
+    const PERFIS_DE_GARRAFA = [
+      { chave: 'garrafa', geo: gGarrafa },
+      { chave: 'garrafaReta', geo: new THREE.CylinderGeometry(0.042, 0.042, 0.3, 8) },
+      { chave: 'garrafaOmbro', geo: new THREE.CylinderGeometry(0.022, 0.052, 0.3, 8) },
+      { chave: 'garrafaQuadrada', geo: new THREE.CylinderGeometry(0.04, 0.043, 0.3, 4) },
+    ] as const
     // O GARGALO. Silhueta em dois tempos — corpo largo, ombro, pescoço fino — é
     // o que identifica uma garrafa de longe. Sem ele, trinta cilindros de topo
     // reto em fila leem como peças de dominó, que foi o que o render mostrou.
@@ -1445,6 +1478,35 @@ export function Cobertura({
       metalness: 0.1,
       transparent: true,
       opacity: 0.82,
+    })
+    /**
+     * ═══ GARRAFA CHEIA NÃO É VIDRO VAZIO ═══
+     *
+     * As garrafas usavam `mVidroGarrafa`, o mesmo material dos copos, a 0,82 de
+     * opacidade. Num copo isso está certo: copo é vidro fino e vazio, e tem de
+     * deixar passar. Numa garrafa está errado por duas razões.
+     *
+     * A física: garrafa de bar tem LÍQUIDO dentro, e é o líquido que dá a cor.
+     * Uísque, vinho, licor — a coluna que se vê é um corpo colorido de vários
+     * centímetros de espessura, não uma casca transparente.
+     *
+     * E a consequência na tela, que é o que o dono viu: com a fita de LED logo
+     * atrás de cada prateleira, 18 % de transparência bastam para a luz lavar a
+     * cor por dentro. A garrafa perde o próprio tom, todas convergem para o
+     * âmbar da fita, e oitenta objetos viram uma mancha só. As cores já eram
+     * nove e bem separadas — verde, borgonha, azul, oliva, ameixa; elas não
+     * estavam aparecendo.
+     *
+     * 0,93 mantém o brilho de vidro na borda e devolve o corpo. E a rugosidade
+     * sobe de 0,16 para 0,3 pelo mesmo motivo físico: líquido espalha, vidro
+     * vazio espelha.
+     */
+    const mGarrafa = new THREE.MeshStandardMaterial({
+      color: '#ffffff',
+      roughness: 0.3,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.93,
     })
     // Toalha: listrada nao da para desenhar sem outra textura, mas a COR fria
     // no meio de um deck ambar ja faz o trabalho — e pano de praia raramente e
@@ -2365,10 +2427,31 @@ export function Cobertura({
             xBar - LARG_BAR / 2 + passo * (g + 0.5) + (fila ? passo * 0.5 : 0) +
             (ruido(g, 41 + p * 7 + fila * 3) - 0.5) * 0.05
           if (x > xBar + LARG_BAR / 2 - 0.1) continue
+          /**
+           * ═══ O VÃO, E ELE É O QUE MAIS DEVOLVE AQUI ═══
+           *
+           * As prateleiras estavam CHEIAS: vinte posições, vinte garrafas, duas
+           * filas, sem falha. Garrafa encostada em garrafa não tem silhueta —
+           * ela só existe contra alguma coisa, e o que há atrás é outra garrafa
+           * da mesma cor e da mesma altura.
+           *
+           * Deixando cerca de um quinto das posições vazias, a luz de trás passa
+           * entre elas e cada garrafa ganha borda. É o mesmo raciocínio das 52
+           * ripas do balcão, algumas linhas abaixo: o que se lê não é a ripa, é a
+           * SOMBRA entre elas. Aqui o que se lê não é a garrafa, é o vão.
+           *
+           * E é gratuito no orçamento: um quinto de instâncias a MENOS.
+           */
+          if (ruido(g, 61 + p * 11 + fila * 5) < 0.2) continue
           // A fila de trás é mais alta: garrafa baixa atrás de garrafa alta
           // simplesmente não existe para a câmera, e seria instância paga sem
           // nenhum pixel em troca.
-          const alto = (fila ? 1.05 : 0.78) + ruido(g, 42 + p * 5 + fila) * 0.5
+          //
+          // A FAIXA DE ALTURA DOBROU (era 0,5 de amplitude, agora 1,0). Com as
+          // silhuetas iguais, variar mais a altura só esticava o mesmo cilindro;
+          // com quatro perfis diferentes, a altura passa a compor com a forma e
+          // a diferença entre uma garrafa e a vizinha fica óbvia.
+          const alto = (fila ? 1.05 : 0.72) + ruido(g, 42 + p * 5 + fila) * 1.0
           // O DIÂMETRO também varia. Sem isso, oitenta cilindros de mesma
           // largura leem como um pente — era o defeito que o gargalo sozinho não
           // consertou.
@@ -2376,11 +2459,20 @@ export function Cobertura({
           const z = zBar - 1.46 - fila * 0.09
           const cor = TONS_DE_GARRAFA[(g * 5 + p * 3 + fila * 7) % TONS_DE_GARRAFA.length]!
           const yBase = piso + y + 0.17
-          col.poe('garrafa', gGarrafa, mVidroGarrafa, [x, yBase, z], [0, 0, 0], [larg, alto, larg], cor)
+          // O perfil sai de uma semente PRÓPRIA, sem relação com a da cor nem
+          // com a da altura: se as três viessem do mesmo número, forma, tamanho
+          // e cor andariam juntas e a parede voltaria a ter padrão — outro
+          // padrão, mas padrão.
+          const perfil =
+            PERFIS_DE_GARRAFA[
+              Math.floor(ruido(g, 71 + p * 13 + fila * 3) * PERFIS_DE_GARRAFA.length) %
+                PERFIS_DE_GARRAFA.length
+            ]!
+          col.poe(perfil.chave, perfil.geo, mGarrafa, [x, yBase, z], [0, 0, 0], [larg, alto, larg], cor)
           col.poe(
             'gargalo',
             gGargalo,
-            mVidroGarrafa,
+            mGarrafa,
             [x, yBase + 0.15 * alto + 0.055, z],
             [0, 0, 0],
             [larg, 1, larg],
@@ -4256,6 +4348,46 @@ export function Cobertura({
         0.036,
         r * 0.82,
       ])
+      /**
+       * ═══ O QUE ESTÁ EM CIMA DA MESA ═══
+       *
+       * Mesa vazia é mesa de catálogo. O que separa um render de uma fotografia
+       * não é resolução nem iluminação — é o VESTÍGIO: o copo que alguém deixou,
+       * a vela acesa, a toalha dobrada na espreguiçadeira. São as coisas que
+       * ninguém desenha de propósito e que toda foto de lugar de verdade tem.
+       *
+       * A LANTERNA É A PEÇA QUE MAIS PAGA, e não por ser objeto: é uma fonte
+       * ACESA na altura do tampo, numa faixa do quadro que hoje só tem
+       * balizadores rasos no chão. Quatro pontos quentes ali desenham a área de
+       * mesas no escuro, que é o que uma área de mesas ao ar livre faz de noite.
+       *
+       * O COPO SÓ EM DUAS DAS QUATRO. Em todas viraria padrão de novo; em
+       * nenhuma, o terraço fica estéril. Duas lê como "estas estavam ocupadas,
+       * aquelas não" — que é o que uma foto pega por acaso e um render tem de
+       * decidir.
+       */
+      col.poe('lanterna', gCilindro, mVidroGarrafa, [mesa.x, piso + h + 0.09, mesa.z], [0, 0, 0], [
+        0.05,
+        0.13,
+        0.05,
+      ])
+      // A chama entra na chave da luz da recepção — mesma geometria, mesmo
+      // material — então as quatro custam zero chamada nova.
+      col.poe(
+        'luzRecepcao',
+        gCaixa,
+        mLuminaria,
+        [mesa.x, piso + h + 0.07, mesa.z],
+        [0, 0, 0],
+        [0.035, 0.05, 0.035],
+      )
+      if (m % 2 === 0)
+        for (const c of [0, 1])
+          col.poe('copo', gCopo, mVidroGarrafa, [
+            mesa.x + (c ? 0.17 : -0.14),
+            piso + h + 0.08,
+            mesa.z + (c ? -0.11 : 0.13),
+          ])
       /**
        * DUAS SENTADAS POR MESA, EM DIAGONAL e não frente a frente.
        *
