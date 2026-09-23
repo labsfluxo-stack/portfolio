@@ -204,6 +204,77 @@ const ESCRITORIO = { x: -7.8, largura: 5.8, altura: 2.92, profundidade: 2.0 }
  */
 const BAR = { x: 9.0, largura: 4.9, beiral: 0.4 }
 /** Face externa de cada construção — as duas pontas do terraço, em x. */
+/**
+ * ═══ O FECHAMENTO LATERAL ═══
+ *
+ * O terraço acabava no ar: as réguas do deck iam até a borda e a cidade descia
+ * até encostar no piso. Nenhum prédio é assim. A laje de cobertura termina na
+ * PLATIBANDA — a mureta que contorna o perímetro, esconde a drenagem e dá
+ * coroamento ao volume. 1,10 m porque é o que a norma pede de guarda-corpo
+ * (1,05 m) com a folga que terraço de uso costuma levar.
+ *
+ * ELA É OPACA E O DA FRENTE É DE VIDRO, e a diferença não é de gosto: vidro se
+ * põe onde há vista, alvenaria onde há vizinho colado. A frente olha a cidade; as
+ * laterais olham a empena do prédio ao lado.
+ *
+ * O RUFO é a capa metálica no topo. Geometria de nada — uma caixa de 7 cm — e é
+ * o detalhe que mais diz "isto foi construído": platibanda sem rufo é maquete,
+ * porque é por cima dela que a água entraria na alvenaria.
+ */
+const PLATIBANDA = { altura: 1.1, espessura: 0.25, rufo: 0.07 }
+
+/**
+ * ═══ O NÚCLEO QUE EMERGE ═══
+ *
+ * O poço do elevador TEM de sobrepassar o último piso — não é licença poética,
+ * é o percurso da cabine mais o espaço de segurança no topo. A escada sobe junto.
+ * Num terraço isso vira um volume construído, e é ele que faz uma cobertura ler
+ * como cobertura em vez de deque flutuante: é a única peça que prova que se
+ * chega ali por dentro do prédio.
+ *
+ * 3,5 m de altura contra os 3,2 m de pé-direito do bar — o núcleo é o ponto mais
+ * alto do terraço, como sempre é.
+ *
+ * ASSIMÉTRICO DE PROPÓSITO, e a decisão é do dono: o núcleo fecha a ponta
+ * esquerda até 3,5 m, enquanto a direita para em 2,2 m para o skyline continuar
+ * passando por cima. Prédio real é assimétrico — o núcleo fica onde a prumada
+ * sobe, não onde a composição gostaria.
+ */
+/**
+ * AS MEDIDAS CRESCERAM DEPOIS DO PRIMEIRO RENDER, e o motivo é de perspectiva,
+ * não de programa. Com 3,0 x 2,6 recuado atrás do escritório, o volume aparecia
+ * pequeno e afastado da borda: sobrava uma faixa de deck com a cidade descendo
+ * até o piso à esquerda dele, que é exatamente o buraco que ele existe para
+ * tapar. Coisa longe encolhe, e a ponta do quadro é onde a perspectiva mais
+ * puxa para dentro.
+ *
+ * 3,4 x 4,4 com a face AVANÇANDO 1,4 m além do vidro do escritório resolve as
+ * duas coisas: o volume ganha presença e o corpo dele chega à borda. E é um
+ * tamanho honesto — aqui dentro cabem o poço do elevador E a caixa de escada,
+ * que é o que sobe junto num prédio deste porte.
+ */
+const NUCLEO = { largura: 3.4, profundidade: 4.4, altura: 3.5, avanco: 1.4 }
+
+/**
+ * ═══ O MURAL VERDE — a empena que vira jardim ═══
+ *
+ * Jardim vertical não se pendura em qualquer lugar: ele existe porque há uma
+ * PAREDE CEGA, e parede cega num terraço urbano é a empena do vizinho colado.
+ * É o uso canônico, e é por isso que ele fecha a ponta direita em vez de ser um
+ * objeto posto sobre o deck.
+ *
+ * 2,20 m e não os 3,2 m de pé-direito do bar: é a altura que o dono escolheu
+ * para o skyline continuar passando por cima da ponta direita. Fica mais baixo
+ * que uma empena real, e essa é a concessão consciente do desenho — o núcleo da
+ * esquerda carrega a lógica estrita, este lado carrega a vista.
+ *
+ * MÓDULOS DE 0,55 m, que é como se constrói: bandeja de cultivo, substrato,
+ * gotejamento por linha. Uma textura de folhas pintada na parede seria mais
+ * barata e leria como papel de parede — o que denuncia um jardim vertical falso
+ * é a ausência de MÓDULO, porque o olho conhece a grade mesmo sem saber.
+ */
+const MURAL = { altura: 2.2, espessura: 0.3, modulo: 0.55 }
+
 const X_FIM_DO_ESCRITORIO = ESCRITORIO.x - ESCRITORIO.largura / 2
 const X_FIM_DO_BAR = BAR.x + BAR.largura / 2 + BAR.beiral
 
@@ -689,6 +760,19 @@ export function Cobertura({
     // Ripa da frente do balcao. Escalada em Y; o que se le e a sombra entre elas.
     const gRipaBalcao = new THREE.BoxGeometry(0.05, 1, 0.022)
     const gApoioPe = new THREE.CylinderGeometry(0.026, 0.026, 4.4, 8)
+    /**
+     * CILINDRO UNITÁRIO, escalado por matriz — a mesma regra de `gCaixa`.
+     *
+     * Tampo de mesa, coluna e base têm raios e alturas diferentes, e uma
+     * geometria por medida daria três malhas instanciadas onde cabe uma. O
+     * coletor pega geometria E material da PRIMEIRA chamada de cada chave, então
+     * variação de tamanho tem de vir na escala.
+     *
+     * 18 lados: a mesa é vista a doze metros e com 18 ela já é redonda; 12
+     * mostraria o polígono na silhueta do tampo, que é a única borda dela que o
+     * olho segue.
+     */
+    const gCilindro = new THREE.CylinderGeometry(1, 1, 1, 18)
     const gAssentoBanqueta = new THREE.CylinderGeometry(0.21, 0.2, 0.09, 14)
     const gPernaBanqueta = new THREE.CylinderGeometry(0.026, 0.034, 0.72, 8)
 
@@ -801,6 +885,28 @@ export function Cobertura({
       detalhe,
       11,
       0.3,
+    )
+    /**
+     * ═══ A PORTA DO ELEVADOR SAIU BEGE, E O CULPADO É A COR DE BASE ═══
+     *
+     * Primeiro render com `mMetal`: a porta leu como madeira pintada de creme,
+     * não como inox. A causa é que em metal a COR DE BASE tinge o reflexo — e
+     * `mMetal` tem base `#c9c6bf`, levemente quente, ajustada para o alumínio do
+     * guarda-corpo. Sob um céu de hora dourada, quente vezes quente dá bege.
+     *
+     * Inox escovado de porta de elevador é FRIO e mais escuro. Base `#9aa0a2`
+     * esfria o reflexo do céu em vez de somar a ele, e é isso que separa
+     * "equipamento predial" de "marcenaria".
+     *
+     * Rugosidade 0,38, acima da do guarda-corpo: folha de elevador é escovada em
+     * escovação grossa, e escovação grossa espalha. Espelho ali devolveria a
+     * piscina inteira na porta.
+     */
+    const mPortaElevador = comDetalhe(
+      new THREE.MeshStandardMaterial({ color: '#9aa0a2', metalness: 0.86, roughness: 0.38 }),
+      detalhe,
+      16,
+      0.4,
     )
     // A GRELHA DA CANALETA. Escura e fosca de propósito: o que o olho lê numa
     // canaleta é o VÃO, não a grade. `metalness` baixa porque grelha de ralo é
@@ -1065,6 +1171,36 @@ export function Cobertura({
       new THREE.MeshStandardMaterial({
         color: '#bcae97',
         roughness: 0.95,
+        map: pedra.map,
+        normalMap: pedra.normalMap,
+        roughnessMap: pedra.roughnessMap,
+      }),
+      detalhe,
+      3.6,
+      0.85,
+    )
+    /**
+     * ═══ O CONCRETO DE FORA, QUE NÃO É O DE DENTRO ═══
+     *
+     * `mParedeConcreto` é concreto aparente NOVO, de peça arquitetônica: claro,
+     * quente, feito para contrastar com o vidro do escritório. A platibanda e o
+     * núcleo do elevador são outra coisa — são a casca do prédio, a mesma
+     * superfície que aparece na faixa escura embaixo do deck, curtida por chuva
+     * e fuligem.
+     *
+     * Se as duas usassem o mesmo material, as laterais virariam uma faixa CLARA
+     * correndo as duas bordas do quadro, e borda clara puxa o olho para fora da
+     * cena — exatamente ao contrário do que um fechamento lateral existe para
+     * fazer. Escuro, ele emoldura sem competir, e o skyline que passa por cima
+     * ganha contraste em vez de perder.
+     *
+     * Mesmos mapas de pedra, mesmo microrrelevo: é a mesma matéria, com outra
+     * idade.
+     */
+    const mPlatibanda = comDetalhe(
+      new THREE.MeshStandardMaterial({
+        color: '#8c8071',
+        roughness: 0.96,
         map: pedra.map,
         normalMap: pedra.normalMap,
         roughnessMap: pedra.roughnessMap,
@@ -1494,6 +1630,11 @@ export function Cobertura({
     // que ninguém sabe nomear mas todo mundo sente.
     const mTela = new THREE.MeshBasicMaterial({ color: fonte('#cfe0ee', 1.25) })
     const mLuminaria = new THREE.MeshBasicMaterial({ color: fonte('#ffd9a4', 3.4) })
+    // O display do elevador é FRIO, e é a única coisa fria acesa no terraço
+    // fora da fita da cascata. Sinalização predial é sempre branca ou verde —
+    // âmbar ali leria como mais uma luminária decorativa, e o que ela tem de
+    // dizer é "isto é equipamento", não "isto é ambiente".
+    const mIndicador = new THREE.MeshBasicMaterial({ color: fonte('#d6e6f2', 1.9) })
     // A lombada do livro é o único lugar da cena onde cor saturada em quantidade
     // é bem-vinda: estante monocromática lê como cenografia de loja.
     const TONS_DE_LIVRO = [
@@ -3665,6 +3806,451 @@ export function Cobertura({
         0.09,
         piscina.profundidade + 0.39,
       ])
+
+    // ── fechamento lateral ────────────────────────────────────────────────
+    /**
+     * TUDO DERIVADO, NENHUM LITERAL EM z. Esta é a quarta peça do arquivo que se
+     * amarra à geometria da cobertura, e as três anteriores — o z da escada da
+     * piscina, os postes do pergolado e a própria escada de novo — já foram
+     * atropeladas por uma mudança de dimensão que ninguém lembrou de propagar.
+     * A platibanda vai do fundo do deck até onde o guarda-corpo de vidro começa,
+     * quaisquer que sejam `prof` e `zCentro`.
+     */
+    const zFundoDoDeck = zCentro - prof * 0.46
+    const compDaPlatibanda = zGuarda - zFundoDoDeck
+    const zDaPlatibanda = (zGuarda + zFundoDoDeck) / 2
+    for (const lado of [-1, 1]) {
+      // ASSIMETRIA, E ELA É A DECISÃO DO DONO: a direita sobe a 2,20 m como
+      // empena de jardim vertical; a esquerda fica na mureta de 1,10 m porque
+      // quem fecha aquele lado é o volume do núcleo, e duas massas altas
+      // encostadas leriam como uma coisa só.
+      const alto = lado > 0
+      const altura = alto ? MURAL.altura : PLATIBANDA.altura
+      const espessura = alto ? MURAL.espessura : PLATIBANDA.espessura
+      // A face EXTERNA encosta na borda da laje, então o centro recua meia
+      // espessura para dentro. Centrar em `meiaLargura` deixaria metade da
+      // mureta flutuando fora do prédio.
+      const xm = lado * (meiaLargura - espessura / 2)
+      col.poe(
+        'platibanda',
+        gCaixa,
+        mPlatibanda,
+        [xm, piso + altura / 2, zDaPlatibanda],
+        [0, 0, 0],
+        [espessura, altura, compDaPlatibanda],
+      )
+      // O rufo AVANÇA 5 cm de cada lado da mureta: é o pingadeiro, a aba que
+      // joga a água para fora em vez de deixá-la escorrer pela face. Sem a
+      // sobra ele viraria uma tampa, que não é o que um rufo faz.
+      col.poe(
+        'rufo',
+        gCaixa,
+        mMetal,
+        [xm, piso + altura + PLATIBANDA.rufo / 2, zDaPlatibanda],
+        [0, 0, 0],
+        [espessura + 0.1, PLATIBANDA.rufo, compDaPlatibanda],
+      )
+    }
+
+    // ── mural verde ───────────────────────────────────────────────────────
+    /**
+     * A face INTERNA da empena direita, plantada. Tudo aqui vive a partir de
+     * `xMural`, que é derivado da largura e da espessura — nenhum literal, pela
+     * mesma razão da platibanda.
+     */
+    const xMural = meiaLargura - MURAL.espessura
+    const colunas = Math.floor(compDaPlatibanda / MURAL.modulo)
+    const linhas = Math.floor((MURAL.altura - 0.2) / MURAL.modulo)
+    for (let c = 0; c < colunas; c++) {
+      const zm = zFundoDoDeck + (c + 0.5) * MURAL.modulo
+      for (let l = 0; l < linhas; l++) {
+        const ym = piso + 0.12 + (l + 0.5) * MURAL.modulo
+        // A BANDEJA DE CULTIVO, em corten. Ela avança 6 cm da parede porque é
+        // uma caixa aparafusada nela, não um desenho: a sombra dessa saliência
+        // é o que desenha a grade quando a luz rasante bate.
+        col.poe(
+          'bandejaMural',
+          gCaixa,
+          mCorten,
+          [xMural - 0.03, ym, zm],
+          [0, 0, 0],
+          [0.06, MURAL.modulo - 0.03, MURAL.modulo - 0.03],
+        )
+        /**
+         * SEIS FOLHAS POR MÓDULO, NA MESMA CHAVE DA FOLHAGEM DO JARDIM.
+         *
+         * `folhaLarga` já existe como instância; reusar a chave põe estas
+         * folhas na MESMA malha instanciada e custa ZERO chamada de desenho
+         * nova. É exatamente para isto que o coletor existe, e é o que torna
+         * um mural de várias centenas de folhas gratuito num orçamento que é
+         * contado em chamadas.
+         *
+         * Giradas para fora da parede (eixo Y) e caídas para baixo (eixo Z):
+         * folha de jardim vertical PENDE, porque cresce contra a gravidade a
+         * partir de uma bandeja vertical. Sem a queda elas leriam como
+         * espetadas na parede.
+         */
+        for (let f = 0; f < 6; f++) {
+          const s = 300 + c * 7 + l
+          col.poe(
+            'folhaLarga',
+            gFolhaLarga,
+            mFolhaLarga,
+            [
+              xMural - 0.1 - ruido(f, s) * 0.12,
+              ym + (ruido(f, s + 1) - 0.5) * MURAL.modulo * 0.8,
+              zm + (ruido(f, s + 2) - 0.5) * MURAL.modulo * 0.8,
+            ],
+            [ruido(f, s + 3) * 1.2 - 0.6, Math.PI / 2 + (ruido(f, s + 4) - 0.5) * 1.4, -0.7 - ruido(f, s + 5) * 0.8],
+            [0.95, 0.95, 0.95],
+            TONS_DE_OLIVA[(f + c + l) % TONS_DE_OLIVA.length]!,
+          )
+        }
+      }
+    }
+    /**
+     * A LINHA DE GOTEJAMENTO no topo, e ela é o detalhe que ninguém nota e todo
+     * mundo sente. Jardim vertical sem irrigação não existe — a planta morre em
+     * três dias. Um tubo de 2 cm correndo a empena inteira custa uma chamada e
+     * transforma "parede com folhas" em "instalação".
+     */
+    col.poe(
+      'gotejamento',
+      gCaixa,
+      mAco,
+      [xMural - 0.06, piso + MURAL.altura - 0.12, zDaPlatibanda],
+      [0, 0, 0],
+      [0.022, 0.022, compDaPlatibanda],
+    )
+    /**
+     * LUZ RASANTE PELA BASE, e é ela que decide se isto lê como jardim ou como
+     * tapete verde. Luz frontal achata a folhagem numa mancha; rasante pega o
+     * relevo folha a folha e devolve a profundidade da massa.
+     *
+     * Reusa `mFitaLed`, a mesma fita âmbar do balcão do bar — e a repetição é
+     * deliberada: as duas instalações são do mesmo lado do terraço e do mesmo
+     * projeto de iluminação. Fita de cor diferente aqui leria como dois
+     * projetos brigando.
+     */
+    col.poe(
+      'fitaMural',
+      gCaixa,
+      mFitaLed,
+      [xMural - 0.1, piso + 0.06, zDaPlatibanda],
+      [0, 0, 0],
+      [0.03, 0.03, compDaPlatibanda - 0.3],
+    )
+
+    // ── núcleo de circulação ──────────────────────────────────────────────
+    // Encostado na platibanda esquerda e alinhado pela FRENTE com o escritório:
+    // os dois volumes construídos da ponta esquerda dividem o mesmo plano, que
+    // é o que os faz ler como um conjunto em vez de duas caixas soltas.
+    const xNucleo = -meiaLargura + PLATIBANDA.espessura + NUCLEO.largura / 2
+    const zFrenteNucleo = zFrenteEsc + NUCLEO.avanco
+    const zNucleo = zFrenteNucleo - NUCLEO.profundidade / 2
+    col.poe(
+      'nucleo',
+      gCaixa,
+      mPlatibanda,
+      [xNucleo, piso + NUCLEO.altura / 2, zNucleo],
+      [0, 0, 0],
+      [NUCLEO.largura, NUCLEO.altura, NUCLEO.profundidade],
+    )
+    // Rufo também no topo do núcleo — mesma peça, mesma razão.
+    col.poe(
+      'rufo',
+      gCaixa,
+      mMetal,
+      [xNucleo, piso + NUCLEO.altura + PLATIBANDA.rufo / 2, zNucleo],
+      [0, 0, 0],
+      [NUCLEO.largura + 0.1, PLATIBANDA.rufo, NUCLEO.profundidade + 0.1],
+    )
+
+    // ── porta do elevador ─────────────────────────────────────────────────
+    const zPortaElevador = zFrenteNucleo + 0.01
+    const ALTURA_PORTA = 2.1
+    const MEIA_FOLHA = 0.42
+    /**
+     * ═══ A FRESTA PRECISA SER UM VÃO, NÃO UM ESPAÇO ═══
+     *
+     * No primeiro render as duas folhas leram como uma porta só. Eu tinha
+     * deixado 2 cm entre elas, e 2 cm a doze metros de distância é menos de um
+     * pixel: o espaço existia na geometria e não existia na imagem.
+     *
+     * A correção não é afastar as folhas — porta de elevador fecha mesmo. É pôr
+     * uma peça ESCURA no fundo da fresta. O que o olho reconhece à distância não
+     * é o vão, é a linha vertical preta no meio de uma superfície clara, e essa
+     * linha só aparece se houver algo escuro atrás para ela mostrar.
+     */
+    col.poe(
+      'frestaElevador',
+      gCaixa,
+      mRaloFundo,
+      [xNucleo, piso + ALTURA_PORTA / 2, zPortaElevador + 0.005],
+      [0, 0, 0],
+      [0.05, ALTURA_PORTA - 0.04, 0.02],
+    )
+    // Batente em três peças e não um quadro só: ombreira esquerda, direita e
+    // verga. É assim que um batente existe, e as duas verticais são o que dá
+    // prumo à porta contra a massa do núcleo.
+    for (const s of [-1, 1])
+      col.poe(
+        'batenteElevador',
+        gCaixa,
+        mAco,
+        [xNucleo + s * (MEIA_FOLHA + 0.06), piso + ALTURA_PORTA / 2, zPortaElevador],
+        [0, 0, 0],
+        [0.12, ALTURA_PORTA + 0.12, 0.06],
+      )
+    col.poe(
+      'batenteElevador',
+      gCaixa,
+      mAco,
+      [xNucleo, piso + ALTURA_PORTA + 0.06, zPortaElevador],
+      [0, 0, 0],
+      [MEIA_FOLHA * 2 + 0.24, 0.12, 0.06],
+    )
+    // DUAS FOLHAS COM FRESTA NO MEIO. Porta de elevador de folha única não
+    // existe neste tipo de prédio, e é a fresta central que a identifica à
+    // distância — antes de qualquer detalhe, o olho lê a linha vertical.
+    for (const s of [-1, 1])
+      col.poe(
+        'folhaElevador',
+        gCaixa,
+        mPortaElevador,
+        [xNucleo + s * (MEIA_FOLHA / 2 + 0.01), piso + ALTURA_PORTA / 2, zPortaElevador + 0.02],
+        [0, 0, 0],
+        [MEIA_FOLHA, ALTURA_PORTA, 0.04],
+      )
+    /**
+     * O INDICADOR DE ANDAR, e ele é mais importante do que o tamanho sugere.
+     *
+     * É a única fonte acesa da ponta esquerda do quadro — hoje aquele canto não
+     * tem nenhuma, enquanto o bar tem nicho, fita e prateleira. Uma fonte
+     * pequena ali equilibra a noite sem acrescentar iluminação de cena nenhuma.
+     *
+     * Ganho 1,9 e não o 3,0 do balizador: pela regra de área, fonte pequena
+     * aguenta ganho alto — mas isto é um display, não uma lâmpada, e display que
+     * floresce como lâmpada é o erro que ninguém sabe nomear e todo mundo sente.
+     * Mesmo raciocínio do monitor do escritório.
+     */
+    /**
+     * A MOLDURA ESCURA VEM ANTES DO DISPLAY, e sem ela ele não é um display.
+     *
+     * No primeiro render o indicador era um ponto azul solto na parede — lia
+     * como uma luz perdida, não como equipamento. O que faz um display parecer
+     * display é a BORDA PRETA em volta: todo painel tem caixa, e é o contraste
+     * entre a caixa escura e a tela acesa que o olho reconhece. Aceso sobre
+     * concreto, sem caixa, vira mancha.
+     */
+    const yIndicador = piso + ALTURA_PORTA + 0.32
+    col.poe(
+      'caixaIndicador',
+      gCaixa,
+      mRaloFundo,
+      [xNucleo, yIndicador, zPortaElevador + 0.02],
+      [0, 0, 0],
+      [0.46, 0.2, 0.03],
+    )
+    col.poe(
+      'indicadorElevador',
+      gCaixa,
+      mIndicador,
+      [xNucleo, yIndicador, zPortaElevador + 0.04],
+      [0, 0, 0],
+      [0.38, 0.12, 0.02],
+    )
+
+    // ── mesas do bar ──────────────────────────────────────────────────────
+    /**
+     * ═══ DUAS ALTURAS, E É ISSO QUE SEPARA ESTAR DE COMER ═══
+     *
+     * Mesa alta encostada no bar é EXTENSÃO DO BALCÃO: quem senta ali está a
+     * meio caminho de estar em pé, e é a postura de quem toma uma coisa rápida.
+     * Mesa baixa mais à frente é ESTAR: quem senta ali fica.
+     *
+     * Uma fileira de mesas todas iguais leria como refeitório — e refeitório é
+     * exatamente o que um terraço não é. A diferença de altura, mais o
+     * afastamento, é o que desenha duas zonas num deck vazio sem precisar de
+     * divisória nenhuma.
+     *
+     * ANCORADAS EM `zBar` E EM `X_FIM_DO_BAR`, nunca em literal: é a quinta peça
+     * do arquivo a se amarrar à geometria do terraço, e as quatro anteriores
+     * foram todas atropeladas por uma mudança de dimensão.
+     */
+    /**
+     * AVANÇARAM 1,3 m DEPOIS DO PRIMEIRO RENDER. Encostadas no bar elas caíam na
+     * faixa mais escura e mais comprimida do deck — apareciam como dois riscos
+     * verticais e nada mais. Trazidas para a frente, ganham tamanho em tela e
+     * caem perto dos balizadores, que é a única luz que aquele trecho tem.
+     */
+    /**
+     * ANCORADAS EM `BAR.x` E NÃO EM `X_FIM_DO_BAR`, e a troca veio de olhar o
+     * render. Amarradas ao FIM do bar elas caíam na ponta direita do quadro,
+     * metade fora dele e encostadas no mural — leram como móvel encostado na
+     * parede, não como área de estar. "Em frente ao bar" é em frente ao MEIO
+     * dele, que é onde o balcão serve e para onde as banquetas olham.
+     */
+    const MESAS = [
+      { x: BAR.x - 1.6, z: zBar + 3.2, alta: true },
+      { x: BAR.x + 1.4, z: zBar + 3.6, alta: true },
+      { x: BAR.x - 0.8, z: zBar + 5.6, alta: false },
+      { x: BAR.x + 2.8, z: zBar + 6.0, alta: false },
+    ]
+    for (const [m, mesa] of MESAS.entries()) {
+      const h = mesa.alta ? 1.0 : 0.74
+      const r = mesa.alta ? 0.36 : 0.44
+      // Tampo, coluna e base — as três peças de uma mesa de pedestal. Sem a
+      // base larga ela cairia, e o olho sabe disso: mesa de pedestal sem pé
+      // largo lê como objeto flutuando.
+      /**
+       * TAMPO EM PEDRA CLARA, e a escolha é de leitura antes de ser de material.
+       *
+       * Primeiro render com tampo de madeira escura: as quatro mesas sumiram.
+       * Madeira escura sobre deck escuro, à noite, é a mesma coisa duas vezes —
+       * e o tampo é justamente a única superfície da mesa que a câmera vê de
+       * cima, ou seja, o único lugar onde ela poderia aparecer.
+       *
+       * Clara, cada mesa vira um disco que se destaca do piso. E é a MESMA
+       * pedra do balcão do bar e do tampo da recepção: as três superfícies de
+       * apoio do terraço passam a falar a mesma língua, o que é o que amarra o
+       * mobiliário como um projeto em vez de três compras.
+       */
+      col.poe('tampoMesa', gCilindro, mPedra, [mesa.x, piso + h, mesa.z], [0, 0, 0], [
+        r,
+        0.045,
+        r,
+      ])
+      col.poe('colunaMesa', gCilindro, mMetal, [mesa.x, piso + h / 2, mesa.z], [0, 0, 0], [
+        0.045,
+        h,
+        0.045,
+      ])
+      col.poe('baseMesa', gCilindro, mMetal, [mesa.x, piso + 0.018, mesa.z], [0, 0, 0], [
+        r * 0.82,
+        0.036,
+        r * 0.82,
+      ])
+      /**
+       * DUAS SENTADAS POR MESA, EM DIAGONAL e não frente a frente.
+       *
+       * Cadeira alinhada no eixo da câmera some — vira uma linha. Em diagonal
+       * cada uma mostra assento e encosto, e o conjunto lê como mesa ocupável
+       * em vez de mesa de catálogo. O ângulo varia por mesa: quatro pares
+       * idênticos denunciariam a cópia.
+       */
+      for (const s of [-1, 1]) {
+        const a = 0.6 + m * 0.35 + (s < 0 ? Math.PI : 0)
+        const d = r + 0.42
+        const cx = mesa.x + Math.cos(a) * d
+        const cz = mesa.z + Math.sin(a) * d
+        if (mesa.alta) {
+          // Banqueta alta: as MESMAS chaves do bar, então as banquetas novas
+          // entram na malha instanciada que já existe — zero chamada nova.
+          col.poe('banqueta', gAssentoBanqueta, mMadeiraEscura, [cx, piso + 0.76, cz])
+          col.poe('pernaBanqueta', gPernaBanqueta, mMetal, [cx, piso + 0.38, cz])
+          col.poe('aroBanqueta', gAroBanqueta, mMetal, [cx, piso + 0.22, cz], [Math.PI / 2, 0, 0])
+        } else {
+          // Cadeira de encosto, virada PARA a mesa.
+          const giro = -a + Math.PI / 2
+          col.poe('assentoCadeira', gCaixa, mMadeiraEscura, [cx, piso + 0.44, cz], [0, giro, 0], [
+            0.44,
+            0.05,
+            0.44,
+          ])
+          /**
+           * ═══ O ENCOSTO É O QUE FAZ UMA CADEIRA SER UMA CADEIRA ═══
+           *
+           * No render anterior elas liam como CAIXOTES. Duas causas, e as duas
+           * são de proporção, não de detalhe:
+           *
+           * · O encosto era tão largo quanto fundo o assento (0,44 x 0,44) e
+           *   colado nele. A doze metros o par fundia num cubo. Encosto de
+           *   cadeira é mais ALTO que largo e nasce ACIMA do assento, com vão
+           *   entre os dois — é esse vão que o olho usa para separar as duas
+           *   peças mesmo quando não consegue mais resolvê-las.
+           *
+           * · Madeira escura sobre deck escuro à noite: a silhueta não existia.
+           *   O encosto passa a `mMetal`, que é a peça que sobe e portanto a
+           *   única que pega a luz do céu — estrutura metálica com assento de
+           *   madeira, que é como cadeira de área externa é feita de verdade.
+           */
+          col.poe(
+            'encostoCadeira',
+            gCaixa,
+            mMetal,
+            [cx + Math.cos(a) * 0.19, piso + 0.76, cz + Math.sin(a) * 0.19],
+            [0, giro, 0],
+            [0.38, 0.42, 0.04],
+          )
+          for (const px of [-1, 1])
+            for (const pz of [-1, 1]) {
+              const ox = px * 0.18
+              const oz = pz * 0.18
+              col.poe(
+                'pernaCadeira',
+                gCaixa,
+                mMetal,
+                [
+                  cx + ox * Math.cos(giro) - oz * Math.sin(giro),
+                  piso + 0.21,
+                  cz + ox * Math.sin(giro) + oz * Math.cos(giro),
+                ],
+                [0, giro, 0],
+                [0.03, 0.42, 0.03],
+              )
+            }
+        }
+      }
+    }
+
+    // ── recepção ──────────────────────────────────────────────────────────
+    /**
+     * ═══ CHEGADA PRECISA DE SOLEIRA ═══
+     *
+     * Quem sai do elevador tem de encontrar alguma coisa, ou o terraço lê como
+     * um lugar onde se aparece por acaso. O balcão é o objeto que diz "você
+     * chegou e alguém esperava por você" — e é o contraponto programático do
+     * bar do outro lado: um é onde se é recebido, o outro é onde se fica.
+     *
+     * Ele NÃO enfrenta o elevador, fica de lado. Balcão de frente para a porta
+     * bloquearia a saída e, pior, esconderia a própria porta da câmera — que é
+     * o elemento que acabou de ser construído para fechar aquela ponta.
+     */
+    const xRecepcao = xNucleo + NUCLEO.largura / 2 + 1.25
+    const zRecepcao = zFrenteNucleo - 0.9
+    // Corpo em madeira escura e tampo em PEDRA — o mesmo par do balcão do bar.
+    // Repetir o material é o que amarra as duas pontas como um projeto só.
+    col.poe('corpoRecepcao', gCaixa, mMadeiraEscura, [xRecepcao, piso + 0.5, zRecepcao], [0, 0, 0], [
+      2.0,
+      1.0,
+      0.6,
+    ])
+    col.poe('tampoRecepcao', gCaixa, mPedra, [xRecepcao, piso + 1.03, zRecepcao], [0, 0, 0], [
+      2.16,
+      0.06,
+      0.72,
+    ])
+    // Banqueta do outro lado do balcão: quem atende fica de costas para o
+    // núcleo. Chaves reaproveitadas do bar — zero chamada nova.
+    col.poe('banqueta', gAssentoBanqueta, mMadeiraEscura, [xRecepcao, piso + 0.76, zRecepcao - 0.75])
+    col.poe('pernaBanqueta', gPernaBanqueta, mMetal, [xRecepcao, piso + 0.38, zRecepcao - 0.75])
+    /**
+     * A LUMINÁRIA DE BALCÃO, e ela é o que faz a recepção existir à noite.
+     *
+     * Sem uma fonte própria o balcão fica no escuro — a ponta esquerda do
+     * terraço não tem iluminação nenhuma além do display do elevador. Reusa
+     * `mLuminaria`, a mesma dos pendentes do escritório: mesma temperatura,
+     * mesmo projeto.
+     */
+    col.poe(
+      'luzRecepcao',
+      gCaixa,
+      mLuminaria,
+      [xRecepcao + 0.72, piso + 1.12, zRecepcao + 0.1],
+      [0, 0, 0],
+      [0.16, 0.05, 0.16],
+    )
 
     // ── guarda-corpo ──────────────────────────────────────────────────────
     const montantes = Math.floor((meiaLargura * 2) / 2.1)
