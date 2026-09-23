@@ -4369,7 +4369,20 @@ export function Cobertura({
        * comporta — sombras individuais de objetos encostados se fundem numa só.
        * E entra na chave `sombra`, que já existe: custo zero.
        */
+      /**
+       * ═══ DUAS MANCHAS E NÃO UMA: PENUMBRA E UMBRA ═══
+       *
+       * Uma mancha larga sozinha é difusa demais, e o móvel continua parecendo
+       * flutuar — foi exatamente o que o dono viu olhando de perto. Sombra de
+       * contato de verdade tem DOIS regimes: a penumbra, larga e fraca, e a
+       * umbra, estreita e escura, logo sob o objeto.
+       *
+       * As duas usam a mesma chave e o mesmo material, então a sobreposição faz
+       * o trabalho sozinha: 0,36 de opacidade duas vezes dá 0,59 no miolo e
+       * 0,36 na borda. É a curva certa, de graça, sem chamada de desenho nova.
+       */
       sombra(mesa.x, mesa.z, r * 3.4, r * 3.4)
+      sombra(mesa.x, mesa.z, r * 1.45, r * 1.45)
       /**
        * ═══ O QUE ESTÁ EM CIMA DA MESA ═══
        *
@@ -4432,9 +4445,29 @@ export function Cobertura({
         } else {
           // Cadeira de encosto, virada PARA a mesa.
           const giro = -a + Math.PI / 2
-          col.poe('assentoCadeira', gCaixa, mMadeiraEscura, [cx, piso + 0.44, cz], [0, giro, 0], [
+          /**
+           * ═══ ASSENTO E ENCOSTO NO MESMO MATERIAL, E É ISSO QUE OS UNE ═══
+           *
+           * Estavam em materiais diferentes: assento de madeira escura, encosto
+           * de metal claro. Cada escolha tinha uma razão isolada boa — o encosto
+           * virou metal porque madeira escura sumia no deck escuro — e juntas
+           * produziram o defeito que o dono viu de perto: duas peças de cor e
+           * brilho completamente diferentes, empilhadas, que o olho recusa a ler
+           * como UMA cadeira por mais montante que se ponha entre elas.
+           *
+           * Contraste dentro de um objeto é o que o separa em dois. As duas
+           * passam a ser o estofado creme das espreguiçadeiras, e a estrutura —
+           * pernas e montantes — fica em metal. É como móvel de área externa é
+           * feito de verdade, resolve o sumiço no deck escuro que motivou a
+           * troca original, e amarra as cadeiras às espreguiçadeiras como um
+           * conjunto só de mobiliário.
+           *
+           * As duas peças passam a dividir a MESMA CHAVE: mesma geometria,
+           * mesmo material. Uma chamada de desenho a menos, não a mais.
+           */
+          col.poe('estofadoCadeira', gCaixa, mAlmofada, [cx, piso + 0.44, cz], [0, giro, 0], [
             0.44,
-            0.05,
+            0.06,
             0.44,
           ])
           /**
@@ -4455,13 +4488,47 @@ export function Cobertura({
            *   madeira, que é como cadeira de área externa é feita de verdade.
            */
           col.poe(
-            'encostoCadeira',
+            'estofadoCadeira',
             gCaixa,
-            mMetal,
+            mAlmofada,
             [cx + Math.cos(a) * 0.19, piso + 0.76, cz + Math.sin(a) * 0.19],
             [0, giro, 0],
-            [0.38, 0.42, 0.04],
+            [0.38, 0.42, 0.05],
           )
+          /**
+           * ═══ OS MONTANTES, E SEM ELES O ENCOSTO É UM PAINEL NO AR ═══
+           *
+           * Eu tinha afastado o encosto do assento de propósito: a doze metros
+           * o vão entre os dois é o que separa as duas peças e impede a cadeira
+           * de ler como caixote. O raciocínio estava certo para AQUELA
+           * distância e só para ela.
+           *
+           * De perto — que é como o dono olhou — o mesmo vão vira um defeito: o
+           * encosto não toca nada, não nasce de lugar nenhum, e a cadeira lê
+           * como duas chapas flutuando. Nenhuma cadeira do mundo tem o encosto
+           * pairando; ele sobe das pernas traseiras ou de dois montantes
+           * presos ao assento.
+           *
+           * Dois montantes finos fecham o vão SEM tapá-lo: continua havendo ar
+           * entre assento e encosto, que era o ganho de longe, e agora há de
+           * onde o encosto sai, que é o ganho de perto. As duas leituras passam
+           * a funcionar na mesma peça — que é o que o vão sozinho nunca ia dar.
+           */
+          for (const s2 of [-1, 1]) {
+            const ox = s2 * 0.16
+            col.poe(
+              'pernaCadeira',
+              gCaixa,
+              mMetal,
+              [
+                cx + Math.cos(a) * 0.17 + ox * Math.cos(giro),
+                piso + 0.56,
+                cz + Math.sin(a) * 0.17 + ox * Math.sin(giro),
+              ],
+              [0, giro, 0],
+              [0.03, 0.26, 0.03],
+            )
+          }
           for (const px of [-1, 1])
             for (const pz of [-1, 1]) {
               const ox = px * 0.18
@@ -4567,14 +4634,38 @@ export function Cobertura({
             0.38,
             0.035,
           ])
+      /**
+       * ═══ AS LONGARINAS, E SEM ELAS SÃO DUAS CHAPAS SOLTAS ═══
+       *
+       * O assento e o encosto se ENCOSTAM — conferi a aritmética: o pé do
+       * encosto cai em z −0,47, dentro da pegada do assento, e 1 cm acima dele.
+       * Não é um vão de verdade. Mas de perto parecem duas chapas empilhadas no
+       * ar, e a razão é que não há NADA que atravesse as duas.
+       *
+       * Espreguiçadeira de verdade é um QUADRO tubular contínuo com a lona
+       * esticada nele: uma peça só que vai do pé dianteiro ao topo do encosto.
+       * O olho procura essa continuidade antes de procurar qualquer outra coisa,
+       * e é a ausência dela — não uma folga — que faz o conjunto ler como
+       * montagem.
+       *
+       * Duas longarinas laterais correndo o comprimento do assento e amarrando
+       * os quatro pés fecham isso. Mesma chave das pernas: custo zero.
+       */
+      for (const px of [-1, 1])
+        col.poe('pernaCadeira', gCaixa, mMetal, p(px * 0.3, 0.4, 0.05), [0, g, 0], [
+          0.035,
+          0.06,
+          1.32,
+        ])
       // A toalha, só numa das duas. Nas duas viraria padrão; numa só, lê como
       // alguém que esteve ali — que é a diferença entre cenário e lugar usado.
       if (e === 0)
         col.poe('toalha', gCaixa, mToalha, p(0, 0.5, 0.22), [0, g, 0], [0.52, 0.07, 0.42])
-      // A mancha de apoio — ver o comentário longo nas mesas. Alongada em z
-      // porque a espreguiçadeira é comprida nesse eixo, e mancha quadrada sob
-      // móvel comprido denuncia que ela é um decalque.
+      // Penumbra e umbra — ver o comentário nas mesas. Alongada em z porque a
+      // espreguiçadeira é comprida nesse eixo, e mancha quadrada sob móvel
+      // comprido denuncia que ela é um decalque.
       sombra(esp.x, zEspreg, 1.0, 1.9)
+      sombra(esp.x, zEspreg, 0.6, 1.25)
     }
     /**
      * O GUARDA-SOL FECHADO, e ele é a peça mais importante deste bloco.
