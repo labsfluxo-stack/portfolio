@@ -1635,6 +1635,34 @@ export function Cobertura({
     // âmbar ali leria como mais uma luminária decorativa, e o que ela tem de
     // dizer é "isto é equipamento", não "isto é ambiente".
     const mIndicador = new THREE.MeshBasicMaterial({ color: fonte('#d6e6f2', 1.9) })
+    /**
+     * ═══ A LAVAGEM DA ARANDELA, E POR QUE ELA NÃO É UMA MANCHA REDONDA ═══
+     *
+     * A tentação é reusar `manchaDeSombra()` — um borrão macio, já pronto, já
+     * usado na poça do balizador. Seria a terceira vez nesta feature que uma
+     * fonte direcional ganha forma de elipse: o derrame do deck e os fachos dos
+     * espetos nasceram assim e os dois tiveram de ser refeitos, porque luz que
+     * SAI DE UM PONTO E BATE NUMA SUPERFÍCIE não desenha uma mancha centrada —
+     * desenha um cone, estreito na boca e aberto na chegada.
+     *
+     * Então ela reusa `fachoDeEspeto()`, que é exatamente esse cone, virado de
+     * cabeça para baixo no lugar de uso: o espeto joga luz para CIMA na copa,
+     * a arandela joga para BAIXO na parede. Mesma física, mesmo desenho, sentido
+     * oposto — e o giro de meia volta no eixo Z é tudo o que separa os dois.
+     *
+     * Quente e fraca: 0,22 contra os 0,30 da poça do balizador. A poça pousa em
+     * madeira escura e pode insistir; esta cai sobre concreto claro, que devolve
+     * muito mais, e no mesmo valor estouraria em branco.
+     */
+    const mLavagemNucleo = new THREE.MeshBasicMaterial({
+      color: '#ffd2a0',
+      transparent: true,
+      opacity: 0.22,
+      alphaMap: fachoDeEspeto(),
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
+    })
     // A lombada do livro é o único lugar da cena onde cor saturada em quantidade
     // é bem-vinda: estante monocromática lê como cenografia de loja.
     const TONS_DE_LIVRO = [
@@ -4059,6 +4087,61 @@ export function Cobertura({
       [xNucleo, yIndicador, zPortaElevador + 0.04],
       [0, 0, 0],
       [0.38, 0.12, 0.02],
+    )
+
+    // ── arandela e botoeira do núcleo ─────────────────────────────────────
+    /**
+     * A FACE DO NÚCLEO ESTAVA CHAPADA: uma massa escura de 3,4 por 3,5 m com uma
+     * porta pequena no meio e nada mais. Lobby de elevador é sempre iluminado —
+     * é onde se espera parado, de noite, e nenhum prédio deixa isso no escuro.
+     *
+     * A arandela resolve duas coisas com uma peça. Ela quebra a parede, e ilumina
+     * de quebra o balcão da recepção logo abaixo, que até agora dependia só da
+     * própria luminária de tampo.
+     *
+     * A BOTOEIRA é o outro lado da mesma ideia: elevador sem botão de chamada é
+     * cenário. Ela é minúscula — 10 por 16 cm — e é justamente por isso que
+     * funciona, porque o que o olho reconhece não é o objeto, é a PLACA ESCURA
+     * com um ponto aceso na altura da mão.
+     */
+    const xArandela = xNucleo + 1.15
+    const yArandela = piso + 2.55
+    col.poe('arandela', gArandela, mAco, [xArandela, yArandela, zPortaElevador + 0.05])
+    col.poe(
+      'lampadaArandela',
+      gCaixa,
+      mLuminaria,
+      [xArandela, yArandela - 0.05, zPortaElevador + 0.06],
+      [0, 0, 0],
+      [0.2, 0.02, 0.085],
+    )
+    // Meia volta no eixo Z: o facho do espeto abre para CIMA, este abre para
+    // BAIXO. Ver `mLavagemNucleo`.
+    col.poe(
+      'lavagemNucleo',
+      gFacho,
+      mLavagemNucleo,
+      [xArandela, yArandela - 0.95, zPortaElevador + 0.02],
+      [0, 0, Math.PI],
+      [1.9, 1.25, 1],
+    )
+    // Altura da mão, ao lado do batente. Placa escura primeiro, ponto aceso
+    // depois — a mesma ordem do indicador de andar, e pela mesma razão.
+    col.poe(
+      'botoeira',
+      gCaixa,
+      mRaloFundo,
+      [xNucleo + 0.66, piso + 1.05, zPortaElevador + 0.02],
+      [0, 0, 0],
+      [0.1, 0.16, 0.02],
+    )
+    col.poe(
+      'luzBotoeira',
+      gCaixa,
+      mIndicador,
+      [xNucleo + 0.66, piso + 1.08, zPortaElevador + 0.035],
+      [0, 0, 0],
+      [0.04, 0.04, 0.01],
     )
 
     // ── mesas do bar ──────────────────────────────────────────────────────
