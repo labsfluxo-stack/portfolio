@@ -4608,31 +4608,51 @@ export function Cobertura({
         piso + dy,
         zEspreg + dx * sen + dz * cos,
       ]
-      col.poe('estofadoEspreg', gCaixa, mAlmofada, p(0, 0.42, 0.1), [0, g, 0], [0.66, 0.09, 1.3])
       /**
-       * O ENCOSTO RECLINADO, e a inclinação é o que identifica a peça.
+       * ═══ A ARITMÉTICA QUE EU TINHA FEITO ERRADO ═══
        *
-       * Espreguiçadeira com encosto vertical é cadeira; deitado, é cama. Os 52°
-       * do meio são o que o olho lê como "para ficar ao sol" — e é a única
-       * diagonal forte do primeiro plano, num quadro que é todo faixa
-       * horizontal empilhada.
+       * Eu escrevi, num commit, que "o pé do encosto cai dentro da pegada do
+       * assento e 1 cm acima dele" e que portanto não havia folga. Fui conferir
+       * girando o canto de verdade e o número é outro: com a inclinação de 0,9
+       * rad, o canto inferior-dianteiro do encosto caía em y = 0,513 contra um
+       * assento cujo topo está em 0,465. **Quatro centímetros e meio de ar.**
+       *
+       * Eu tinha calculado o centro da peça e não o CANTO — e é o canto que
+       * encosta. Inclinar uma caixa em torno do próprio centro sobe as duas
+       * pontas dela; foi essa subida que eu não contei. O dono viu o vão duas
+       * vezes antes de eu medir direito.
+       *
+       * Agora o canto é resolvido de trás para a frente: eu escolho onde ele
+       * tem de pousar — sobre o assento, 15 cm à frente da borda traseira — e
+       * derivo o centro a partir dele.
+       *
+       * A INCLINAÇÃO CAIU DE 0,9 PARA 0,62 rad (52° para 35° da vertical) pelo
+       * mesmo motivo: a 52° o topo do encosto avançava 61 cm para trás dos pés
+       * traseiros, e a peça lia como se fosse tombar. 35° ainda é claramente
+       * reclinado — continua sendo espreguiçadeira e não cadeira — e cabe sobre
+       * o próprio quadro.
+       *
+       * E O ESTOFADO ENGROSSOU: 9 cm eram uma chapa. 12 no assento e 11 no
+       * encosto dão volume de colchonete, que é o que impede a peça de ler como
+       * papel recortado de perto.
        */
+      col.poe('estofadoEspreg', gCaixa, mAlmofada, p(0, 0.43, 0.1), [0, g, 0], [0.6, 0.12, 1.3])
       col.poe(
         'estofadoEspreg',
         gCaixa,
         mAlmofada,
-        p(0, 0.72, -0.78),
-        [-0.9, g, 0],
-        [0.66, 0.78, 0.09],
+        p(0, 0.775, -0.691),
+        [-0.62, g, 0],
+        [0.6, 0.78, 0.11],
       )
       // Pés: mesma chave das pernas de cadeira — gCaixa com mMetal já existe
       // como malha instanciada, então os oito pés custam zero chamada.
       for (const px of [-1, 1])
         for (const pz of [-1, 1])
           col.poe('pernaCadeira', gCaixa, mMetal, p(px * 0.26, 0.19, pz * 0.5), [0, g, 0], [
-            0.035,
-            0.38,
-            0.035,
+             0.045,
+             0.39,
+             0.045,
           ])
       /**
        * ═══ AS LONGARINAS, E SEM ELAS SÃO DUAS CHAPAS SOLTAS ═══
@@ -4651,11 +4671,21 @@ export function Cobertura({
        * Duas longarinas laterais correndo o comprimento do assento e amarrando
        * os quatro pés fecham isso. Mesma chave das pernas: custo zero.
        */
+      /**
+       * E ELAS ESTAVAM ESCONDIDAS. Eu as pus em x = ±0,30 com o estofado tendo
+       * ±0,33 de meia-largura: as longarinas ficavam DEBAIXO da almofada, sem
+       * um pixel aparecendo. Escrevi que resolviam a continuidade da peça e
+       * elas nunca foram vistas.
+       *
+       * O estofado estreitou para 0,60 e elas foram para ±0,325 — agora correm
+       * por FORA dele, e é essa linha metálica contínua do pé dianteiro ao pé
+       * traseiro que diz que existe um quadro sob a lona.
+       */
       for (const px of [-1, 1])
-        col.poe('pernaCadeira', gCaixa, mMetal, p(px * 0.3, 0.4, 0.05), [0, g, 0], [
-          0.035,
-          0.06,
-          1.32,
+        col.poe('pernaCadeira', gCaixa, mMetal, p(px * 0.325, 0.4, 0.05), [0, g, 0], [
+          0.045,
+          0.1,
+          1.38,
         ])
       // A toalha, só numa das duas. Nas duas viraria padrão; numa só, lê como
       // alguém que esteve ali — que é a diferença entre cenário e lugar usado.
