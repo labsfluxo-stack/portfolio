@@ -2156,23 +2156,31 @@ function Sobreposicao({
         const tinta = corDoRotulo(indice)
         return (
           <div key={andar.chave}>
-            <div
-              ref={registrar(
-                `rotulo:${andar.chave}`,
-                new THREE.Vector3(xDoObjeto(0.04), piso + PE_DIREITO * 0.8, Z_OBJETO),
-                false,
-              )}
-              className="absolute left-0 top-0 max-w-[18rem] rounded px-3 py-2 will-change-transform"
-              style={{ backgroundColor: ar, color: tinta, ...repouso }}
-            >
-              {andar.numero !== null && (
-                <span className="block font-mono text-[0.68rem] opacity-70">
-                  {String(andar.numero).padStart(2, '0')}
-                </span>
-              )}
-              <span className="block text-base font-semibold leading-tight">{texto.titulo}</span>
-            </div>
-
+            {/* ═══ O RÓTULO DE ANDAR SAIU, a pedido do dono ═══
+              *
+              * Era uma etiqueta com o número e o título do andar, ancorada em
+              * `xDoObjeto(0.04)` — a ponta esquerda da cena. Funcionava enquanto
+              * aquela ponta era deck vazio; com o núcleo do elevador construído
+              * ali, o chip passou a pousar em cima do volume.
+              *
+              * Reposicionar teria sido o reparo óbvio e é o que eu tinha
+              * proposto. O dono escolheu remover, e o argumento a favor é bom:
+              * ele era a única peça de INTERFACE sobre uma imagem que existe
+              * para ser olhada, e o que ele dizia já está dito em dois outros
+              * lugares — a âncora de cada objeto carrega o próprio texto logo
+              * abaixo, e `PredioFallback` tem a lista de andares inteira.
+              *
+              * O QUE ISTO NÃO REMOVE, para quem vier procurar: as âncoras de
+              * objeto continuam, com `href` real e alvo de toque de 44 px. O
+              * `<nav>` de pular-para-o-andar de `PredioIndicador` continua. E a
+              * maquinaria de `clicavel` continua de pé — ela agora só recebe
+              * `true`, mas é ela que impede um elemento não clicável de comer o
+              * ponteiro, e a próxima etiqueta que alguém acrescentar vai
+              * precisar dela outra vez.
+              *
+              * Volta em um bloco se ele mudar de ideia: era um `<div>` com
+              * `registrar('rotulo:' + chave, …, false)`.
+              */}
             {andar.objetos.map((objeto) => (
               <AncoraDeObjeto
                 key={objeto.id}
