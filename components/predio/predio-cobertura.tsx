@@ -4637,6 +4637,23 @@ export function Cobertura({
        * papel recortado de perto.
        */
       col.poe('estofadoEspreg', gCaixa, mAlmofada, p(0, 0.43, 0.1), [0, g, 0], [0.6, 0.12, 1.3])
+      /**
+       * ═══ 'YXZ', E É O TERCEIRO DEFEITO DESTA MESMA PEÇA ═══
+       *
+       * Consertei o vão, consertei a estrutura, e o dono continuou vendo
+       * "desalinhada". Estava: na ordem padrão 'XYZ' o three compõe Rx · Ry · Rz,
+       * então o giro em Y entra primeiro e a inclinação em X é aplicada em torno
+       * do eixo X DO MUNDO — não do eixo da peça já girada.
+       *
+       * Com a espreguiçadeira virada 0,2 rad, o encosto reclinava ao longo do Z
+       * do mundo enquanto o assento apontava para outro lado. Os dois nunca
+       * estiveram no mesmo plano, e nenhum ajuste de POSIÇÃO conserta isso — é a
+       * ordem de composição da matriz. Passei duas rodadas mexendo em
+       * centímetros de uma peça cujo defeito não estava em centímetro nenhum.
+       *
+       * 'YXZ' dá Ry · Rx · Rz: o giro entra por último, no mundo, e a inclinação
+       * passa a ser no eixo local da peça.
+       */
       col.poe(
         'estofadoEspreg',
         gCaixa,
@@ -4644,6 +4661,8 @@ export function Cobertura({
         p(0, 0.775, -0.691),
         [-0.62, g, 0],
         [0.6, 0.78, 0.11],
+        undefined,
+        'YXZ',
       )
       // Pés: mesma chave das pernas de cadeira — gCaixa com mMetal já existe
       // como malha instanciada, então os oito pés custam zero chamada.

@@ -59,6 +59,24 @@ export class Coletor {
    * (`BoxGeometry(1,1,1)` escalada), nunca uma geometria nova por copia. Se a
    * forma for mesmo diferente — e nao so de outro tamanho —, ela merece chave
    * propria, como `face-${tipo}-${altura}` em `predio-datacenter.tsx`.
+   *
+   * ═══ SEGUNDA ARMADILHA: A ORDEM DO EULER ═══
+   *
+   * `rotacao` e lido na ordem padrao do three, 'XYZ', que compoe a matriz como
+   * Rx · Ry · Rz. Lendo da direita para a esquerda, isso quer dizer que o giro
+   * em Y acontece PRIMEIRO e a inclinacao em X e aplicada depois, EM TORNO DO
+   * EIXO X DO MUNDO — nao do eixo da peca ja girada.
+   *
+   * Para qualquer peca que so gire em Y (a esmagadora maioria) isso e
+   * indiferente. Para uma peca GIRADA E INCLINADA ao mesmo tempo, nao e: ela
+   * inclina numa direcao que nao e a dela. O encosto da espreguicadeira
+   * reclinava ao longo do eixo Z do mundo enquanto o assento apontava 0,2 rad
+   * para o lado — e o dono descreveu exatamente isso, "desalinhada", depois de
+   * eu ja ter consertado o vao e a estrutura sem achar este.
+   *
+   * `ordem` resolve: com 'YXZ' a matriz vira Ry · Rx · Rz, o giro entra por
+   * ultimo no mundo e a inclinacao passa a ser no eixo local. Quem inclinar
+   * uma peca girada deve passar 'YXZ'.
    */
   poe(
     chave: string,
@@ -68,6 +86,7 @@ export class Coletor {
     rotacao: [number, number, number] = [0, 0, 0],
     escala: [number, number, number] = [1, 1, 1],
     cor?: THREE.Color,
+    ordem: THREE.EulerOrder = 'XYZ',
   ) {
     let g = this.grupos.get(chave)
     if (!g) {
@@ -75,7 +94,7 @@ export class Coletor {
       this.grupos.set(chave, g)
     }
     this.v.set(posicao[0], posicao[1], posicao[2])
-    this.e.set(rotacao[0], rotacao[1], rotacao[2])
+    this.e.set(rotacao[0], rotacao[1], rotacao[2], ordem)
     this.q.setFromEuler(this.e)
     this.s.set(escala[0], escala[1], escala[2])
     this.aux.compose(this.v, this.q, this.s)
