@@ -4684,8 +4684,12 @@ export function Cobertura({
      * 12 cm, e a toalha em só uma das duas. Basta para não parecerem carimbadas.
      */
     for (const [e, esp] of [
-      { x: xBordaEsquerda - 1.3, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 1.7 },
-      { x: xBordaEsquerda - 1.3, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 3.1 },
+      // 1,05 e nao 1,3: com a rotacao consertada os pes ficam a 40 cm do eixo,
+      // entao a peca termina a 19 cm da pedra de acabamento. Espreguicadeira de
+      // borda encosta na borda — meio metro de deck entre ela e a agua le como
+      // movel que alguem esqueceu de arrastar de volta.
+      { x: xBordaEsquerda - 1.05, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 1.7 },
+      { x: xBordaEsquerda - 1.05, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 3.1 },
     ].entries()) {
       const g = esp.giro
       const cos = Math.cos(g)
@@ -4695,10 +4699,31 @@ export function Cobertura({
       //  proprio quando a peca nao pertence a fileira da frente: a fileira
       // da borda corre AO LONGO da piscina, entao cada uma tem o seu z.
       const zDela = esp.z ?? zEspreg + esp.recuo
+      /**
+       * ═══ O HELPER GIRAVA PARA O LADO ERRADO ═══
+       *
+       * Ele fazia `x' = dx·cos − dz·sen`, que é a rotação por −g. O Euler que
+       * vai na malha é `[0, g, 0]`, que é a rotação por +g. As duas discordavam,
+       * e nada disso aparecia enquanto `giro` valia 0 nas duas peças — o seno é
+       * zero e os dois sinais dão o mesmo resultado.
+       *
+       * Assim que a fileira foi para a lateral com `giro = π/2`, o erro virou
+       * visível do pior jeito: o ENCOSTO foi parar do lado da piscina e os pés
+       * do lado de fora. As duas ficaram de costas para a água — exatamente o
+       * contrário do que a mudança de lugar existia para fazer.
+       *
+       * A forma certa da rotação em torno de Y é `x' = dx·cos + dz·sen` e
+       * `z' = −dx·sen + dz·cos`. Confere: o encosto, que vive em dz negativo,
+       * passa a cair no lado de x negativo, isto é, longe da lâmina.
+       *
+       * É o terceiro erro de matriz desta mesma peça — depois do canto do
+       * encosto e da ordem do Euler. Rotação parece a parte fácil e é onde eu
+       * mais erro, porque o render "quase certo" não denuncia sinal trocado.
+       */
       const p = (dx: number, dy: number, dz: number): [number, number, number] => [
-        esp.x + dx * cos - dz * sen,
+        esp.x + dx * cos + dz * sen,
         piso + dy,
-        zDela + dx * sen + dz * cos,
+        zDela - dx * sen + dz * cos,
       ]
       /**
        * ═══ A ARITMÉTICA QUE EU TINHA FEITO ERRADO ═══
@@ -4798,6 +4823,50 @@ export function Cobertura({
           0.1,
           1.38,
         ])
+      /**
+       * ═══ AS DUAS PEÇAS QUE FAZEM UMA ESPREGUIÇADEIRA SER UMA ═══
+       *
+       * A TRAVESSA DO PÉ amarra as duas longarinas na ponta. Sem ela o quadro é
+       * um U aberto: duas barras paralelas terminando no ar, que é uma estrutura
+       * que não fica de pé. É a peça que ninguém olha e que todo mundo sente
+       * faltando — mesma família do rufo na platibanda e do rodapé no deck.
+       *
+       * AS RODINHAS são a assinatura da espreguiçadeira de piscina. Ela é
+       * pesada e molhada e precisa sair do sol; então tem duas rodas na cabeceira
+       * e pés fixos na outra ponta, e quem arruma a área a inclina e empurra.
+       * Nenhum outro móvel do terraço tem roda, e é justamente por isso que elas
+       * identificam a peça mesmo quando ela é pequena na tela.
+       */
+      col.poe('pernaCadeira', gCaixa, mMetal, p(0, 0.4, -0.63), [0, g, 0], [0.65, 0.09, 0.045])
+      for (const px of [-1, 1])
+        col.poe('rodaEspreg', gCilindro, mMetal, p(px * 0.3, 0.1, -0.58), [0, 0, Math.PI / 2], [
+          0.1,
+          0.05,
+          0.1,
+        ])
+      /**
+       * O TRAVESSEIRO, no alto do encosto e girado junto com ele.
+       *
+       * Encosto reclinado que termina numa aresta seca lê como prancha. O rolo
+       * de cabeceira é o que diz que aquilo recebe uma cabeça — e é a única
+       * curva do móvel inteiro, o que faz ele parecer estofado em vez de
+       * marcenaria.
+       *
+       * A inclinação acompanha a do encosto (−0,62) para o rolo deitar sobre ele
+       * em vez de flutuar perpendicular; e a ordem 'YXZ' pela mesma razão que o
+       * encosto — girar e inclinar juntos na ordem padrão inclina no eixo do
+       * mundo, não no da peça.
+       */
+      col.poe(
+        'travesseiro',
+        gCilindro,
+        mToalha,
+        p(0, 1.0, -0.93),
+        [-0.62, g, Math.PI / 2],
+        [0.075, 0.5, 0.075],
+        undefined,
+        'YXZ',
+      )
       // A toalha, só numa das duas. Nas duas viraria padrão; numa só, lê como
       // alguém que esteve ali — que é a diferença entre cenário e lugar usado.
       if (e === 0)
@@ -4860,6 +4929,48 @@ export function Cobertura({
       [0, 0, 0],
       [0.1, 1.15, 0.1],
     )
+    /**
+     * ═══ AS QUATRO PEÇAS QUE FALTAVAM NO GUARDA-SOL ═══
+     *
+     * Ele era mastro, base e cone — e cone sobre pau lê como pinheirinho, não
+     * como guarda-sol fechado. O que identifica a peça de verdade não é a forma
+     * geral: são as ferragens, e todas elas ficam na junção entre a lona e o
+     * tubo, que é exatamente onde o olho pousa.
+     *
+     *  · O CUBO é o anel que corre o mastro e empurra as varetas para cima. Ele
+     *    é a peça que fica LOGO ABAIXO da lona quando ela está fechada, e é o
+     *    detalhe que mais diz "isto abre".
+     *  · A CINTA amarra a lona enrolada no terço superior. Guarda-sol fechado
+     *    sem cinta desenrola sozinho — todo modelo tem uma, e ela é a única
+     *    horizontal de uma peça inteiramente vertical.
+     *  · O PINÁCULO fecha o topo. Sem ele o cone termina numa ponta matemática,
+     *    e ponta perfeita é o tell de geometria gerada.
+     *  · A BASE VIRA DOIS DEGRAUS. Um disco chapado de 8 cm lê como arruela;
+     *    base de guarda-sol é um peso de concreto com um colar de metal em cima,
+     *    e são os dois diâmetros que dão a ela o ar de coisa pesada.
+     */
+    const zGuardaSol = piscina.fundo + 2.4
+    col.poe('cuboGuardaSol', gCilindro, mMetal, [xGuardaSol, piso + 1.92, zGuardaSol], [0, 0, 0], [
+      0.055,
+      0.14,
+      0.055,
+    ])
+    col.poe('cintaGuardaSol', gCilindro, mMadeiraEscura, [xGuardaSol, piso + 2.86, zGuardaSol], [0, 0, 0], [
+      0.062,
+      0.055,
+      0.062,
+    ])
+    col.poe('cuboGuardaSol', gCilindro, mMetal, [xGuardaSol, piso + 3.25, zGuardaSol], [0, 0, 0], [
+      0.028,
+      0.09,
+      0.028,
+    ])
+    // O colar de metal sobre o peso: o segundo diâmetro da base.
+    col.poe('baseMesa', gCilindro, mMetal, [xGuardaSol, piso + 0.115, zGuardaSol], [0, 0, 0], [
+      0.17,
+      0.07,
+      0.17,
+    ])
 
     // ── recepção ──────────────────────────────────────────────────────────
     /**
