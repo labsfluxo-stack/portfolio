@@ -462,9 +462,34 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
       '#3b3730', // champanhe escuro
     ].map((c) => new THREE.Color(c))
     const mCoroa = new THREE.MeshBasicMaterial({
-      color: new THREE.Color('#cfe2f2').multiplyScalar(1.5),
+      // Branco no material: a COR vem da instancia, e as duas se multiplicam.
+      // Ver TINTAS_DE_COROA.
+      color: new THREE.Color('#ffffff').multiplyScalar(1.7),
       toneMapped: false,
     })
+    /**
+     * ═══ AS COROAS COLORIDAS, DAS REFERENCIAS QUE O DONO MANDOU ═══
+     *
+     * Cinco imagens de skyline, e a assinatura mais forte das tres noturnas e a
+     * mesma: ILUMINACAO ARQUITETURAL COLORIDA. Nao e a janela que da cor aquelas
+     * cidades — janela e sempre creme —, e o projetor no coroamento, e ele e
+     * ciano, magenta, ambar, verde. E o que diz "esta torre foi projetada para
+     * ser vista de noite", que e exatamente a diferenca entre as referencias e o
+     * que a nossa cidade vinha sendo.
+     *
+     * SATURACAO CONTIDA, e essa e a concessao a cena: as referencias sao NOITE
+     * FECHADA e o nosso quadro e hora dourada. Magenta puro sobre ceu ambar
+     * brigaria com a paleta inteira do terraco. Estas tintas ficam a meio
+     * caminho do branco — leem como cor, nao como neon.
+     */
+    const TINTAS_DE_COROA = [
+      new THREE.Color('#dceaf6'), // branco-frio, o mais comum
+      new THREE.Color('#7fd6e8'), // ciano
+      new THREE.Color('#f2c98a'), // ambar
+      new THREE.Color('#c9a0d8'), // violeta
+      new THREE.Color('#8fd8b0'), // verde-agua
+      new THREE.Color('#dceaf6'), // branco-frio de novo: dobra a chance dele
+    ]
 
     const gCubo = new THREE.BoxGeometry(1, 1, 1)
     /**
@@ -485,7 +510,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
      * sobrevive a qualquer leitura: o nome da variável concorda com a intenção e
      * o valor concorda com o oposto dela.
      */
-    const PE_DIREITO_CIDADE = 0.95
+    const PE_DIREITO_CIDADE = 0.74
     const gFitaVidro = new THREE.BoxGeometry(1, 0.66, 0.05)
     // O TRECHO ACESO acompanha. Ele tinha 0,34 x 0,26 — um retangulinho no meio
     // da fita, que e exatamente o desenho de uma janela. Em planta livre quem
@@ -743,6 +768,9 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             [x, topo - 0.31, z],
             [0, 0, 0],
             [larg * 1.03, 0.7, prof * 1.03],
+            TINTAS_DE_COROA[
+              Math.floor(ruido(i, f * 3 + 37) * TINTAS_DE_COROA.length) % TINTAS_DE_COROA.length
+            ]!,
           )
           col.poe(
             'testeira',
@@ -899,7 +927,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
            */
           const trechos = Math.max(3, Math.round(larg / 0.34))
           for (let t = 0; t < trechos; t++)
-            if (ruido(i * 31 + t * 7 + l, f + 11) > 0.52) {
+            if (ruido(i * 31 + t * 7 + l, f + 11) > 0.18) {
               /**
                * O SORTEIO DO BRILHO usa uma semente DIFERENTE da que decidiu se
                * o trecho está aceso (`f + 11` contra `f + 29`).
@@ -934,7 +962,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
                * ABAIXO do que era antes desta mudança — o ganho da variação não
                * pode vir como ganho de brilho geral.
                */
-              const ganho = q > 0.9 ? 1.9 + (q - 0.9) * 2.6 : 0.72 + q * 0.5
+              const ganho = q > 0.88 ? 2.0 + (q - 0.88) * 2.8 : 0.95 + q * 0.62
               col.poe(
                 'trechoAceso',
                 gTrechoAceso,
