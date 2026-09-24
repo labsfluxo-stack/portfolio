@@ -584,15 +584,6 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
          */
         if (topo > 4.2) {
           col.poe(
-            'negativoCoroa',
-            gFaixaLaje,
-            mVidroEscuro,
-            [x, topo - 0.5, z],
-            [0, 0, 0],
-            [larg * 0.98, 1.6, prof * 0.98],
-            tintaDoVidro,
-          )
-          col.poe(
             'coroa',
             gFaixaLaje,
             mCoroa,
@@ -664,15 +655,78 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             // Montantes do caixilho: sem a divisão vertical, a fita é uma faixa
             // lisa e o prédio perde escala. Eles têm a altura da fita, e não a do
             // andar — montante é peça de caixilho, não de estrutura.
+            /**
+             * ═══ O MONTANTE AVANÇOU, E ISSO É O CONSERTO DO PISCA-PISCA ═══
+             *
+             * O dono reportou "janelas piscando". Era Z-FIGHTING, e a causa é
+             * exata: o montante ficava em `zFachada + 0,03` com 6 cm de
+             * espessura, e o trecho aceso ficava em `zFachada + 0,03` com 6 cm
+             * de espessura. As duas faces frontais no MESMO plano.
+             *
+             * E elas se encontram porque as duas grades têm passos diferentes —
+             * o montante a cada `larg/0,42`, o trecho aceso a cada `larg/0,34`.
+             * Onde coincidem, dois polígonos coplanares disputam o mesmo pixel,
+             * e quem ganha depende do erro de arredondamento do z naquele
+             * quadro. Com a câmera respirando, o vencedor troca quadro a quadro:
+             * pisca. Foi o adensamento da malha, duas entregas atrás, que criou
+             * as coincidências — antes os passos batiam menos.
+             *
+             * 0,075 e não 0,03, e o número não é folga arbitrária: é o que a
+             * peça É. Montante de caixilho fica PROUD do vidro — ele é o perfil
+             * que segura o pano e sobressai dele. A ordem em profundidade passa
+             * a ser a real (vidro ao fundo, interior aceso à frente, caixilho à
+             * frente de tudo), e faces em planos diferentes não têm como
+             * disputar pixel nenhum.
+             */
             for (let m = 0; m <= montantes; m++)
               col.poe(
                 'montanteFachada',
                 gMontanteFachada,
                 material,
-                [x - larg * 0.46 + (m * larg * 0.92) / montantes, yFita, zFachada + 0.03],
+                [x - larg * 0.46 + (m * larg * 0.92) / montantes, yFita, zFachada + 0.075],
                 [0, 0, 0],
                 [1, 0.68, 1],
               )
+            /**
+             * ═══ A VARANDA, QUE É O QUE FALTAVA PARA LER COMO PRÉDIO DAQUI ═══
+             *
+             * Torre residencial brasileira tem SACADA em quase todo andar, e é o
+             * elemento que mais a distingue de uma torre de escritório. Sem ela
+             * a fachada é um plano liso com vidro — que é exatamente o que o
+             * dono vinha chamando de fraco: nada projetava, então nada fazia
+             * sombra, e sem sombra não há profundidade nem realismo.
+             *
+             * A laje avança 34 cm e ocupa pouco menos de metade da largura,
+             * deslocada para um lado. Sacada centrada e simétrica em todos os
+             * andares leria como desenho; prédio real tem a sacada onde a planta
+             * pediu. O lado é sorteado por PRÉDIO e não por andar — numa mesma
+             * torre elas ficam empilhadas, que é como prumada funciona.
+             *
+             * O PEITORIL é a segunda peça e é ele que fecha a leitura: laje
+             * sozinha lê como brise. A guarda em vidro escuro é o que diz "aqui
+             * alguém se debruça".
+             */
+            if (l > 0) {
+              const xSacada = x + (ruido(i, f * 3 + 31) > 0.5 ? 1 : -1) * larg * 0.22
+              const largSacada = larg * 0.46
+              col.poe(
+                'varanda',
+                gFaixaLaje,
+                material,
+                [xSacada, yFita - 0.3, zFachada + 0.15],
+                [0, 0, 0],
+                [largSacada, 1.1, 0.34],
+              )
+              col.poe(
+                'guardaSacada',
+                gFitaVidro,
+                mVidroEscuro,
+                [xSacada, yFita - 0.17, zFachada + 0.29],
+                [0, 0, 0],
+                [largSacada, 0.38, 0.6],
+                tintaDoVidro,
+              )
+            }
           }
           /**
            * O TRECHO ACESO é o vão inteiro entre dois montantes, e não um
