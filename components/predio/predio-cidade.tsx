@@ -464,8 +464,29 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
     const mCoroa = new THREE.MeshBasicMaterial({
       // Branco no material: a COR vem da instancia, e as duas se multiplicam.
       // Ver TINTAS_DE_COROA.
-      color: new THREE.Color('#ffffff').multiplyScalar(1.7),
+      // 1,6 e nao 2,6. Em 2,6 o bloom transformava cada linha num halo gordo, e
+      // o que a referencia mostra e LINHA NITIDA — luz de projetor rasante numa
+      // fachada, nao tubo fluorescente. Acender demais uma peca apaga o desenho
+      // dela: e a mesma licao do nicho do bar, cometida de novo.
+      color: new THREE.Color('#ffffff').multiplyScalar(1.6),
       toneMapped: false,
+      // ═══ SEM NEVOA, E E ISSO QUE FAZ A COR EXISTIR ═══
+      //
+      // A janela acesa mantem  LIGADO de proposito — o comentario dela
+      // explica: janela que nao embaca junto com o predio salta para a frente e
+      // desfaz a profundidade. Iluminacao ARQUITETURAL e o caso oposto.
+      //
+      // A nevoa desta cena corre de 13 a 52 m com cor ambar, e a cidade esta a
+      // 19-25: isso poe ate 31 por cento de laranja puro sobre cada pixel dela.
+      // Magenta com 31 por cento de laranja por cima nao e magenta — e o que
+      // vinha acontecendo, e a razao de as coroas coloridas das entregas
+      // anteriores terem saido todas do mesmo bege.
+      //
+      // Projetor de fachada nao e superficie iluminada: e FONTE. Fonte atravessa
+      // a nevoa em vez de ser tingida por ela, que e por que um letreiro de neon
+      // continua vermelho na garoa. Desligar a nevoa aqui e o modelo certo, nao
+      // um truque para salvar a cor.
+      fog: false,
     })
     /**
      * ═══ AS COROAS COLORIDAS, DAS REFERENCIAS QUE O DONO MANDOU ═══
@@ -483,12 +504,16 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
      * caminho do branco — leem como cor, nao como neon.
      */
     const TINTAS_DE_COROA = [
-      new THREE.Color('#dceaf6'), // branco-frio, o mais comum
-      new THREE.Color('#7fd6e8'), // ciano
-      new THREE.Color('#f2c98a'), // ambar
-      new THREE.Color('#c9a0d8'), // violeta
-      new THREE.Color('#8fd8b0'), // verde-agua
-      new THREE.Color('#dceaf6'), // branco-frio de novo: dobra a chance dele
+      // Amostradas da referencia que o dono mandou, e nao inventadas: rosa da
+      // torre da perola, azul da torre alta, vermelho das faixas a esquerda,
+      // violeta do predio da direita. NENHUM VERDE — a foto nao tem um so, e
+      // foi o verde que fez a primeira versao virar parque de diversoes.
+      new THREE.Color('#e0308f'), // rosa-magenta
+      new THREE.Color('#2aa8ff'), // azul
+      new THREE.Color('#e8422a'), // vermelho alaranjado
+      new THREE.Color('#9a5cc8'), // violeta
+      new THREE.Color('#ffe0b8'), // branco quente, o mais comum na foto
+      new THREE.Color('#ffe0b8'), // de novo: na referencia a maioria e branca
     ]
 
     const gCubo = new THREE.BoxGeometry(1, 1, 1)
@@ -780,6 +805,44 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             [0, 0, 0],
             [larg * 1.06, 0.5, prof * 1.06],
           )
+        }
+        /**
+         * ═══ A NERVURA VERTICAL ACESA ═══
+         *
+         * E o elemento mais caracteristico da referencia de Pudong que o dono
+         * mandou tres vezes: torres com uma LINHA DE LUZ subindo a fachada
+         * inteira, sem interrupcao, em magenta, ciano ou azul. Nao e a janela
+         * que da cor aquele skyline — janela e sempre creme. E isto.
+         *
+         * E funciona porque e VERTICAL num quadro cheio de horizontais. As
+         * lajes, as varandas, os peitoris, a propria linha do horizonte: tudo
+         * na cidade corre deitado. A nervura e a unica coisa que sobe, e por
+         * isso ela le antes de qualquer outra.
+         *
+         * UMA EM CADA TRES TORRES ALTAS, e o limite e o assunto: em todas,
+         * viraria parque de diversoes e a cidade perderia a hora dourada que o
+         * terraco depende. Espalhadas, leem como o que sao — alguns predios
+         * com projeto de iluminacao, no meio de muitos sem.
+         *
+         * Ela sai na chave da coroa, com o mesmo material sem nevoa: e a mesma
+         * instalacao, no mesmo predio, e custa zero chamada nova.
+         */
+        if (topo > 4.0 && ruido(i, f * 3 + 41) > 0.8) {
+          const corNervura =
+            TINTAS_DE_COROA[
+              Math.floor(ruido(i, f * 3 + 43) * TINTAS_DE_COROA.length) % TINTAS_DE_COROA.length
+            ]!
+          const altoNervura = topo - BASE - 0.9
+          for (const s of [-1, 1])
+            col.poe(
+              'coroa',
+              gFaixaLaje,
+              mCoroa,
+              [x + s * larg * 0.47, topo - 0.5 - altoNervura / 2, z + prof / 2 + 0.06],
+              [0, 0, Math.PI / 2],
+              [altoNervura, 0.55, 0.55],
+              corNervura,
+            )
         }
         const zFachada = z + prof / 2 + 0.02
         // A tinta desta torre — semente propria, sem relacao com a que decide
