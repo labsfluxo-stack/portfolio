@@ -912,7 +912,19 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
          * que o dono não estava conseguindo fazer.
          */
         const pilares = Math.max(2, Math.round(larg / 0.78))
-        const alturaPilar = topo - BASE - 0.4
+        // ═══ O PILAR PASSA DO COROAMENTO ═══
+        //
+        // Ele sobe 35 cm alem do topo da fachada, em vez de parar nela. E o
+        // detalhe mais elegante da torre contemporanea: a estrutura vence a
+        // pele e termina no ar, e a silhueta ganha um pente fino de verticais
+        // contra o ceu em vez de uma aresta reta.
+        //
+        // E o que ele resolve nao e so estetico. A torre terminava num corte
+        // horizontal seco — a linha mais dura do quadro inteiro, repetida
+        // cinquenta vezes. Deixar a estrutura ultrapassar quebra essa linha em
+        // dentes e faz o coroamento ler como remate, nao como serra.
+        const sobraDoPilar = 0.35
+        const alturaPilar = topo - BASE - 0.4 + sobraDoPilar
         for (let p = 0; p <= pilares; p++)
           col.poe(
             'pilarFachada',
@@ -920,7 +932,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             material,
             [
               x - larg * 0.48 + (p * larg * 0.96) / pilares,
-              topo - 0.2 - alturaPilar / 2,
+              topo - 0.2 + sobraDoPilar - alturaPilar / 2,
               zFachada + 0.09,
             ],
             [0, 0, 0],
@@ -1031,7 +1043,23 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
              * sozinha lê como brise. A guarda em vidro escuro é o que diz "aqui
              * alguém se debruça".
              */
-            if (l > 0) {
+            // ═══ SO NAS TORRES LARGAS, E E SUBTRACAO DELIBERADA ═══
+            //
+            // Contando o que existia em cada andar: fita de vidro, montantes,
+            // varanda, guarda da varanda, trechos acesos, vidro lateral, acesos
+            // laterais e pilar. OITO tipos de elemento — numa torre que ocupa
+            // uns 90 px de largura na tela, com uns 15 px por andar.
+            //
+            // Nao ha como oito elementos distintos existirem em 15 px: eles
+            // colapsam em ruido, e era isso que tornava a torre ilegivel no
+            // recorte que o dono mandou. Foram muitas entregas acrescentando e
+            // nenhuma subtraindo.
+            //
+            // Numa torre estreita a varanda e a primeira coisa a sair, porque e
+            // a que mais ocupa e a que menos se resolve: uma laje de 34 cm a 15
+            // m rende dois pixels de sombra. Nas largas ela fica, porque ali ha
+            // pixel para ela ser o que e.
+            if (l > 0 && larg > 1.9) {
               // ═══ ALINHADA AO VAO, E ANTES FLUTUAVA ═══
               //
               // Ela estava em  com 46 por cento da largura: um
@@ -1156,7 +1184,10 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
            * dela seriam instância paga sem imagem em troca — a mesma conta que
            * já decide não desenhar a fila de trás das garrafas do bar.
            */
-          if (Math.abs(x) > 2) {
+          // E so nas largas, pela mesma conta da varanda: numa torre estreita
+          // vista em diagonal a face lateral rende poucos pixels, e o que
+          // aparece nela some dentro do ruido do resto.
+          if (Math.abs(x) > 2 && larg > 1.9) {
             const sinal = x < 0 ? 1 : -1
             const xLado = x + sinal * larg * 0.5
             // Girada meia volta em Y: a fita nasce deitada no eixo x, e a face
