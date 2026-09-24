@@ -4684,18 +4684,21 @@ export function Cobertura({
      * 12 cm, e a toalha em só uma das duas. Basta para não parecerem carimbadas.
      */
     for (const [e, esp] of [
-      { x: xBordaEsquerda - 2.4, giro: 0, recuo: 0 },
-      { x: xBordaEsquerda - 0.2, giro: 0, recuo: -0.12 },
+      { x: xBordaEsquerda - 1.3, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 1.7 },
+      { x: xBordaEsquerda - 1.3, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 3.1 },
     ].entries()) {
       const g = esp.giro
       const cos = Math.cos(g)
       const sen = Math.sin(g)
       // Gira o deslocamento local junto com a peça: sem isto o encosto ficaria
       // no eixo do mundo e a espreguiçadeira sairia torta em vez de girada.
+      //  proprio quando a peca nao pertence a fileira da frente: a fileira
+      // da borda corre AO LONGO da piscina, entao cada uma tem o seu z.
+      const zDela = esp.z ?? zEspreg + esp.recuo
       const p = (dx: number, dy: number, dz: number): [number, number, number] => [
         esp.x + dx * cos - dz * sen,
         piso + dy,
-        zEspreg + esp.recuo + dx * sen + dz * cos,
+        zDela + dx * sen + dz * cos,
       ]
       /**
        * ═══ A ARITMÉTICA QUE EU TINHA FEITO ERRADO ═══
@@ -4802,8 +4805,12 @@ export function Cobertura({
       // Penumbra e umbra — ver o comentário nas mesas. Alongada em z porque a
       // espreguiçadeira é comprida nesse eixo, e mancha quadrada sob móvel
       // comprido denuncia que ela é um decalque.
-      sombra(esp.x, zEspreg + esp.recuo, 1.0, 1.9)
-      sombra(esp.x, zEspreg + esp.recuo, 0.6, 1.25)
+      // A mancha acompanha o giro: deitada em x quando a peca esta girada,
+      // deitada em z quando nao esta. Mancha no eixo errado denuncia o decalque.
+      const mLarg = Math.abs(cos) > 0.5 ? 1.0 : 1.9
+      const mProf = Math.abs(cos) > 0.5 ? 1.9 : 1.0
+      sombra(esp.x, zDela, mLarg, mProf)
+      sombra(esp.x, zDela, mLarg * 0.62, mProf * 0.66)
     }
     /**
      * O GUARDA-SOL FECHADO, e ele é a peça mais importante deste bloco.
@@ -4817,21 +4824,31 @@ export function Cobertura({
      * semanas para acertar — a peça existe para dar vertical, não para comprar
      * área.
      */
-    // ENTRE AS DUAS E MEIO METRO ATRÁS: é onde um guarda-sol fica, e é o que o
-    // mantém dentro do quadro. `zEspreg - 0.45` o deixa livre da pedra da borda,
-    // que termina 40 cm à frente da lâmina.
-    const xGuardaSol = xBordaEsquerda - 1.3
-    col.poe('colunaMesa', gCilindro, mMetal, [xGuardaSol, piso + 1.15, zEspreg - 0.45], [0, 0, 0], [
+    /**
+     * ELE ACOMPANHOU A FILEIRA, e tinha de acompanhar.
+     *
+     * Quando as duas espreguiçadeiras foram da frente da lâmina para a lateral
+     * esquerda, o guarda-sol ficou onde estava — sozinho, num pedaço de deck que
+     * deixou de ter uso. Peça de mobiliário que não se move junto com o conjunto
+     * a que pertence vira objeto perdido.
+     *
+     * Um metro MAIS AFASTADO da água que as duas, e entre elas em z: é onde um
+     * guarda-sol fica de verdade — atrás de quem se deita, não entre a pessoa e
+     * a vista. E tudo derivado da borda da piscina, então a fileira inteira
+     * acompanha se a lâmina mudar de tamanho outra vez.
+     */
+    const xGuardaSol = xBordaEsquerda - 2.35
+    col.poe('colunaMesa', gCilindro, mMetal, [xGuardaSol, piso + 1.15, piscina.fundo + 2.4], [0, 0, 0], [
       0.035,
       2.3,
       0.035,
     ])
-    col.poe('baseMesa', gCilindro, mMetal, [xGuardaSol, piso + 0.04, zEspreg - 0.45], [0, 0, 0], [
+    col.poe('baseMesa', gCilindro, mMetal, [xGuardaSol, piso + 0.04, piscina.fundo + 2.4], [0, 0, 0], [
       0.34,
       0.08,
       0.34,
     ])
-    sombra(xGuardaSol, zEspreg - 0.45, 0.62, 0.62)
+    sombra(xGuardaSol, piscina.fundo + 2.4, 0.62, 0.62)
 
     // A lona enrolada: cone e não cilindro. Guarda-sol fechado afina para cima
     // porque as varetas convergem no topo, e um tubo reto ali leria como poste.
@@ -4839,7 +4856,7 @@ export function Cobertura({
       'lonaGuardaSol',
       gCone,
       mAlmofada,
-      [xGuardaSol, piso + 2.62, zEspreg - 0.45],
+      [xGuardaSol, piso + 2.62, piscina.fundo + 2.4],
       [0, 0, 0],
       [0.1, 1.15, 0.1],
     )
