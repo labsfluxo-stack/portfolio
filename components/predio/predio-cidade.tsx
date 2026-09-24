@@ -92,9 +92,9 @@ function ruido(i: number, k: number): number {
  * A cidade existe para ENCHER o ceu, nao para substitui-lo.
  */
 const FAIXAS = [
-  { z: -13.5, n: 17, passo: 3.5, largura: [1.9, 3.4], topo: [2.0, 7.5], janelas: true, clareia: 0 },
-  { z: -17.6, n: 21, passo: 2.9, largura: [1.6, 2.9], topo: [1.4, 6.0], janelas: true, clareia: 0.3 },
-  { z: -19.4, n: 25, passo: 2.4, largura: [1.3, 2.4], topo: [0.5, 4.4], janelas: false, clareia: 0.58 },
+  { z: -13.5, n: 17, passo: 3.5, largura: [1.25, 2.35], topo: [2.0, 7.5], janelas: true, clareia: 0 },
+  { z: -17.6, n: 21, passo: 2.9, largura: [1.05, 1.95], topo: [1.4, 6.0], janelas: true, clareia: 0.3 },
+  { z: -19.4, n: 25, passo: 2.4, largura: [0.9, 1.7], topo: [0.5, 4.4], janelas: false, clareia: 0.58 },
 ] as const
 
 /**
@@ -468,7 +468,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
       // o que a referencia mostra e LINHA NITIDA — luz de projetor rasante numa
       // fachada, nao tubo fluorescente. Acender demais uma peca apaga o desenho
       // dela: e a mesma licao do nicho do bar, cometida de novo.
-      color: new THREE.Color('#ffffff').multiplyScalar(1.6),
+      color: new THREE.Color('#ffffff').multiplyScalar(1.12),
       toneMapped: false,
       // ═══ SEM NEVOA, E E ISSO QUE FAZ A COR EXISTIR ═══
       //
@@ -853,7 +853,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
               mCoroa,
               [x + s * larg * 0.47, topo - 0.5 - altoNervura / 2, z + prof / 2 + 0.06],
               [0, 0, Math.PI / 2],
-              [altoNervura, 0.55, 0.55],
+              [altoNervura, 0.32, 0.32],
               corNervura,
             )
         }
@@ -1193,6 +1193,10 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
      * detalhe desenhado ainda chega à tela.
      */
     const gAgulha = new THREE.ConeGeometry(1, 1, 6)
+    // Cilindro unitario com 20 lados: a 12,6 m de distancia uma torre de 1,3 m
+    // de diametro ocupa umas 90 colunas de pixel, e 20 lados ja dao a ela
+    // silhueta curva sem poligono visivel na borda.
+    const gCilindroCidade = new THREE.CylinderGeometry(1, 1, 1, 20)
     const zHeroi = -12.6
     const matHeroi = materiais[0]!
 
@@ -1279,6 +1283,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
       { x: -8.6, tipo: 'escalonada' as const, tinta: 1, coroa: 1 },
       { x: 1.9, tipo: 'nervurada' as const, tinta: 4, coroa: 3 },
       { x: 10.4, tipo: 'portal' as const, tinta: 0, coroa: 2 },
+      { x: -3.4, tipo: 'redonda' as const, tinta: 1, coroa: 5 },
     ]
 
     for (const [h, heroi] of HEROIS.entries()) {
@@ -1359,6 +1364,86 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
         col.poe('coroa', gFaixaLaje, mCoroa, [heroi.x, 7.1, zHeroi], [0, 0, 0], [w * 1.05, 0.8, 1.44], corCoroa)
         col.poe('testeira', gPlatibanda, matHeroi, [heroi.x, 7.24, zHeroi], [0, 0, 0], [w * 1.1, 0.5, 1.5])
         col.poe('luzAerea', gLuzAerea, mLuzAerea, [heroi.x, 7.4, zHeroi])
+      }
+
+      if (heroi.tipo === 'redonda') {
+        /**
+         * ═══ A TORRE REDONDA — a peça que quebra o skyline de caixas ═══
+         *
+         * O dono pediu "um prédio redondo, com estética futurista, arquitetura
+         * moderna de cidade super desenvolvida". A forma é o pedido inteiro:
+         * num horizonte feito só de prismas retos, UM cilindro é a coisa que o
+         * olho acha primeiro e lembra depois. É o mesmo raciocínio da garrafa
+         * quadrada na prateleira do bar — a forma que destoa é a que organiza
+         * a leitura das outras.
+         *
+         * O PERFIL NÃO É UM TUBO. Torre cilíndrica reta lê como caixa d'água.
+         * O que a torna contemporânea é a CINTURA: ela sai larga na base,
+         * afina no terço inferior, volta a abrir de leve no meio e afunila até
+         * o topo. Esse duplo movimento é o que a estrutura em núcleo central
+         * permite e a alvenaria não permitia — é a silhueta que só existe
+         * depois dos anos noventa, e por isso lê como "moderna" sem precisar
+         * de nenhum detalhe.
+         *
+         * Dez anéis empilhados desenham essa curva. Cada um é uma instância do
+         * mesmo cilindro unitário, escalada — nenhuma geometria nova por anel,
+         * pela mesma regra que o coletor documenta.
+         *
+         * ═══ OS ANÉIS ACESOS ═══
+         *
+         * Entre um segmento e outro corre uma linha de luz horizontal. É o
+         * recurso de iluminação mais característico da torre redonda de
+         * verdade: como ela não tem aresta vertical para receber projetor, o
+         * projeto de luz vira ANEL. E anéis empilhados leem como altura, que é
+         * o que uma torre quer dizer.
+         *
+         * Eles usam a mesma chave e o mesmo material sem névoa das coroas, e
+         * na temperatura mais fria da paleta — torre nova, LED novo.
+         */
+        const aneis = 10
+        const altoAnel = 0.62
+        const yBase = 1.1
+        for (let a = 0; a < aneis; a++) {
+          const t = a / (aneis - 1)
+          /**
+           * A CURVA DA CINTURA, em três termos: um estreitamento forte no
+           * primeiro terço, uma barriga suave no meio e o afunilamento final.
+           * Escrita como soma de senos porque é o jeito mais curto de obter uma
+           * curva com duas inflexões sem tabela de valores.
+           */
+          const r = 0.72 * (1 - 0.34 * Math.sin(t * Math.PI * 0.9) - 0.34 * t * t)
+          col.poe(
+            'redonda',
+            gCilindroCidade,
+            matHeroi,
+            [heroi.x, yBase + a * altoAnel + altoAnel / 2, zHeroi],
+            [0, 0, 0],
+            [r, altoAnel, r],
+            MODULACAO[(h + 2) % MODULACAO.length]!,
+          )
+          fachadaHeroi(heroi.x, yBase + a * altoAnel, altoAnel, r * 1.5, r * 1.9, tinta, h * 41 + a)
+          // O anel aceso entre um segmento e o seguinte.
+          if (a < aneis - 1)
+            col.poe(
+              'anelAceso',
+              gCilindroCidade,
+              mCoroa,
+              [heroi.x, yBase + (a + 1) * altoAnel, zHeroi],
+              [0, 0, 0],
+              [r * 1.04, 0.05, r * 1.04],
+              corCoroa,
+            )
+        }
+        /**
+         * O CORO AMENTO: um disco em balanço — mais largo que o último anel — e
+         * a agulha. O disco é o que diz "aqui em cima há alguma coisa", e é o
+         * gesto que toda torre redonda de observação tem.
+         */
+        const yTopo = yBase + aneis * altoAnel
+        col.poe('redonda', gCilindroCidade, matHeroi, [heroi.x, yTopo + 0.1, zHeroi], [0, 0, 0], [0.52, 0.2, 0.52], MODULACAO[(h + 2) % MODULACAO.length]!)
+        col.poe('anelAceso', gCilindroCidade, mCoroa, [heroi.x, yTopo + 0.22, zHeroi], [0, 0, 0], [0.54, 0.05, 0.54], corCoroa)
+        col.poe('agulha', gAgulha, matHeroi, [heroi.x, yTopo + 0.75, zHeroi], [0, 0, 0], [0.14, 1.0, 0.14])
+        col.poe('luzAerea', gLuzAerea, mLuzAerea, [heroi.x, yTopo + 1.3, zHeroi])
       }
     }
 
