@@ -1946,7 +1946,6 @@ export function Cobertura({
      * volta a aparecer inteira por cima delas, que é o que o dono pediu.
      */
     const zBar = zCentro - prof * 0.208
-    const zArvores = zCentro - prof * 0.277
     const zCanteiro = zCentro - prof * 0.4
     const zGuarda = zCentro + prof * 0.4
     const piscina = piscinaZ(zCentro, prof)
@@ -2045,6 +2044,56 @@ export function Cobertura({
       (X_PERGOLA_DE + X_POSTE_PERGOLA) / 2,
       (X_POSTE_PERGOLA + X_PERGOLA_ATE) / 2,
     ]
+    /**
+     * ═══ AS DUAS OLIVEIRAS SAEM DO JARDIM E VAO PARA A ENTRADA ═══
+     *
+     * Elas estavam nos eixos dos vaos do pergolado, uma em cada metade do jardim.
+     * A pedido do dono, passam para o deck EM FRENTE AO ELEVADOR — e a mudanca
+     * tem uma razao de programa alem do gosto: chegada pede arvore.
+     *
+     * O que havia em frente ao nucleo era balcao, luminaria e deck. Uma copa ali
+     * faz a saida do elevador ter sombra e escala, que e o que toda entrada de
+     * predio bom tem, e enche a unica parte do terraco que continuava so piso.
+     *
+     * E ELAS NAO PRECISAM CABER INTEIRAS, que foi o que o dono disse. A da
+     * esquerda encosta na borda do quadro e sai por ela — copa cortada pela
+     * moldura e recurso de composicao, nao defeito: diz que a cena continua alem
+     * do que se ve, e e o oposto do diorama onde tudo cabe com folga.
+     *
+     * EIXOS PROPRIOS e nao : aqueles continuam servindo ao
+     * pergolado, que abre vao de caibro neles. Arvore e pergolado deixaram de
+     * estar no mesmo lugar, entao deixaram de poder compartilhar a mesma
+     * constante.
+     */
+    const xDoNucleo = -meiaLargura + PLATIBANDA.espessura + NUCLEO.largura / 2
+    /**
+     * ═══ FORA DO EIXO DA PORTA ═══
+     *
+     * A primeira posicao punha uma de cada lado do nucleo, e o dono cortou na
+     * hora: nao pode atrapalhar a passagem. Estava certo, e a conta confirma —
+     * a porta do elevador tem 96 cm e fica em ; com as arvores a
+     * 1,05 de um lado e 1,4 do outro, os dois vasos de 1,2 m de diametro
+     * deixavam menos de um metro de vao e as duas COPAS se fechavam por cima da
+     * saida. Quem sai do elevador sairia dentro de uma planta.
+     *
+     * E arvore em frente de porta nao e so desconforto: e o tipo de coisa que
+     * denuncia cenario, porque nenhum predio em uso teria isso. Circulacao e a
+     * primeira regra de qualquer planta baixa, e eu passei por cima dela
+     * desenhando pela composicao.
+     *
+     * Agora as duas ficam DO MESMO LADO, contra a platibanda esquerda, e
+     * escalonadas em profundidade para nao virarem uma massa so. A saida do
+     * elevador fica inteiramente livre para a frente e para a direita, que e por
+     * onde se vai ao balcao e ao terraco.
+     *
+     * E o conjunto continua ENQUADRANDO a entrada em vez de tapa-la: a copa
+     * fecha o canto esquerdo do quadro, a porta respira, e o caminho entre as
+     * duas coisas e legivel. Copa cortada pela moldura segue sendo bem-vinda —
+     * foi o proprio dono que disse que elas nao precisam caber inteiras.
+     */
+    const EIXOS_DAS_ARVORES = [xDoNucleo - 1.38, xDoNucleo - 0.85]
+    const zDasArvores =
+      zDoEscritorio(zCentro, prof) + ESCRITORIO.profundidade / 2 + NUCLEO.avanco + 1.1
     /** Fora do vão entre as duas construções não há jardim: há edifício. */
     const foraDoJardim = (x: number) => x < X_PERGOLA_DE - 0.1 || x > X_PERGOLA_ATE + 0.1
     const zPergolaFrente = piscina.fundo - 0.35
@@ -2158,33 +2207,27 @@ export function Cobertura({
     const yViga = yCaibro - 0.045 - 0.07
     const yPosteTopo = yViga - 0.07
     const xMeioPergola = (X_PERGOLA_DE + X_PERGOLA_ATE) / 2
+    /**
+     * ═══ OS DOIS POSTES DO MEIO SAÍRAM, a pedido do dono ═══
+     *
+     * Com eles foram a chapa de aço, os parafusos e as duas mãos-francesas — o
+     * pórtico intermediário inteiro. O que fica é a viga vencendo o vão de ponta
+     * a ponta, apoiada nas duas lajes.
+     *
+     * A ESTRUTURA CONTINUA HONESTA, e é por isso que dava para tirar: o
+     * comentário que estava aqui já registrava que "o pergolado agora apoia nas
+     * duas lajes, então só precisa de um pórtico intermediário". Ele PRECISAVA
+     * de um pórtico quando os vãos eram de 5,6 m; madeira lamelada vence 11 m
+     * com altura de viga maior, e a viga aqui já é generosa. Não é licença
+     * poética — é o mesmo cálculo com outra escolha de seção.
+     *
+     * E O GANHO DE VISTA É O ASSUNTO. Cada poste é uma barra vertical
+     * atravessando o quadro de cima a baixo, bem no meio do jardim e na frente
+     * da cascata. Essa conta já tinha levado quatro postes a três e três a dois;
+     * agora fecha em zero. A viga sozinha desenha a linha horizontal do
+     * pergolado sem cortar nada atrás dela.
+     */
     for (const z of [zPergolaFrente, zPergolaFundo]) {
-      sombra(xMeioPergola, z, 0.95, 0.95)
-      col.poe(
-        'poste',
-        gPoste,
-        mMadeiraEscura,
-        [xMeioPergola, piso + (yPosteTopo - piso) / 2, z],
-        [0, 0, 0],
-        [1, (yPosteTopo - piso) / 2.9, 1],
-      )
-      // Chapa de aço parafusada no topo do poste, dos dois lados.
-      for (const dz of [-0.09, 0.09]) {
-        col.poe('chapa', gChapa, mAco, [xMeioPergola, yPosteTopo - 0.11, z + dz])
-        for (const dy of [-0.07, 0.07])
-          col.poe('parafuso', gParafuso, mAco, [xMeioPergola, yPosteTopo - 0.11 + dy, z + dz], [Math.PI / 2, 0, 0])
-      }
-      // MAO-FRANCESA: as duas diagonais que travam o no. Portico so com pecas
-      // ortogonais e instavel de verdade, e o olho conhece isso sem saber que
-      // conhece — pergolado sem contraventamento le como montagem provisoria.
-      for (const lado of [-1, 1])
-        col.poe(
-          'maoFrancesa',
-          gMaoFrancesa,
-          mMadeiraEscura,
-          [xMeioPergola + lado * 0.22, yPosteTopo - 0.63, z],
-          [0, (lado * Math.PI) / 2, lado * 0.785],
-        )
       // A viga vence o vão inteiro entre as duas lajes. `gVigaPergola` tem 12,2 m
       // e é escalada para o vão real: o chanfro de 8 mm encolhe 8% com isso, o
       // que é invisível, e em troca o comprimento passa a acompanhar sozinho
@@ -2613,10 +2656,19 @@ export function Cobertura({
      * visto de perfil, e a camera desce ao longo da cena: o cruzamento garante
      * que sempre haja um deles de frente.
      */
-    for (const xArv of EIXOS_DOS_VaOS) {
+    // ═══ OS ESPETOS SEGUEM A ARVORE, E TINHAM FICADO PARA TRAS ═══
+    //
+    // Quando as duas oliveiras foram escalonadas em profundidade, elas passaram
+    // a ter cada uma o seu z; os espetos continuaram os dois no z antigo. A
+    // segunda arvore ficou com a luz dela dois metros e meio atras do tronco,
+    // iluminando deck vazio — que e o que o dono viu ao pedir para organizar.
+    //
+    // Luz de jardim que nao acompanha a planta que ela existe para iluminar e
+    // pior que luz nenhuma: ela acende a coisa errada e deixa a certa escura.
+    for (const [kArv, xArv] of EIXOS_DAS_ARVORES.entries()) {
       for (const lado of [-1, 1]) {
         const xe = xArv + lado * 0.44
-        const ze = zArvores + 0.34
+        const ze = zDasArvores + kArv * 2.4 + 0.34
         col.poe('espeto', gEspeto, mMetal, [xe, piso + 0.78, ze])
         col.poe('lenteEspeto', gLente, mBalizador, [xe, piso + 0.87, ze])
         /**
@@ -2730,7 +2782,7 @@ export function Cobertura({
     // Sobra a faixa de 2,9 a 6,7, e a arvore fica no meio dela — visivel de
     // corpo inteiro, sem nada na frente e sem nada atras para se fundir.
     //
-    // As posicoes anteriores (-11,4 / 12,6 e depois -10,6 / 12,2) Em zArvores (14,4 m da camera) a
+    // As posicoes anteriores (-11,4 / 12,6 e depois -10,6 / 12,2) Em zDasArvores (14,4 m da camera) a
     // escala e 41,6 px/m, entao -11,4 e 12,6 caiam em 166 e 1164 de uma tela de
     // 1280 — ou seja, colados nas bordas e metade fora. A esquerda desloca para
     // dentro; a direita passa do bar (que termina em 11,3) para o tronco nao
@@ -2762,10 +2814,13 @@ export function Cobertura({
      *
      * As duas atravessam o pergolado, e os caibros abrem vão para as duas.
      */
-    for (const [k, x] of EIXOS_DOS_VaOS.entries()) {
-      sombra(x, zArvores, 2.4, 2.4)
-      col.poe('vasoAlto', gVasoAlto, mVaso, [x, piso, zArvores])
-      col.poe('terra', gTerra, mTerra, [x, piso + 0.66, zArvores], [-Math.PI / 2, 0, 0])
+    for (const [k, x] of EIXOS_DAS_ARVORES.entries()) {
+      // A segunda avanca 2,4 m: escalonadas em profundidade elas leem como duas
+      // arvores, e lado a lado no mesmo z leriam como uma copa larga so.
+      const zArv = zDasArvores + k * 2.4
+      sombra(x, zArv, 2.4, 2.4)
+      col.poe('vasoAlto', gVasoAlto, mVaso, [x, piso, zArv])
+      col.poe('terra', gTerra, mTerra, [x, piso + 0.66, zArv], [-Math.PI / 2, 0, 0])
       // Três troncos saindo tortos da mesma base. É a base MÚLTIPLA que
       // identifica a oliveira à distância — um tronco só já seria outra árvore.
       const troncos = [
@@ -2780,14 +2835,14 @@ export function Cobertura({
           'troncoOliva',
           gTroncoOliva,
           mCascaOliva,
-          [x + dx, piso + 1.75 + t * 0.08, zArvores + dz],
+          [x + dx, piso + 1.75 + t * 0.08, zArv + dz],
           [Math.cos(tr.a) * tr.incl, 0, -Math.sin(tr.a) * tr.incl],
         )
         col.poe(
           'galhoOliva',
           gGalhoOliva,
           mGalhoOliva,
-          [x + dx * 2.6, piso + 3.0 + t * 0.16, zArvores + dz * 2.6],
+          [x + dx * 2.6, piso + 3.0 + t * 0.16, zArv + dz * 2.6],
           [Math.cos(tr.a) * 0.65, 0, -Math.sin(tr.a) * 0.65],
         )
       }
@@ -2822,7 +2877,7 @@ export function Cobertura({
           'nucleoOliva',
           gTufoOliva,
           mFolhaSolida,
-          [x + Math.sin(a) * r, piso + 3.1 + ruido(t, 57 + k) * 1.1, zArvores + Math.cos(a) * r],
+          [x + Math.sin(a) * r, piso + 3.1 + ruido(t, 57 + k) * 1.1, zArv + Math.cos(a) * r],
           [ruido(t, 58 + k) * 3, ruido(t, 59 + k) * 3, 0],
           [1.22, 0.95, 1.22],
           // O tom mais escuro da paleta: e ele que poe a massa ATRAS das folhas
@@ -2872,7 +2927,7 @@ export function Cobertura({
         // o ceu em vez de se fundir com o verde de tras.
         const yBase = piso + 2.85 + ruido(b, 70 + k) * 1.55
         const bx = x + Math.sin(az) * rBase
-        const bz = zArvores + Math.cos(az) * rBase * 0.78
+        const bz = zArv + Math.cos(az) * rBase * 0.78
         // A maioria PENDE: galho carregado de folha não fica na horizontal, e o
         // −0,62 no deslocamento é o que inclina a distribuição para baixo.
         const inclina = (ruido(b, 75 + k) - 0.62) * 1.1
@@ -2917,7 +2972,20 @@ export function Cobertura({
               const e = 0.78 + ruido(g, 110 + k) * 0.5
               return [e, e, e] as [number, number, number]
             })(),
-            TONS_DE_OLIVA[(g * 3 + k) % TONS_DE_OLIVA.length]!,
+            // ═══ COPA DE UM TOM SO ═══
+            //
+            // Ela sorteava entre os cinco tons da paleta, pelo argumento de que
+            // folha real varia com idade, sol e sombra propria — e o argumento e
+            // verdadeiro para uma copa vista de PERTO, onde se distingue folha
+            // de folha. A dez metros nao se distingue: o que se ve e uma massa,
+            // e cinco tons numa massa leem como manchas de cor, nao como
+            // variacao natural. O dono apontou exatamente isso.
+            //
+            // Um tom so, e a variacao passa a vir de onde ela ainda sobrevive a
+            // distancia: da luz. Cada folha tem inclinacao propria, entao cada
+            // uma recebe o ambiente e o espeto de um jeito — e essa diferenca e
+            // de SOMBREAMENTO, que e o que uma copa de verdade mostra de longe.
+            TONS_DE_OLIVA[2]!,
           )
         }
       }
@@ -4688,8 +4756,12 @@ export function Cobertura({
       // entao a peca termina a 19 cm da pedra de acabamento. Espreguicadeira de
       // borda encosta na borda — meio metro de deck entre ela e a agua le como
       // movel que alguem esqueceu de arrastar de volta.
-      { x: xBordaEsquerda - 1.05, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 1.7 },
-      { x: xBordaEsquerda - 1.05, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 3.1 },
+      // RECUARAM 0,8 m a pedido do dono. Em  e  elas ocupavam
+      // o meio da lateral e empurravam a leitura para a frente do quadro; mais
+      // atras, ficam na altura da metade de tras da lamina e deixam a faixa de
+      // deck da frente respirar de novo.
+      { x: xBordaEsquerda - 1.05, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 0.9 },
+      { x: xBordaEsquerda - 1.05, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 2.3 },
     ].entries()) {
       const g = esp.giro
       const cos = Math.cos(g)
@@ -4907,17 +4979,20 @@ export function Cobertura({
      * acompanha se a lâmina mudar de tamanho outra vez.
      */
     const xGuardaSol = xBordaEsquerda - 2.35
-    col.poe('colunaMesa', gCilindro, mMetal, [xGuardaSol, piso + 1.15, piscina.fundo + 2.4], [0, 0, 0], [
+    // Recuou junto com a fileira: ele fica entre as duas, e se elas andam ele
+    // anda. Guarda-sol que nao acompanha as espreguicadeiras vira poste solto.
+    const zGuardaSol = piscina.fundo + 1.6
+    col.poe('colunaMesa', gCilindro, mMetal, [xGuardaSol, piso + 1.15, zGuardaSol], [0, 0, 0], [
       0.035,
       2.3,
       0.035,
     ])
-    col.poe('baseMesa', gCilindro, mMetal, [xGuardaSol, piso + 0.04, piscina.fundo + 2.4], [0, 0, 0], [
+    col.poe('baseMesa', gCilindro, mMetal, [xGuardaSol, piso + 0.04, zGuardaSol], [0, 0, 0], [
       0.34,
       0.08,
       0.34,
     ])
-    sombra(xGuardaSol, piscina.fundo + 2.4, 0.62, 0.62)
+    sombra(xGuardaSol, zGuardaSol, 0.62, 0.62)
 
     // A lona enrolada: cone e não cilindro. Guarda-sol fechado afina para cima
     // porque as varetas convergem no topo, e um tubo reto ali leria como poste.
@@ -4925,7 +5000,7 @@ export function Cobertura({
       'lonaGuardaSol',
       gCone,
       mAlmofada,
-      [xGuardaSol, piso + 2.62, piscina.fundo + 2.4],
+      [xGuardaSol, piso + 2.62, zGuardaSol],
       [0, 0, 0],
       [0.1, 1.15, 0.1],
     )
@@ -4949,7 +5024,6 @@ export function Cobertura({
      *    base de guarda-sol é um peso de concreto com um colar de metal em cima,
      *    e são os dois diâmetros que dão a ela o ar de coisa pesada.
      */
-    const zGuardaSol = piscina.fundo + 2.4
     col.poe('cuboGuardaSol', gCilindro, mMetal, [xGuardaSol, piso + 1.92, zGuardaSol], [0, 0, 0], [
       0.055,
       0.14,
