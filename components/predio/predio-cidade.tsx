@@ -504,16 +504,29 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
      * caminho do branco — leem como cor, nao como neon.
      */
     const TINTAS_DE_COROA = [
-      // Amostradas da referencia que o dono mandou, e nao inventadas: rosa da
-      // torre da perola, azul da torre alta, vermelho das faixas a esquerda,
-      // violeta do predio da direita. NENHUM VERDE — a foto nao tem um so, e
-      // foi o verde que fez a primeira versao virar parque de diversoes.
-      new THREE.Color('#e0308f'), // rosa-magenta
-      new THREE.Color('#2aa8ff'), // azul
-      new THREE.Color('#e8422a'), // vermelho alaranjado
-      new THREE.Color('#9a5cc8'), // violeta
-      new THREE.Color('#ffe0b8'), // branco quente, o mais comum na foto
-      new THREE.Color('#ffe0b8'), // de novo: na referencia a maioria e branca
+      // ═══ TEMPERATURA DE COR, E NAO COR ═══
+      //
+      // Eu tinha amostrado rosa-magenta, vermelho e violeta da foto de Pudong.
+      // O dono chamou de fantasioso, e esta certo: aquela orla e uma vitrine
+      // turistica, um dos poucos lugares do mundo onde predio inteiro e pintado
+      // de neon. Nao e o que uma cidade normal faz, nem o que este terraco
+      // deveria estar vendo pela janela.
+      //
+      // Iluminacao de fachada de verdade se mede em KELVIN, nao em matiz. O
+      // projetor e branco; o que varia e a temperatura dele, e a variedade de um
+      // skyline real vem de predios vizinhos terem escolhido temperaturas
+      // diferentes — um com halogena velha de 2700 K, o vizinho com LED de 5000.
+      // E essa diferenca que se ve, e ela e sutil de proposito.
+      //
+      // Os dois unicos acentos que sobrevivem sao os que predio real usa mesmo:
+      // ambar de sodio, que ainda existe em coroamento antigo, e um azul
+      // dessaturado, que e o tique da torre corporativa dos anos dois mil.
+      new THREE.Color('#ffd9ae'), // 2700 K — halogena quente
+      new THREE.Color('#ffe9d2'), // 3000 K — o mais comum em coroamento
+      new THREE.Color('#fff4e8'), // 4000 K — LED neutro
+      new THREE.Color('#eef4ff'), // 5500 K — LED frio, torre nova
+      new THREE.Color('#ffc98a'), // ambar de sodio
+      new THREE.Color('#b9d0ee'), // azul dessaturado, tique corporativo
     ]
 
     const gCubo = new THREE.BoxGeometry(1, 1, 1)
