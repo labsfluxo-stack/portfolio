@@ -1002,6 +1002,183 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
       }
     })
 
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     * AS TORRES-HERÓI
+     * ═══════════════════════════════════════════════════════════════════════
+     *
+     * POR QUE ELAS EXISTEM. Oito rodadas de ajuste no gerador procedural, e o
+     * dono continuou dizendo que a cidade não parecia da mesma arte da
+     * cobertura. Estava certo, e a razão é estrutural: dezessete caixas
+     * sorteadas por ruído não viram arquitetura por acumulação de parâmetro.
+     * O terraço foi desenhado peça por peça — o núcleo do elevador, o bar, o
+     * mural — e é por isso que ele lê como projeto.
+     *
+     * Então três torres saem do sorteio e passam a ser DESENHADAS, com a mesma
+     * régua do terraço. As outras continuam procedurais, dando fundo: skyline
+     * inteiro de peça única viraria o oposto do problema, uma fileira de
+     * monumentos sem cidade em volta.
+     *
+     * O QUE A REFERÊNCIA ENSINA. Nas fotos de Pudong que o dono mandou, o que
+     * faz a linha do horizonte é um punhado de torres RECONHECÍVEIS — cada uma
+     * com uma silhueta que se distingue de longe e se lembra depois. Não é
+     * detalhe de fachada: é FORMA. A agulha, a torre que afina, a que tem um
+     * vazio no topo. O resto do casario é massa.
+     *
+     * Daí três famílias, e nenhuma repetida:
+     *
+     *  · ESCALONADA — recuos sucessivos, cada um mais estreito, terminando em
+     *    agulha. É a torre mais alta do conjunto e a âncora da composição.
+     *  · NERVURADA — afunila de baixo a cima e leva uma linha acesa contínua na
+     *    aresta, de ponta a ponta. É a que mais lê à noite, e a que mais se
+     *    parece com o que a referência tem de mais moderno.
+     *  · PORTAL — corpo reto com um VAZIO emoldurado no topo. Furo em silhueta
+     *    é a coisa mais memorável que uma torre pode ter, porque o olho lê céu
+     *    onde esperava massa.
+     *
+     * TODAS TÊM PÓDIO, e isso é o que faltava em todo o gerador: nas fotos, a
+     * base da cidade é uma faixa contínua de construção baixa e acesa, e é ela
+     * que apoia as torres no chão. Sem pódio, torre lê como espetada.
+     *
+     * ELAS FICAM EM z = −12,6, à frente da primeira faixa: são o plano mais
+     * próximo da cidade, logo atrás da parede do terraço (−11,4). É onde o
+     * detalhe desenhado ainda chega à tela.
+     */
+    const gAgulha = new THREE.ConeGeometry(1, 1, 6)
+    const zHeroi = -12.6
+    const matHeroi = materiais[0]!
+
+    /** Empilha uma fachada envidraçada num trecho de torre — o vocabulário comum. */
+    const fachadaHeroi = (
+      cx: number,
+      base: number,
+      alto: number,
+      larg: number,
+      prof: number,
+      tinta: THREE.Color,
+      semente: number,
+    ) => {
+      const zF = zHeroi + prof / 2 + 0.02
+      const andares = Math.max(1, Math.floor(alto / PE_DIREITO_CIDADE))
+      for (let l = 0; l < andares; l++) {
+        const y = base + alto - 0.3 - l * PE_DIREITO_CIDADE
+        col.poe('fitaVidro', gFitaVidro, mVidroEscuro, [cx, y, zF], [0, 0, 0], [larg * 0.94, 1, 1], tinta)
+        const vaos = Math.max(3, Math.round(larg / 0.3))
+        for (let t = 0; t < vaos; t++) {
+          if (ruido(semente * 31 + t * 7 + l, 11) < 0.12) continue
+          const q = ruido(semente * 31 + t * 7 + l, 29)
+          col.poe(
+            'trechoAceso',
+            gTrechoAceso,
+            mJanela,
+            [cx - larg * 0.44 + (t * larg * 0.88) / (vaos - 1), y, zF + 0.03],
+            [0, 0, 0],
+            [1, 1, 1],
+            brilhoDeJanela(q > 0.88 ? 2.0 + (q - 0.88) * 2.8 : 0.95 + q * 0.62),
+          )
+        }
+        // A laje aparente entre um andar e outro. Nas torres procedurais ela é
+        // uma fita fina; aqui ela AVANÇA, porque a doze metros e meio o relevo
+        // dela ainda rende sombra — e sombra é o que o dono chamou de
+        // profundidade quando disse que faltava realismo.
+        col.poe('lajeHeroi', gFaixaLaje, matHeroi, [cx, y - 0.34, zF + 0.05], [0, 0, 0], [larg, 1.1, prof * 0.12 + 0.12])
+      }
+    }
+
+    /** O pódio — a base larga e acesa que apoia a torre no chão. */
+    const podio = (cx: number, larg: number, semente: number) => {
+      col.poe(`predio-0`, gCubo, matHeroi, [cx, BASE + (BASE + 8.2) / 2 - BASE / 2, zHeroi + 0.5], [0, 0, 0], [larg * 1.55, 8.2, 2.4], MODULACAO[semente % MODULACAO.length]!)
+      // A marquise: a laje fina que corre o pódio inteiro e o separa da torre.
+      col.poe('testeira', gPlatibanda, matHeroi, [cx, BASE + 8.3, zHeroi + 0.5], [0, 0, 0], [larg * 1.62, 0.7, 2.6])
+    }
+
+    const HEROIS = [
+      { x: -8.6, tipo: 'escalonada' as const, tinta: 1, coroa: 1 },
+      { x: 1.9, tipo: 'nervurada' as const, tinta: 4, coroa: 3 },
+      { x: 10.4, tipo: 'portal' as const, tinta: 0, coroa: 2 },
+    ]
+
+    for (const [h, heroi] of HEROIS.entries()) {
+      const tinta = TINTAS_DE_VIDRO[heroi.tinta]!
+      const corCoroa = TINTAS_DE_COROA[heroi.coroa]!
+      podio(heroi.x, heroi.tipo === 'escalonada' ? 1.5 : 1.2, h + 2)
+
+      if (heroi.tipo === 'escalonada') {
+        /**
+         * TRÊS TRONCOS, cada um mais estreito e mais alto que o anterior, com a
+         * proporção crescendo — é o que faz a torre parecer SUBIR em vez de
+         * apenas ser alta. Recuo constante leria como escada.
+         */
+        const trechos = [
+          { base: 1.2, alto: 2.2, larg: 1.5 },
+          { base: 3.4, alto: 1.7, larg: 1.14 },
+          { base: 5.1, alto: 1.25, larg: 0.8 },
+        ]
+        for (const [t, tr] of trechos.entries()) {
+          col.poe(`predio-0`, gCubo, matHeroi, [heroi.x, BASE + (tr.base + tr.alto / 2) - BASE / 2 + BASE / 2, zHeroi], [0, 0, 0], [tr.larg, tr.alto, 1.5 - t * 0.28], MODULACAO[(h + 1) % MODULACAO.length]!)
+          fachadaHeroi(heroi.x, tr.base, tr.alto, tr.larg, 1.5 - t * 0.28, tinta, h * 17 + t)
+          // Cada recuo ganha a sua coroa: é a repetição dela que conta a
+          // subida, e é o desenho que a referência mostra em Pudong.
+          col.poe('coroa', gFaixaLaje, mCoroa, [heroi.x, tr.base + tr.alto - 0.08, zHeroi], [0, 0, 0], [tr.larg * 1.06, 0.7, (1.5 - t * 0.26) * 1.06], corCoroa)
+          col.poe('testeira', gPlatibanda, matHeroi, [heroi.x, tr.base + tr.alto + 0.06, zHeroi], [0, 0, 0], [tr.larg * 1.1, 0.5, (1.5 - t * 0.28) * 1.1])
+        }
+        // A AGULHA. Sem ela a torre termina numa caixa, e caixa no topo e
+        // caixa na base leem como o mesmo volume repetido.
+        col.poe('agulha', gAgulha, matHeroi, [heroi.x, 6.35 + 0.45, zHeroi], [0, 0, 0], [0.2, 0.95, 0.2])
+        col.poe('luzAerea', gLuzAerea, mLuzAerea, [heroi.x, 7.3, zHeroi])
+      }
+
+      if (heroi.tipo === 'nervurada') {
+        /**
+         * AFUNILA EM SEIS ANÉIS, cada um 6 % mais estreito. Torre que afina é
+         * o desenho contemporâneo por excelência, e o afunilamento contínuo —
+         * em vez de recuos — é o que a distingue da escalonada ao lado.
+         */
+        const aneis = 5
+        const altoAnel = 0.95
+        for (let a = 0; a < aneis; a++) {
+          const yb = 1.2 + a * altoAnel
+          const w = 1.28 * Math.pow(0.94, a)
+          const p = 1.3 * Math.pow(0.94, a)
+          col.poe(`predio-0`, gCubo, matHeroi, [heroi.x, yb + altoAnel / 2, zHeroi], [0, 0, 0], [w, altoAnel, p], MODULACAO[(h + 3) % MODULACAO.length]!)
+          fachadaHeroi(heroi.x, yb, altoAnel, w, p, tinta, h * 23 + a)
+          /**
+           * A NERVURA ACESA na aresta, e ela é a razão de ser desta torre.
+           *
+           * Na referência de Xangai há uma linha de luz que sobe a fachada
+           * inteira sem interrupção, e é a coisa que mais lê à noite naquele
+           * skyline. Aqui ela é uma peça por anel, alinhadas, de modo que a
+           * linha atravessa a torre de ponta a ponta.
+           */
+          for (const s of [-1, 1])
+            col.poe('coroa', gFaixaLaje, mCoroa, [heroi.x + s * w * 0.5, yb + altoAnel / 2, zHeroi + p / 2 + 0.03], [0, 0, Math.PI / 2], [altoAnel, 0.5, 0.5], corCoroa)
+        }
+        col.poe('coroa', gFaixaLaje, mCoroa, [heroi.x, 1.2 + aneis * altoAnel, zHeroi], [0, 0, 0], [1.1, 0.9, 1.1], corCoroa)
+        col.poe('luzAerea', gLuzAerea, mLuzAerea, [heroi.x, 1.2 + aneis * altoAnel + 0.2, zHeroi])
+      }
+
+      if (heroi.tipo === 'portal') {
+        /**
+         * O VAZIO EMOLDURADO. O corpo sobe reto até 7,4; daí para cima, em vez
+         * de um bloco, duas pernas e uma travessa. O olho vê CÉU onde esperava
+         * massa, e é isso que torna a silhueta memorável — é o mesmo recurso
+         * do prédio de topo trapezoidal na foto de Pudong.
+         */
+        const w = 1.42
+        col.poe(`predio-0`, gCubo, matHeroi, [heroi.x, (1.2 + 5.4) / 2, zHeroi], [0, 0, 0], [w, 4.2, 1.36], MODULACAO[(h + 5) % MODULACAO.length]!)
+        fachadaHeroi(heroi.x, 1.2, 4.2, w, 1.36, tinta, h * 29)
+        for (const s of [-1, 1]) {
+          col.poe(`predio-0`, gCubo, matHeroi, [heroi.x + s * w * 0.33, 6.0, zHeroi], [0, 0, 0], [w * 0.34, 1.2, 1.36], MODULACAO[(h + 5) % MODULACAO.length]!)
+          fachadaHeroi(heroi.x + s * w * 0.33, 5.4, 1.2, w * 0.34, 1.36, tinta, h * 29 + s + 3)
+        }
+        // A travessa que fecha o portal por cima.
+        col.poe(`predio-0`, gCubo, matHeroi, [heroi.x, 6.85, zHeroi], [0, 0, 0], [w, 0.5, 1.36], MODULACAO[(h + 5) % MODULACAO.length]!)
+        col.poe('coroa', gFaixaLaje, mCoroa, [heroi.x, 7.1, zHeroi], [0, 0, 0], [w * 1.05, 0.8, 1.44], corCoroa)
+        col.poe('testeira', gPlatibanda, matHeroi, [heroi.x, 7.24, zHeroi], [0, 0, 0], [w * 1.1, 0.5, 1.5])
+        col.poe('luzAerea', gLuzAerea, mLuzAerea, [heroi.x, 7.4, zHeroi])
+      }
+    }
+
     const saida = col.colhe()
     // Nem projeta nem recebe sombra: a câmera de sombra do sol cobre ±17 m em x
     // e 64 m em profundidade, e a cidade está fora dela em x. Deixar `castShadow`
