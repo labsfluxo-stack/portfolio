@@ -293,12 +293,12 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
      * atmosferica de  continua valendo em cima deles.
      */
     const MODULACAO = [
-      new THREE.Color(1.0, 1.0, 1.0),
-      new THREE.Color(1.06, 0.99, 0.9),
-      new THREE.Color(0.92, 0.97, 1.08),
-      new THREE.Color(0.97, 1.03, 0.98),
-      new THREE.Color(1.03, 0.96, 1.02),
-      new THREE.Color(0.95, 0.94, 1.0),
+      new THREE.Color(1.18, 1.06, 0.86), // bronze quente
+      new THREE.Color(0.8, 0.94, 1.3), // azul-aco frio
+      new THREE.Color(0.86, 1.14, 1.06), // verde-agua
+      new THREE.Color(1.24, 0.98, 0.88), // terracota
+      new THREE.Color(0.94, 0.88, 1.22), // violeta-aco
+      new THREE.Color(1.06, 1.06, 1.08), // neutro claro
     ]
     const TINTAS_DE_VIDRO = [
       '#2b3647', // azul-aço, o mais comum

@@ -120,8 +120,28 @@ export const CEU = '#f4d9a8'
  * Constante propria e nao emprestada de `CENARIO`: e a quinta vez nesta feature
  * que uma cor emprestada "porque esta parecida" cobra depois.
  */
-export const CIDADE = '#3c4657'
-export const CIDADE_DISTANTE = '#4a5468'
+/**
+ * ═══ CLAREARAM, PORQUE ESCURO DEMAIS LÊ COMO "FRACO" ═══
+ *
+ * Eram `#3c4657` e `#4a5468`, e o dono descreveu a cidade como "fraca, sem cor,
+ * sem realismo" depois de cinco rodadas em que eu mexi em reflexo, malha,
+ * tinta de vidro e modulação de matiz. Nenhuma pegou, e estas duas constantes
+ * são o motivo pelo qual nenhuma podia pegar.
+ *
+ * A conta: a cidade está a 19–25 m da câmera, dentro de uma névoa que corre de
+ * 13 a 52 m. Isso põe 15 a 31 % de âmbar puro sobre cada pixel dela. Uma base
+ * escura e dessaturada entra nessa mistura sem nada a oferecer — o que sai do
+ * outro lado é a cor da névoa, e a cor da névoa é a mesma para todo mundo. Daí
+ * "sem cor": não é que as torres tenham cores parecidas, é que a cor delas não
+ * SOBREVIVE ao trajeto até a câmera.
+ *
+ * Mais claras e mais saturadas, elas chegam com alguma coisa. E a perspectiva
+ * atmosférica continua inteira: `clareia` mistura cada faixa com o céu na mesma
+ * proporção de antes, então a faixa do fundo permanece tão pálida quanto era. O
+ * que muda é a da FRENTE, que é a que o visitante lê.
+ */
+export const CIDADE = '#5d6d8c'
+export const CIDADE_DISTANTE = '#68748f'
 
 export const CENARIO = '#4b4038'
 export const CENARIO_DISTANTE = '#3b332d'
