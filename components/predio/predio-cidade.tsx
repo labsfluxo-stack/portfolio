@@ -710,9 +710,10 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
         // um vão entre a base dele e a silhueta visível, e lê como risco solto
         // no céu — foi o que o render mostrou. Afundada, a sobreposição cobre
         // qualquer oclusão parcial, e o trecho enterrado não custa pixel.
-        if (topo > 5.2) col.poe('antena', gAntena, material, [x, topo + 0.35, z])
+        if (topo > 5.2)
+          col.poe('antena', gAntena, material, [x, topo + 0.35, z], [0, 0, 0], [1, 1, 1], mod)
         else if (topo > 3.0 && ruido(i, f * 3 + 6) > 0.45)
-          col.poe('caixa', gCaixa, material, [x, topo + 0.3, z])
+          col.poe('caixa', gCaixa, material, [x, topo + 0.3, z], [0, 0, 0], [1, 1, 1], mod)
 
         if (!faixa.janelas) continue
 
@@ -817,6 +818,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             [x, topo - 0.14, z],
             [0, 0, 0],
             [larg * 1.06, 0.5, prof * 1.06],
+            mod,
           )
         }
         /**
@@ -937,6 +939,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             ],
             [0, 0, 0],
             [1.15, alturaPilar, 0.85],
+            mod,
           )
         if (peleLisa) {
           /**
@@ -971,6 +974,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
               [x - larg * 0.47 + (m * larg * 0.94) / montantes, topo - 0.28 - alturaPele / 2, zFachada + 0.05],
               [0, 0, 0],
               [1, alturaPele, 1],
+              mod,
             )
         }
         for (let l = 0; l < andares; l++) {
@@ -1023,6 +1027,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
                 ],
                 [0, 0, 0],
                 [1.5, 0.72, 1],
+                mod,
               )
             /**
              * ═══ A VARANDA, QUE É O QUE FALTAVA PARA LER COMO PRÉDIO DAQUI ═══
@@ -1082,6 +1087,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
                 [xSacada, yFita - 0.3, zFachada + 0.15],
                 [0, 0, 0],
                 [largSacada, 1.1, 0.34],
+                mod,
               )
               col.poe(
                 'guardaSacada',
@@ -1273,13 +1279,36 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
            * chamada de desenho nova.
            */
           const silhueta = Math.floor(ruido(i, f * 3 + 53) * 5) % 5
+          /**
+           * ═══ A LUZ DE OBSTACULO PRECISA POUSAR NO TOPO DE VERDADE ═══
+           *
+           * Ela estava em `topo + alturaRecuo + 0,12`, que e o topo da variante
+           * RECUO — a unica que existia quando essa linha foi escrita. Com cinco
+           * silhuetas de alturas diferentes, ela passou a flutuar acima de
+           * algumas e a afundar em outras.
+           *
+           * No recorte que o dono mandou ela aparece como um ponto vermelho
+           * solto no ar, a meio metro do predio. Luz de obstaculo aereo e a
+           * peca que mais precisa estar no ponto mais alto da estrutura —
+           * e literalmente a funcao dela.
+           *
+           * `alturaDoTopo` e calculada por variante e usada tanto para
+           * posicionar a luz quanto, onde couber, para conferir contra o teto
+           * de enquadramento.
+           */
+          const alturaDoTopo =
+            silhueta === 3
+              ? alturaRecuo * 0.88
+              : silhueta === 4
+                ? alturaRecuo * 1.03
+                : alturaRecuo
           if (silhueta === 1) {
             for (const s of [-1, 1])
               col.poe('recuo', gCubo, material, [x + s * larg * 0.2, topo + alturaRecuo / 2, z], [0, 0, 0], [
                 larg * 0.26,
                 alturaRecuo,
                 prof * 0.62,
-              ])
+              ], mod)
           } else if (silhueta === 2) {
             col.poe(
               'recuo',
@@ -1290,34 +1319,55 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
               [larg * 0.56, alturaRecuo, prof * 0.62],
             )
           } else if (silhueta === 3) {
-            // A inclinação em Z é o que corta o topo em diagonal. Note que ela
-            // vai na ordem padrão do Euler e não precisa de 'YXZ': esta peça
-            // não é girada em Y, então não há as duas rotações para brigarem —
-            // ver a armadilha documentada em `poe`.
-            col.poe('recuo', gCubo, material, [x, topo + alturaRecuo * 0.32, z], [0, 0, 0.26], [
-              larg * 0.62,
-              alturaRecuo * 0.7,
-              prof * 0.62,
-            ])
+            /**
+             * ═══ A CUNHA DEIXOU DE SER UMA CAIXA TORTA ═══
+             *
+             * Eu a fazia inclinando um cubo 0,26 rad em torno do PROPRIO
+             * CENTRO. O dono mandou o recorte: uma quina afunda dentro do
+             * predio e a outra fica boiando no ar, e o que se ve e uma laje
+             * jogada em cima de qualquer jeito — nao um topo inclinado.
+             *
+             * E o mesmo erro do encosto da espreguicadeira, tres entregas
+             * atras: eu calculei onde o CENTRO da peca ia parar e nao onde os
+             * CANTOS dela iam parar. Girar em torno do centro sobe uma ponta e
+             * afunda a outra, sempre.
+             *
+             * Agora sao tres degraus de larguras iguais e alturas crescentes.
+             * A doze metros e meio a escada le como rampa — o olho nao resolve
+             * o degrau, resolve a diagonal que eles descrevem —, e nenhum deles
+             * pode boiar, porque todos apoiam a base em `topo`.
+             */
+            for (let d = 0; d < 3; d++) {
+              const hd = alturaRecuo * (0.32 + d * 0.28)
+              col.poe(
+                'recuo',
+                gCubo,
+                material,
+                [x - larg * 0.21 + d * larg * 0.21, topo + hd / 2, z],
+                [0, 0, 0],
+                [larg * 0.23, hd, prof * 0.62],
+                mod,
+              )
+            }
           } else if (silhueta === 4) {
             col.poe('recuo', gCubo, material, [x, topo + alturaRecuo * 0.3, z], [0, 0, 0], [
               larg * 0.68,
               alturaRecuo * 0.6,
               prof * 0.68,
-            ])
+            ], mod)
             col.poe('recuo', gCubo, material, [x, topo + alturaRecuo * 0.78, z], [0, 0, 0], [
               larg * 0.4,
               alturaRecuo * 0.5,
               prof * 0.4,
-            ])
+            ], mod)
           } else {
             col.poe('recuo', gCubo, material, [x, topo + alturaRecuo / 2, z], [0, 0, 0], [
               larg * 0.62,
               alturaRecuo,
               prof * 0.62,
-            ])
+            ], mod)
           }
-          col.poe('luzAerea', gLuzAerea, mLuzAerea, [x, topo + alturaRecuo + 0.12, z])
+          col.poe('luzAerea', gLuzAerea, mLuzAerea, [x, topo + alturaDoTopo + 0.07, z])
         }
       }
     })
@@ -1475,7 +1525,24 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
           { base: 5.1, alto: 1.25, larg: 0.8 },
         ]
         for (const [t, tr] of trechos.entries()) {
-          col.poe(`predio-0`, gCubo, matHeroi, [heroi.x, BASE + (tr.base + tr.alto / 2) - BASE / 2 + BASE / 2, zHeroi], [0, 0, 0], [tr.larg, tr.alto, 1.5 - t * 0.28], MODULACAO[(h + 1) % MODULACAO.length]!)
+          col.poe(`predio-0`, gCubo, matHeroi, /* ═══ ERA `BASE + tr.base + tr.alto/2`, SETE METROS ABAIXO ═══
+           *
+           * A expressao original era `BASE + (tr.base + tr.alto/2) - BASE/2 +
+           * BASE/2`, que simplifica para `BASE + tr.base + tr.alto/2` — e BASE
+           * vale -7. Os tres troncos da torre iam parar sete metros abaixo do
+           * lugar, enterrados atras da parede do terraco.
+           *
+           * E a coroa e a testeira de cada tronco usam `tr.base + tr.alto` DIRETO,
+           * sem BASE: elas ficaram na altura certa, sem nada embaixo. O que o
+           * dono fotografou foi exatamente isso — laje clara boiando no ar em
+           * escada, sem corpo de torre sob ela.
+           *
+           * Eu escrevi essa expressao ao criar as herois e nunca a li de volta.
+           * Ela tem um termo que se cancela (`- BASE/2 + BASE/2`), que e o sinal
+           * classico de conta remendada ate o render parecer certo — e naquele
+           * dia o render parecia, porque eu olhei o quadro inteiro e nao o topo.
+           */
+          [heroi.x, tr.base + tr.alto / 2, zHeroi], [0, 0, 0], [tr.larg, tr.alto, 1.5 - t * 0.28], MODULACAO[(h + 1) % MODULACAO.length]!)
           fachadaHeroi(heroi.x, tr.base, tr.alto, tr.larg, 1.5 - t * 0.28, tinta, h * 17 + t)
           // Cada recuo ganha a sua coroa: é a repetição dela que conta a
           // subida, e é o desenho que a referência mostra em Pudong.
