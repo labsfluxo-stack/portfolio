@@ -1662,30 +1662,44 @@ export function Cobertura({
      * ponto mais quente da cena vira o mesmo bege de tudo.
      */
     const mEscParede = new THREE.MeshStandardMaterial({ color: '#cbbda6', roughness: 0.94 })
-    // O nicho do bar é ÂMBAR BAIXO, e não a luz de trabalho do escritório. São
+    // O nicho do bar era ÂMBAR ACESO, e não a luz de trabalho do escritório. São
     // dois lugares acesos no mesmo quadro, e se tivessem a mesma temperatura eles
     // leriam como a mesma coisa repetida — a diferença de cor é o que diz que um
-    // é uma sala e o outro é um balcão.
+    // é uma sala e o outro é um balcão. Ver `mBarNicho`, onde essa ideia acabou.
     // O rótulo é PAPEL: opaco e fosco, e é justamente por ser opaco que ele corta
     // a mancha de vidro aceso. Cru e não branco — rótulo branco puro num nicho
     // âmbar vira um ponto azulado que nada mais na cena tem.
     const mRotulo = new THREE.MeshStandardMaterial({ color: '#d8cbb0', roughness: 0.92 })
+    /**
+     * ═══ O FUNDO DO NICHO APAGOU, E ISSO ERA O QUE FALTAVA NAS GARRAFAS ═══
+     *
+     * Ele era um painel EMISSIVO âmbar de quase cinco por dois metros e meio — a
+     * maior superfície acesa da cena inteira. O comentário anterior já sabia do
+     * risco e o descrevia com precisão: com emissão alta "a prateleira de
+     * garrafas vira um bloco de luz sem garrafa dentro, apagando as trinta
+     * silhuetas que ela existe para mostrar". A resposta tinha sido baixar a
+     * intensidade de 1,5 para 1,05 — tratar o sintoma pela metade.
+     *
+     * Era pela metade porque o problema não é QUANTO o fundo acende, é o fundo
+     * acender. Objeto se destaca por CONTRASTE com o que está atrás dele, e
+     * garrafa retroiluminada contra painel aceso é claro sobre claro: as duas
+     * coisas empurram na mesma direção e a silhueta some. Já tínhamos corrigido
+     * a forma das garrafas, aberto vãos entre elas e tornado o vidro mais opaco;
+     * as três ajudaram e nenhuma podia resolver, porque nenhuma mexia no fundo.
+     *
+     * Agora ele é MADEIRA ESCURA e não emite nada. Quem acende passa a ser só a
+     * fita sob cada prateleira, que já existia — e é exatamente assim que um bar
+     * é montado: o fundo é o marceneiro, a luz é a fita, e a garrafa fica entre
+     * os dois. É o que o dono pediu ao mandar a referência de fundo escuro.
+     *
+     * O MAPA FICA, só que agora pinta e não acende. `brilhoDoNicho` desenha a
+     * faixa mais clara na altura de cada prateleira; sobre madeira escura isso
+     * vira o reflexo da fita na madeira, que é o que se veria de verdade.
+     */
     const mBarNicho = new THREE.MeshStandardMaterial({
-      color: '#a8712f',
-      roughness: 1,
-      emissive: new THREE.Color('#ff9a3c'),
-      // 1,05 e não 1,5: pela mesma regra de área da fita, algumas linhas acima.
-      // O nicho tem quase cinco metros por dois e meio — é a maior superfície
-      // emissora da cena inteira. Com 1,5 ele cruzava o limiar do brilho em toda
-      // a sua área e a prateleira de garrafas virava um bloco de luz sem
-      // garrafa dentro, apagando as trinta silhuetas que ela existe para
-      // mostrar. Logo abaixo do limiar, ele ACENDE sem FLORESCER — que é o que
-      // uma fita atrás de vidro colorido faz.
-      emissiveIntensity: 1.05,
-      // O mesmo desenho pinta e modula a emissão: a faixa clara é também a que
-      // mais acende, que é o que uma fita sob prateleira faz.
+      color: '#2b2018',
+      roughness: 0.88,
       map: brilhoDoNicho,
-      emissiveMap: brilhoDoNicho,
     })
     const mEscLuz = new THREE.MeshStandardMaterial({
       color: '#e8c79a',
@@ -4594,9 +4608,31 @@ export function Cobertura({
      */
     const xBordaEsquerda = piscina.x - piscina.largura / 2
     const zEspreg = piscina.frente + 1.15
+    /**
+     * ═══ ALINHADAS, E O GIRO DE ANTES ERA UM ERRO DE LEITURA MEU ═══
+     *
+     * Elas estavam a +0,20 e −0,13 rad (11° e 7° do eixo do deck). O argumento
+     * era o mesmo que vale para as cadeiras das mesas: ângulo diferente por peça
+     * foge do ar de catálogo. Nas mesas funciona; aqui não, e a diferença é o
+     * ENTORNO.
+     *
+     * Esta parte do quadro é fortemente ortogonal — as réguas do deck correm
+     * paralelas e ocupam a faixa inteira, a borda da piscina é reta, o
+     * guarda-corpo é reto. Contra essa grade, um móvel a 11° não lê como
+     * "casual": lê como empurrado sem querer. O dono chamou de "tortas" três
+     * palavras depois de eu ter consertado a ordem da matriz, e desta vez o
+     * defeito era de composição, não de código.
+     *
+     * E é o que acontece na vida real: espreguiçadeira de borda de piscina fica
+     * ALINHADA, em fileira, porque quem arruma a área as arruma. O ângulo solto
+     * é de cadeira de mesa, que alguém acabou de levantar.
+     *
+     * A variação que sobra é a que não briga com a grade: uma delas recuada
+     * 12 cm, e a toalha em só uma das duas. Basta para não parecerem carimbadas.
+     */
     for (const [e, esp] of [
-      { x: xBordaEsquerda - 2.4, giro: 0.2 },
-      { x: xBordaEsquerda - 0.2, giro: -0.13 },
+      { x: xBordaEsquerda - 2.4, giro: 0, recuo: 0 },
+      { x: xBordaEsquerda - 0.2, giro: 0, recuo: -0.12 },
     ].entries()) {
       const g = esp.giro
       const cos = Math.cos(g)
@@ -4606,7 +4642,7 @@ export function Cobertura({
       const p = (dx: number, dy: number, dz: number): [number, number, number] => [
         esp.x + dx * cos - dz * sen,
         piso + dy,
-        zEspreg + dx * sen + dz * cos,
+        zEspreg + esp.recuo + dx * sen + dz * cos,
       ]
       /**
        * ═══ A ARITMÉTICA QUE EU TINHA FEITO ERRADO ═══
@@ -4713,8 +4749,8 @@ export function Cobertura({
       // Penumbra e umbra — ver o comentário nas mesas. Alongada em z porque a
       // espreguiçadeira é comprida nesse eixo, e mancha quadrada sob móvel
       // comprido denuncia que ela é um decalque.
-      sombra(esp.x, zEspreg, 1.0, 1.9)
-      sombra(esp.x, zEspreg, 0.6, 1.25)
+      sombra(esp.x, zEspreg + esp.recuo, 1.0, 1.9)
+      sombra(esp.x, zEspreg + esp.recuo, 0.6, 1.25)
     }
     /**
      * O GUARDA-SOL FECHADO, e ele é a peça mais importante deste bloco.
