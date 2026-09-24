@@ -1049,6 +1049,66 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
                 brilhoDeJanela(ganho),
               )
             }
+          /**
+           * ═══ A FACHADA LATERAL, E SEM ELA O PRÉDIO É UM RECORTE ═══
+           *
+           * O dono perguntou por que só o vidro da frente acende. A resposta é
+           * que só a frente TINHA vidro: todo o gerador punha fita, montante,
+           * varanda e trecho aceso num único plano, o da face voltada para a
+           * câmera. As outras cinco faces do cubo eram material liso.
+           *
+           * Isso não se nota enquanto o prédio está bem no eixo da câmera, e é
+           * por isso que passou tanto tempo. Mas a cidade tem 56 m de largura e
+           * a câmera está no meio: quase toda torre é vista EM DIAGONAL, e numa
+           * diagonal o que se vê são duas faces. Uma acesa e outra cega lê como
+           * recorte de papelão de pé.
+           *
+           * ═══ SÓ A FACE QUE OLHA PARA A CÂMERA ═══
+           *
+           * A oposta nunca aparece, e envidraçá-la seria pagar geometria que
+           * nenhum pixel usa. A câmera está em x ≈ 0, então a face visível de
+           * uma torre à esquerda é a do lado +x, e a de uma torre à direita é a
+           * do lado −x: `sinal` é o inverso do sinal de `x`.
+           *
+           * E só acima de 2 m do eixo. Mais perto que isso a face lateral está
+           * quase de perfil, ocupa menos de um pixel de largura, e as peças
+           * dela seriam instância paga sem imagem em troca — a mesma conta que
+           * já decide não desenhar a fila de trás das garrafas do bar.
+           */
+          if (Math.abs(x) > 2) {
+            const sinal = x < 0 ? 1 : -1
+            const xLado = x + sinal * larg * 0.5
+            // Girada meia volta em Y: a fita nasce deitada no eixo x, e a face
+            // lateral corre no eixo z. `prof * 0,9` porque ela não vai até as
+            // quinas — a aresta do prédio fica limpa, como fica na obra.
+            col.poe(
+              'fitaVidro',
+              gFitaVidro,
+              mVidroEscuro,
+              [xLado + sinal * 0.02, yFita, z],
+              [0, Math.PI / 2, 0],
+              [prof * 0.9, 1, 1],
+              tintaDoVidro,
+            )
+            const trechosLado = Math.max(2, Math.round(prof / 0.34))
+            for (let t = 0; t < trechosLado; t++)
+              if (ruido(i * 37 + t * 11 + l, f + 13) > 0.18) {
+                const q = ruido(i * 37 + t * 11 + l, f + 31)
+                col.poe(
+                  'trechoAceso',
+                  gTrechoAceso,
+                  mJanela,
+                  [
+                    xLado + sinal * 0.05,
+                    yFita,
+                    z - prof * 0.41 + (t * prof * 0.82) / Math.max(1, trechosLado - 1),
+                  ],
+                  [0, Math.PI / 2, 0],
+                  [1, 1, 1],
+                  brilhoDeJanela(q > 0.88 ? 2.0 + (q - 0.88) * 2.8 : 0.95 + q * 0.62),
+                )
+              }
+            }
         }
 
         /**
@@ -1421,7 +1481,60 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             [r, altoAnel, r],
             MODULACAO[(h + 2) % MODULACAO.length]!,
           )
-          fachadaHeroi(heroi.x, yBase + a * altoAnel, altoAnel, r * 1.5, r * 1.9, tinta, h * 41 + a)
+          /**
+           * ═══ VIDRO EM ANEL, E NÃO EM PAINEL PLANO ═══
+           *
+           * Eu tinha chamado `fachadaHeroi` aqui, que é o que monta a fachada
+           * das outras três heróis. Ela emite RETÂNGULOS PLANOS — fita de vidro
+           * e trechos acesos, todos em caixas. Sobre um corpo cilíndrico isso
+           * não encosta: a corda de um painel reto fica por dentro da curva no
+           * meio e por fora nas pontas, então as janelas espetam para fora da
+           * torre. O dono viu na hora e chamou de "janela quadrada".
+           *
+           * A correção não é diminuir o painel — é usar a forma certa. Num
+           * corpo de revolução a envidraçaria é uma FAIXA CORRIDA, e ela se
+           * desenha com outro cilindro: mesmo eixo, raio um fio menor, altura
+           * de pavimento. Ele acompanha a curva por construção, porque é a
+           * mesma curva.
+           *
+           * Dois por segmento, com o vão de estrutura entre eles: é o desenho
+           * de fita horizontal que toda torre redonda de verdade tem, e é o
+           * mesmo vocabulário de faixa corrida que o resto da cidade usa — só
+           * que enrolado.
+           */
+          for (const sub of [0.3, 0.7]) {
+            col.poe(
+              'anelVidro',
+              gCilindroCidade,
+              mVidroEscuro,
+              [heroi.x, yBase + a * altoAnel + altoAnel * sub, zHeroi],
+              [0, 0, 0],
+              [r * 0.995, altoAnel * 0.26, r * 0.995],
+              tinta,
+            )
+            /**
+             * O ANDAR ACESO, e ele é um anel de brilho baixo e não uma janela.
+             *
+             * Janela recortada exigiria caixinha, e caixinha volta ao problema
+             * da corda reta. Num corpo curvo o que se vê de longe não são as
+             * janelas de um andar — é a LINHA acesa que elas formam juntas. Um
+             * anel fraco diz isso com uma instância em vez de trinta, e sem
+             * nenhum canto espetando.
+             */
+            if (ruido(h * 41 + a, sub > 0.5 ? 7 : 3) > 0.35)
+              col.poe(
+                'anelAceso',
+                gCilindroCidade,
+                mCoroa,
+                [heroi.x, yBase + a * altoAnel + altoAnel * sub, zHeroi],
+                [0, 0, 0],
+                [r * 1.002, altoAnel * 0.16, r * 1.002],
+                // Creme quente e baixo: é interior aceso, não projetor de
+                // fachada. Os anéis de coroamento ficam brancos e mais fortes,
+                // e é essa diferença que separa as duas instalações.
+                new THREE.Color('#ffdcb0').multiplyScalar(0.62),
+              )
+          }
           // O anel aceso entre um segmento e o seguinte.
           if (a < aneis - 1)
             col.poe(
@@ -1442,8 +1555,37 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
         const yTopo = yBase + aneis * altoAnel
         col.poe('redonda', gCilindroCidade, matHeroi, [heroi.x, yTopo + 0.1, zHeroi], [0, 0, 0], [0.52, 0.2, 0.52], MODULACAO[(h + 2) % MODULACAO.length]!)
         col.poe('anelAceso', gCilindroCidade, mCoroa, [heroi.x, yTopo + 0.22, zHeroi], [0, 0, 0], [0.54, 0.05, 0.54], corCoroa)
-        col.poe('agulha', gAgulha, matHeroi, [heroi.x, yTopo + 0.75, zHeroi], [0, 0, 0], [0.14, 1.0, 0.14])
-        col.poe('luzAerea', gLuzAerea, mLuzAerea, [heroi.x, yTopo + 1.3, zHeroi])
+        /**
+         * ═══ O MASTRO, E O CONE ERA FEIO MESMO ═══
+         *
+         * Estava usando `gAgulha`, um cone de SEIS lados. Num corpo de vinte
+         * lados isso é uma pirâmide grosseira plantada em cima de uma curva:
+         * as facetas aparecem, a silhueta fica serrilhada e o encontro das duas
+         * geometrias denuncia as duas. O dono chamou de "pico muito feio" e
+         * está certo.
+         *
+         * Mastro de torre redonda não é um cone: é um TUBO que afina em
+         * degraus, com uma antena fina no fim. Três cilindros de raio
+         * decrescente dão exatamente isso, usam a mesma geometria de vinte
+         * lados do corpo — então a curvatura é contínua do térreo ao topo — e
+         * custam zero chamada nova, porque entram na chave `redonda`.
+         */
+        const mastro = [
+          { y: 0.34, r: 0.2, h: 0.5 },
+          { y: 0.82, r: 0.11, h: 0.52 },
+          { y: 1.35, r: 0.045, h: 0.62 },
+        ]
+        for (const m of mastro)
+          col.poe(
+            'redonda',
+            gCilindroCidade,
+            matHeroi,
+            [heroi.x, yTopo + m.y, zHeroi],
+            [0, 0, 0],
+            [m.r, m.h, m.r],
+            MODULACAO[(h + 2) % MODULACAO.length]!,
+          )
+        col.poe('luzAerea', gLuzAerea, mLuzAerea, [heroi.x, yTopo + 1.7, zHeroi])
       }
     }
 
