@@ -97,6 +97,136 @@ const FAIXAS = [
   { z: -19.4, n: 25, passo: 2.4, largura: [1.3, 2.4], topo: [0.5, 4.4], janelas: false, clareia: 0.58 },
 ] as const
 
+/**
+ * ═══ A FACHADA COMO TEXTURA, E ERA O QUE FALTAVA DESDE SEMPRE ═══
+ *
+ * Sete rodadas de ajuste — reflexo, malha, tinta de vidro, modulação de matiz,
+ * base mais clara, coroamento, varanda — e o dono continuou dizendo "fraco".
+ * Estava certo, e o motivo é simples de enunciar depois de encontrado: os
+ * prédios eram CAIXAS DE COR CHAPADA. Nenhum mapa. Nenhum.
+ *
+ * A cobertura, a dez metros de distância, tem mapa de cor, de normal e de
+ * rugosidade em concreto, pedra, madeira, corten e metal — e ainda microrrelevo
+ * triplanar por cima. A cidade tinha `color:` e mais nada. Não havia como as
+ * duas parecerem da mesma obra, e nenhum número que eu mexesse ia mudar isso,
+ * porque o que faltava não era valor de parâmetro: era SUPERFÍCIE.
+ *
+ * ═══ O QUE ENTRA NESTE MAPA, E POR QUE CADA COISA ═══
+ *
+ * A escala manda. A 15 m de distância um poro de 6 mm não sobrevive à
+ * reamostragem — foi por isso que eu recusei microrrelevo triplanar aqui, e
+ * continua valendo. O que sobrevive são feições de DEZENAS DE CENTÍMETROS:
+ *
+ *  · JUNTA DE PAINEL — a linha entre duas placas de fachada, a cada ~90 cm na
+ *    vertical e ~45 na horizontal. É a menor feição que ainda lê, e é ela que
+ *    dá escala: sem junta não há como saber se a caixa tem 4 ou 40 andares.
+ *  · FAIXA DE PEITORIL — a banda opaca à frente da laje, mais escura que o
+ *    pano. Todo edifício envidraçado tem uma, e é o que impede a fachada de
+ *    ler como espelho liso.
+ *  · ESCORRIMENTO — o rastro vertical de sujeira que a chuva deixa abaixo de
+ *    cada peitoril. É o detalhe mais desprezado e o que mais devolve
+ *    realismo: fachada limpa demais é a assinatura de render.
+ *  · MANCHA LARGA — variação lenta de tom ao longo da fachada, de envelhecimento
+ *    desigual. Quebra a repetição da grade sem introduzir feição nova.
+ *
+ * ═══ E ELE É TAMBÉM O MAPA DE RUGOSIDADE ═══
+ *
+ * O mesmo desenho serve aos dois canais, e isso não é economia: é física. Onde
+ * há junta, há sombra E aspereza; onde há escorrimento, o vidro deixa de
+ * espelhar. Um mapa de cor sem o de rugosidade correspondente produz uma
+ * superfície que muda de cor sem mudar de brilho, que o olho lê como decalque.
+ */
+function fachadaDeTorre(): { map: THREE.Texture; roughnessMap: THREE.Texture } {
+  const n = 512
+  const cv = document.createElement('canvas')
+  cv.width = cv.height = n
+  const a = cv.getContext('2d')!
+
+  // Base clara: a cor real vem do material e da instância, e as duas
+  // multiplicam. Um mapa escuro aqui escureceria todas as torres de uma vez —
+  // é a mesma armadilha que fez a borda da piscina sumir no terraço.
+  a.fillStyle = '#c9c9c9'
+  a.fillRect(0, 0, n, n)
+
+  // MANCHA LARGA. Elipses enormes e quase transparentes: variação de tom que o
+  // olho não localiza, só percebe como "não é uniforme".
+  for (let i = 0; i < 14; i++) {
+    const s = Math.sin(i * 12.9898) * 43758.5453
+    const r = s - Math.floor(s)
+    const s2 = Math.sin(i * 78.233) * 43758.5453
+    const r2 = s2 - Math.floor(s2)
+    a.fillStyle = `rgba(${r > 0.5 ? 150 : 205},${r > 0.5 ? 150 : 205},${r > 0.5 ? 155 : 200},0.10)`
+    a.beginPath()
+    a.ellipse(r * n, r2 * n, 60 + r * 140, 50 + r2 * 120, r * 3, 0, Math.PI * 2)
+    a.fill()
+  }
+
+  // A GRADE DE PAINEL. 12 colunas e 8 linhas no ladrilho — com o ladrilho
+  // cobrindo cerca de 5 m de fachada, dá placa de ~42 cm na largura e ~62 na
+  // altura, que é a modulação real de pele de vidro.
+  a.strokeStyle = 'rgba(78,82,92,0.85)'
+  a.lineWidth = 9
+  for (let c = 0; c <= 6; c++) {
+    a.beginPath()
+    a.moveTo((c * n) / 6, 0)
+    a.lineTo((c * n) / 6, n)
+    a.stroke()
+  }
+
+  for (let l = 0; l < 4; l++) {
+    const y = (l * n) / 4
+    // FAIXA DE PEITORIL: a banda opaca na frente da laje. Um quarto da altura
+    // do pavimento, que é a proporção corrente.
+    a.fillStyle = 'rgba(74,78,88,0.62)'
+    a.fillRect(0, y, n, n / 4 / 3.2)
+    // A junta horizontal, mais marcada que a vertical porque a laje é a
+    // descontinuidade estrutural da fachada.
+    a.strokeStyle = 'rgba(58,62,70,0.92)'
+    a.lineWidth = 12
+    a.beginPath()
+    a.moveTo(0, y)
+    a.lineTo(n, y)
+    a.stroke()
+
+    /**
+     * O ESCORRIMENTO, e ele nasce SOB o peitoril e desce.
+     *
+     * Chuva bate na fachada, corre até a saliência, acumula sujeira na aresta
+     * inferior e escorre dali para baixo em rastros irregulares. É por isso que
+     * o rastro sempre começa numa linha horizontal e afina conforme desce —
+     * desenhar a mancha centrada no pano seria o mesmo erro de forma que os
+     * fachos elípticos do terraço tiveram.
+     */
+    for (let e = 0; e < 9; e++) {
+      const s = Math.sin((l * 9 + e) * 12.9898 + 4.1) * 43758.5453
+      const r = s - Math.floor(s)
+      if (r < 0.45) continue
+      const x = r * n
+      const comp = (n / 4) * (0.3 + r * 0.6)
+      const g = a.createLinearGradient(0, y + 3, 0, y + 3 + comp)
+      g.addColorStop(0, 'rgba(72,76,84,0.34)')
+      g.addColorStop(1, 'rgba(72,76,84,0)')
+      a.fillStyle = g
+      a.fillRect(x, y + 10, 6 + r * 16, comp)
+    }
+  }
+
+  const map = new THREE.CanvasTexture(cv)
+  map.wrapS = map.wrapT = THREE.RepeatWrapping
+  map.colorSpace = THREE.SRGBColorSpace
+  map.anisotropy = 8
+
+  // O MESMO DESENHO NO CANAL DE RUGOSIDADE, e sem espaço de cor: canal de
+  // dado, não de cor. Marcar `SRGBColorSpace` num mapa de rugosidade aplica
+  // uma curva de gama a um número que não é cor, e o resultado é uma
+  // superfície brilhante demais nas partes médias.
+  const rug = new THREE.CanvasTexture(cv)
+  rug.wrapS = rug.wrapT = THREE.RepeatWrapping
+  rug.anisotropy = 8
+
+  return { map, roughnessMap: rug }
+}
+
 export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: string; ceu: string }) {
   const { scene } = useThree()
 
@@ -130,11 +260,34 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
        * empena — e opaco sob céu quente tem de ficar mais escuro que o vidro ao
        * lado, não mais claro. É o contraste entre os dois que desenha a fachada.
        */
+      /**
+       * ═══ E AGORA COM MAPA ═══
+       *
+       * A repetição é FIXA e não derivada do tamanho de cada prédio, e isso é
+       * uma limitação assumida do instanciamento: todos os corpos compartilham
+       * uma geometria unitária escalada por matriz, então compartilham as UVs.
+       * Uma torre estreita recebe a mesma contagem de painéis que uma larga, e
+       * os painéis dela saem proporcionalmente maiores.
+       *
+       * A 15 m isso não se percebe — variação de 30 % no tamanho de uma placa
+       * de 40 cm é invisível —, e a alternativa seria uma geometria por prédio,
+       * que troca uma chamada de desenho por dezessete. O ganho de textura não
+       * vale esse preço, e a limitação fica escrita para quem for mexer.
+       *
+       * 2 × 4: a fachada típica tem uns 2,6 m de largura visível e 6 m de
+       * altura, então o ladrilho cobre cerca de 1,3 m na horizontal e 1,5 na
+       * vertical — e dentro dele há 12 colunas e 8 linhas de painel.
+       */
+      const pele = fachadaDeTorre()
+      pele.map.repeat.set(1, 2)
+      pele.roughnessMap.repeat.set(1, 2)
       return new THREE.MeshStandardMaterial({
         color: base.lerp(corDoCeu, faixa.clareia),
         roughness: 0.42 + faixa.clareia * 0.4,
         metalness: 0.3,
         envMapIntensity: 0.8,
+        map: pele.map,
+        roughnessMap: pele.roughnessMap,
       })
     })
     /**
