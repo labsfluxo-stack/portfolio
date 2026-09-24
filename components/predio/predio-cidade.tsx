@@ -1085,11 +1085,46 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
       }
     }
 
-    /** O pódio — a base larga e acesa que apoia a torre no chão. */
+    /**
+     * ═══ O PÓDIO ATRAVESSOU A PAREDE DO TERRAÇO, E ERA DEFEITO MEU ═══
+     *
+     * O dono reportou "prédios saindo dentro do escritório, na cascata". Era
+     * literal, e a conta é simples: o pódio tinha 2,4 m de profundidade
+     * centrado em z −12,1, ou seja avançava até −10,9. A parede do fundo do
+     * terraço está em −11,4. Ele entrava meio metro dentro da cobertura, e a
+     * marquise, com 2,6 de profundidade, entrava ainda mais.
+     *
+     * E O CABEÇALHO DESTE ARQUIVO DOCUMENTA ESSE INTERVALO, com as duas cotas
+     * escritas: "a cidade tem de viver entre os dois". Eu acrescentei uma peça
+     * nova sem conferir contra a restrição que estava escrita a mil linhas
+     * dali — a segunda vez nesta mesma entrega em que ignoro uma cota medida
+     * do próprio arquivo, depois do teto de 7,5 m.
+     *
+     * `Z_LIMITE` passa a ser explícito: a face mais avançada que qualquer peça
+     * da cidade pode ter. A parede está em −11,4 e os 25 cm de folga cobrem
+     * arredondamento e qualquer ajuste futuro da profundidade do andar. A conta
+     * fica VISÍVEL na chamada, em vez de escondida num literal somado ao z.
+     */
+    const Z_LIMITE = -11.65
     const podio = (cx: number, larg: number, semente: number) => {
-      col.poe(`predio-0`, gCubo, matHeroi, [cx, BASE + (BASE + 8.2) / 2 - BASE / 2, zHeroi + 0.5], [0, 0, 0], [larg * 1.55, 8.2, 2.4], MODULACAO[semente % MODULACAO.length]!)
+      const PROF_PODIO = 2.0
+      const zPodio = Math.min(zHeroi - 0.1, Z_LIMITE - (PROF_PODIO + 0.2) / 2)
+      col.poe(
+        `predio-0`,
+        gCubo,
+        matHeroi,
+        [cx, BASE + (BASE + 8.2) / 2 - BASE / 2, zPodio],
+        [0, 0, 0],
+        [larg * 1.55, 8.2, PROF_PODIO],
+        MODULACAO[semente % MODULACAO.length]!,
+      )
       // A marquise: a laje fina que corre o pódio inteiro e o separa da torre.
-      col.poe('testeira', gPlatibanda, matHeroi, [cx, BASE + 8.3, zHeroi + 0.5], [0, 0, 0], [larg * 1.62, 0.7, 2.6])
+      // Ela avança 10 cm de cada lado, e por isso entra na mesma conta acima.
+      col.poe('testeira', gPlatibanda, matHeroi, [cx, BASE + 8.3, zPodio], [0, 0, 0], [
+        larg * 1.62,
+        0.7,
+        PROF_PODIO + 0.2,
+      ])
     }
 
     const HEROIS = [
