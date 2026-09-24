@@ -532,20 +532,12 @@ export function Cobertura({
     // visivel encolhe, e pergolado, topo de plantio e palmeira caiam todos na
     // mesma altura de tela, um cortando o outro. Subir 30 cm abre o vao entre o
     // forro do pergolado e a copa do jardim, e os dois voltam a se ler separados.
-    // POSTE FINO E EM MENOR NUMERO. Pergolado vence 5 m de vao com folga em
-    // madeira lamelada, entao quatro postes num pano de 11 m era estrutura
-    // sobrando — e cada poste e uma barra vertical atravessando a vista de cima a
-    // baixo. Tres postes com dois vaos de 5,2 m fazem o mesmo trabalho e devolvem
-    // uma barra inteira de ceu.
-    const gPoste = new RoundedBoxGeometry(0.095, 2.9, 0.095, 1, 0.008)
+    // O POSTE SAIU DE VEZ, e com ele a chapa, os parafusos e a mao-francesa.
+    // A conta que levou quatro postes a tres e tres a dois fechou em zero: o
+    // pergolado apoia nas duas lajes e a viga vence o vao inteiro. Ver o bloco
+    // da viga, que e o que sobrou do portico.
     const gRipaPergola = new RoundedBoxGeometry(0.07, 0.09, 4.6, 1, 0.006)
     const gVigaPergola = new RoundedBoxGeometry(12.2, 0.14, 0.13, 1, 0.008)
-    const gChapa = new THREE.BoxGeometry(0.19, 0.22, 0.012)
-    const gParafuso = new THREE.CylinderGeometry(0.012, 0.012, 0.03, 6)
-    // MAO-FRANCESA: a diagonal entre poste e viga. Portico so com pecas
-    // ortogonais e instavel de verdade, e o olho conhece isso — pergolado sem
-    // contraventamento le como montagem provisoria.
-    const gMaoFrancesa = new RoundedBoxGeometry(0.075, 0.075, 0.62, 1, 0.006)
     // Folha de trepadeira: a planta que sobe pelo pergolado. Achatada e miuda.
     /**
      * A FOLHA E UM PLANO, e esta troca e a mais importante da vegetacao inteira.
@@ -2205,7 +2197,6 @@ export function Cobertura({
      */
     const yCaibro = SOFFIT - 0.045
     const yViga = yCaibro - 0.045 - 0.07
-    const yPosteTopo = yViga - 0.07
     const xMeioPergola = (X_PERGOLA_DE + X_PERGOLA_ATE) / 2
     /**
      * ═══ OS DOIS POSTES DO MEIO SAÍRAM, a pedido do dono ═══
@@ -4752,16 +4743,25 @@ export function Cobertura({
      * 12 cm, e a toalha em só uma das duas. Basta para não parecerem carimbadas.
      */
     for (const [e, esp] of [
-      // 1,05 e nao 1,3: com a rotacao consertada os pes ficam a 40 cm do eixo,
-      // entao a peca termina a 19 cm da pedra de acabamento. Espreguicadeira de
-      // borda encosta na borda — meio metro de deck entre ela e a agua le como
-      // movel que alguem esqueceu de arrastar de volta.
-      // RECUARAM 0,8 m a pedido do dono. Em  e  elas ocupavam
-      // o meio da lateral e empurravam a leitura para a frente do quadro; mais
-      // atras, ficam na altura da metade de tras da lamina e deixam a faixa de
-      // deck da frente respirar de novo.
-      { x: xBordaEsquerda - 1.05, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 0.9 },
-      { x: xBordaEsquerda - 1.05, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 2.3 },
+      /**
+       * ═══ O z VOLTOU E QUEM AFASTOU FOI O x ═══
+       *
+       * Eu tinha recuado as duas em PROFUNDIDADE, lendo "afaste pra trás" como
+       * distância da câmera. O dono corrigiu: o que precisava afastar era da
+       * ÁGUA. São eixos diferentes, e eu escolhi o errado sem perguntar.
+       *
+       * O z volta a 1,7 e 3,1, que é onde elas acompanhavam o meio da lâmina.
+       *
+       * E o x vai de 1,05 para 1,9 da borda. A 1,05 os pés paravam a 19 cm da
+       * pedra de acabamento — encostado demais: não sobrava por onde passar
+       * entre a peça e a água, e a faixa molhada em volta de uma piscina é
+       * justamente onde mais se anda. A 1,9 sobra um metro de passagem livre.
+       *
+       * É a mesma lição da árvore em frente ao elevador, duas mudanças atrás:
+       * circulação antes de composição.
+       */
+      { x: xBordaEsquerda - 1.9, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 1.7 },
+      { x: xBordaEsquerda - 1.9, giro: Math.PI / 2, recuo: 0, z: piscina.fundo + 3.1 },
     ].entries()) {
       const g = esp.giro
       const cos = Math.cos(g)
@@ -4978,10 +4978,10 @@ export function Cobertura({
      * a vista. E tudo derivado da borda da piscina, então a fileira inteira
      * acompanha se a lâmina mudar de tamanho outra vez.
      */
-    const xGuardaSol = xBordaEsquerda - 2.35
+    const xGuardaSol = xBordaEsquerda - 3.2
     // Recuou junto com a fileira: ele fica entre as duas, e se elas andam ele
     // anda. Guarda-sol que nao acompanha as espreguicadeiras vira poste solto.
-    const zGuardaSol = piscina.fundo + 1.6
+    const zGuardaSol = piscina.fundo + 2.4
     col.poe('colunaMesa', gCilindro, mMetal, [xGuardaSol, piso + 1.15, zGuardaSol], [0, 0, 0], [
       0.035,
       2.3,
