@@ -861,7 +861,71 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
         // A tinta desta torre — semente propria, sem relacao com a que decide
         // tipo, largura ou altura: se viessem do mesmo numero, cor e forma
         // andariam juntas e a cidade ganharia um padrao no lugar de variedade.
-        const montantes = Math.max(2, Math.round(larg / 0.42))
+        /**
+         * ═══ UMA GRADE SO, E ANTES HAVIA DUAS SOBREPOSTAS ═══
+         *
+         * Os montantes vinham de  e as janelas acesas de
+         * . Duas grades de passos diferentes no MESMO plano: o
+         * divisor vertical caia no meio de uma janela, a janela seguinte caia no
+         * meio de um vao, e a coincidencia entre as duas ia e voltava ao longo
+         * da fachada. Nada disso le como caixilho — le como ruido.
+         *
+         * Era a causa principal do "dificil de ler" que o dono apontou no
+         * recorte, e e o mesmo defeito que produziu o pisca-pisca duas entregas
+         * atras: duas grades de passos diferentes batendo onde nao deviam.
+         * Naquela vez a consequencia foi z-fighting; aqui e ilegibilidade.
+         *
+         * Agora e UMA grade. O montante nasce do mesmo  que posiciona
+         * as janelas, e fica no MEIO DO VAO entre duas delas — que e onde o
+         * perfil de aluminio fica numa fachada de verdade. Cada pano de vidro
+         * passa a ter dois montantes, um de cada lado, e o olho encontra a
+         * coluna.
+         */
+        const montantes = Math.max(3, Math.round(larg / 0.34))
+        /**
+         * ═══════════════════════════════════════════════════════════════════
+         * OS PILARES CONTÍNUOS — a ordem vertical que faltava
+         * ═══════════════════════════════════════════════════════════════════
+         *
+         * O dono mandou o recorte de UMA torre e disse que ela é difícil de ler.
+         * Olhando o recorte, o diagnóstico é de composição e não de textura: a
+         * fachada é toda feita de elementos HORIZONTAIS — fita de vidro por
+         * andar, laje aparente, peitoril, varanda — e o único elemento vertical
+         * é o montante, que tem a altura de UM pavimento e reinicia a cada laje.
+         *
+         * O resultado é uma pilha de faixas com retângulos acesos soltos dentro.
+         * Não há nada que atravesse a torre de baixo a cima, então não há nada
+         * que a organize: o olho não encontra estrutura e lê ruído. É por isso
+         * que a pele lisa, que tem aleta contínua, sempre leu melhor que a
+         * laminada — e eu tinha esse contraste na frente o tempo todo, escrito
+         * no comentário da aleta, sem transferir a lição.
+         *
+         * PILAR DE VERDADE SOBE INTEIRO. Numa torre real a estrutura é vertical
+         * e contínua, e é ela que aparece na fachada como uma nervura do térreo
+         * ao coroamento. As lajes passam POR TRÁS dela. É essa hierarquia —
+         * vertical na frente, horizontal atrás — que faz um edifício alto ler
+         * como alto em vez de ler como andares empilhados.
+         *
+         * Quatro pilares e não os doze montantes: pilar é peça de estrutura, e
+         * estrutura é rara. Espaçá-los em vãos largos deixa o vidro respirar e
+         * dá à torre uma cadência que se conta a olho — e contar é exatamente o
+         * que o dono não estava conseguindo fazer.
+         */
+        const pilares = Math.max(2, Math.round(larg / 0.78))
+        const alturaPilar = topo - BASE - 0.4
+        for (let p = 0; p <= pilares; p++)
+          col.poe(
+            'pilarFachada',
+            gAleta,
+            material,
+            [
+              x - larg * 0.48 + (p * larg * 0.96) / pilares,
+              topo - 0.2 - alturaPilar / 2,
+              zFachada + 0.09,
+            ],
+            [0, 0, 0],
+            [1.15, alturaPilar, 0.85],
+          )
         if (peleLisa) {
           /**
            * PELE LISA: UM pano de vidro do térreo à platibanda, e aletas
@@ -940,9 +1004,13 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
                 'montanteFachada',
                 gMontanteFachada,
                 material,
-                [x - larg * 0.46 + (m * larg * 0.92) / montantes, yFita, zFachada + 0.075],
+                [
+                  x - larg * 0.42 + ((m - 0.5) * larg * 0.84) / (montantes - 1),
+                  yFita,
+                  zFachada + 0.075,
+                ],
                 [0, 0, 0],
-                [1, 0.68, 1],
+                [1.5, 0.72, 1],
               )
             /**
              * ═══ A VARANDA, QUE É O QUE FALTAVA PARA LER COMO PRÉDIO DAQUI ═══
@@ -964,8 +1032,21 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
              * alguém se debruça".
              */
             if (l > 0) {
-              const xSacada = x + (ruido(i, f * 3 + 31) > 0.5 ? 1 : -1) * larg * 0.22
-              const largSacada = larg * 0.46
+              // ═══ ALINHADA AO VAO, E ANTES FLUTUAVA ═══
+              //
+              // Ela estava em  com 46 por cento da largura: um
+              // retangulo grande posto sem relacao nenhuma com a grade da
+              // fachada, cortando pilar e janela ao meio. Era boa parte do que
+              // tornava a torre ilegivel no recorte que o dono mandou.
+              //
+              // Sacada de verdade ocupa UM VAO estrutural, entre dois pilares,
+              // porque e a laje entre eles que a sustenta. Alinhada assim ela
+              // deixa de competir com a grade e passa a fazer parte dela — e a
+              // prumada de sacadas vira mais uma vertical, somando com o pilar
+              // em vez de brigar.
+              const vaoDaSacada = Math.floor(ruido(i, f * 3 + 31) * pilares) % pilares
+              const xSacada = x - larg * 0.48 + ((vaoDaSacada + 0.5) * larg * 0.96) / pilares
+              const largSacada = ((larg * 0.96) / pilares) * 0.84
               col.poe(
                 'varanda',
                 gFaixaLaje,
