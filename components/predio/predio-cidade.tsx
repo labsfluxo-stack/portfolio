@@ -1065,14 +1065,86 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
          */
         if (topo > 5.4) {
           const alturaRecuo = 0.9 + ruido(i, f * 3 + 8) * 1.6
-          col.poe(
-            'recuo',
-            gCubo,
-            material,
-            [x, topo + alturaRecuo / 2, z],
-            [0, 0, 0],
-            [larg * 0.62, alturaRecuo, prof * 0.62],
-          )
+          /**
+           * ═══ CINCO SILHUETAS DE TOPO, E ANTES HAVIA UMA ═══
+           *
+           * Toda torre alta terminava no MESMO gesto: uma caixa menor, centrada
+           * sobre o corpo. Repetido cinquenta vezes isso não é variedade — é a
+           * mesma torre desenhada cinquenta vezes com alturas diferentes, e era
+           * parte do que o dono vinha chamando de fraco.
+           *
+           * O TOPO É ONDE A SILHUETA ACONTECE. O corpo de uma torre a quinze
+           * metros é um retângulo, qualquer que seja o projeto; o que distingue
+           * uma da outra contra o céu são os últimos dois metros. Nas fotos de
+           * Pudong é exatamente assim — os corpos são intercambiáveis, e o que
+           * se reconhece e se lembra é o coroamento.
+           *
+           * Cinco famílias, com semente PRÓPRIA — sem relação com a que decide
+           * tipo, largura, altura ou cor, para que forma de topo e forma de
+           * corpo não andem juntas e a cidade não ganhe um padrão novo:
+           *
+           *  · RECUO — a caixa centrada de antes. Continua, porque é a mais
+           *    comum de verdade; só deixou de ser a única.
+           *  · FENDA — duas torrinhas com um vão entre elas. O olho lê céu
+           *    através do topo, e furo em silhueta é a coisa mais memorável
+           *    que uma torre pode ter.
+           *  · BALANÇO — o volume superior deslocado para um lado. Assimetria
+           *    no topo é o que mais rápido diz "isto foi projetado", porque
+           *    simetria é o que sai de graça.
+           *  · CUNHA — o topo cortado num plano oblíquo. É a única diagonal de
+           *    um skyline inteiro feito de verticais e horizontais, e por isso
+           *    a que mais salta.
+           *  · ESCADA — dois degraus recuando um sobre o outro. Dá altura sem
+           *    dar massa, e é o coroamento dos anos trinta que voltou.
+           *
+           * Todas na chave `recuo`, que já existia: cinco silhuetas, zero
+           * chamada de desenho nova.
+           */
+          const silhueta = Math.floor(ruido(i, f * 3 + 53) * 5) % 5
+          if (silhueta === 1) {
+            for (const s of [-1, 1])
+              col.poe('recuo', gCubo, material, [x + s * larg * 0.2, topo + alturaRecuo / 2, z], [0, 0, 0], [
+                larg * 0.26,
+                alturaRecuo,
+                prof * 0.62,
+              ])
+          } else if (silhueta === 2) {
+            col.poe(
+              'recuo',
+              gCubo,
+              material,
+              [x + (ruido(i, f * 3 + 59) > 0.5 ? 1 : -1) * larg * 0.16, topo + alturaRecuo / 2, z],
+              [0, 0, 0],
+              [larg * 0.56, alturaRecuo, prof * 0.62],
+            )
+          } else if (silhueta === 3) {
+            // A inclinação em Z é o que corta o topo em diagonal. Note que ela
+            // vai na ordem padrão do Euler e não precisa de 'YXZ': esta peça
+            // não é girada em Y, então não há as duas rotações para brigarem —
+            // ver a armadilha documentada em `poe`.
+            col.poe('recuo', gCubo, material, [x, topo + alturaRecuo * 0.32, z], [0, 0, 0.26], [
+              larg * 0.62,
+              alturaRecuo * 0.7,
+              prof * 0.62,
+            ])
+          } else if (silhueta === 4) {
+            col.poe('recuo', gCubo, material, [x, topo + alturaRecuo * 0.3, z], [0, 0, 0], [
+              larg * 0.68,
+              alturaRecuo * 0.6,
+              prof * 0.68,
+            ])
+            col.poe('recuo', gCubo, material, [x, topo + alturaRecuo * 0.78, z], [0, 0, 0], [
+              larg * 0.4,
+              alturaRecuo * 0.5,
+              prof * 0.4,
+            ])
+          } else {
+            col.poe('recuo', gCubo, material, [x, topo + alturaRecuo / 2, z], [0, 0, 0], [
+              larg * 0.62,
+              alturaRecuo,
+              prof * 0.62,
+            ])
+          }
           col.poe('luzAerea', gLuzAerea, mLuzAerea, [x, topo + alturaRecuo + 0.12, z])
         }
       }
