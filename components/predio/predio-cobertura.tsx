@@ -1692,14 +1692,41 @@ export function Cobertura({
      * é montado: o fundo é o marceneiro, a luz é a fita, e a garrafa fica entre
      * os dois. É o que o dono pediu ao mandar a referência de fundo escuro.
      *
-     * O MAPA FICA, só que agora pinta e não acende. `brilhoDoNicho` desenha a
-     * faixa mais clara na altura de cada prateleira; sobre madeira escura isso
-     * vira o reflexo da fita na madeira, que é o que se veria de verdade.
+     * O MAPA FICA, e faz duas coisas. Ele PINTA: `brilhoDoNicho` desenha a faixa
+     * mais clara na altura de cada prateleira, e sobre madeira escura isso vira
+     * o reflexo da fita na madeira. E ele MODULA A EMISSÃO — ver abaixo.
+     *
+     * ═══ E A EMISSÃO VOLTOU, EM 0,4 E PRESA AO MAPA ═══
+     *
+     * Apagar o nicho inteiro resolveu as garrafas de perto e custou o bar de
+     * longe: ele era o ponto quente que ancorava o lado direito do quadro, e
+     * virou um retângulo escuro com garrafinhas dentro. Duas escalas, duas
+     * necessidades opostas — e a solução não é escolher uma.
+     *
+     * A emissão volta MULTIPLICADA POR `brilhoDoNicho`, que é escuro entre as
+     * prateleiras e claro na altura de cada uma. Então ela acende só as FAIXAS,
+     * não o painel: quatro linhas quentes na madeira em vez de uma parede de
+     * luz. É literalmente o que a fita sob a prateleira faz — ela ilumina os 15
+     * cm de madeira em volta dela e mais nada.
+     *
+     * 0,15 E NÃO 0,4, e o 0,4 eu cheguei a renderizar. Voltou a lavar quase
+     * tanto quanto o 1,05: a faixa clara de `brilhoDoNicho` é LARGA, cobre boa
+     * parte da altura entre uma prateleira e a seguinte, então "preso ao mapa"
+     * concentra muito menos do que eu supus ao escrever o parágrafo acima.
+     *
+     * Em 0,15 ele não é mais a luz do bar — é só o calor que sobra na madeira
+     * perto da fita, que é o papel honesto dele. Quem acende o bar à distância
+     * passa a ser a FITA, engrossada logo abaixo: linha de luz nítida contra
+     * fundo escuro lê de longe muito melhor que um painel morno, e não custa
+     * nenhum contraste às garrafas, porque a fita está atrás delas e é estreita.
      */
     const mBarNicho = new THREE.MeshStandardMaterial({
       color: '#2b2018',
       roughness: 0.88,
       map: brilhoDoNicho,
+      emissive: new THREE.Color('#ff9a3c'),
+      emissiveIntensity: 0.15,
+      emissiveMap: brilhoDoNicho,
     })
     const mEscLuz = new THREE.MeshStandardMaterial({
       color: '#e8c79a',
@@ -3826,8 +3853,34 @@ export function Cobertura({
      * as cotas antigas —, acendendo o vão entre uma prateleira e outra em vez da
      * prateleira. Número repetido é número que diverge.
      */
+    /**
+     * ═══ AS FITAS DA PRATELEIRA ENGROSSARAM, E AGORA SÃO ELAS A LUZ DO BAR ═══
+     *
+     * Com o fundo do nicho apagado a pedido do dono, o bar perdeu presença à
+     * distância — era o painel aceso que ancorava o lado direito do quadro. A
+     * resposta não é reacender o painel: é deixar a FITA fazer o trabalho que
+     * ela já devia estar fazendo.
+     *
+     * Linha de luz nítida contra fundo escuro lê de longe muito melhor que um
+     * painel morno, e é o desenho real de um bar — as quatro linhas horizontais
+     * são a assinatura visual da prateleira iluminada. E não custam contraste
+     * nenhum às garrafas: a fita fica ATRÁS delas e é estreita, então ela
+     * recorta a silhueta em vez de apagá-la.
+     *
+     * Geometria própria e não a `gFitaLed` compartilhada, porque esta precisa
+     * ser mais grossa e aquela serve o balcão do bar e o da recepção, que estão
+     * à vista e não devem engordar. Uma chamada de desenho a mais.
+     */
+    const gFitaPrateleira = new THREE.BoxGeometry(1, 0.055, 0.055)
     for (const y of PRATELEIRAS_BAR)
-      col.poe('fitaLed', gFitaLed, mFitaLed, [xBar, piso + y + 0.04, zBar - 1.56], [0, 0, 0], [4.2, 1, 1])
+      col.poe(
+        'fitaPrateleira',
+        gFitaPrateleira,
+        mFitaLed,
+        [xBar, piso + y + 0.04, zBar - 1.56],
+        [0, 0, 0],
+        [4.2, 1, 1],
+      )
 
     /**
      * O BUXO APARADO SAIU — as cinco bolas verdes, a pedido do dono.
