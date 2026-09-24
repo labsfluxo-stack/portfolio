@@ -123,11 +123,18 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
        * fachada e azul-acinzentado, e ao crepusculo ele puxa para o azul do
        * zenite que esta refletindo.
        */
+      /**
+       * MESMA CORREÇÃO DO VIDRO, pela mesma razão: metalidade 0,45 com ambiente
+       * 1,2 fazia a estrutura da torre devolver o âmbar do céu e ler como
+       * tijolo. Ela é a peça OPACA do conjunto — montante, aleta, platibanda,
+       * empena — e opaco sob céu quente tem de ficar mais escuro que o vidro ao
+       * lado, não mais claro. É o contraste entre os dois que desenha a fachada.
+       */
       return new THREE.MeshStandardMaterial({
         color: base.lerp(corDoCeu, faixa.clareia),
-        roughness: 0.34 + faixa.clareia * 0.4,
-        metalness: 0.45,
-        envMapIntensity: 1.2,
+        roughness: 0.42 + faixa.clareia * 0.4,
+        metalness: 0.3,
+        envMapIntensity: 0.8,
       })
     })
     /**
@@ -178,11 +185,36 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
     // Janela APAGADA nao e um buraco preto: e vidro refletindo o ceu de fim de
     // tarde, entao ela e mais CLARA que a fachada e levemente azulada. Pintar de
     // preto e o erro que faz predio distante parecer queimado.
+    /**
+     * ═══ O VIDRO ESTAVA LENDO COMO ALVENARIA, E A CULPA É DO REFLEXO ═══
+     *
+     * Os números anteriores — metalidade 0,62 com `envMapIntensity` 1,5 — dizem
+     * que quase dois terços do que se vê nessa superfície é o AMBIENTE
+     * refletido, amplificado meia vez. E o ambiente desta cena é um céu de hora
+     * dourada: âmbar.
+     *
+     * Resultado: a base azul-acinzentada `#5c6a7e` nunca chegava à tela. Todas
+     * as torres saíam marrons, e o dono descreveu a cidade inteira pedindo
+     * "prédios de vidro" — sem saber que o material JÁ era vidro, só que
+     * afogado no próprio reflexo.
+     *
+     * É fisicamente defensável: vidro de fachada ao entardecer reflete mesmo o
+     * quente. Só que num ambiente de mapa ÚNICO o reflexo é a média da abóbada
+     * inteira, e não há a parte fria — a fachada vertical de uma torre real
+     * devolve sobretudo o zênite, que continua azul enquanto o horizonte já
+     * queimou. O mapa único não sabe fazer essa distinção, então quem tem de
+     * fazê-la é a cor de base.
+     *
+     * Metalidade 0,40 e ambiente 0,85: o reflexo continua existindo, e é ele que
+     * separa vidro de concreto, mas para de ser a cor DOMINANTE. E a base
+     * escureceu e esfriou para `#3e4c64`, porque vidro de torre visto de fora é
+     * escuro — o que se vê é o céu refletido sobre um interior apagado.
+     */
     const mVidroEscuro = new THREE.MeshStandardMaterial({
-      color: '#5c6a7e',
-      roughness: 0.12,
-      metalness: 0.62,
-      envMapIntensity: 1.5,
+      color: '#26303f',
+      roughness: 0.16,
+      metalness: 0.4,
+      envMapIntensity: 0.85,
     })
     // Luz de obstaculo aereo: o ponto vermelho obrigatorio no topo de qualquer
     // estrutura alta. E minusculo, e e um dos sinais mais especificos de
@@ -213,7 +245,24 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
     // O TRECHO ACESO acompanha. Ele tinha 0,34 x 0,26 — um retangulinho no meio
     // da fita, que e exatamente o desenho de uma janela. Em planta livre quem
     // acende e um VAO INTEIRO entre dois montantes, de laje a laje.
-    const gTrechoAceso = new THREE.BoxGeometry(0.4, 0.58, 0.06)
+    /**
+     * ═══ O PANO ENCOLHEU, E É A ESCALA DA MALHA QUE DIZ A IDADE DO PRÉDIO ═══
+     *
+     * Era 0,40 × 0,58 num vão de 0,50 m. Quarenta centímetros de vidro aceso
+     * num vão de cinquenta é uma JANELA — buraco recortado numa parede, com
+     * peitoril e verga, que é o desenho de prédio residencial.
+     *
+     * Cortina de vidro é outra coisa: o pano é modulado em peças estreitas e
+     * repetidas, e a malha inteira cobre a fachada. O olho não conta os
+     * módulos — ele lê a FREQUÊNCIA deles, e frequência alta é o que separa
+     * torre contemporânea de bloco dos anos setenta. Foi o que o dono viu ao
+     * pedir "prédios modernos com vidro" para uma cidade que já era de vidro.
+     *
+     * 0,26 num vão de 0,34: metade da largura de antes, e a mesma proporção de
+     * cheio para vazio. São umas 50 % mais peças por fachada, todas na mesma
+     * chave de instância — a conta de chamadas de desenho não muda.
+     */
+    const gTrechoAceso = new THREE.BoxGeometry(0.26, 0.5, 0.06)
     const gMontanteFachada = new THREE.BoxGeometry(0.05, 1, 0.06)
     // ALETA VERTICAL: o brise que corre a fachada inteira de baixo a cima, sem
     // interrupcao por andar. E o segundo vocabulario contemporaneo, e o que
@@ -254,7 +303,23 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
          * Um terço delas é do tipo 1: o suficiente para a linha do horizonte ter
          * duas vozes, pouco o bastante para nenhuma virar padrão.
          */
-        const peleLisa = ruido(i, f * 3 + 9) > 0.66
+        /**
+         * A PRIMEIRA FAIXA VIRA MAJORITARIAMENTE TORRE NOVA, e é o que o dono
+         * pediu ao falar em "prédios principais".
+         *
+         * Um terço de pele lisa em TODAS as faixas era a regra antiga, e ela
+         * tratava as três como se fossem a mesma cidade. Não são: a faixa 0 está
+         * a 13,5 m e é a única em que se distingue montante de aleta; as outras
+         * duas já estão no regime de silhueta, onde a diferença entre as duas
+         * famílias não chega à tela de qualquer jeito.
+         *
+         * Então o investimento vai onde é visto: 55 % de pele lisa na primeira
+         * faixa, o terço de antes nas de trás. As torres esbeltas e envidraçadas
+         * passam a dominar a linha que o visitante realmente lê, e o casario
+         * laminado continua atrás dando profundidade — sem ele a cidade viraria
+         * um pente de lâminas iguais, que é o defeito oposto.
+         */
+        const peleLisa = ruido(i, f * 3 + 9) > (f === 0 ? 0.45 : 0.66)
         const larg =
           (faixa.largura[0] + ruido(i, f * 3 + 2) * (faixa.largura[1] - faixa.largura[0])) *
           (peleLisa ? 0.78 : 1)
@@ -459,7 +524,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
            * competir. É a mesma lição do emissivo da cascata: acender demais uma
            * superfície apaga o desenho dela.
            */
-          const trechos = Math.max(2, Math.round(larg / 0.5))
+          const trechos = Math.max(3, Math.round(larg / 0.34))
           for (let t = 0; t < trechos; t++)
             if (ruido(i * 31 + t * 7 + l, f + 11) > 0.52) {
               /**
