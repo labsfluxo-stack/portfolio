@@ -210,8 +210,32 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
      * escureceu e esfriou para `#3e4c64`, porque vidro de torre visto de fora é
      * escuro — o que se vê é o céu refletido sobre um interior apagado.
      */
+    /**
+     * ═══ CADA TORRE GANHA O SEU VIDRO, E ISSO É O QUE FALTAVA DE VERDADE ═══
+     *
+     * O dono disse que a cidade "não parece da mesma arte da cobertura". Eu
+     * tentei microrrelevo triplanar primeiro — e teria sido um erro que o
+     * próprio comentário de `comDetalhe` já documenta: a 4 ladrilhos por metro
+     * o poro vale 6 mm, e a 15 metros de distância 6 mm não sobrevivem à
+     * reamostragem para pixel. Mapa de textura não chega lá.
+     *
+     * O que a cobertura tem e a cidade não é VARIEDADE DE MATERIAL. Em cinco
+     * metros de terraço há madeira, pedra, corten, aço escovado, inox, vidro,
+     * folhagem e concreto — oito superfícies que se distinguem à primeira
+     * olhada. A cidade inteira eram três materiais, um por faixa de
+     * profundidade, e por isso lia como uma coisa só repetida dezessete vezes.
+     *
+     * Skyline de verdade é o contrário: cada torre foi projetada por alguém
+     * diferente, num ano diferente, com o vidro que estava na moda. Bronze dos
+     * anos oitenta ao lado de azul-aço dos dois mil ao lado de fumê recente.
+     * Essa colcha de retalhos É a arte da coisa.
+     *
+     * Seis tintas, sorteadas por prédio. A cor vai por INSTÂNCIA e o material
+     * fica branco, porque as duas se multiplicam — então continua sendo uma
+     * malha instanciada só, e a variedade não custa chamada de desenho nenhuma.
+     */
     const mVidroEscuro = new THREE.MeshStandardMaterial({
-      color: '#26303f',
+      color: '#ffffff',
       roughness: 0.16,
       metalness: 0.4,
       envMapIntensity: 0.85,
@@ -220,6 +244,74 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
     // estrutura alta. E minusculo, e e um dos sinais mais especificos de
     // skyline moderna — nenhum predio de alvenaria antigo tem um.
     const mLuzAerea = new THREE.MeshBasicMaterial({ color: '#ff3b30' })
+    /**
+     * ═══ A COROA, E ELA É A RESPOSTA A "NÃO PARECE DA MESMA ARTE" ═══
+     *
+     * O dono comparou a cidade com a cobertura e a cobertura ganhou. Está certo,
+     * e o motivo não é vidro nem cor: é ACABAMENTO. O terraço é feito de peças
+     * que existem só para terminar outra peça — o rufo sobre a platibanda, o
+     * rodapé na topeira do deck, a testeira do balcão, o batente da porta, a
+     * junta entre as pedras. É isso que faz uma superfície parecer construída em
+     * vez de extrudada.
+     *
+     * A cidade não tinha nenhuma. Toda torre terminava no ar: a caixa subia e
+     * acabava, com uma antena espetada em cima. Prédio nenhum acaba assim —
+     * todos têm coroamento, porque a laje de cobertura precisa de platibanda e
+     * a platibanda precisa de arremate.
+     *
+     * Três peças, e as três são o mesmo gesto do terraço em outra escala:
+     *
+     *  · NEGATIVO — a faixa escura recuada logo abaixo do topo. É a sombra de
+     *    um recuo de 20 cm, e é ela que separa o corpo do coroamento. Sem
+     *    negativo, qualquer arremate lê como listra pintada.
+     *  · COROA — a faixa acesa. Toda torre contemporânea tem iluminação de
+     *    coroamento, e à noite ela é a assinatura do prédio no skyline. É
+     *    também o que dá VERTICAL ao conjunto sem acender fachada.
+     *  · TESTEIRA — a moldura que avança 6 % além do corpo e fecha o topo. É o
+     *    mesmo rufo da platibanda da cobertura: aba que sobra para a água cair
+     *    fora, e que de longe vira a linha que define a silhueta.
+     *
+     * BRANCO-FRIO CONTRA O ÂMBAR DE TUDO. As janelas são creme quente porque são
+     * interiores; coroamento é luz ARQUITETURAL, de projetor, e sempre mais fria.
+     * É a mesma distinção que separa o display do elevador da luminária da
+     * recepção lá no terraço — e é ela que impede a coroa de virar mais uma
+     * janela grande.
+     *
+     * Ganho 1,5 pela regra de área: a faixa é fina e a torre é longe, então ela
+     * aguenta cruzar o limiar do brilho e ganhar halo. É exatamente o que uma
+     * luz de coroamento faz na neblina de uma cidade.
+     */
+    /**
+     * As seis tintas de vidro — ver `mVidroEscuro`. Escuras todas, porque vidro
+     * de fachada visto de fora é escuro: o que se enxerga é o céu refletido
+     * sobre um interior apagado. O que varia entre elas é o MATIZ, que é o que
+     * diz a década em que a torre foi construída.
+     */
+    /**
+     * Moduladores de matiz do CORPO — ver o bloco no corpo do predio. Giram em
+     * torno de 1 para deslocar a cor sem mexer no brilho: assim a perspectiva
+     * atmosferica de  continua valendo em cima deles.
+     */
+    const MODULACAO = [
+      new THREE.Color(1.0, 1.0, 1.0),
+      new THREE.Color(1.06, 0.99, 0.9),
+      new THREE.Color(0.92, 0.97, 1.08),
+      new THREE.Color(0.97, 1.03, 0.98),
+      new THREE.Color(1.03, 0.96, 1.02),
+      new THREE.Color(0.95, 0.94, 1.0),
+    ]
+    const TINTAS_DE_VIDRO = [
+      '#2b3647', // azul-aço, o mais comum
+      '#3a3529', // bronze, anos oitenta
+      '#2a3a36', // verde-esmeralda, anos noventa
+      '#32323a', // fumê neutro
+      '#243347', // azul profundo
+      '#3b3730', // champanhe escuro
+    ].map((c) => new THREE.Color(c))
+    const mCoroa = new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#cfe2f2').multiplyScalar(1.5),
+      toneMapped: false,
+    })
 
     const gCubo = new THREE.BoxGeometry(1, 1, 1)
     /**
@@ -332,6 +424,13 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             (peleLisa ? 1.28 : 1),
         )
         const prof = (1.6 + ruido(i, f * 3 + 4) * 1.4) * (peleLisa ? 0.82 : 1)
+        // A tinta de vidro desta torre. Semente PROPRIA, sem relacao com a que
+        // decide tipo, largura ou altura: se viessem do mesmo numero, cor e
+        // forma andariam juntas e a cidade ganharia padrao no lugar de variedade.
+        const tintaDoVidro =
+          TINTAS_DE_VIDRO[
+            Math.floor(ruido(i, f * 3 + 17) * TINTAS_DE_VIDRO.length) % TINTAS_DE_VIDRO.length
+          ]!
         const alturaCaixa = topo - BASE
         const z = faixa.z + (ruido(i, f * 3 + 5) - 0.5) * 1.2
 
@@ -354,6 +453,27 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
          * Escala na matriz é exatamente o que a instância existe para carregar:
          * um cubo, 50 prédios de tamanhos diferentes, uma chamada de desenho.
          */
+        /**
+         * ═══ O CORPO É A SUPERFÍCIE QUE SE VÊ, E ERA A ÚNICA SEM VARIAÇÃO ═══
+         *
+         * Eu tinha acabado de dar seis tintas de vidro às torres e o render não
+         * mudou NADA. A razão, olhando: as fitas de vidro são estreitas e ficam
+         * atrás dos trechos acesos — o que ocupa quase toda a área aparente de
+         * cada prédio é este cubo. Tingir o vidro era tingir o que não se vê.
+         *
+         * É o terceiro erro do mesmo tipo nesta rodada: mexi no reflexo, depois
+         * na malha, depois no vidro, e nenhum deles era a superfície dominante.
+         * Quando uma mudança "não muda quase nada", a pergunta certa não é
+         * quanto aumentar — é se ela está caindo onde o olho olha.
+         *
+         * `MODULACAO` é multiplicativa e gira em torno de 1, então ela DESLOCA O
+         * MATIZ sem mexer no brilho nem na perspectiva atmosférica: a mistura
+         * com a cor do céu que `clareia` faz continua valendo, e uma torre de
+         * fundo continua tão pálida quanto era. O que muda é que as dezessete
+         * deixam de ser cópias da mesma tinta.
+         */
+        const mod =
+          MODULACAO[Math.floor(ruido(i, f * 3 + 23) * MODULACAO.length) % MODULACAO.length]!
         col.poe(
           `predio-${f}`,
           gCubo,
@@ -361,6 +481,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
           [x, BASE + alturaCaixa / 2, z],
           [0, 0, 0],
           [larg, alturaCaixa, prof],
+          mod,
         )
 
         // Coroamento: caixa d'água nos médios, antena nos altos. É o que a
@@ -448,7 +569,50 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
          * E a luz acesa passa a ser um TRECHO da fita, não uma janela inteira:
          * em planta livre quem acende é uma área, não um cômodo.
          */
+        /**
+         * O COROAMENTO — ver `mCoroa` para o porquê das três peças.
+         *
+         * SÓ ACIMA DE 4,2 m, e o corte não é arbitrário: coroamento iluminado é
+         * coisa de torre, não de prédio de quatro andares. Pôr em todos daria a
+         * uma cidade inteira a mesma assinatura, que é o contrário do que uma
+         * assinatura faz. Cerca de um terço das silhuetas passa do corte, e são
+         * justamente as que o olho usa para ler a linha do horizonte.
+         *
+         * Tudo derivado de `larg` e `prof`: a testeira avança 6 %, o negativo
+         * recua 2 %. Nenhum literal em metro — torre estreita ganha coroamento
+         * estreito.
+         */
+        if (topo > 4.2) {
+          col.poe(
+            'negativoCoroa',
+            gFaixaLaje,
+            mVidroEscuro,
+            [x, topo - 0.5, z],
+            [0, 0, 0],
+            [larg * 0.98, 1.6, prof * 0.98],
+            tintaDoVidro,
+          )
+          col.poe(
+            'coroa',
+            gFaixaLaje,
+            mCoroa,
+            [x, topo - 0.31, z],
+            [0, 0, 0],
+            [larg * 1.03, 0.7, prof * 1.03],
+          )
+          col.poe(
+            'testeira',
+            gPlatibanda,
+            material,
+            [x, topo - 0.14, z],
+            [0, 0, 0],
+            [larg * 1.06, 0.5, prof * 1.06],
+          )
+        }
         const zFachada = z + prof / 2 + 0.02
+        // A tinta desta torre — semente propria, sem relacao com a que decide
+        // tipo, largura ou altura: se viessem do mesmo numero, cor e forma
+        // andariam juntas e a cidade ganharia um padrao no lugar de variedade.
         const montantes = Math.max(2, Math.round(larg / 0.42))
         if (peleLisa) {
           /**
@@ -473,6 +637,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             [x, topo - 0.28 - alturaPele / 2, zFachada],
             [0, 0, 0],
             [larg * 0.94, alturaPele / 0.66, 1],
+            tintaDoVidro,
           )
           for (let m = 0; m <= montantes; m++)
             col.poe(
@@ -494,6 +659,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
               [x, yFita, zFachada],
               [0, 0, 0],
               [larg * 0.92, 1, 1],
+              tintaDoVidro,
             )
             // Montantes do caixilho: sem a divisão vertical, a fita é uma faixa
             // lisa e o prédio perde escala. Eles têm a altura da fita, e não a do
