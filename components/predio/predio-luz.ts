@@ -145,3 +145,82 @@ export const CIDADE_DISTANTE = '#68748f'
 
 export const CENARIO = '#4b4038'
 export const CENARIO_DISTANTE = '#3b332d'
+
+/**
+ * ═══ A COR DO SOL — PRÓPRIA, E ESTA É A QUARTA VEZ NESTA FEATURE ═══
+ *
+ * O `directionalLight` de `Predio.tsx` lia `corDoRotulo(0)`. Funcionava pela
+ * mesma coincidência que já quebrou o céu (ver `CEU`, acima) e o cenário (ver
+ * `CENARIO`): enquanto havia UM rótulo para o prédio inteiro, ele era um âmbar
+ * claro, e servia de "cor quente" a quem precisasse.
+ *
+ * Quando o rótulo passou a ser por andar, o da cobertura virou TINTA ESCURA —
+ * `#2a1806`, porque a cobertura ficou clara e texto escuro é o que contrasta
+ * com ela. O céu foi consertado naquele dia. O SOL NÃO FOI, e ficou desde então
+ * com uma cor de (42, 24, 6) sobre 255. O comentário acima da luz continuou
+ * dizendo "âmbar claro", descrevendo um mundo que tinha deixado de existir.
+ *
+ * O padrão, agora com quatro ocorrências: o céu emprestava a cor do rótulo, o
+ * albedo compensava a paleta, o cenário emprestava a cor de dois andares, e o
+ * sol emprestava a tinta do texto. Nenhum estava errado enquanto a paleta não
+ * mudou. Todos quebraram juntos quando ela mudou — e este ficou três meses
+ * quebrado a mais que os outros porque ninguém mede a cor de uma luz.
+ * Agora `tests/unit/predio-luz.test.ts` mede.
+ *
+ * O hex: sol de hora dourada com 14° de contraluz. Quente, mas com azul
+ * suficiente para que a face iluminada não vire sépia.
+ */
+export const COR_DO_SOL = '#ffd2a1'
+
+/**
+ * E A INTENSIDADE DESPENCA DE 5,6 PARA 0,47 SEM A CENA ESCURECER.
+ *
+ * Parece absurdo até multiplicar. `#2a1806` em linear é (0,0231 0,0091 0,0018);
+ * vezes 5,6 dá (0,130 0,051 0,010). `#ffd2a1` é (1,000 0,644 0,356); vezes 0,47
+ * dá (0,470 0,303 0,167). A intensidade caiu 12 vezes e a luz que chega SUBIU
+ * 3,6× no vermelho, 5,9× no verde e 16× no azul. O número era grande para
+ * compensar uma cor quase preta.
+ *
+ * O ALVO, medido em luminância Rec. 709 contra o preenchimento abaixo: o sol
+ * entrega 1,9× o preenchimento. Antes entregava 0,15×. É a diferença entre uma
+ * cena com luz principal e uma cena só com ambiente — que é o que "iluminação
+ * plana" quer dizer quando se mede em vez de olhar.
+ */
+export const INTENSIDADE_DO_SOL = 0.47
+
+/**
+ * ═══ O PREENCHIMENTO, E O TETO DE SATURAÇÃO QUE O APAGAVA ═══
+ *
+ * Os fatores eram 7 (céu) e 4,5 (chão), aplicados por `tom()` em `Predio.tsx`.
+ * E `tom()` faz `new THREE.Color(hex).multiplyScalar(f).getStyle()` — a cor
+ * volta a ser uma STRING `rgb(r,g,b)` antes de chegar na luz, e `setStyle`
+ * clampa cada canal em 255 na volta.
+ *
+ * Medido, não deduzido:
+ *   `#d9a066` × 7   pedia (4,857 2,461 0,930) e chegava (1,000 1,000 0,930)
+ *   `#56709c` × 4,5 pedia (0,419 0,729 1,496) e chegava (0,418 0,731 1,000)
+ *
+ * O céu do hemisfério perdia 79 % do vermelho e 59 % do verde — e o que sobra
+ * não é só mais escuro, é de OUTRO MATIZ, porque os canais saturam em ordens
+ * diferentes. O âmbar virava BRANCO. A luz dominante da cena, 76 % do total,
+ * era um branco sem direção.
+ *
+ * O mais amargo: o comentário de `ALBEDO`, no mesmo `Predio.tsx`, já dizia
+ * "`#d9a066` × 5 satura em branco" — foi por isso que os fatores de albedo
+ * desceram de 5,0/3,4/4,2/4,6/2,2 para perto de 1. A lição foi escrita e ficou
+ * 1800 linhas acima da luz que precisava dela.
+ *
+ * AGORA O FATOR MORA NA COR, NÃO NO MULTIPLICADOR — que é exatamente a frase
+ * com que o comentário do `ALBEDO` termina. `fatorDoCeu` é 1: o âmbar entra
+ * inteiro. `fatorDoChao` é 0,643 porque 1 / 0,643 = 1,556 = 7 / 4,5, e a
+ * RELAÇÃO céu/chão era a intenção real — o hemisfério tem uma intensidade só
+ * para as duas cores, então a relação entre elas só pode viver nos fatores.
+ *
+ * O nível cai de propósito: o preenchimento vira preenchimento de verdade, e
+ * quem carrega a cena passa a ser o sol.
+ */
+export const PREENCHIMENTO = {
+  fatorDoCeu: 1,
+  fatorDoChao: 0.643,
+  intensidade: 0.42,
+} as const

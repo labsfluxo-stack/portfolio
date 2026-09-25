@@ -26,6 +26,9 @@ import {
   CEU,
   CIDADE,
   CIDADE_DISTANTE,
+  COR_DO_SOL,
+  INTENSIDADE_DO_SOL,
+  PREENCHIMENTO,
   corDoAndar,
   corDoRotulo,
 } from './predio-luz'
@@ -2013,14 +2016,21 @@ function Cena({
         6,7 m e varre a laje na horizontal. É essa mancha que faz os três planos
         lerem como três profundidades — ao meio-dia não haveria sombra lateral e
         eles colapsariam num só, que é o argumento da spec para a hora dourada.
-        A cor sai de `corDoRotulo` (âmbar claro), a mesma tinta que
-        `predio-luz.ts` já mediu: nenhum hex novo entra na cena.
+
+        A COR VINHA DE `corDoRotulo(0)`, E ISSO ERA UM BUG DE TRÊS MESES. Este
+        comentário dizia "âmbar claro, a mesma tinta que `predio-luz.ts` já
+        mediu" — verdade enquanto havia um rótulo só para o prédio inteiro.
+        Quando o rótulo virou por andar, o da cobertura virou TINTA ESCURA
+        (#2a1806), porque a cobertura ficou clara e texto escuro é o que
+        contrasta com ela. O céu foi consertado naquele dia; o sol não, e o
+        comentário aqui continuou descrevendo um mundo extinto. `COR_DO_SOL` e
+        `INTENSIDADE_DO_SOL` têm a conta inteira, e agora existe teste.
       */}
       <directionalLight
         ref={sol}
         castShadow
-        color={corDoRotulo(0)}
-        intensity={5.6}
+        color={COR_DO_SOL}
+        intensity={INTENSIDADE_DO_SOL}
         shadow-mapSize={[tier.shadow, tier.shadow]}
         shadow-camera-left={-22}
         shadow-camera-right={22}
@@ -2036,8 +2046,28 @@ function Cena({
         câmera, que com o sol 14° atrás fica em contraluz. Céu na cor da
         cobertura, chão na cor do andar mais frio: o arco de temperatura entra
         até no ambiente.
+
+        OS FATORES ERAM 7 E 4,5 E NÃO CHEGAVAM. `tom()` volta para string, e
+        `setStyle` clampa em 255: `#d9a066 × 7` pedia (4,857 2,461 0,930) e
+        entregava (1,000 1,000 0,930). O âmbar virava BRANCO — 79 % do vermelho
+        e 59 % do verde descartados em silêncio, e com eles o matiz, porque os
+        canais saturam em ordens diferentes. A luz dominante da cena não tinha
+        cor nem direção, que é o que "iluminação plana" quer dizer medido.
+
+        O comentário de `ALBEDO`, 1800 linhas acima, já tinha descoberto isso
+        ("`#d9a066` × 5 satura em branco") e por isso baixou os fatores de
+        albedo para perto de 1. A luz ficou de fora da correção. `PREENCHIMENTO`
+        aplica aqui a mesma conclusão: o fator mora na cor, não no
+        multiplicador, e 1 / 0,643 preserva a relação 7 / 4,5 que era a
+        intenção real.
       */}
-      <hemisphereLight args={[tom(corDoAndar(0), 7), tom(corDoAndar(4), 4.5), 0.42]} />
+      <hemisphereLight
+        args={[
+          tom(corDoAndar(0), PREENCHIMENTO.fatorDoCeu),
+          tom(corDoAndar(4), PREENCHIMENTO.fatorDoChao),
+          PREENCHIMENTO.intensidade,
+        ]}
+      />
 
       {/* Um grupo por plano de `PLANOS`, deslocado no laço de quadro acima. */}
       {PLANOS.map((plano, i) => (
