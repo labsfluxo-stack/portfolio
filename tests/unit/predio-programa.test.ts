@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { ANDARES, indiceDe, type ChaveAndar } from '@/components/predio/predio-programa'
+import { ANDARES, indiceDe } from '@/components/predio/predio-programa'
 import { getDictionary } from '@/content'
 import { locales } from '@/content/types'
 

@@ -16,7 +16,6 @@ import {
   PE_DIREITO,
   PLANOS,
   SOL,
-  alturaTotal,
   topoDoAndar,
 } from './predio-arquitetura'
 import { amortecer, quadroDe } from './predio-descida'
