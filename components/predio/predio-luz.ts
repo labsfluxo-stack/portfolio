@@ -224,3 +224,50 @@ export const PREENCHIMENTO = {
   fatorDoChao: 0.643,
   intensidade: 0.42,
 } as const
+
+/**
+ * ═══ A NÉVOA, QUE ERA O PISO DE DOIS TERÇOS DE CADA PIXEL DA CIDADE ═══
+ *
+ * Era `[13, 52]`, e esses dois números explicam cinco rodadas de trabalho que
+ * não pegaram.
+ *
+ * A névoa do three é `mix(cor, corDaNévoa, f)` com `f = (d − perto) / (longe −
+ * perto)`. Para a faixa 0 da cidade, a 19,4 m, `f` dava 16,4 % — que parece
+ * pouco até lembrar que `f` é fração da MISTURA, não da energia. A cor da névoa
+ * (`#d9a066`, luminância linear 0,409) é muito mais brilhante que a fachada
+ * iluminada, e o resultado, calibrado contra captura (p25 = 88 nos corpos):
+ *
+ *   termo da névoa       0,409 × 0,164            = 0,0671
+ *   termo da superfície  0,1517 × 0,240 × 0,836   = 0,0305
+ *                                             total 0,0976  → 88 em 8 bits
+ *
+ * Ou seja: 69 % de cada pixel de prédio JÁ ERA NÉVOA, e a cor própria da torre
+ * era os outros 31 %.
+ *
+ * E é essa fração que explica por que nada na cidade funcionava. Reflexo,
+ * densidade de malha, tinta de vidro, modulação de matiz, chave por faixa,
+ * extinção das coroas — TODAS são mudanças no termo da superfície, e o termo da
+ * superfície é multiplicado por 0,31 antes de chegar ao pixel. Uma mudança de
+ * 20 % numa delas vira 6 % na imagem, que é menos que o ruído do JPEG. Não eram
+ * ideias ruins: nenhuma delas mexia no piso.
+ *
+ * COM `[16, 60]`, na faixa 0: névoa cai para 48 % do pixel e a cor própria sobe
+ * para 52 %. E a separação entre faixas melhora em RAZÃO — era 16,4 / 26,9 /
+ * 31,5 % (a de trás com 1,9× a da frente), passa a 7,7 / 17,0 / 21,1 % (2,7×).
+ *
+ * POR QUE NÃO ESCURECER `CIDADE` NO LUGAR: escurecer de `#5d6d8c` para
+ * `#3c4657` divide a luminância do albedo por 2,52 e entrega 8,5 níveis de
+ * escurecimento em 255 (3,3 % da imagem), ao custo de derrubar a cor própria de
+ * 31 % para 15 %. Mexer na névoa dá o DOBRO do escurecimento (16 níveis) e ao
+ * mesmo tempo SOBE a cor própria. Uma troca compra as duas coisas, a outra
+ * troca uma pela outra — e foi a segunda que produziu o "sem cor" da primeira
+ * vez. A conta está em `tests/unit/predio-luz.test.ts`.
+ *
+ * `perto` NÃO PODE DESCER ABAIXO DE 15,7. Os planos de parallax estão em
+ * z −4,2 / −2,0 / 0 e a câmera corre de z 5,9 (parada num andar) a 11,5 (em
+ * trânsito), então o plano de fundo chega no máximo a 15,7 m. O comentário
+ * antigo da névoa dizia que ela "recua os planos de trás"; ela nunca os
+ * alcançou. A névoa desta cena é, na prática, um efeito só da cidade — o que é
+ * justamente o que torna estes dois números seguros de mexer.
+ */
+export const NEVOA = { perto: 16, longe: 60 } as const

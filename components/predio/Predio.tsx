@@ -28,6 +28,7 @@ import {
   CIDADE_DISTANTE,
   COR_DO_SOL,
   INTENSIDADE_DO_SOL,
+  NEVOA,
   PREENCHIMENTO,
   corDoAndar,
   corDoRotulo,
@@ -2006,9 +2007,15 @@ function Cena({
           é decoração: é o que impede sete andares de texto do fallback de
           aparecerem através do prédio. */}
       <color attach="background" args={[corDoAndar(0)]} />
-      {/* A névoa recua os planos de trás na MESMA tinta do fundo: o que se
-          afasta dissolve em vez de desbotar. */}
-      <fog attach="fog" args={[corDoAndar(0), 13, 52]} />
+      {/* A NÉVOA É, NA PRÁTICA, UM EFEITO SÓ DA CIDADE — e isso desmente o
+          comentário que estava aqui, "recua os planos de trás". Os planos de
+          parallax estão em z −4,2 / −2,0 / 0 e a câmera corre de z 5,9 (parada
+          num andar) a 11,5 (em trânsito): o mais fundo deles chega a 15,7 m, e
+          a névoa começa aos 16. Ela nunca os alcançou. Quem ela alcança é a
+          cidade, a 19,4–25,3 m, onde ela ocupava 69 % de cada pixel — o piso
+          que engoliu cinco rodadas de trabalho na superfície das torres. A
+          conta inteira está em `NEVOA`, em `predio-luz.ts`. */}
+      <fog attach="fog" args={[corDoAndar(0), NEVOA.perto, NEVOA.longe]} />
 
       {/*
         UM sol, e só ele projeta.

@@ -5,6 +5,7 @@ import {
   COR_DO_SOL,
   INTENSIDADE_DO_SOL,
   MINIMO_AA,
+  NEVOA,
   PREENCHIMENTO,
   corDoAndar,
   corDoRotulo,
@@ -173,6 +174,62 @@ describe('as luzes da cena', () => {
 
     expect(sol / preenchimento).toBeGreaterThan(0.5)
     expect(sol / preenchimento).toBeLessThan(4)
+  })
+
+  /**
+   * A NÉVOA, medida pela fração que ela ocupa do pixel — e não pelos metros.
+   *
+   * Os metros enganam: 16,4 % de mistura soava desprezível e era 69 % do pixel,
+   * porque a cor da névoa é muito mais brilhante que a fachada iluminada. Foram
+   * cinco rodadas de trabalho na superfície da cidade sem que ninguém medisse o
+   * piso que as engolia.
+   *
+   * As distâncias vêm de `FAIXAS` em `predio-cidade.tsx` (z −13,5 / −17,6 /
+   * −19,4) com a câmera parada em z 5,9. Estão copiadas aqui, e não importadas,
+   * porque importar o componente arrasta canvas para dentro do jsdom. Se
+   * `FAIXAS` andar, este teste tem de andar junto — é o preço da cópia, e está
+   * escrito para que a próxima pessoa saiba.
+   */
+  describe('a névoa', () => {
+    const DISTANCIAS = { faixa0: 19.4, faixa1: 23.5, faixa2: 25.3 }
+    /** Luminância linear da cor da névoa, que é a cor do ar da cobertura. */
+    const LUZ_DA_NEVOA = luminancia(new THREE.Color(corDoAndar(0)))
+    /** Albedo × irradiância da fachada, ajustado contra captura (p25 = 88). */
+    const SUPERFICIE = 0.1517 * 0.24
+
+    const fracaoDaNevoa = (d: number) => {
+      const f = Math.min(1, Math.max(0, (d - NEVOA.perto) / (NEVOA.longe - NEVOA.perto)))
+      const nevoa = LUZ_DA_NEVOA * f
+      return nevoa / (nevoa + SUPERFICIE * (1 - f))
+    }
+
+    it('não alcança os planos de parallax, que é o que a torna segura de mexer', () => {
+      // Câmera em z 11,5 no pior caso (em trânsito entre andares) e o plano de
+      // fundo em z −4,2: 15,7 m. Abaixo disso a névoa passa a comer o cenário
+      // do prédio, e aí ela deixa de ser um ajuste só da cidade.
+      expect(NEVOA.perto).toBeGreaterThanOrEqual(15.7)
+    })
+
+    it('não volta a ser a maioria do pixel da faixa da frente', () => {
+      // Era 69 %. Acima de 50 % qualquer trabalho na superfície da cidade entra
+      // na imagem dividido por dois, que foi exatamente o que aconteceu cinco
+      // vezes seguidas.
+      expect(fracaoDaNevoa(DISTANCIAS.faixa0)).toBeLessThan(0.5)
+    })
+
+    it('separa as faixas por RAZÃO, não por diferença de metros', () => {
+      const f0 = (DISTANCIAS.faixa0 - NEVOA.perto) / (NEVOA.longe - NEVOA.perto)
+      const f2 = (DISTANCIAS.faixa2 - NEVOA.perto) / (NEVOA.longe - NEVOA.perto)
+      // Com [13, 52] a razão era 1,92 e a perspectiva atmosférica quase não
+      // distinguia a primeira fila da última. 2,3 é o piso do que lê.
+      expect(f2 / f0).toBeGreaterThan(2.3)
+    })
+
+    it('ainda dissolve o fundo — névoa nenhuma seria outro defeito', () => {
+      // O contrário do piso também é ruim: sem névoa a cidade encosta no céu
+      // com borda dura e perde a profundidade que a razão acima constrói.
+      expect(fracaoDaNevoa(DISTANCIAS.faixa2)).toBeGreaterThan(0.2)
+    })
   })
 
   it('o preenchimento preserva a relação céu/chão do arco de temperatura', () => {
