@@ -291,6 +291,39 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
       })
     })
     /**
+     * ═══ UMA CHAVE POR FAIXA, E ISSO É CORREÇÃO DE BUG, NÃO ORGANIZAÇÃO ═══
+     *
+     * Estes três materiais existem para aplicar perspectiva atmosférica: o
+     * `clareia` de cada faixa (0 / 0,30 / 0,58) mistura a cor dela com a do céu,
+     * e a rugosidade sobe junto. É o que faz a faixa do fundo parecer estar no
+     * fundo.
+     *
+     * Mas ONZE CHAVES eram compartilhadas entre as três faixas — platibanda,
+     * faixaLaje, testeira, pilarFachada, aleta, montanteFachada, varanda,
+     * recuo, antena, caixa e ar. Todas recebiam `materiais[f]`, e o `Coletor`
+     * guarda o da PRIMEIRA chamada e descarta o resto em silêncio
+     * (`predio-instancias.ts`, e o descarte agora é contado em `conflitos`).
+     *
+     * Resultado: a perspectiva atmosférica estava aplicada no CORPO do prédio e
+     * em mais nada. Toda a platibanda, testeira, pilar, aleta, montante,
+     * varanda, recuo, antena, caixa d'água e ar-condicionado das faixas do
+     * fundo saíam pintados com a cor da faixa da FRENTE. Não é que as faixas
+     * tivessem cores parecidas — metade das peças delas tinha, no buffer, a
+     * mesma cor exata. Daí a cidade ler como uma decalcomania só.
+     *
+     * O preço de separar: 11 chaves × 3 faixas = 33 em vez de 11, ou seja +22
+     * chamadas de desenho sobre 520 (+4,2 %). A cidade inteira custa 24 de 520 e
+     * ocupa cerca de metade da altura do quadro — é a maior superfície da
+     * imagem pelo menor pedaço do orçamento, e 4 % é barato pelo que compra.
+     *
+     * As chaves que NÃO se dividem são as de material próprio com cor por
+     * instância: `coroa` (mCoroa), `trechoAceso` (mJanela), `fitaVidro` e
+     * `guardaSacada` (mVidroEscuro), `luzAerea` (mLuzAerea). Dividir essas só
+     * gastaria chamada sem separar nada. As torres-herói usam `materiais[0]`,
+     * então emitem em `testeira-0` — a chave passa a dizer a verdade em vez de
+     * escondê-la.
+     */
+    /**
      * As janelas acesas são `MeshBasicMaterial`, e não emissivas.
      *
      * Emissivo no three.js não ilumina nada — brilha para a câmera e só. Como
@@ -333,6 +366,81 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
      * (2,65 de ganho, 1,58 de luminância) continua abaixo dos dois.
      */
     const brilhoDeJanela = (ganho: number) => new THREE.Color('#e3c79c').multiplyScalar(ganho)
+
+    /**
+     * ═══ A PERSPECTIVA ATMOSFÉRICA PARA QUEM NÃO A RECEBIA ═══
+     *
+     * `clareia` mistura a cor de cada faixa com a do céu — 0 / 0,30 / 0,58 — e é
+     * o que faz a faixa do fundo parecer estar no fundo. Só que ele mora em
+     * `materiais[f]`, e as duas peças que carregam a ENERGIA VISUAL do casario
+     * não usam `materiais[f]`:
+     *
+     *   `mJanela` é `MeshBasicMaterial` com a cor vindo da instância.
+     *   `mCoroa`  é `MeshBasicMaterial`, cor da instância, e `fog: false`.
+     *
+     * Resultado medido: separar as onze chaves de material por faixa subiu a
+     * contagem de chamadas de 520 para 532 — a correção aconteceu — e moveu a
+     * região da cidade em 0,2 de luminância. Ou seja, NADA. As peças que eu
+     * separei são platibanda, montante, aleta, pilar: tiras de 1,5 a 6 px numa
+     * faixa em boa parte ocluída pela da frente. Estava certo e caiu onde o olho
+     * não olha, que é a armadilha que este arquivo já documenta duas vezes.
+     *
+     * Onde o olho olha é a janela acesa e a coroa. E o corpo do prédio some no
+     * céu enquanto a janela dele continua com o brilho da primeira fila — é essa
+     * contradição que faz a cidade ler como decalcomania: o CONTRASTE não cai
+     * com a distância, só a cor de fundo cai.
+     *
+     * A COROA MERECE UM PARÁGRAFO À PARTE, porque `fog: false` ali está certo
+     * pela metade. O argumento escrito em `mCoroa` é bom: projetor de fachada é
+     * FONTE, e fonte atravessa a névoa em vez de ser tingida por ela — neon
+     * continua vermelho na garoa. O que o argumento esquece é que a névoa faz
+     * DUAS coisas, e só uma delas é tingir. `mix(cor, corDaNevoa, f)` é
+     * extinção E espalhamento no mesmo passo; desligar apaga os dois. Mas um
+     * letreiro seis metros mais fundo na bruma É mais fraco — ele só não fica
+     * âmbar. Extinção sem tingimento é o modelo certo para fonte, e é o que
+     * `extingue` faz aqui.
+     *
+     * Os números da extinção saem da própria névoa (13 a 52 m) e da distância
+     * de cada faixa até a câmera em z = 5,9:
+     *   faixa 0  z −13,5  →  19,4 m  →  16,4 %
+     *   faixa 1  z −17,6  →  23,5 m  →  26,9 %
+     *   faixa 2  z −19,4  →  25,3 m  →  31,5 %
+     * Não são inventados: são o que a névoa aplicaria se estivesse ligada.
+     *
+     * CUSTO: zero chamadas de desenho. As duas cores já são por instância.
+     */
+    const EXTINCAO = FAIXAS.map((faixa) => {
+      const distancia = 5.9 - faixa.z
+      return Math.min(1, Math.max(0, (distancia - 13) / (52 - 13)))
+    })
+    const corDoCeuDaCidade = new THREE.Color(ceu)
+    /**
+     * @param cor      a cor por instância, já com o ganho dela
+     * @param f        índice da faixa
+     * @param ehFonte  true para peça com `fog: false` (coroa, nervura): recebe
+     *                 extinção, porque fonte atrás de bruma é mais fraca. False
+     *                 para peça que a névoa já alcança (janela): só o desbote,
+     *                 senão a atenuação entra duas vezes.
+     */
+    const aoLonge = (cor: THREE.Color, f: number, ehFonte: boolean) => {
+      // CLONA, E ISSO NÃO É ZELO EXCESSIVO. `multiplyScalar` e `lerp` mutam no
+      // lugar, e a cor da coroa chega aqui como a INSTÂNCIA COMPARTILHADA de
+      // `TINTAS_DE_COROA`. Sem o clone, cada prédio escureceria um pouco mais a
+      // entrada da paleta que acabou de usar, e a cidade iria apagando conforme
+      // o laço anda — um bug cumulativo, que é a pior espécie: some no teste de
+      // uma torre e só aparece com a cidade cheia.
+      const saida = cor.clone()
+      const faixa = FAIXAS[f]
+      if (!faixa) return saida
+      if (ehFonte) saida.multiplyScalar(1 - EXTINCAO[f]!)
+      // 0,55 e não 1 para a janela: a névoa JÁ puxa 26,9 % dela para o âmbar na
+      // faixa 1, e o desbote aqui é só o que falta para o contraste cair junto
+      // com a cor do corpo. Em 1 a atenuação entraria quase duas vezes. O 0,55
+      // é estimativa da sobreposição entre os dois efeitos, não medição — se a
+      // captura mostrar a faixa 1 sumindo ou não se movendo, é este número que
+      // se mexe primeiro.
+      return saida.lerp(corDoCeuDaCidade, faixa.clareia * (ehFonte ? 1 : 0.55))
+    }
     // Branco no material porque a cor vem da INSTÂNCIA e as duas se multiplicam.
     const mJanela = new THREE.MeshBasicMaterial({ color: '#ffffff' })
     // Janela APAGADA nao e um buraco preto: e vidro refletindo o ceu de fim de
@@ -711,9 +819,9 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
         // no céu — foi o que o render mostrou. Afundada, a sobreposição cobre
         // qualquer oclusão parcial, e o trecho enterrado não custa pixel.
         if (topo > 5.2)
-          col.poe('antena', gAntena, material, [x, topo + 0.35, z], [0, 0, 0], [1, 1, 1], mod)
+          col.poe(`antena-${f}`, gAntena, material, [x, topo + 0.35, z], [0, 0, 0], [1, 1, 1], mod)
         else if (topo > 3.0 && ruido(i, f * 3 + 6) > 0.45)
-          col.poe('caixa', gCaixa, material, [x, topo + 0.3, z], [0, 0, 0], [1, 1, 1], mod)
+          col.poe(`caixa-${f}`, gCaixa, material, [x, topo + 0.3, z], [0, 0, 0], [1, 1, 1], mod)
 
         if (!faixa.janelas) continue
 
@@ -736,7 +844,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
          * diz "isto foi instalado por alguém depois que o prédio ficou pronto".
          */
         col.poe(
-          'platibanda',
+          `platibanda-${f}`,
           gPlatibanda,
           material,
           [x, topo + 0.13, z],
@@ -750,7 +858,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
         if (!peleLisa)
           for (let l = 0; l < andares; l++)
             col.poe(
-              'faixaLaje',
+              `faixaLaje-${f}`,
               gFaixaLaje,
               material,
               [x, topo - PE_DIREITO_CIDADE * (l + 1), z],
@@ -759,7 +867,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             )
         if (topo > 2.4)
           for (let m = 0; m < 2; m++)
-            col.poe('ar', gArCondicionado, material, [
+            col.poe(`ar-${f}`, gArCondicionado, material, [
               x + (ruido(i * 5 + m, 71) - 0.5) * larg * 0.6,
               topo + 0.44,
               z + (ruido(i * 5 + m, 72) - 0.5) * prof * 0.5,
@@ -807,12 +915,16 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             [x, topo - 0.31, z],
             [0, 0, 0],
             [larg * 1.03, 0.7, prof * 1.03],
-            TINTAS_DE_COROA[
-              Math.floor(ruido(i, f * 3 + 37) * TINTAS_DE_COROA.length) % TINTAS_DE_COROA.length
-            ]!,
+            aoLonge(
+              TINTAS_DE_COROA[
+                Math.floor(ruido(i, f * 3 + 37) * TINTAS_DE_COROA.length) % TINTAS_DE_COROA.length
+              ]!,
+              f,
+              true,
+            ),
           )
           col.poe(
-            'testeira',
+            `testeira-${f}`,
             gPlatibanda,
             material,
             [x, topo - 0.14, z],
@@ -843,10 +955,13 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
          * instalacao, no mesmo predio, e custa zero chamada nova.
          */
         if (topo > 4.0 && ruido(i, f * 3 + 41) > 0.8) {
-          const corNervura =
+          const corNervura = aoLonge(
             TINTAS_DE_COROA[
               Math.floor(ruido(i, f * 3 + 43) * TINTAS_DE_COROA.length) % TINTAS_DE_COROA.length
-            ]!
+            ]!,
+            f,
+            true,
+          )
           const altoNervura = topo - BASE - 0.9
           for (const s of [-1, 1])
             col.poe(
@@ -929,7 +1044,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
         const alturaPilar = topo - BASE - 0.4 + sobraDoPilar
         for (let p = 0; p <= pilares; p++)
           col.poe(
-            'pilarFachada',
+            `pilarFachada-${f}`,
             gAleta,
             material,
             [
@@ -968,7 +1083,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
           )
           for (let m = 0; m <= montantes; m++)
             col.poe(
-              'aleta',
+              `aleta-${f}`,
               gAleta,
               material,
               [x - larg * 0.47 + (m * larg * 0.94) / montantes, topo - 0.28 - alturaPele / 2, zFachada + 0.05],
@@ -1017,7 +1132,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
              */
             for (let m = 0; m <= montantes; m++)
               col.poe(
-                'montanteFachada',
+                `montanteFachada-${f}`,
                 gMontanteFachada,
                 material,
                 [
@@ -1081,7 +1196,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
               const xSacada = x - larg * 0.48 + ((vaoDaSacada + 0.5) * larg * 0.96) / pilares
               const largSacada = ((larg * 0.96) / pilares) * 0.84
               col.poe(
-                'varanda',
+                `varanda-${f}`,
                 gFaixaLaje,
                 material,
                 [xSacada, yFita - 0.3, zFachada + 0.15],
@@ -1161,7 +1276,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
                 [x - larg * 0.42 + (t * larg * 0.84) / (trechos - 1), yFita, zFachada + 0.03],
                 [0, 0, 0],
                 [1, 1, 1],
-                brilhoDeJanela(ganho),
+                aoLonge(brilhoDeJanela(ganho), f, false),
               )
             }
           /**
@@ -1223,7 +1338,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
                   ],
                   [0, Math.PI / 2, 0],
                   [1, 1, 1],
-                  brilhoDeJanela(q > 0.88 ? 2.0 + (q - 0.88) * 2.8 : 0.95 + q * 0.62),
+                  aoLonge(brilhoDeJanela(q > 0.88 ? 2.0 + (q - 0.88) * 2.8 : 0.95 + q * 0.62), f, false),
                 )
               }
             }
@@ -1304,14 +1419,14 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
                 : alturaRecuo
           if (silhueta === 1) {
             for (const s of [-1, 1])
-              col.poe('recuo', gCubo, material, [x + s * larg * 0.2, topo + alturaRecuo / 2, z], [0, 0, 0], [
+              col.poe(`recuo-${f}`, gCubo, material, [x + s * larg * 0.2, topo + alturaRecuo / 2, z], [0, 0, 0], [
                 larg * 0.26,
                 alturaRecuo,
                 prof * 0.62,
               ], mod)
           } else if (silhueta === 2) {
             col.poe(
-              'recuo',
+              `recuo-${f}`,
               gCubo,
               material,
               [x + (ruido(i, f * 3 + 59) > 0.5 ? 1 : -1) * larg * 0.16, topo + alturaRecuo / 2, z],
@@ -1340,7 +1455,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             for (let d = 0; d < 3; d++) {
               const hd = alturaRecuo * (0.32 + d * 0.28)
               col.poe(
-                'recuo',
+                `recuo-${f}`,
                 gCubo,
                 material,
                 [x - larg * 0.21 + d * larg * 0.21, topo + hd / 2, z],
@@ -1350,18 +1465,18 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
               )
             }
           } else if (silhueta === 4) {
-            col.poe('recuo', gCubo, material, [x, topo + alturaRecuo * 0.3, z], [0, 0, 0], [
+            col.poe(`recuo-${f}`, gCubo, material, [x, topo + alturaRecuo * 0.3, z], [0, 0, 0], [
               larg * 0.68,
               alturaRecuo * 0.6,
               prof * 0.68,
             ], mod)
-            col.poe('recuo', gCubo, material, [x, topo + alturaRecuo * 0.78, z], [0, 0, 0], [
+            col.poe(`recuo-${f}`, gCubo, material, [x, topo + alturaRecuo * 0.78, z], [0, 0, 0], [
               larg * 0.4,
               alturaRecuo * 0.5,
               prof * 0.4,
             ], mod)
           } else {
-            col.poe('recuo', gCubo, material, [x, topo + alturaRecuo / 2, z], [0, 0, 0], [
+            col.poe(`recuo-${f}`, gCubo, material, [x, topo + alturaRecuo / 2, z], [0, 0, 0], [
               larg * 0.62,
               alturaRecuo,
               prof * 0.62,
@@ -1448,7 +1563,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
             [cx - larg * 0.44 + (t * larg * 0.88) / (vaos - 1), y, zF + 0.03],
             [0, 0, 0],
             [1, 1, 1],
-            brilhoDeJanela(q > 0.88 ? 2.0 + (q - 0.88) * 2.8 : 0.95 + q * 0.62),
+            aoLonge(brilhoDeJanela(q > 0.88 ? 2.0 + (q - 0.88) * 2.8 : 0.95 + q * 0.62), 0, false),
           )
         }
         // A laje aparente entre um andar e outro. Nas torres procedurais ela é
@@ -1494,7 +1609,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
       )
       // A marquise: a laje fina que corre o pódio inteiro e o separa da torre.
       // Ela avança 10 cm de cada lado, e por isso entra na mesma conta acima.
-      col.poe('testeira', gPlatibanda, matHeroi, [cx, BASE + 8.3, zPodio], [0, 0, 0], [
+      col.poe(`testeira-0`, gPlatibanda, matHeroi, [cx, BASE + 8.3, zPodio], [0, 0, 0], [
         larg * 1.62,
         0.7,
         PROF_PODIO + 0.2,
@@ -1547,7 +1662,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
           // Cada recuo ganha a sua coroa: é a repetição dela que conta a
           // subida, e é o desenho que a referência mostra em Pudong.
           col.poe('coroa', gFaixaLaje, mCoroa, [heroi.x, tr.base + tr.alto - 0.08, zHeroi], [0, 0, 0], [tr.larg * 1.06, 0.7, (1.5 - t * 0.26) * 1.06], corCoroa)
-          col.poe('testeira', gPlatibanda, matHeroi, [heroi.x, tr.base + tr.alto + 0.06, zHeroi], [0, 0, 0], [tr.larg * 1.1, 0.5, (1.5 - t * 0.28) * 1.1])
+          col.poe(`testeira-0`, gPlatibanda, matHeroi, [heroi.x, tr.base + tr.alto + 0.06, zHeroi], [0, 0, 0], [tr.larg * 1.1, 0.5, (1.5 - t * 0.28) * 1.1])
         }
         // A AGULHA. Sem ela a torre termina numa caixa, e caixa no topo e
         // caixa na base leem como o mesmo volume repetido.
@@ -1601,7 +1716,7 @@ export function Cidade({ cor, corDistante, ceu }: { cor: string; corDistante: st
         // A travessa que fecha o portal por cima.
         col.poe(`predio-0`, gCubo, matHeroi, [heroi.x, 6.85, zHeroi], [0, 0, 0], [w, 0.5, 1.36], MODULACAO[(h + 5) % MODULACAO.length]!)
         col.poe('coroa', gFaixaLaje, mCoroa, [heroi.x, 7.1, zHeroi], [0, 0, 0], [w * 1.05, 0.8, 1.44], corCoroa)
-        col.poe('testeira', gPlatibanda, matHeroi, [heroi.x, 7.24, zHeroi], [0, 0, 0], [w * 1.1, 0.5, 1.5])
+        col.poe(`testeira-0`, gPlatibanda, matHeroi, [heroi.x, 7.24, zHeroi], [0, 0, 0], [w * 1.1, 0.5, 1.5])
         col.poe('luzAerea', gLuzAerea, mLuzAerea, [heroi.x, 7.4, zHeroi])
       }
 
