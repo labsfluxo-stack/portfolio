@@ -34,6 +34,14 @@ export type Grupo = {
 
 export class Coletor {
   private grupos = new Map<string, Grupo>()
+  /**
+   * As chaves que receberam geometria ou material diferentes do da primeira
+   * chamada — ou seja, os descartes que o `poe` faz em silencio.
+   *
+   * `Set` e nao contador: a chave que erra uma vez erra em todas as copias
+   * seguintes, e 300 avisos iguais nao dizem mais que um. Ver `conflitos`.
+   */
+  private descartes = new Set<string>()
   private aux = new THREE.Matrix4()
   private q = new THREE.Quaternion()
   private e = new THREE.Euler()
@@ -92,6 +100,12 @@ export class Coletor {
     if (!g) {
       g = { geometria, material, matrizes: [], cores: cor ? [] : undefined }
       this.grupos.set(chave, g)
+    } else {
+      // O DESCARTE DEIXA DE SER SILENCIOSO. Duas comparacoes de identidade por
+      // copia — nao ha custo mensuravel nisso, e e o unico jeito de a segunda
+      // ocorrencia da armadilha nao esperar por uma auditoria. Ver `conflitos`.
+      if (g.geometria !== geometria) this.descartes.add(`${chave} (geometria)`)
+      if (g.material !== material) this.descartes.add(`${chave} (material)`)
     }
     this.v.set(posicao[0], posicao[1], posicao[2])
     this.e.set(rotacao[0], rotacao[1], rotacao[2], ordem)
@@ -140,5 +154,22 @@ export class Coletor {
     let n = 0
     for (const g of this.grupos.values()) n += g.matrizes.length
     return n
+  }
+
+  /**
+   * O QUE O `poe` DESCARTOU, em ordem, para um teste poder perguntar.
+   *
+   * Nao lanca e nao avisa no console. Lancar em tempo de modulo derruba a
+   * pagina no dia em que alguem reusar uma chave por engano — a licao que
+   * `predio-luz.ts` ja pagou e escreveu. Aqui o mesmo descompasso custa um
+   * teste vermelho, que e o troco certo.
+   *
+   * Uma lista vazia NAO quer dizer que a cena esta correta: quer dizer que
+   * nenhuma chave recebeu duas geometrias ou dois materiais. E exatamente a
+   * pergunta que ninguem fez durante os dois bugs que este getter existe para
+   * pegar.
+   */
+  get conflitos(): string[] {
+    return [...this.descartes].sort()
   }
 }
